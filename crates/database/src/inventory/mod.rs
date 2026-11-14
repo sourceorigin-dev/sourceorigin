@@ -183,10 +183,9 @@ impl Table {
                 "addresses administrators invited, tied to no account, deleted once the \
                 invitation expires or a day after it is redeemed",
             ),
-            Self::Alerts
-            | Self::AuditAnchor
-            | Self::AuditCheckpoints
-            | Self::SigningKeys => Holds::Nothing,
+            Self::Alerts | Self::AuditAnchor | Self::AuditCheckpoints | Self::SigningKeys => {
+                Holds::Nothing
+            }
         }
     }
 }
