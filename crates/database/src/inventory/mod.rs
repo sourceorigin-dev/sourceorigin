@@ -44,8 +44,6 @@ sourceorigin_common::str_enum! {
         DashboardSessions = "dashboard_sessions",
         /// The outbound delivery queue.
         Deliveries = "deliveries",
-        /// Unused since migration 0044, which says when it is dropped.
-        DeliveryOrderings = "delivery_orderings",
         /// Domain events, the audit chain's content.
         DomainEvents = "domain_events",
         /// Digests of address verification links.
@@ -185,11 +183,9 @@ impl Table {
                 "addresses administrators invited, tied to no account, deleted once the \
                 invitation expires or a day after it is redeemed",
             ),
-            Self::Alerts
-            | Self::AuditAnchor
-            | Self::AuditCheckpoints
-            | Self::DeliveryOrderings
-            | Self::SigningKeys => Holds::Nothing,
+            Self::Alerts | Self::AuditAnchor | Self::AuditCheckpoints | Self::SigningKeys => {
+                Holds::Nothing
+            }
         }
     }
 }
