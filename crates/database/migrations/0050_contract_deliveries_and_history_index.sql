@@ -15,5 +15,6 @@ DROP INDEX domain_events_subject_idx;
 
 -- Migration 0041 (#439) defaulted a dashboard session's expiry for the release
 -- before it, which inserted none. Auth now sets it on every sign-in, so a
--- session inserted without one is a bug, not a 12-hour session.
+-- session inserted without one is a bug, not a 12-hour session. last_used_at
+-- keeps its default, which every sign-in still relies on.
 ALTER TABLE dashboard_sessions ALTER COLUMN expires_at DROP DEFAULT;
