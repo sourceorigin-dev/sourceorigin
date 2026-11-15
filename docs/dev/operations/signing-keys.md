@@ -243,5 +243,4 @@ and per key, until cleanup deletes them. It names each key:
 
 - `current`: `AUTH_TOKEN_DIGEST_KEY`.
 - `accepted`: `AUTH_TOKEN_DIGEST_KEY_ACCEPTED`.
-- `unrecorded`: made before digests recorded their key's fingerprint.
 - `unknown`: neither configured key.

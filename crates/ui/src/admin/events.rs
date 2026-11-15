@@ -105,7 +105,7 @@ impl EventRow<'_> {
             Ok(Actor::Client { client_id }) => (format!("the app {client_id}"), false),
             Ok(Actor::System { job }) => (format!("the {} job", Self::job(job)), false),
             Ok(Actor::Anonymous) => ("someone not signed in".to_owned(), false),
-            Ok(Actor::Unrecorded) | Err(_) => ("nobody recorded".to_owned(), false),
+            Err(_) => ("nobody recorded".to_owned(), false),
         }
     }
 
@@ -489,9 +489,6 @@ impl EventRow<'_> {
             } => Self::alert("Alert updated", alert_id, &alert).with("status", status),
             DomainEvent::AlertCleared { alert_id, alert } => {
                 Self::alert("Alert cleared", alert_id, &alert)
-            }
-            DomainEvent::Imported(audit) => {
-                Description::new(format!("{} ({})", audit.action(), audit.outcome()))
             }
         }
     }

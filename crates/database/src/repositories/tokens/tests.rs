@@ -106,9 +106,9 @@ impl Grant {
         sqlx::query(
             "INSERT INTO authorization_codes (
                 id, secret_digest, client_id, user_id, session_id, redirect_uri,
-                pkce_challenge, scopes, audience, expires_at, authentication
+                pkce_challenge, scopes, audience, expires_at, authentication, digest_key
             ) VALUES ($1, $2, $3, $4, $5, $6, 'challenge', '[\"openid\"]', 'test',
-                now() + interval '1 minute', $7)",
+                now() + interval '1 minute', $7, 'test')",
         )
         .bind(grant.code.as_uuid())
         .bind(&grant.code_digest)

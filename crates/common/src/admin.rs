@@ -1020,7 +1020,7 @@ pub struct SigningKey {
     pub key_type: SigningKeyType,
     /// Where it is in its lifecycle.
     pub state: SigningKeyState,
-    /// When it was generated or imported.
+    /// When it was generated.
     pub created_at: DateTime<Utc>,
     /// When it started signing.
     pub activated_at: Option<DateTime<Utc>>,

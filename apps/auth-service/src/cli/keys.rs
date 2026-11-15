@@ -191,7 +191,7 @@ impl KeysCommand {
                     .await?
                     .into_iter()
                     .map(|usage| KeyUsage {
-                        key: keys.name(usage.digest_key.as_deref()),
+                        key: keys.name(&usage.digest_key),
                         usage,
                     })
                     .collect();
@@ -243,7 +243,7 @@ struct KeyUsage {
     /// The count.
     #[serde(flatten)]
     usage: DigestUsage,
-    /// `current`, `accepted`, `unrecorded` or `unknown`.
+    /// `current`, `accepted` or `unknown`.
     key: &'static str,
 }
 
@@ -256,7 +256,7 @@ report!([KeyUsage], self, out, {
             [
                 Cell::new(usage.secret),
                 Cell::new(key),
-                usage.digest_key.as_deref().into(),
+                usage.digest_key.as_str().into(),
                 usage.stored.into(),
             ]
         }),

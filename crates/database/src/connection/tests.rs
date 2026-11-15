@@ -1,7 +1,7 @@
 //! Focused persistence and security contract tests.
 
 use super::{Database, DatabaseConfig, Limit, MIGRATOR, RuntimeRole, Scope};
-use crate::{DatabaseConnectionError, DatabaseError, EventContent, LockKey};
+use crate::{DatabaseConnectionError, DatabaseError, LockKey};
 use sqlx::{PgConnection, Postgres, postgres::PgArguments, query::Query};
 use std::time::Duration;
 use uuid::Uuid;
@@ -189,9 +189,11 @@ async fn cleanup_keeps_redeemed_codes_while_their_session_is_live() {
         ), redeemed AS (
             INSERT INTO authorization_codes (
                 id, secret_digest, client_id, user_id, session_id, redirect_uri,
-                pkce_challenge, scopes, audience, expires_at, consumed_at, authentication
+                pkce_challenge, scopes, audience, expires_at, consumed_at, authentication,
+                digest_key
             ) VALUES ($3, convert_to($3::text, 'UTF8'), $5, $1, $2, 'https://client.example',
-                'challenge', '[]', 'test', now() - interval '2 days', now() - interval '2 days', '{}')
+                'challenge', '[]', 'test', now() - interval '2 days', now() - interval '2 days', '{}',
+                'test')
         )
         INSERT INTO refresh_token_families (
             id, user_id, client_id, session_id, authorization_code_id, audience, scopes,
@@ -318,7 +320,7 @@ async fn runtime_role_has_only_row_privileges() {
     // Sealing locks unsealed events and sets their chain columns, nothing else.
     let mut seal = runtime.begin().await.expect("begin");
     seal.audit()
-        .unsealed(1, EventContent::UNTAGGED)
+        .unsealed(1)
         .await
         .expect("lock unsealed events");
     seal.rollback().await.expect("rollback");

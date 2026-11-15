@@ -22,8 +22,8 @@
 //! unused or its probation running, no passkey but its own is removed, by anyone, so nothing takes that ability away
 //! ([`AccountService::refuse_mid_recovery`]). Support undoes for an owner with
 //! none (`AdminService::undo_recovery`). The database backs the probation and
-//! that rule for every writer, an older release included: see migration
-//! `0019_account_recoveries`.
+//! that rule for every writer, whatever it is granted: see the account
+//! recoveries section of the initial migration.
 
 /// Recovery failures and their browser response mapping.
 mod error;

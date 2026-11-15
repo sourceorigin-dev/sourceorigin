@@ -28,7 +28,7 @@ must keep that release working.
 ## 1. Number it
 
 Create `crates/database/migrations/<NNNN>_<name>.sql`, numbered one after the
-latest migration on `main`, such as `0035_recovery_codes.sql`. Numbers count up
+latest migration on `main`, such as `0002_recovery_codes.sql`. Numbers count up
 from `0001` with no gap or repeat, which `migration_versions_are_unique_and_contiguous`
 checks. If another branch merges a migration first, rebase and renumber yours.
 
@@ -59,8 +59,8 @@ release could violate, waits for a later release, once no deployed code uses
 the old shape.
 
 A migration may break the rule only when the previous release cannot be harmed,
-and then says why in its own comments. `0034_notification_emails.sql` cancels
-the deliveries an older kind of message left, since there are no real users yet:
+and then says why in its own comments, as one cancelling the deliveries of a
+kind of message that no longer exists might, since there are no real users yet:
 
 ```sql
 -- Those still waiting to be sent, or failed, are cancelled rather than
@@ -130,11 +130,11 @@ skip, then `just db prepare-check`, which fails when a migration breaks a cached
 query or the cache holds a query the code no longer uses.
 
 A migration that changes existing rows gets a test of its own: it migrates a
-schema up to the migration before it, writes rows in the old shape, applies the
-migration and checks the result, as
-`the_migration_refuses_usernames_that_are_not_handles` does in
-`crates/database/src/repositories/handles/tests.rs`. It finds the migration by its
-name, so renumbering needs no change.
+scratch schema up to the migration before it, writes rows in the old shape,
+applies the migration and checks the result. It finds the migration in
+`MIGRATOR` by its name, so renumbering needs no change. The helpers for this,
+`Database::scratch_schema` and `Database::apply_migrations`, went with the last
+such test; bring them back from git history.
 
 To look at the migrated schema yourself:
 

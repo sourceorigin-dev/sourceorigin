@@ -1,10 +1,9 @@
 //! The values event payloads carry beside IDs: how a sign-in, revocation or
-//! recovery went, the origins they name, and imported audit rows.
+//! recovery went, and the origins they name.
 
 use super::DomainEvent;
 use crate::{ClientId, PasskeyId, Personal, clients::RelatedOrigin};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 /// What a recovery started with `--revoke` revoked and kept: every passkey the
 /// owner did not vouch for went, and the kept ones can still undo it.
@@ -156,9 +155,6 @@ crate::str_enum! {
         /// A key was generated: published as `next`, or signing at once when no
         /// key signed or the key it replaces was revoked.
         Generated = "generated",
-        /// A key was imported from the deployment's PEM key, signing at once.
-        /// Only earlier releases imported keys; this one reads their events.
-        Imported = "imported",
         /// A `next` key started signing.
         Activated = "activated",
         /// A key stopped signing; it stays published for tokens it signed.
@@ -172,36 +168,5 @@ crate::str_enum! {
         /// An operator sealed its private key again under the current
         /// key-encryption key, after a change of key-encryption key.
         Rewrapped = "rewrapped",
-    }
-}
-
-/// A security audit log row, kept verbatim by the migrations to typed events.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ImportedAudit {
-    /// The logged action, e.g. `passkey.login`.
-    pub(super) action: String,
-    /// `success`, `failure` or `rejected`.
-    pub(super) outcome: String,
-    /// The logged metadata, e.g. `{"provider": "github"}`.
-    metadata: Value,
-}
-
-impl ImportedAudit {
-    /// The logged action, e.g. `passkey.login`.
-    #[must_use]
-    pub fn action(&self) -> &str {
-        &self.action
-    }
-
-    /// `success`, `failure` or `rejected`.
-    #[must_use]
-    pub fn outcome(&self) -> &str {
-        &self.outcome
-    }
-
-    /// The logged metadata, e.g. `{"provider": "github"}`.
-    #[must_use]
-    pub const fn metadata(&self) -> &Value {
-        &self.metadata
     }
 }

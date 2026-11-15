@@ -22,9 +22,8 @@ sourceorigin_common::str_enum! {
 pub struct DigestUsage {
     /// The kind of record.
     pub secret: DigestedSecret,
-    /// The digest key's fingerprint; `None` for digests made before fingerprints
-    /// were recorded, under the key derived from the PEM signing key.
-    pub digest_key: Option<String>,
+    /// The digest key's fingerprint.
+    pub digest_key: String,
     /// How many of them are stored.
     pub stored: u64,
 }
@@ -49,7 +48,7 @@ impl MaintenanceRepository<'_> {
             sqlx::query_as!(
                 DigestUsage,
                 r#"SELECT
-                    secret AS "secret!: DigestedSecret", digest_key,
+                    secret AS "secret!: DigestedSecret", digest_key AS "digest_key!",
                     count(*) AS "stored!: Unsigned"
                 FROM (
                     SELECT 'authorization_request' AS secret, digest_key
@@ -337,8 +336,9 @@ impl MaintenanceRepository<'_> {
                 LIMIT $1
                 FOR UPDATE SKIP LOCKED
             )",
-            // A purged account's handles were released at its purge (migration
-            // 0042), and stay reserved a year, so nobody takes one to pass for it.
+            // A purged account's handles were released at its purge (the
+            // `handles_release_purged` trigger), and stay reserved a year, so
+            // nobody takes one to pass for it.
             "DELETE FROM handles
             WHERE ctid IN (
                 SELECT ctid

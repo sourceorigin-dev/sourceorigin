@@ -20,7 +20,7 @@ async fn attempt(connection: &mut PgConnection, sql: &str, id: Uuid) -> Result<(
 
 /// Inserts the unsealed event `$1`.
 const INSERT: &str = r#"INSERT INTO domain_events (id, kind, version, payload, actor)
-    VALUES ($1, 'imported', 1, '{}', '{"type": "unrecorded"}')"#;
+    VALUES ($1, 'forged', 1, '{}', '{"type": "anonymous"}')"#;
 
 /// Seals the event `$1` at `position`.
 fn seal(position: u8) -> String {

@@ -281,9 +281,9 @@ impl AccountDeletionRepository<'_> {
     /// their clients' logout tokens, and delete the clients it manages first. The events themselves stay: they hold only pseudonymous
     /// IDs.
     ///
-    /// The personal data goes last because of migration 0022's trigger, which
-    /// key-share locks every account an event names as it stores the event's
-    /// personal data. Only deleting the account conflicts with that lock; the
+    /// The personal data goes last because of the
+    /// `event_personal_data_skip_purged_accounts` trigger, which key-share locks
+    /// every account an event names as it stores the event's personal data. Only deleting the account conflicts with that lock; the
     /// callers' `FOR NO KEY UPDATE` does not. So the delete waits for every
     /// request that stored personal data while the account existed, and the next
     /// statement, with a fresh snapshot, erases it too; a request that stores

@@ -1,6 +1,6 @@
 //! Persistence guarantees behind account recoveries: their links, their state,
-//! and the database backstops that hold for every writer, a release older than
-//! recovery included.
+//! and the database backstops that hold for every writer, even one not granted
+//! `account_recoveries`.
 #![expect(
     clippy::expect_used,
     reason = "a test, whose setup helpers fail it with a message rather than return errors"
@@ -95,9 +95,9 @@ async fn account(db: &Database) -> UserId {
     user
 }
 
-/// A role like the runtime role between the migration and provisioning: it may
-/// use every table but `account_recoveries`, which the migration created after
-/// its grants. Connected as that role, the database the triggers run under.
+/// A role like the runtime role, but without `account_recoveries`: it may use
+/// every other table. Connected as that role, the database the triggers run
+/// under.
 struct Limited {
     /// Connected as the role.
     db: Database,
@@ -188,7 +188,7 @@ async fn probation(db: &Database, user: UserId) -> (RecoveryId, PasskeyId) {
 }
 
 /// Inserts a session of `user`, signed in with `passkey` and confirmed at `now`
-/// when `confirmed`, as any release writes one.
+/// when `confirmed`, as any writer could.
 async fn session(
     db: &Database,
     user: UserId,
@@ -343,8 +343,8 @@ async fn one_open_recovery_per_account() {
         .expect("once the first is cancelled");
 }
 
-/// A passkey of a recovery in probation never confirms a session, whichever
-/// release writes it, even without access to `account_recoveries`; nor does a
+/// A passkey of a recovery in probation never confirms a session, whoever
+/// writes it, even without access to `account_recoveries`; nor does a
 /// confirmation that names no passkey. An older passkey still confirms, and so
 /// does any once the recovery settled or was undone.
 #[tokio::test]
@@ -390,7 +390,7 @@ async fn a_probation_passkey_never_confirms_a_session() {
 }
 
 /// No account is made an administrator while a recovery of it can be undone,
-/// whichever release grants it: neither while its link works, nor during its
+/// whoever grants it: neither while its link works, nor during its
 /// probation. Once the link expired unused, or the recovery settled, it may be.
 #[tokio::test]
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
@@ -414,8 +414,8 @@ async fn no_grant_while_a_recovery_can_be_undone() {
     limited.drop(&owner).await;
 }
 
-/// While a recovery can be undone, no passkey but its own is revoked, whichever
-/// release revokes it, so nothing takes away the passkeys that can undo it.
+/// While a recovery can be undone, no passkey but its own is revoked, whoever
+/// revokes it, so nothing takes away the passkeys that can undo it.
 /// Once the link expired unused, or the recovery settled or was undone, any may
 /// be.
 #[tokio::test]

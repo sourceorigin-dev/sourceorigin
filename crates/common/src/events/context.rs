@@ -46,8 +46,6 @@ pub enum Actor {
     },
     /// An unauthenticated browser, e.g. one failing to sign in.
     Anonymous,
-    /// Unknown: imported audit rows never recorded who acted.
-    Unrecorded,
 }
 
 impl Actor {
@@ -60,8 +58,7 @@ impl Actor {
             | Self::Admin { .. }
             | Self::Cli { .. }
             | Self::System { .. }
-            | Self::Anonymous
-            | Self::Unrecorded => None,
+            | Self::Anonymous => None,
         }
     }
 
@@ -71,11 +68,7 @@ impl Actor {
         match self {
             Self::User { session_id, .. } => *session_id,
             Self::Admin { session_id, .. } => Some(*session_id),
-            Self::Cli { .. }
-            | Self::Client { .. }
-            | Self::System { .. }
-            | Self::Anonymous
-            | Self::Unrecorded => None,
+            Self::Cli { .. } | Self::Client { .. } | Self::System { .. } | Self::Anonymous => None,
         }
     }
 }

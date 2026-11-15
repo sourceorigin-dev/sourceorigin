@@ -108,8 +108,8 @@ async fn restore_tokens_expire_and_end_with_the_deletion() {
         "an account that is not scheduled gets no token"
     );
 
-    // Leaving 'deleting' any other way, as the previous release's enable and
-    // disable do, ends the schedule too.
+    // Leaving 'deleting' any other way, through a plain enable or disable, ends
+    // the schedule too.
     let mut users = crate::UserRepository::from_pool(&pool);
     users
         .set_status(user, AccountStatus::Deleting)
@@ -169,10 +169,10 @@ async fn purge_leaves_nothing_that_references_or_identifies_the_account() {
         VALUES (uuidv7(), '{user}', '{{\"kind\": \"account_enabled\"}}');
         INSERT INTO authorization_requests (
             id, secret_digest, client_id, redirect_uri, client_state, pkce_challenge, scopes,
-            audience, interaction, expires_at, hinted_user_id
+            audience, interaction, expires_at, hinted_user_id, digest_key
         ) VALUES (
             uuidv7(), uuid_send('{user}'), '{client}', 'https://client.example/callback', 'state',
-            'challenge', '[]', 'test', 'as_needed', now() + interval '5 minutes', '{user}'
+            'challenge', '[]', 'test', 'as_needed', now() + interval '5 minutes', '{user}', 'test'
         );
         INSERT INTO sessions (id, user_id, authentication_methods, authenticated_at, expires_at, last_seen_at)
         VALUES ('{session}', '{user}', '[\"passkey\"]', now(), now() + interval '1 day', now());
@@ -198,17 +198,17 @@ async fn purge_leaves_nothing_that_references_or_identifies_the_account() {
         VALUES (uuidv7(), '{user}', '{session}', 'enrollment', '\\x00', '{{}}', now() + interval '5 minutes');
         INSERT INTO authorization_codes (
             id, secret_digest, client_id, user_id, session_id, redirect_uri, pkce_challenge,
-            scopes, audience, expires_at, authentication
+            scopes, audience, expires_at, authentication, digest_key
         ) VALUES (
             '{code}', uuid_send('{code}'), '{client}', '{user}', '{session}',
             'https://client.example/callback', 'challenge', '[]', 'test',
-            now() + interval '1 minute', '{{}}'
+            now() + interval '1 minute', '{{}}', 'test'
         );
         INSERT INTO refresh_token_families (
             id, user_id, client_id, session_id, audience, scopes, authentication, authorization_code_id
         ) VALUES ('{family}', '{user}', '{client}', '{session}', 'test', '[]', '{{}}', '{code}');
-        INSERT INTO refresh_tokens (id, family_id, secret_digest, expires_at)
-        VALUES (uuidv7(), '{family}', uuid_send('{family}'), now() + interval '1 day');
+        INSERT INTO refresh_tokens (id, family_id, secret_digest, expires_at, digest_key)
+        VALUES (uuidv7(), '{family}', uuid_send('{family}'), now() + interval '1 day', 'test');
         INSERT INTO announcements (id, subject, body, everyone, sent_at) VALUES
             ('{alone}', 'About you', 'Text', FALSE, now()),
             ('{shared}', 'About you both', 'Text', FALSE, now()),
@@ -391,7 +391,7 @@ async fn purge_leaves_nothing_that_references_or_identifies_the_account() {
 
 /// A request that stores personal data about the account while it is being
 /// purged, such as a failed sign-in's IP address, leaves none behind. Here the
-/// request holds migration 0022's key-share lock on the account until the purge
+/// request holds the personal data trigger's key-share lock on the account until the purge
 /// waits for it, then commits: the purge must erase what it stored.
 #[tokio::test]
 #[ignore = "requires a disposable TEST_DATABASE_URL"]

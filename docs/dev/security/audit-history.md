@@ -31,18 +31,16 @@ chain_hash = SHA-256(previous chain_hash || SHA-256(canonical event))
 The first event chains from 32 zero bytes, or, after pruning, from the anchor.
 The canonical event is the RFC 8785 (JCS) form of the event's row: `position`,
 `id`, `kind`, `version`, `occurred_at` (RFC 3339 in UTC, with microseconds),
-`actor`, `subject`, `client`, `session`, `trace_id` and `payload`, as stored.
+`actor`, `subject`, `client`, `session`, `trace_id`, `payload`, as stored, and
+`format`.
 
 Each sealed event records the format of its canonical event in `chain_format`,
-so a later format can add a field without breaking the hashes of events sealed
-before it. Format 1, the original, has no `format` field. Format 2 adds only
-`"format": 2`, and every later format names itself the same way. Auth seals
-format 2 and verifies both. A format is sealed only once the release before
-verifies it, so a rolling deploy or a rollback by one release reads every
-event. Once format 2 is sealed, roll back no further than #369, the first
-release that reads it: an older one reports those events changed and stops
-signing. Verification refuses a format it does not know, rather than report the
-chain broken.
+and the canonical event names it in a `format` field, so a later format can add
+a field without breaking the hashes of events sealed before it. Auth seals and
+verifies format 1, the only one so far. A new format is sealed only once the
+release before verifies it, so a rolling deploy or a rollback by one release
+reads every event. Verification refuses a format it does not know, rather than
+report the chain broken.
 
 The sealer works in the order `(txid, sequence)`, and only
 on events whose transaction, and every older one, has finished. No event can

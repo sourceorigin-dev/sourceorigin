@@ -592,7 +592,7 @@ impl EventRepository<'_> {
                 kind,
                 version,
                 payload,
-                Json(&Actor::Unrecorded) as _,
+                Json(&Actor::Anonymous) as _,
                 subject.as_uuid(),
             )
         )?;
@@ -600,6 +600,6 @@ impl EventRepository<'_> {
     }
 }
 
-/// Database tests for recording, personal data and the migration.
+/// Database tests for recording and personal data.
 #[cfg(test)]
 mod tests;

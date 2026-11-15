@@ -223,14 +223,6 @@ impl HistoryRow<'_> {
             HistoryEntry::CompromiseReported { .. } => {
                 "You reported activity that wasn’t you".to_owned()
             }
-            HistoryEntry::Legacy { action, outcome } => {
-                let failed = if outcome == "success" {
-                    ""
-                } else {
-                    " (failed)"
-                };
-                format!("{}{failed}", Self::legacy(action))
-            }
         }
     }
 
@@ -274,24 +266,6 @@ impl HistoryRow<'_> {
         }
     }
 
-    /// A row the audit log recorded before typed history, by its logged action.
-    fn legacy(action: &str) -> &str {
-        match action {
-            "account.create" => "Account created",
-            "passkey.login" => "Signed in with a passkey",
-            "passkey.add" => "Passkey added",
-            "passkey.rename" => "Passkey renamed",
-            "passkey.remove" => "Passkey removed",
-            "settings.unlock" => "Settings unlocked",
-            "federation.login" => "Signed in with a social provider",
-            "federation.link" => "Social sign-in linked",
-            "federation.unlink" => "Social sign-in unlinked",
-            "refresh.replay" => "An app’s sign-in was reused and revoked",
-            "refresh.policy_rejected" => "An app’s access ended",
-            other => other,
-        }
-    }
-
     /// Whether it is something to look at: a failure, a report, or an
     /// administrator's change.
     pub(crate) const fn worrying(&self) -> bool {
@@ -332,9 +306,7 @@ impl HistoryRow<'_> {
             HistoryActor::Operator => "By a SourceOrigin operator",
             HistoryActor::Client => "By an app",
             HistoryActor::System => "Automatically by SourceOrigin",
-            HistoryActor::Account | HistoryActor::Anonymous | HistoryActor::Unrecorded => {
-                return None;
-            }
+            HistoryActor::Account | HistoryActor::Anonymous => return None,
         };
         Some(match self.reason {
             Some(reason) => format!("{actor}: “{reason}”"),

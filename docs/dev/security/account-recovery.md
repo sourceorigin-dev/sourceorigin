@@ -38,7 +38,8 @@ undo), `AdminService::recover_account`, `recent_recoveries` and `undo_recovery`
 (`apps/auth-service/src/admin/service.rs`), the passkey routes
 (`apps/auth-service/src/passkey`), the pages `/recover` and `/recover/undo`
 (`apps/auth-service/src/web/auth/recovery`, with their views in
-`crates/ui/src/recovery/mod.rs`), migration `0019_account_recoveries`, the CLI's
+`crates/ui/src/recovery/mod.rs`), the account recoveries section of
+`crates/database/migrations/0001_initial.sql`, the CLI's
 `user recover` and `user undo-recovery`, and the dashboard's Recover and Undo
 recovery pages (`apps/auth-service/src/web/admin/users.rs`). Tests named below
 live in `apps/auth-service/src/recovery/tests/` unless another file is given;
@@ -357,13 +358,11 @@ support unlinks (the owner can't during a probation); and the P3 edits.
 ## Database backstops
 
 The rules above live in Rust, which gives the typed answer and the right error.
-Three triggers in migration `0019` hold the ones a way in depends on for every
-writer, including a replica of the previous release during a deploy, a release
-rolled back below this one (migrations aren't reverted), and any future code
-path. Each runs as its owner (`SECURITY DEFINER`, `search_path` ending in
-`pg_temp`, executable by its owner only), because the previous release fires it
-before the runtime role is granted `account_recoveries`. Each test below runs
-as a role with no grant on that table.
+Three triggers hold the ones a way in depends on for every writer, including a
+release rolled back below the current one (migrations aren't reverted), and any
+future code path. Each runs as its owner (`SECURITY DEFINER`, `search_path`
+ending in `pg_temp`, executable by its owner only), so it holds even for a role
+with no grant on `account_recoveries`. Each test below runs as such a role.
 
 - **B1.** `sessions_no_probation_confirmation` clears a session's passkey
   confirmation when the passkey it names is a probation passkey, or when it
