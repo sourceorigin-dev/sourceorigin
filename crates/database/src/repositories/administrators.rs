@@ -133,8 +133,8 @@ impl AdministratorRepository<'_> {
     /// Their rights and accounts stay key-share locked until the transaction
     /// ends, so a purge of one waits for their notifications and emails to be
     /// written, then deletes them with the account. Locking the rights too
-    /// holds back a purge that deletes emails before the account, as the
-    /// previous release's does, until those emails are written.
+    /// holds back any purge that deletes emails before the account until those
+    /// emails are written.
     ///
     /// # Errors
     ///

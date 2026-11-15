@@ -108,8 +108,8 @@ async fn restore_tokens_expire_and_end_with_the_deletion() {
         "an account that is not scheduled gets no token"
     );
 
-    // Leaving 'deleting' any other way, as the previous release's enable and
-    // disable do, ends the schedule too.
+    // Leaving 'deleting' any other way, through a plain enable or disable, ends
+    // the schedule too.
     let mut users = crate::UserRepository::from_pool(&pool);
     users
         .set_status(user, AccountStatus::Deleting)

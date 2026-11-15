@@ -546,9 +546,9 @@ foreign key, so a delivery may name an event already pruned.
 Verification tests need history no other test shares: `Database::isolated` (behind
 `test-util`) migrates a schema of its own, and `audit().tamper` applies the
 changes an attacker could make, with the triggers disabled. The history guards
-(`guard_personal_data_insert`, `guard_seal_order`, `guard_new_checkpoint`) and
-`limit_passkeys` look tables up in the schema they were migrated into, so they
-guard that schema's chain too.
+(`guard_personal_data_insert`, `guard_seal_order`, `guard_new_checkpoint`) look
+tables up in the schema they were migrated into, so they guard that schema's
+chain too; so does `limit_passkeys`, for its passkeys.
 
 ### Security history
 
