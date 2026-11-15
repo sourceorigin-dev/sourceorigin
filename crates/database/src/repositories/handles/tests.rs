@@ -1,7 +1,5 @@
 //! Renames, reclaims and their races, against the schema's keys.
-use crate::{
-    Database, DatabaseError, InsertUser, connection::MIGRATOR, repositories::UserRepository,
-};
+use crate::{Database, DatabaseError, InsertUser, repositories::UserRepository};
 use sourceorigin_common::{Handle, UserId};
 
 /// The schema's `handle_skeleton` computes the Rust `Skeleton` of every handle,
@@ -186,61 +184,4 @@ async fn locked_lookups_read_a_rename_they_waited_for() {
     rename.commit().await.expect("commit");
     let user = lookup.await.expect("lookup task");
     assert_eq!((user.handle, user.profile_version), (renamed, 2));
-}
-
-/// The handles migration refuses to run while a username breaks the handle rules
-/// or looks like another, naming them all, and copies them once fixed. It runs in a
-/// scratch schema, since the test database is migrated.
-#[tokio::test]
-#[ignore = "requires a disposable TEST_DATABASE_URL"]
-async fn the_migration_refuses_usernames_that_are_not_handles() {
-    // Found by name, so renumbering it after another branch's migration needs no
-    // change here.
-    let handles = MIGRATOR
-        .iter()
-        .find(|migration| migration.description == "handles")
-        .expect("the handles migration");
-    let mut connection = Database::scratch_schema(..handles.version).await;
-    for username in ["a_b", "sourceorigin", "s0urce0rigin", "fine"] {
-        sqlx::query("INSERT INTO users(id,username,display_name) VALUES($1,$2,'Migration test')")
-            .bind(UserId::new().as_uuid())
-            .bind(username)
-            .execute(&mut connection)
-            .await
-            .expect("user");
-    }
-    let migration = &handles.sql;
-    let refused = sqlx::raw_sql(migration)
-        .execute(&mut connection)
-        .await
-        .expect_err("invalid usernames");
-    assert!(
-        refused
-            .to_string()
-            .contains("a_b, s0urce0rigin, sourceorigin"),
-        "{refused}"
-    );
-    sqlx::raw_sql(
-        "UPDATE users SET username = 'a-b' WHERE username = 'a_b';
-        UPDATE users SET username = 'renamed' WHERE username = 's0urce0rigin'",
-    )
-    .execute(&mut connection)
-    .await
-    .expect("rename");
-    sqlx::raw_sql(migration)
-        .execute(&mut connection)
-        .await
-        .expect("migration");
-    let copied: Vec<(String, bool)> = sqlx::query_as(
-        "SELECT h.handle, u.handle_changed_at = u.created_at
-        FROM handles h JOIN users u ON u.id = h.user_id
-        WHERE h.released_at IS NULL ORDER BY h.handle",
-    )
-    .fetch_all(&mut connection)
-    .await
-    .expect("handles");
-    assert_eq!(
-        copied,
-        ["a-b", "fine", "renamed", "sourceorigin"].map(|handle| (handle.to_owned(), true))
-    );
 }

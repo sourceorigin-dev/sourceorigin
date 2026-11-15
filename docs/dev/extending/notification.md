@@ -96,8 +96,8 @@ whose email the owner turns off in their inbox's **Email preferences**. Only
 announcements are wired today. A new category needs more than its variant, with
 its `label` and `description`, which settings and the dashboard show:
 
-- a migration widening the `CHECK` on `notification_preferences.category`
-  (`0039_notification_preferences.sql`), or saving the preference fails;
+- a migration widening the `CHECK` on `notification_preferences.category`, or
+  saving the preference fails;
 - a check in the channel that sends its email, when the email is queued and
   when it is sent, as the `announcements_emailed` SQL function does for the
   `announcement` channel: the `email` channel checks no preference;

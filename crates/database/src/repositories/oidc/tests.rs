@@ -1,6 +1,6 @@
 //! Client registrations against a real database: secret rotation, the origins
-//! public clients may call from, when pushed authorization requests can be claimed,
-//! and which clients of live sessions the back-channel logout migration finds.
+//! public clients may call from, and when pushed authorization requests can be
+//! claimed.
 use crate::repositories::{EventRepository, OidcRepository, UserRepository};
 use crate::{Database, DatabaseTransaction, InsertAuthorizationRequest, InsertUser, RecordedEvent};
 use chrono::{DateTime, Duration, Utc};
@@ -265,66 +265,6 @@ async fn purging_an_owner_needs_its_live_clients_deleted() {
     for personal in [site.as_str(), "Client test"] {
         assert!(!kept.contains(personal), "{personal} in {kept}");
     }
-}
-
-/// The back-channel logout migration finds the clients of live sessions in what is
-/// left of their exchanges: redeemed codes and refresh families. Unredeemed codes
-/// and sessions that ended are left out.
-#[tokio::test]
-#[ignore = "requires a disposable TEST_DATABASE_URL"]
-async fn migration_finds_the_clients_of_live_sessions() {
-    let mut connection = Database::scratch_schema(..13).await;
-    let user = UserId::new();
-    let (live, revoked, expired) = (SessionId::new(), SessionId::new(), SessionId::new());
-    sqlx::raw_sql(&format!(
-        "INSERT INTO users (id, username, display_name) VALUES ('{user}', 'backfill', 'Backfill');
-        INSERT INTO oidc_clients (id, display_name, allowed_scopes, allowed_audiences)
-        SELECT id, id, '[]'::jsonb, '[]'::jsonb
-        FROM unnest(array['coded', 'refreshed', 'unredeemed']) id;
-        INSERT INTO sessions (
-            id, user_id, authentication_methods, authenticated_at, expires_at,
-            last_seen_at, revoked_at
-        ) VALUES
-            ('{live}', '{user}', '[]', now(), now() + interval '1 day', now(), NULL),
-            ('{revoked}', '{user}', '[]', now(), now() + interval '1 day', now(), now()),
-            ('{expired}', '{user}', '[]', now() - interval '2 days', now() - interval '1 day',
-                now(), NULL);
-        INSERT INTO authorization_codes (
-            id, secret_digest, client_id, user_id, session_id, redirect_uri,
-            pkce_challenge, scopes, audience, expires_at, authentication, consumed_at
-        )
-        SELECT gen_random_uuid(), uuid_send(gen_random_uuid()), client, '{user}', session,
-            'https://app.example/callback', 'challenge', '[]'::jsonb, client, now(),
-            '{{}}'::jsonb, consumed
-        FROM (VALUES
-            ('coded', '{live}'::uuid, now()),
-            ('unredeemed', '{live}', NULL),
-            ('coded', '{revoked}', now())
-        ) code(client, session, consumed);
-        INSERT INTO refresh_token_families (
-            id, user_id, client_id, session_id, audience, scopes, authentication
-        )
-        SELECT gen_random_uuid(), '{user}', 'refreshed', session, 'refreshed', '[]'::jsonb,
-            '{{}}'::jsonb
-        FROM unnest(array['{live}', '{expired}']::uuid[]) session;"
-    ))
-    .execute(&mut connection)
-    .await
-    .expect("sessions and their exchanges");
-
-    Database::apply_migrations(&mut connection, 13..=13).await;
-    let found: Vec<(uuid::Uuid, String)> =
-        sqlx::query_as("SELECT session_id, client_id FROM oidc_session_clients ORDER BY client_id")
-            .fetch_all(&mut connection)
-            .await
-            .expect("session clients");
-    assert_eq!(
-        found,
-        [
-            (live.as_uuid(), "coded".to_owned()),
-            (live.as_uuid(), "refreshed".to_owned()),
-        ]
-    );
 }
 
 /// Purging an app's owner erases the app's related origins from events that name

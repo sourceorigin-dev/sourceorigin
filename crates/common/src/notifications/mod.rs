@@ -317,8 +317,7 @@ impl DomainEvent {
             // Administrators follow an alert on the dashboard's Alerts tab, or
             // with `auth-service alerts list`, once it is raised.
             | Self::AlertUpdated { .. }
-            | Self::AlertCleared { .. }
-            | Self::Imported(_) => return None,
+            | Self::AlertCleared { .. } => return None,
         })
     }
 }

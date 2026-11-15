@@ -1046,7 +1046,7 @@ async fn sealing_goes_on_when_a_checkpoint_fails() {
     let refused = fixture.sealer.pass(&mut lock, None).await;
     assert!(matches!(refused, Err(AuditError::Broken(_))), "{refused:?}");
     fixture.seal_with(&mut lock).await;
-    fixture.sealer = fixture.sealer.sealing(2, EventContent::UNTAGGED);
+    fixture.sealer = fixture.sealer.sealing(2);
     let database = fixture.database.clone();
     let mut tx = database.begin().await.expect("transaction");
     for _ in 0..5 {
@@ -1139,7 +1139,7 @@ async fn a_failed_checkpoint_is_retried_after_the_interval() {
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn checkpoints_keep_their_interval_while_batches_stay_full() {
     let mut fixture = Fixture::new().await;
-    fixture.sealer = fixture.sealer.sealing(2, EventContent::UNTAGGED);
+    fixture.sealer = fixture.sealer.sealing(2);
     // One transaction, so all five become ready to seal at once.
     let database = fixture.database.clone();
     let mut tx = database.begin().await.expect("transaction");
@@ -1173,29 +1173,17 @@ async fn checkpoints_keep_their_interval_while_batches_stay_full() {
     );
 }
 
-/// Auth seals format 2, which names itself in the canonical form, and events
-/// sealed before in the untagged format keep hashing without it; one chain holds
-/// both and verifies.
+/// Auth seals in its newest format, which the canonical event names, so a later
+/// format can add a field without breaking the hashes of events sealed before it.
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL"]
-async fn the_chain_format_is_per_event() {
+async fn the_canonical_event_names_its_format() {
     let mut fixture = Fixture::new().await;
-    let sealer = std::mem::replace(
-        &mut fixture.sealer,
-        Sealer::eager(&fixture.audit).sealing(1_000, EventContent::UNTAGGED),
-    );
-    fixture.record(1).await;
-    fixture.seal().await;
-    fixture.sealer = sealer;
     fixture.record(1).await;
     fixture.seal().await;
     let chain = fixture.database.audit().chain(0, 10).await.expect("chain");
-    let canonical = chain
-        .iter()
-        .map(|event| serde_json::to_value(&event.sealed.content).expect("content"))
-        .collect::<Vec<_>>();
-    assert_eq!(canonical[0].get("format"), None);
-    assert_eq!(canonical[1]["format"], 2);
+    let canonical = serde_json::to_value(&chain[0].sealed.content).expect("content");
+    assert_eq!(canonical["format"], EventContent::NEWEST_FORMAT);
     assert_eq!(fixture.verify().await.broken, None);
 }
 

@@ -208,7 +208,6 @@ impl ListEvents {
             Ok(Actor::Client { client_id }) => format!("client {client_id}"),
             Ok(Actor::System { job }) => format!("job {job:?}"),
             Ok(Actor::Anonymous) => "anonymous".to_owned(),
-            Ok(Actor::Unrecorded) => "unrecorded".to_owned(),
             Err(_) => event.actor.to_string(),
         }
     }

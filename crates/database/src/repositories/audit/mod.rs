@@ -51,33 +51,20 @@ pub struct EventContent {
     trace_id: Option<String>,
     /// The payload as stored, with `"$erased"` where personal values were.
     payload: Value,
-    /// The canonical event's format, stored in `chain_format`. The first,
-    /// [`Self::UNTAGGED`], has no `format` field; every later one has it.
-    #[serde(skip_serializing_if = "EventContent::untagged")]
+    /// The canonical event's format, stored in `chain_format`, which every
+    /// format names.
     format: i16,
 }
 
 impl EventContent {
-    /// The canonical event's first format, which names no format.
-    pub const UNTAGGED: i16 = 1;
-    /// The newest format this release hashes: format 2, which only adds its
-    /// `format` to the untagged one. A later format that adds a field comes with
-    /// a release that knows it.
-    pub const NEWEST_FORMAT: i16 = 2;
+    /// The newest format this release hashes, and the one it seals in. A later
+    /// format that adds a field comes with a release that knows it.
+    pub const NEWEST_FORMAT: i16 = 1;
 
     /// The format of the canonical event the chain hashes for this event.
     #[must_use]
     pub const fn format(&self) -> i16 {
         self.format
-    }
-
-    /// Whether `format` is [`Self::UNTAGGED`], which serializes without it.
-    #[expect(
-        clippy::trivially_copy_pass_by_ref,
-        reason = "serde's skip_serializing_if passes a reference"
-    )]
-    const fn untagged(format: &i16) -> bool {
-        *format == Self::UNTAGGED
     }
 
     /// Writes `occurred_at` as RFC 3339 in UTC with exactly six fractional digits,
@@ -219,7 +206,7 @@ impl From<CheckpointRow> for Checkpoint {
 
 impl AuditRepository<'_> {
     /// Returns up to `limit` unsealed events in the order to seal them, to be
-    /// sealed in `format`: the safe order of `in_safe_order!`. No
+    /// sealed in [`EventContent::NEWEST_FORMAT`]: the safe order of `in_safe_order!`. No
     /// event can later appear before one returned here, so positions never need to be
     /// reassigned. The rows stay locked until the transaction ends, so
     /// none changes between being hashed and being sealed.
@@ -227,11 +214,7 @@ impl AuditRepository<'_> {
     /// # Errors
     ///
     /// Returns [`DatabaseError`] if the query fails.
-    pub async fn unsealed(
-        &mut self,
-        limit: u32,
-        format: i16,
-    ) -> Result<Vec<EventContent>, DatabaseError> {
+    pub async fn unsealed(&mut self, limit: u32) -> Result<Vec<EventContent>, DatabaseError> {
         run!(
             self,
             fetch_all,
@@ -245,7 +228,7 @@ impl AuditRepository<'_> {
                 WHERE chain_position IS NULL"#,
                 "LIMIT $1 FOR UPDATE",
                 i64::from(limit),
-                format,
+                EventContent::NEWEST_FORMAT,
             )
         )
     }
@@ -750,7 +733,7 @@ impl AuditRepository<'_> {
                 r#"INSERT INTO domain_events (
                     id, kind, version, payload, actor, chain_position, chain_hash
                 )
-                SELECT $2, 'imported', 1, '{}', '{"type": "unrecorded"}', $1::bigint, chain_hash
+                SELECT $2, 'forged', 1, '{}', '{"type": "anonymous"}', $1::bigint, chain_hash
                 FROM domain_events WHERE chain_position = $1::bigint + 1"#,
                 position,
                 Uuid::now_v7(),

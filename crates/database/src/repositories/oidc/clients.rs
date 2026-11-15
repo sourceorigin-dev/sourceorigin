@@ -23,7 +23,7 @@ use sqlx::types::Json;
 
 /// A registered client with its exact URI allowlists. A deleted client is still
 /// returned, disabled, with its `deleted_at`, but without its name, redirect URIs
-/// or back-channel logout URI, which migration 0026's trigger erases.
+/// or back-channel logout URI, which the `oidc_clients_scrub_deleted` trigger erases.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[expect(
     clippy::struct_excessive_bools,

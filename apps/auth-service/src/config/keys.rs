@@ -326,13 +326,10 @@ impl TokenDigestKeys {
             .collect()
     }
 
-    /// Names the key a stored fingerprint belongs to: `current`, `accepted`,
-    /// `unrecorded` for digests made before fingerprints were stored, or `unknown`.
+    /// Names the key a stored fingerprint belongs to: `current`, `accepted` or
+    /// `unknown`.
     #[must_use]
-    pub fn name(&self, fingerprint: Option<&str>) -> &'static str {
-        let Some(fingerprint) = fingerprint else {
-            return "unrecorded";
-        };
+    pub fn name(&self, fingerprint: &str) -> &'static str {
         if fingerprint == self.current.fingerprint {
             "current"
         } else if self

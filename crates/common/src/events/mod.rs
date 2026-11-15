@@ -20,8 +20,8 @@ pub use context::{
 };
 pub use history::{FollowUp, HistoryActor, HistoryEntry};
 pub use payload::{
-    CodeRedemptionFailure, GrantRevocation, ImportedAudit, InlineSignIn, RecordedOrigin,
-    RecoveryRevocation, RevocationReason, SignInFailure, SigningKeyChange,
+    CodeRedemptionFailure, GrantRevocation, InlineSignIn, RecordedOrigin, RecoveryRevocation,
+    RevocationReason, SignInFailure, SigningKeyChange,
 };
 
 use crate::{
@@ -505,9 +505,6 @@ pub enum DomainEvent {
     /// The owner turned a category of notifications' email on or off, in their
     /// settings or with an email's unsubscribe link.
     NotificationPreferenceChanged(NotificationPreference),
-    /// A row of the security audit log that preceded typed events. Only
-    /// migrations write these; its fields are private, so one is only ever read back.
-    Imported(ImportedAudit),
 }
 
 impl DomainEvent {
@@ -623,8 +620,7 @@ impl DomainEvent {
             | Self::AlertRaised { .. }
             | Self::AlertUpdated { .. }
             | Self::AlertCleared { .. }
-            | Self::NotificationPreferenceChanged(_)
-            | Self::Imported(_) => None,
+            | Self::NotificationPreferenceChanged(_) => None,
         }
     }
 
@@ -699,8 +695,7 @@ impl DomainEvent {
             | Self::AlertRaised { .. }
             | Self::AlertUpdated { .. }
             | Self::AlertCleared { .. }
-            | Self::NotificationPreferenceChanged(_)
-            | Self::Imported(_) => None,
+            | Self::NotificationPreferenceChanged(_) => None,
         }
     }
 
@@ -776,7 +771,6 @@ impl DomainEvent {
             Self::AlertUpdated { .. } => "alert_updated",
             Self::AlertCleared { .. } => "alert_cleared",
             Self::NotificationPreferenceChanged(_) => "notification_preference_changed",
-            Self::Imported(_) => "imported",
         }
     }
 }
@@ -789,7 +783,6 @@ impl SigningKeyChange {
     pub const fn version(self) -> i16 {
         match self {
             Self::Generated
-            | Self::Imported
             | Self::Activated
             | Self::Retiring
             | Self::Retired

@@ -1,4 +1,4 @@
-//! Recording, personal data and the audit log import.
+//! Recording and personal data.
 use super::*;
 use crate::{Database, DatabaseTransaction};
 use sourceorigin_common::{
@@ -6,7 +6,7 @@ use sourceorigin_common::{
     clients::RelatedOrigin,
     events::{RecordedOrigin, RevocationReason},
 };
-use sqlx::{PgConnection, PgPool};
+use sqlx::PgPool;
 
 /// Inserts an active account to be the subject of recorded events.
 async fn insert_user(pool: &PgPool) -> UserId {
@@ -300,75 +300,6 @@ async fn events_a_newer_release_wrote_read_as_unknown() {
         Err(DatabaseError::InvalidStoredData { .. })
     ));
     tx.rollback().await.expect("rollback");
-}
-
-/// Migration `0005` turns audit rows into imported events with their action, outcome
-/// and metadata, and `0018` imports the rows written since, then drops the log. It
-/// runs in a scratch schema, since the test database is migrated.
-#[tokio::test]
-#[ignore = "requires a disposable TEST_DATABASE_URL"]
-async fn migration_imports_the_audit_log() {
-    let mut connection = Database::scratch_schema(..5).await;
-    let user = UserId::new();
-    sqlx::query("INSERT INTO users(id,username,display_name) VALUES($1,'imported','Import test')")
-        .bind(user.as_uuid())
-        .execute(&mut connection)
-        .await
-        .expect("user");
-    let audit = async |connection: &mut PgConnection, action: &str, metadata: &str, age: i32| {
-        sqlx::query(
-            "INSERT INTO security_audit_log(id,user_id,action,outcome,request_metadata,created_at)
-            VALUES($1,$2,$3,'success',$4::jsonb,now() - make_interval(hours => $5))",
-        )
-        .bind(EventId::new().as_uuid())
-        .bind(user.as_uuid())
-        .bind(action)
-        .bind(metadata)
-        .bind(age)
-        .execute(connection)
-        .await
-        .expect("audit row");
-    };
-    audit(&mut connection, "passkey.login", "{}", 3).await;
-    audit(
-        &mut connection,
-        "federation.link",
-        r#"{"provider":"github"}"#,
-        2,
-    )
-    .await;
-    Database::apply_migrations(&mut connection, 5..=5).await;
-    // The release before 0005 keeps writing to the log during that deploy.
-    audit(&mut connection, "passkey.login", "{}", 1).await;
-    // The rest bring the schema to the one this release reads.
-    Database::apply_migrations(&mut connection, 6..).await;
-
-    let history = EventRepository::from_connection(&mut connection)
-        .history_for_user(user, 10)
-        .await
-        .expect("history");
-    let imported: Vec<_> = history
-        .iter()
-        .map(|stored| match &stored.event {
-            RecordedEvent::Known(DomainEvent::Imported(audit)) => {
-                assert_eq!(stored.actor, Actor::Unrecorded);
-                (audit.action(), audit.outcome(), audit.metadata().clone())
-            }
-            event => panic!("unexpected {event:?}"),
-        })
-        .collect();
-    assert_eq!(
-        imported,
-        [
-            ("passkey.login", "success", serde_json::json!({})),
-            (
-                "federation.link",
-                "success",
-                serde_json::json!({"provider": "github"})
-            ),
-            ("passkey.login", "success", serde_json::json!({})),
-        ]
-    );
 }
 
 /// An alert update's note is its event's reason, so it is read while the event's

@@ -137,9 +137,10 @@ Important invariants:
   from the events about them, the account itself, then the personal data of the
   events it is the subject or actor of, in the same transaction. Its handles stay in `handles` without an owner, so nobody claims
   them again. The personal data goes last: storing an event's personal data
-  key-share locks each account the event names (migration `0022`'s trigger), and
-  only deleting the account conflicts with that lock. The account lock's `FOR NO
-  KEY UPDATE` does not, despite what that migration's comment says. So the
+  key-share locks each account the event names (the
+  `event_personal_data_skip_purged_accounts` trigger), and only deleting the
+  account conflicts with that lock; the account lock's `FOR NO KEY UPDATE` does
+  not. So the
   delete waits for every request that stored personal data while the account
   existed, and the next statement erases it; a later one waits for the purge,
   finds the account gone and stores none.
@@ -342,10 +343,9 @@ server. It still takes the advisory locks `try_exclusive` uses.
 Trigger functions run as the role that fires them, except a trigger that reads or
 writes a table its own migration creates: the runtime role is granted that table
 only after the migrations, while the previous release already fires the trigger.
-That function runs as its owner (`SECURITY DEFINER`), like the one migration
-`0013` uses to record redeemed codes in `oidc_session_clients`, or those
-migration `0019` uses to hold account recoveries' rules for every release, and
-only its owner may execute it. A role that could create temporary tables and
+That function runs as its owner (`SECURITY DEFINER`), like the one that records
+redeemed codes in `oidc_session_clients`, or those that hold account
+recoveries' rules for every writer, and only its owner may execute it. A role that could create temporary tables and
 types could otherwise attach the function to a table of its own and have it run
 that type's cast as the owner. The runtime role no longer can, but a test still
 fails for any such function others may execute.
@@ -367,9 +367,7 @@ back-channel logout tokens of the clients that received tokens from it
 (`oidc_session_clients`, which a trigger fills whenever any release redeems a
 code). The repository method underneath is private to the crate,
 so no revocation can skip the event. Refreshes are too frequent to be
-events. `Imported` holds the rows of `security_audit_log`, the log events replaced,
-verbatim; only migrations write it, and its fields are private, so it can only be
-read back. `repositories/events/` stores events and the personal data split below.
+events. `repositories/events/` stores events and the personal data split below.
 
 Variants hold only typed IDs, enums, scopes, timestamps and counts, so a secret,
 token, `WebAuthn` state or raw header cannot end up in one. Anything that identifies
@@ -413,9 +411,8 @@ always reads it.
   content the audit chain covers; see [Audit chain](#audit-chain).
 - `event_personal_data`, one row per event, holds the client IP, the user agent
   family and every `Personal` payload value, keyed by its JSON pointer. The
-  family's browser is in `user_agent_family`, the one value releases before
-  migration `0010` read there, and its platform in `platform`; older rows have no
-  platform and read it as `other`. On write
+  family's browser is in `user_agent_family` and its platform in `platform`. On
+  write
   the repository moves each `Personal` value there and leaves `"$erased"` in the
   payload; on read it merges them back. Once the row is gone, they and the request
   origin read as `Personal::Erased`. Deleting it never breaks the event.
@@ -518,8 +515,8 @@ unsealed, so recording never waits on the chain head. Auth's sealer job, under
 `insert_checkpoint`. The repository never hashes or signs: auth computes the hashes
 from `EventContent`, whose serialization is the canonical event, so a tampered row
 reads back and fails verification rather than failing to decode. `seal` also
-stores the canonical event's format in `chain_format`, which `unsealed` takes
-from the sealer, and `chain` returns each event's `(txid, sequence)` beside it,
+stores the canonical event's format in `chain_format`, which `unsealed` sets to
+`EventContent::NEWEST_FORMAT`, and `chain` returns each event's `(txid, sequence)` beside it,
 for verification to check against chain order. `newest_checkpoints` reads
 checkpoints newest first, for the sealer to find the newest that verifies.
 

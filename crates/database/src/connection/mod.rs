@@ -402,38 +402,6 @@ impl Database {
         pool
     }
 
-    /// Connects to `TEST_DATABASE_URL` in a new schema of its own, with the
-    /// migrations in `versions` applied, for tests of a migration: the test
-    /// database is already migrated. The schema is left behind; test databases
-    /// are disposable.
-    pub(crate) async fn scratch_schema(versions: impl std::ops::RangeBounds<i64>) -> PgConnection {
-        let url = std::env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL");
-        let mut connection = PgConnection::connect(&url).await.expect("connect");
-        let schema = format!("scratch_{}", uuid::Uuid::now_v7().simple());
-        // A schema name cannot be a bind parameter; this one is generated above.
-        sqlx::raw_sql(&format!(
-            "CREATE SCHEMA {schema}; SET search_path TO {schema}"
-        ))
-        .execute(&mut connection)
-        .await
-        .expect("schema");
-        Self::apply_migrations(&mut connection, versions).await;
-        connection
-    }
-
-    /// Applies the migrations in `versions` to `connection`'s schema, in order.
-    pub(crate) async fn apply_migrations(
-        connection: &mut PgConnection,
-        versions: impl std::ops::RangeBounds<i64>,
-    ) {
-        for migration in MIGRATOR.iter().filter(|m| versions.contains(&m.version)) {
-            sqlx::raw_sql(&migration.sql)
-                .execute(&mut *connection)
-                .await
-                .unwrap_or_else(|error| panic!("migration {}: {error}", migration.version));
-        }
-    }
-
     /// The server process of `connection`, to watch its lock waits with
     /// [`Self::wait_for_lock`].
     pub(crate) async fn backend(connection: &mut PgConnection) -> i32 {

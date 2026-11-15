@@ -129,10 +129,6 @@ impl DomainEvent {
                 purge_after: *purge_after,
             },
             Self::AccountRestored {} => HistoryEntry::AccountRestored,
-            Self::Imported(audit) => HistoryEntry::Legacy {
-                action: audit.action.clone(),
-                outcome: audit.outcome.clone(),
-            },
             Self::SignInFailed { .. }
             | Self::PasskeyConfirmed { .. }
             | Self::GrantIssued { .. }
@@ -389,14 +385,6 @@ pub enum HistoryEntry {
     /// The account was restored before its deletion.
     #[serde(rename = "account.restored")]
     AccountRestored,
-    /// A row of the audit log that preceded typed events.
-    #[serde(rename = "legacy")]
-    Legacy {
-        /// The logged action, e.g. `passkey.login`.
-        action: String,
-        /// `success`, `failure` or `rejected`.
-        outcome: String,
-    },
 }
 }
 
@@ -445,8 +433,7 @@ impl HistoryEntry {
             | Self::SignedOutEverywhere
             | Self::NotificationPreferenceChanged(_)
             | Self::DeletionScheduled { .. }
-            | Self::AccountRestored
-            | Self::Legacy { .. } => true,
+            | Self::AccountRestored => true,
         }
     }
 
@@ -498,8 +485,7 @@ impl HistoryEntry {
             | Self::SignedOutEverywhere
             | Self::NotificationPreferenceChanged(_)
             | Self::DeletionScheduled { .. }
-            | Self::AccountRestored
-            | Self::Legacy { .. } => None,
+            | Self::AccountRestored => None,
         }
     }
 }
@@ -542,8 +528,6 @@ crate::str_enum! {
         System = "system",
         /// An unauthenticated browser.
         Anonymous = "anonymous",
-        /// Unknown: imported audit rows never recorded who acted.
-        Unrecorded = "unrecorded",
     }
 }
 
@@ -557,7 +541,6 @@ impl From<&Actor> for HistoryActor {
             Actor::Client { .. } => Self::Client,
             Actor::System { .. } => Self::System,
             Actor::Anonymous => Self::Anonymous,
-            Actor::Unrecorded => Self::Unrecorded,
         }
     }
 }

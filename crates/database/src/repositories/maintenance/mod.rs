@@ -22,9 +22,8 @@ sourceorigin_common::str_enum! {
 pub struct DigestUsage {
     /// The kind of record.
     pub secret: DigestedSecret,
-    /// The digest key's fingerprint; `None` for digests made before fingerprints
-    /// were recorded, under the key derived from the PEM signing key.
-    pub digest_key: Option<String>,
+    /// The digest key's fingerprint.
+    pub digest_key: String,
     /// How many of them are stored.
     pub stored: u64,
 }
@@ -49,7 +48,7 @@ impl MaintenanceRepository<'_> {
             sqlx::query_as!(
                 DigestUsage,
                 r#"SELECT
-                    secret AS "secret!: DigestedSecret", digest_key,
+                    secret AS "secret!: DigestedSecret", digest_key AS "digest_key!",
                     count(*) AS "stored!: Unsigned"
                 FROM (
                     SELECT 'authorization_request' AS secret, digest_key

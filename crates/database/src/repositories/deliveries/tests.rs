@@ -513,9 +513,10 @@ async fn revoking_a_session_queues_a_logout_token_for_each_client_to_tell() {
                 VALUES($1,'Logout test','[]','[]',$2) RETURNING id
             )
             INSERT INTO authorization_codes(id,secret_digest,client_id,user_id,session_id,
-                redirect_uri,pkce_challenge,scopes,audience,expires_at,authentication)
+                redirect_uri,pkce_challenge,scopes,audience,expires_at,authentication,digest_key)
             SELECT gen_random_uuid(),uuid_send(gen_random_uuid()),id,$3,$4,
-                'https://app.example/callback','challenge','[]',id,now()+interval '1 minute','{}'
+                'https://app.example/callback','challenge','[]',id,now()+interval '1 minute','{}',
+                'test'
             FROM client",
         )
         .bind(&client)

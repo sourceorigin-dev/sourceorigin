@@ -101,7 +101,6 @@ fn event_kinds_match_their_serde_tags() {
         SigningKeyChange,
     };
     use serde::Deserialize;
-    use serde_json::json;
 
     /// Captures the variant names serde expects when it reads an unknown tag.
     #[derive(Debug)]
@@ -129,10 +128,6 @@ fn event_kinds_match_their_serde_tags() {
         position: 1,
         problem: admin::ChainProblem::EventChanged,
     });
-    let imported = serde_json::from_value(json!({
-        "action": "passkey.login", "outcome": "success", "metadata": {}
-    }))
-    .expect("imported audit row");
     let events = [
         DomainEvent::AccountCreated {
             method: AuthenticationMethod::Passkey,
@@ -356,7 +351,6 @@ fn event_kinds_match_their_serde_tags() {
             category: crate::notifications::EmailCategory::Announcements,
             email: false,
         }),
-        DomainEvent::Imported(imported),
     ];
     let mut kinds: Vec<&str> = events.iter().map(DomainEvent::kind).collect();
     for event in events {

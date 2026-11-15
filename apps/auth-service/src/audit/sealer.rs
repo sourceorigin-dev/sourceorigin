@@ -13,9 +13,7 @@ use sourceorigin_common::{
     events::{EventContext, JobName},
 };
 use sourceorigin_crypto::NoteKey;
-use sourceorigin_repository::{
-    ChainLink, Checkpoint, EventContent, ExclusiveConnection, LockKey, SealedEvent,
-};
+use sourceorigin_repository::{ChainLink, Checkpoint, ExclusiveConnection, LockKey, SealedEvent};
 use sourceorigin_telemetry::Counter;
 use std::{
     sync::{Arc, Mutex, PoisonError},
@@ -44,8 +42,6 @@ pub(crate) struct Sealer {
     checkpoint_every: TimeDelta,
     /// Events sealed per transaction.
     batch: u32,
-    /// The canonical format events are sealed in.
-    format: i16,
     /// When an attempt to sign a checkpoint last ended in failure. The next try
     /// waits as long as the interval, so a broken chain is not recomputed on
     /// every pass.
@@ -54,21 +50,19 @@ pub(crate) struct Sealer {
 
 impl Sealer {
     /// Events sealed per transaction in production: few enough that a batch of
-    /// the largest events migration 0035 allows still fits in memory.
+    /// the largest events the schema allows still fits in memory.
     const BATCH: u32 = 100;
     /// The least time between two checkpoints in production.
     const CHECKPOINT_EVERY: TimeDelta = TimeDelta::minutes(5);
 
     /// A sealer signing with `audit`'s key, and building only on checkpoints its
-    /// keys verify. It seals in [`EventContent::NEWEST_FORMAT`], which the release
-    /// before this one verifies too.
+    /// keys verify.
     pub(crate) fn new(audit: &AuditConfig) -> Self {
         Self {
             key: audit.key.clone(),
             keys: audit.keys.clone(),
             checkpoint_every: Self::CHECKPOINT_EVERY,
             batch: Self::BATCH,
-            format: EventContent::NEWEST_FORMAT,
             failed_at: Mutex::new(None),
         }
     }
@@ -91,14 +85,10 @@ impl Sealer {
         }
     }
 
-    /// This sealer, sealing `batch` events per transaction, in `format`, for tests.
+    /// This sealer, sealing `batch` events per transaction, for tests.
     #[cfg(test)]
-    pub(crate) fn sealing(self, batch: u32, format: i16) -> Self {
-        Self {
-            batch,
-            format,
-            ..self
-        }
+    pub(crate) fn sealing(self, batch: u32) -> Self {
+        Self { batch, ..self }
     }
 
     /// Seals up to [`Self::batch`] events after the head in one transaction, and
@@ -113,7 +103,7 @@ impl Sealer {
         let mut tx = connection.begin().await?;
         let mut head = tx.audit().head().await?.unwrap_or(ChainLink::GENESIS);
         let mut sealed = Vec::new();
-        for content in tx.audit().unsealed(self.batch, self.format).await? {
+        for content in tx.audit().unsealed(self.batch).await? {
             head = head.extend(&content)?;
             sealed.push(SealedEvent {
                 link: head,
