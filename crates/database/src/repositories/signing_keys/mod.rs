@@ -24,7 +24,7 @@ pub struct StoredSigningKey {
     pub public_jwk: Jwk,
     /// Its sealed PKCS#8 private key; `None` once retired.
     pub sealed_private_key: Option<Vec<u8>>,
-    /// When it was generated or imported.
+    /// When it was generated.
     pub created_at: DateTime<Utc>,
     /// When it started signing.
     pub activated_at: Option<DateTime<Utc>>,

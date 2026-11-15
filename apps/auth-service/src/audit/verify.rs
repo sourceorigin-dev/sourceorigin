@@ -134,8 +134,8 @@ impl AuditKeys {
 }
 
 impl AuditChain {
-    /// Rows read per query: few enough that a page of the largest events migration
-    /// 0035 allows still fits in memory.
+    /// Rows read per query: few enough that a page of the largest events the
+    /// schema allows still fits in memory.
     const BATCH: u32 = 100;
     /// Checkpoints per [`AuditPage`].
     const PAGE: u32 = 100;

@@ -132,7 +132,9 @@ query or the cache holds a query the code no longer uses.
 A migration that changes existing rows gets a test of its own: it migrates a
 scratch schema up to the migration before it, writes rows in the old shape,
 applies the migration and checks the result. It finds the migration in
-`MIGRATOR` by its name, so renumbering needs no change.
+`MIGRATOR` by its name, so renumbering needs no change. The helpers for this,
+`Database::scratch_schema` and `Database::apply_migrations`, went with the last
+such test; bring them back from git history.
 
 To look at the migrated schema yourself:
 

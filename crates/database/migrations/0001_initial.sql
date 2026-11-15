@@ -935,7 +935,7 @@ CREATE TABLE domain_events (
     subject_user_id UUID,
     client_id TEXT,
     session_id UUID,
-    -- Filled once requests carry a trace ID.
+    -- The request's trace ID, which links the event to its telemetry.
     trace_id TEXT,
     chain_position BIGINT UNIQUE CHECK (chain_position > 0),
     -- SHA-256(previous chain_hash || SHA-256(canonical event)).
@@ -1453,7 +1453,7 @@ CREATE INDEX dashboard_sessions_expires_idx ON dashboard_sessions (expires_at);
 
 -- These functions look tables up in the schema this migration runs in, with
 -- pg_temp last: public when deployed, a test's own schema in tests. The others
--- pin public above.
+-- pin their search path above.
 DO $$
 DECLARE
     guard TEXT;

@@ -317,8 +317,7 @@ async fn the_owner_undoes_a_disabled_accounts_recovery() {
         .keys
         .start("/webauthn/authenticate/start", "", body)
         .await;
-    // Written as a release older than this one would, which knows nothing of
-    // recoveries.
+    // Written directly, as a code path that knows nothing of recoveries would.
     let disabled = scenario
         .database()
         .users()

@@ -336,8 +336,9 @@ impl MaintenanceRepository<'_> {
                 LIMIT $1
                 FOR UPDATE SKIP LOCKED
             )",
-            // A purged account's handles were released at its purge (migration
-            // 0042), and stay reserved a year, so nobody takes one to pass for it.
+            // A purged account's handles were released at its purge (the
+            // `handles_release_purged` trigger), and stay reserved a year, so
+            // nobody takes one to pass for it.
             "DELETE FROM handles
             WHERE ctid IN (
                 SELECT ctid

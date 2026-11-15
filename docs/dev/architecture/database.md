@@ -540,15 +540,15 @@ run as the schema owner, deletes sealed events: it sets `sourceorigin.audit_prun
 its own transaction, then moves the anchor (`audit_anchor`) to the checkpoint it
 pruned through. The anchor only moves forward, so of two concurrent prunes, the
 one that would move it back fails. Personal data is not covered, so retention
-keeps deleting `event_personal_data` freely. Migration `0006`'s comment says
-nothing deletes events; pruning does. `deliveries.event_id` has no foreign key,
-so a delivery may name an event already pruned.
+keeps deleting `event_personal_data` freely. `deliveries.event_id` has no
+foreign key, so a delivery may name an event already pruned.
 
 Verification tests need history no other test shares: `Database::isolated` (behind
 `test-util`) migrates a schema of its own, and `audit().tamper` applies the
-changes an attacker could make, with the triggers disabled. The guards migration
-`0035` adds look tables up in the schema they were migrated into, so they guard
-that schema's chain too.
+changes an attacker could make, with the triggers disabled. The history guards
+(`guard_personal_data_insert`, `guard_seal_order`, `guard_new_checkpoint`) and
+`limit_passkeys` look tables up in the schema they were migrated into, so they
+guard that schema's chain too.
 
 ### Security history
 
