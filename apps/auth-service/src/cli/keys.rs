@@ -81,8 +81,7 @@ impl KeysCommand {
         let state = keys
             .iter()
             .find(|key| key.id == *id)
-            .map(|key| format!(", now {},", key.state))
-            .unwrap_or_default();
+            .map_or_default(|key| format!(", now {},", key.state));
         format!(
             "Revoke signing key {id}{state} at once: every replica stops accepting the tokens it signed within a minute, or 15 minutes if it cannot reload its keys, and apps verifying with the SDKs within 90 minutes. If it signs when revoked, the keys waiting and retiring beside it go too, and a new key signs at once"
         )

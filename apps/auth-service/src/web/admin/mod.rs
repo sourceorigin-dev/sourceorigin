@@ -1220,9 +1220,7 @@ async fn preferences(cx: &Cx, form: Option<Form<PreferenceChange>>) -> Result<Re
 #[route(GET "/sign-in")]
 async fn sign_in(cx: &Cx) -> Result<Response> {
     let app = AdminApplication::of(cx);
-    let code = parse_query_params::<SignInQuery>(cx)
-        .map(|query| query.code)
-        .unwrap_or_default();
+    let code = parse_query_params::<SignInQuery>(cx).map_or_default(|query| query.code);
     let context = RequestContext::of(extensions(cx))?;
     match app.sign_in.finish(context, headers(cx), &code).await {
         Ok((return_to, cookie)) => {

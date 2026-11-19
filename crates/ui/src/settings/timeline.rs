@@ -125,8 +125,7 @@ impl Holdings<'_> {
     /// ` address` of the address `id`, if the account still has it.
     fn email(&self, id: EmailId) -> String {
         self.find_email(id)
-            .map(|email| format!(" {}", email.address))
-            .unwrap_or_default()
+            .map_or_default(|email| format!(" {}", email.address))
     }
 }
 

@@ -265,9 +265,7 @@ impl PasskeyApplication {
             user.handle.as_str(),
             &user.display_name,
             Some(exclusions),
-            input
-                .map(|Json(input)| input.passkey_kind)
-                .unwrap_or_default(),
+            input.map_or_default(|Json(input)| input.passkey_kind),
             &headers,
         )?;
         Ok(app

@@ -88,8 +88,7 @@ impl AdminApplication {
         let session = admin
             .operator
             .session()
-            .map(|session| session.to_string())
-            .unwrap_or_default();
+            .map_or_default(|session| session.to_string());
         format!("sourceorigin dashboard reveal\0{session}\0{page}").into_bytes()
     }
 }

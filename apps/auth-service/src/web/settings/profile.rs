@@ -112,7 +112,7 @@ impl Profile {
         let action = serde_json::json!({ "action": action? });
         Some(match serde_json::from_value(action).ok()? {
             ProfileChange::Upload => {
-                ProfileEdit::Upload(turn, picture.map(Vec::from).unwrap_or_default(), crop)
+                ProfileEdit::Upload(turn, picture.map_or_default(Vec::from), crop)
             }
             change => change.into(),
         })
