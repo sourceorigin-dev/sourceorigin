@@ -360,6 +360,16 @@ Write queries with SQLx's checked macros and refresh the cache with
 `just db prepare`. `just db test` runs the database integration tests in a scratch
 cluster; ordinary tests skip them.
 
+## Lint exceptions
+
+Never `#[allow]`: an exception is `#[expect(lint, reason = "...")]` on the smallest
+item it applies to, so it fails once the code no longer needs it, and the reason
+says why the lint is wrong there, such as `reason = "One arm per operation, so a
+new one cannot skip the decision."`. Clippy enforces both (`allow_attributes`,
+`allow_attributes_without_reason`). The workspace forbids `unsafe`; were a crate
+ever to need it, every block would carry a `// SAFETY:` comment
+(`undocumented_unsafe_blocks`).
+
 ## Documentation and tests
 
 Give every item a concise, useful doc comment, private items included. Explain
