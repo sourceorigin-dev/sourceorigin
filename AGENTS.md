@@ -38,5 +38,30 @@ it to `None`) only with a documented reason next to its arm, as `PurgeUser` and
 
 Generated files are committed; regenerate them with `just db prepare` (SQLx
 cache), `just sdk-vectors`, `just sdk-types` and `just docs reference` (the CLI
-and configuration references). `just validate` is the local
-check, and `just docs` checks the documentation.
+and configuration references).
+
+## Conventions
+
+Follow `docs/dev/rust-conventions.md`, which applies the shared
+[engineering standard](https://gist.github.com/PiquelChips/04330e52c03efbe9ce4c889c88673a27)
+to SourceOrigin, and `docs/dev/testing.md` for which tests to write.
+
+## Validation
+
+`just validate` (or `just` alone) formats the code and runs every check that
+needs no database or browser. Run it before handing work back, plus
+`just db test` when a change touches SQL or the database, and the browser
+suite when it changes a page, a script or a sign-in flow. While iterating, run
+only what you changed, such as `just test -p auth-service`. If a step cannot
+run, report the exact command and why.
+
+## Issues, commits & pull requests
+
+Issues live in GitHub Issues. Titles of issues and pull requests follow
+Conventional Commits and say what changes for whoever uses it; pull requests
+are squash-merged, so the title becomes the commit on `main`.
+
+Keep pull requests small and focused: one change each, which a reviewer can
+read in one sitting. Split refactors from behaviour changes, and stack
+dependent pull requests, each on the last. Open them as drafts while
+iterating. `docs/dev/contributing.md` has the rest.

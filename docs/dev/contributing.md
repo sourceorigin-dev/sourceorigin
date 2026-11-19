@@ -44,7 +44,9 @@ List a new generated file in `.gitattributes`, so GitHub collapses it in diffs.
 
 ## Pull requests
 
-- Keep a pull request to one change. Stack dependent ones, each on the last.
+- Keep a pull request small and focused: one change, which a reviewer can read
+  in one sitting. Split refactors from behaviour changes, and stack dependent
+  ones, each on the last.
 - Title it as a [Conventional Commit](https://www.conventionalcommits.org) that
   says what changes for whoever uses it, such as
   `feat(auth): every account gets an inbox, so notices about it no longer live only in email`.
