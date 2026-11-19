@@ -23,7 +23,7 @@ alias format := fmt
 alias preview := infra::preview
 alias preview-delete := infra::preview-delete
 
-validate: fmt-check lint unused check test web::test doc doc-test audit
+validate: fmt lint unused check test web::test doc doc-test audit
 
 install:
     @pnpm install --frozen-lockfile

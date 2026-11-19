@@ -9,7 +9,7 @@ to write for a change, and what CI checks for you.
 just validate
 ```
 
-`just` alone runs the same recipe. It checks formatting, runs Clippy and ESLint,
+`just` alone runs the same recipe. It formats the code, runs Clippy and ESLint,
 looks for unused code and dependencies, type-checks Rust and TypeScript, runs the
 Rust unit tests and the TypeScript SDK's tests, builds the Rust docs, runs the doc
 tests and audits the dependencies. It needs no database and no browser.

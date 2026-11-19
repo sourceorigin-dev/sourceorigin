@@ -90,7 +90,7 @@ jobs:
           predicate-quantifier: every
           filters: |
             rust:
-              - '{Cargo.toml,Cargo.lock,rust-toolchain.toml,clippy.toml,.cargo/**,justfile,just/**,apps/**,crates/**,tools/**,tests/sdk-vectors/**,packages/auth/src/protocol.ts,docs/dev/security/audit-key.pub,.github/workflows/ci.yml}'
+              - '{Cargo.toml,Cargo.lock,rust-toolchain.toml,rustfmt.toml,clippy.toml,.cargo/**,.config/**,justfile,just/**,apps/**,crates/**,tools/**,tests/sdk-vectors/**,packages/auth/src/protocol.ts,docs/dev/security/audit-key.pub,.github/workflows/ci.yml}'
               - '!**/*.md'
             reference:
               - 'docs/dev/operations/{cli-commands,variables/*}.md'
