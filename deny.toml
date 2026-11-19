@@ -1,5 +1,11 @@
 [advisories]
 version = 2
+ignore = [
+    # chrono is unmaintained, with no maintained successor it names yet. It
+    # holds every timestamp the service stores and sends (150 files), so moving
+    # off it is its own change; no vulnerability is reported against it.
+    { id = "RUSTSEC-2026-0543", reason = "chrono is unmaintained; no vulnerability, and no successor yet" },
+]
 
 [licenses]
 version = 2

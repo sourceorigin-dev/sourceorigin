@@ -75,8 +75,7 @@ pub(super) async fn grant(cx: &Cx, form: Option<Form<GrantForm>>) -> Result<Resp
     let back = href!(list).resolve(cx);
     let (q, page) = form
         .as_ref()
-        .map(|Form(form)| (form.q.clone(), form.page))
-        .unwrap_or_default();
+        .map_or_default(|Form(form)| (form.q.clone(), form.page));
     let refusal = App::submit(cx, form, back, |input: GrantForm| async move {
         let user_id = input.user_id.ok_or(AdminError::UserNotFound)?;
         let reason = Reason::parse(input.reason)?;

@@ -474,8 +474,7 @@ impl HumanWriter<'_> {
         }
         let next = paging
             .next()
-            .map(|next| format!(" Next: --page {next}"))
-            .unwrap_or_default();
+            .map_or_default(|next| format!(" Next: --page {next}"));
         self.styled(
             Style::Muted,
             &format!(

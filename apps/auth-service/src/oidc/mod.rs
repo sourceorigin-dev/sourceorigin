@@ -594,8 +594,7 @@ impl OidcApplication {
         let decode = |value: &str| {
             url::form_urlencoded::parse(format!("v={value}").as_bytes())
                 .next()
-                .map(|(_, value)| value.into_owned())
-                .unwrap_or_default()
+                .map_or_default(|(_, value)| value.into_owned())
         };
         Ok((decode(id), decode(secret)))
     }

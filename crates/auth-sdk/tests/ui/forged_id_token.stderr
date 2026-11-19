@@ -1,26 +1,23 @@
 error[E0277]: the trait bound `sourceorigin_auth::IdToken: serde::Deserialize<'de>` is not satisfied
- --> tests/ui/forged_id_token.rs:2:52
+ --> tests/ui/forged_id_token.rs:7:19
   |
-2 |     let _: Result<sourceorigin_auth::IdToken, _> = serde_json::from_str("{}");
-  |                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `serde_core::de::Deserialize<'_>` is not implemented for `sourceorigin_auth::IdToken`
+7 |     deserialize::<sourceorigin_auth::IdToken>();
+  |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `for<'de> Deserialize<'de>` is not implemented for `sourceorigin_auth::IdToken`
   |
   = note: for local types consider adding `#[derive(serde::Deserialize)]` to your `sourceorigin_auth::IdToken` type
   = note: for types from other crates check whether the crate offers a `serde` feature flag
-  = help: the following other types implement trait `serde_core::de::Deserialize<'de>`:
+  = help: the following other types implement trait `Deserialize<'de>`:
             &'a Path
-            &'a RawValue
             &'a [u8]
+            &'a serde_json::raw::RawValue
             &'a str
             ()
             (T,)
             (T0, T1)
             (T0, T1, T2)
           and $N others
-note: required by a bound in `serde_json::from_str`
- --> $CARGO/serde_json-$VERSION/src/de.rs
+note: required by a bound in `deserialize`
+ --> tests/ui/forged_id_token.rs:4:19
   |
-  | pub fn from_str<'a, T>(s: &'a str) -> Result<T>
-  |        -------- required by a bound in this function
-  | where
-  |     T: de::Deserialize<'a>,
-  |        ^^^^^^^^^^^^^^^^^^^ required by this bound in `from_str`
+4 | fn deserialize<T: for<'de> serde::Deserialize<'de>>() {}
+  |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `deserialize`
