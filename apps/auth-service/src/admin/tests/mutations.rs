@@ -16,19 +16,23 @@ async fn mutations_recheck_the_confirmation_after_waiting() {
     let harness = Harness::isolated().await;
     let admin = harness.admin().await;
     let user = harness.account().await;
-    // The confirmation ends a second from now, and the logout ends just after it,
-    // so the mutation waits about a second, well within the lock wait limit.
-    let window = Duration::seconds(CONFIRMATION_MAX_AGE.into());
-    let auth_time = Utc::now() - window + Duration::seconds(1);
     let mut logout = harness.database.begin().await.expect("transaction");
     user.sign_out(&mut logout).await;
     let service = harness.service();
     let reason = reason("Spam");
+    // The confirmation ends two seconds from now, and the logout ends just after
+    // it, so the mutation waits about two seconds, well within the lock wait limit.
+    let window = Duration::seconds(CONFIRMATION_MAX_AGE.into());
+    let auth_time = Utc::now() - window + Duration::seconds(2);
     let operator = operator(admin, auth_time);
     let (result, ()) = tokio::join!(
         service.disable_user(&operator, user.user_id, reason),
         async {
             until_blocked(&mut logout, 1).await;
+            assert!(
+                operator.confirmation_left() > Duration::zero(),
+                "the mutation waits while its caller is still confirmed"
+            );
             let expired = auth_time + window + Duration::milliseconds(10) - Utc::now();
             tokio::time::sleep(expired.to_std().unwrap_or_default()).await;
             logout.commit().await.expect("logout");
