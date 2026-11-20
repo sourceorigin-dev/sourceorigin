@@ -154,3 +154,15 @@ fn key_set_verifies_by_kid_and_limits_retired_keys_to_hints() {
         Err(CryptoError::KeySet)
     ));
 }
+
+/// A private key exports as the PKCS#8 PEM `openssl` writes, byte for byte, so
+/// a key read from a fixture writes back the same file. The export fills the
+/// buffer it was allocated, so it never reallocated and left a copy unzeroized.
+#[test]
+fn private_key_pem_writes_back_the_pem_it_was_read_from() {
+    let pem = include_str!("../../../../tests/sdk-vectors/keys/key-2025.pem");
+    let key = Rs256Key::from_pem("2025", pem).expect("fixture key");
+    let exported = key.private_key_pem().expect("export PEM");
+    assert_eq!(exported.as_str(), pem);
+    assert_eq!(exported.capacity(), exported.len());
+}
