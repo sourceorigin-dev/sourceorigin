@@ -2,11 +2,11 @@
 //! delivery channels. This crate's tests use them, and so do other crates' tests,
 //! behind the `test-util` feature.
 
-use crate::{Database, EventRepository, InsertSession, InsertUser, UserRepository};
+use crate::{Database, InsertSession, InsertUser, UserRepository};
 use chrono::{TimeDelta, Utc};
 use sourceorigin_common::{
     Handle, SessionId, UserId,
-    events::{Browser, DomainEvent, Platform, UserAgentFamily},
+    events::{Browser, Platform, UserAgentFamily},
 };
 use std::net::IpAddr;
 
@@ -92,26 +92,6 @@ impl InsertSession {
             passkey_confirmed_at: None,
             passkey_id: None,
         }
-    }
-}
-
-impl EventRepository<'_> {
-    /// The newest `limit` events concerning `user_id`, newest first.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the query fails, or one of the events is unknown to this release.
-    #[expect(
-        clippy::expect_used,
-        reason = "test-only fixture; documented under `# Panics`"
-    )]
-    pub async fn known_history(&mut self, user_id: UserId, limit: u32) -> Vec<DomainEvent> {
-        self.history_for_user(user_id, limit)
-            .await
-            .expect("history")
-            .into_iter()
-            .map(|stored| stored.event.known().cloned().expect("a known event"))
-            .collect()
     }
 }
 

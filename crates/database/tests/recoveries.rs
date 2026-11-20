@@ -29,13 +29,8 @@ struct Owner {
 impl Owner {
     /// Connects and migrates.
     async fn new() -> Self {
+        let db = Database::test().await;
         let url = std::env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL");
-        let db = Database::connect(
-            DatabaseConfig::new(&url, 5, std::time::Duration::from_secs(5)).expect("config"),
-        )
-        .await
-        .expect("connect");
-        db.run_migrations().await.expect("migrate");
         let pool = sqlx::PgPool::connect(&url).await.expect("pool");
         Self { db, pool }
     }
