@@ -26,7 +26,7 @@ A feature reaches every surface it applies to:
 
 An admin operation may stay CLI-only only with a documented reason next to its
 arm in `AdminApplication::page()` (`apps/auth-service/src/web/admin/mod.rs`), as
-`PurgeUser` and `PruneAuditChain` have.
+`PurgeUser`, `ApplyClient` and `PruneAuditChain` have.
 
 ## Generated files
 

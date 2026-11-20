@@ -33,8 +33,8 @@ use the `sourceorigin-docs` skill.
 
 The CLI is the most complete surface. An admin operation may stay CLI-only
 (`AdminApplication::page()` in `apps/auth-service/src/web/admin/mod.rs` maps
-it to `None`) only with a documented reason next to its arm, as `PurgeUser` and
-`PruneAuditChain` have.
+it to `None`) only with a documented reason next to its arm, as `PurgeUser`,
+`ApplyClient` and `PruneAuditChain` have.
 
 Generated files are committed; regenerate them with `just db prepare` (SQLx
 cache), `just sdk-vectors`, `just sdk-types` and `just docs reference` (the CLI
@@ -48,12 +48,13 @@ to SourceOrigin, and `docs/dev/testing.md` for which tests to write.
 
 ## Validation
 
-`just validate` (or `just` alone) formats the code and runs every check that
-needs no database or browser. Run it before handing work back, plus
-`just db test` when a change touches SQL or the database, and the browser
-suite when it changes a page, a script or a sign-in flow. While iterating, run
-only what you changed, such as `just test -p auth-service`. If a step cannot
-run, report the exact command and why.
+`just validate` (or `just` alone) formats the code and runs the lints, type
+checks, unit tests, Rust docs and audits. Run it before handing work back, plus
+`just docs` when a change touches Markdown, `just db test` when it touches SQL
+or the database, and the browser suite when it changes a page, a script or a
+sign-in flow. While iterating, run only what you changed, such as
+`just test -p auth-service`. If a step cannot run, report the exact command and
+why.
 
 ## Issues, commits & pull requests
 

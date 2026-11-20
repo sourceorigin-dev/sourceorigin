@@ -55,9 +55,13 @@ or JSON outside the record's type, becomes `DatabaseError::InvalidStoredData`
 with the column index SQLx reports and the decoding error as its source. Uniqueness conflicts, writes a check refused
 (`DatabaseError::Refused`) and deadline failures retain their sources too.
 
-Only `Database::provision` runs unchecked SQL: DDL takes no bind parameters, so a
-checked query renders its script (`src/connection/runtime_role.sql`) with
-`format`, which quotes the values, and `raw_sql` runs it.
+Only `Database::provision` runs unchecked SQL outside the tests: DDL takes no
+bind parameters, so a checked query renders its script
+(`src/connection/runtime_role.sql`) with `format`, which quotes the values, and
+`raw_sql` runs it. The test helpers behind the `test-util` feature run DDL the
+same way, to create a schema (`Database::isolated`) or to turn the audit tables'
+guards off and on (`AuditRepository::tamper`), with names they generate or
+write as literals. Test fixtures may use unchecked `sqlx::query`.
 
 Queries only administration reads decode straight into its views from
 `sourceorigin_common::admin`. Records that auth also uses elsewhere convert into those views
