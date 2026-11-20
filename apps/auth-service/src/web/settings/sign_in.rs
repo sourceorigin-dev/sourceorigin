@@ -69,9 +69,8 @@ impl AccountPage for SignInMethods {
                 return Ok(Applied::Elsewhere { to, cookie });
             }
             SignInChange::Rename { id, friendly_name } => {
-                let name = friendly_name.trim().to_owned();
                 web.account
-                    .rename_passkey(&Subject::from(owner), id, name)
+                    .rename_passkey(&Subject::from(owner), id, friendly_name)
                     .await?;
                 Notice::PasskeyRenamed
             }

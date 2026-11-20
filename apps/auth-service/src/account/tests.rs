@@ -218,6 +218,22 @@ async fn administrators_change_another_account_on_its_behalf() {
     assert!(!signed_in["ip"].is_null(), "{signed_in}");
 }
 
+/// A passkey's new name is stored trimmed, whichever surface sends it.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL"]
+async fn a_renamed_passkey_is_trimmed() {
+    let fixture = Fixture::new().await;
+    let (target, passkeys) = fixture.target(1).await;
+    let user = target.user_id;
+    let subject = Subject::operator(user, fixture.operator(Duration::seconds(10)), reason());
+    fixture
+        .service
+        .rename_passkey(&subject, passkeys[0], "  Laptop  ".into())
+        .await
+        .expect("rename");
+    assert_eq!(fixture.names(user).await, ["Laptop"]);
+}
+
 /// The owner and an administrator change the display name with the same
 /// operation, each recorded as theirs, the administrator's with their reason, and
 /// each bumping the profile version so apps refresh `name`. The name the account

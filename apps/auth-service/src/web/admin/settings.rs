@@ -91,8 +91,7 @@ pub(super) async fn sign_in(cx: &Cx, body: Body) -> Result<Response> {
         let account = &App::of(cx).account;
         match posted.change {
             SignInChange::Rename { id, friendly_name } => {
-                let name = friendly_name.trim().to_owned();
-                Ok(account.rename_passkey(&subject, id, name).await?)
+                Ok(account.rename_passkey(&subject, id, friendly_name).await?)
             }
             SignInChange::Remove { id } => Ok(account.revoke_passkey(&subject, id).await?),
             SignInChange::Unlink { provider } => {
