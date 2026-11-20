@@ -337,11 +337,11 @@ impl SessionRepository<'_> {
     /// Revokes the active `scope` sessions of `user_id`, with the refresh token
     /// families issued from every `scope` session, and returns the IDs of the
     /// sessions it revoked. Sessions and families of other accounts are never
-    /// touched, whatever the scope names. Expired sessions are already over, so
-    /// they are not revoked again, but their families are, though none of them
-    /// refreshes, so every scope's grants read as ended. Only
-    /// [`DatabaseTransaction::revoke_sessions`] calls it outside tests, so every
-    /// revocation is recorded.
+    /// touched, whatever the scope names. Expired sessions are already over and
+    /// stay as they are, but their families are revoked too: none of them
+    /// refreshes, yet each then reads as ended in the export and is cleaned up
+    /// with the other revoked ones. Only [`DatabaseTransaction::revoke_sessions`]
+    /// calls it outside tests, so every revocation is recorded.
     ///
     /// The families are revoked by a second statement: a code exchange that held a
     /// session's lock may have committed a family while the first one waited, and
@@ -721,8 +721,8 @@ impl SessionRepository<'_> {
 
 impl DatabaseTransaction<'_> {
     /// Ends the `scope` sessions of `user_id` early, with the refresh token families
-    /// issued from them, those of expired ones included, and records one [`DomainEvent::SessionRevoked`] each, caused
-    /// as `context` says. Recording the event queues the logout tokens of the
+    /// issued from them, those of expired ones included, and records one
+    /// [`DomainEvent::SessionRevoked`] each, caused as `context` says. Recording the event queues the logout tokens of the
     /// session's clients, so this is the only way sessions end early: none can end
     /// without its clients being told. Returns the revoked sessions.
     ///

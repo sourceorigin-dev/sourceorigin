@@ -148,8 +148,9 @@ revokes the account's sessions in a `SessionScope` (one, every other one, or all
 revokes the refresh families issued from every session in the scope, and records
 one `SessionRevoked` per session it revoked, with its `RevocationReason`. An
 expired session's families no longer refresh, but they are revoked too, so its
-grants read as ended in the account's export and are deleted a day later. The repository method underneath is
-private to the database crate, so no revocation can skip the event. Its callers:
+grants read as ended in the account's export and are deleted a day later. The
+repository method underneath is private to the database crate, so no revocation
+can skip the event. Its callers:
 
 - `Session::revoke`, attributed to the request's own session: signing out, and
   the account switch of a sign-in.
