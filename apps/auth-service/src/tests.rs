@@ -277,7 +277,7 @@ impl Browser {
     }
 
     /// Signs another browser in to `user_id` from `context` with `credential`,
-    /// such as a given passkey or a recovery's in probation.
+    /// such as a given passkey, or a recovery's probation passkey.
     pub(crate) async fn sign_in_by(
         database: &Database,
         context: RequestContext,
