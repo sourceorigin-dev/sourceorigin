@@ -37,7 +37,7 @@ impl<'a> Release<'a> {
         let tag = self.tag();
         let notes = self
             .workspace
-            .root()
+            .root
             .join(format!("target/release-notes-{tag}.md"));
         // `target` may not exist yet when `CARGO_TARGET_DIR` puts builds elsewhere.
         if let Some(directory) = notes.parent() {
@@ -291,32 +291,23 @@ mod tests {
     /// Titles go in their type's section without the type, led by their scope.
     #[test]
     fn titles_are_grouped_by_type() {
-        let line = |subject| {
-            let (section, line) = Section::of(subject);
-            (section.title(), line)
-        };
-        assert_eq!(
-            line("feat(sdk): cookie keys accept hex (#502)"),
+        for (subject, title, line) in [
             (
+                "feat(sdk): cookie keys accept hex (#502)",
                 "Features",
-                "**sdk:** cookie keys accept hex (#502)".to_owned()
-            )
-        );
-        assert_eq!(line("fix: a fix (#1)"), ("Fixes", "a fix (#1)".to_owned()));
-        assert_eq!(
-            line("refactor(auth)!: drop the v1 routes (#2)"),
+                "**sdk:** cookie keys accept hex (#502)",
+            ),
+            ("fix: a fix (#1)", "Fixes", "a fix (#1)"),
             (
+                "refactor(auth)!: drop the v1 routes (#2)",
                 "Breaking changes",
-                "**auth:** drop the v1 routes (#2)".to_owned()
-            )
-        );
-        assert_eq!(
-            line("add AGENTS.md"),
-            ("Other changes", "add AGENTS.md".to_owned())
-        );
-        assert_eq!(
-            line("Merge: things"),
-            ("Other changes", "Merge: things".to_owned())
-        );
+                "**auth:** drop the v1 routes (#2)",
+            ),
+            ("add AGENTS.md", "Other changes", "add AGENTS.md"),
+            ("Merge: things", "Other changes", "Merge: things"),
+        ] {
+            let (section, written) = Section::of(subject);
+            assert_eq!((section.title(), written.as_str()), (title, line));
+        }
     }
 }

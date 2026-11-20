@@ -100,7 +100,7 @@ impl Publish<'_> {
         let package = self.workspace.npm_package(None)?;
         let mut npm = self.workspace.command("npm");
         npm.arg("publish")
-            .current_dir(self.workspace.root().join(NPM_PACKAGE));
+            .current_dir(self.workspace.root.join(NPM_PACKAGE));
         if self.dry_run {
             npm.arg("--dry-run");
         } else {
