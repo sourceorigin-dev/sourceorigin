@@ -60,6 +60,16 @@ impl RequestContext {
         })
     }
 
+    /// Attributes events of this request to account `user_id` acting without a
+    /// session, such as through an emailed link, or with a passkey before it
+    /// signs in.
+    pub(crate) fn user_without_session(self, user_id: UserId) -> EventContext {
+        self.actor(Actor::User {
+            user_id,
+            session_id: None,
+        })
+    }
+
     /// Attributes events of this request to an authenticated client.
     pub(crate) fn client(self, client_id: &ClientId) -> EventContext {
         self.actor(Actor::Client {
@@ -86,9 +96,7 @@ impl RequestContext {
         .await?;
         tx.commit().await
     }
-}
 
-impl RequestContext {
     /// The context [`HttpSecurity::protect`](super::HttpSecurity::protect) attached to a
     /// request's `extensions`. Only routes with a rate budget have one.
     pub(crate) fn of(extensions: &Extensions) -> Result<Self, HttpSecurityError> {
