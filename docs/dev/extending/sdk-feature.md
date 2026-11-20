@@ -111,7 +111,8 @@ In `packages/auth/src`, mirror the Rust SDK:
    `picture: json.optional(json.string)`.
 2. A new value of a closed vocabulary needs nothing more: `just sdk-types`
    writes it into the vocabulary's list in `protocol.ts`, which the decoders
-   read. A new closed vocabulary needs the two lines of step 3.
+   read. A new closed vocabulary needs the two lines of
+   [section 3](#3-regenerate-the-typescript-declarations).
 3. Expose it under the Rust SDK's name, as the `picture` getter of `SignedIn`
    does in `login.ts`.
 
