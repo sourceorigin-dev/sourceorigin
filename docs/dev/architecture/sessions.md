@@ -162,7 +162,6 @@ can skip the event. Its callers:
   passkey confirmation: a user who suspects a stolen cookie must be able to act
   at once. An administrator needs the dashboard's recent passkey confirmation,
   as for every change on the dashboard, and an operator at the terminal none.
-- `AdminService::revoke_session`, which `auth-service session revoke` runs.
 - Changes that end the account's other sessions: removing a passkey
   (`src/passkey/settings.rs`), unlinking an identity
   (`src/federation/identities.rs`) and reporting a history entry as not the
