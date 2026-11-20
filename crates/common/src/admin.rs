@@ -725,10 +725,8 @@ pub enum DraftIntent {
 }
 
 /// The result of verifying the audit chain, as `auth-service audit verify` prints
-/// it and the audit log records it, as [`DomainEvent::AuditChainVerified`], for
+/// it and the audit log records it, as `DomainEvent::AuditChainVerified`, for
 /// the dashboard's audit page to show. Verification stops at the first problem.
-///
-/// [`DomainEvent::AuditChainVerified`]: crate::events::DomainEvent::AuditChainVerified
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AuditVerification {
     /// The first position that does not match, or `None` if the chain is intact.
