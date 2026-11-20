@@ -3,7 +3,9 @@
 //! developer console's pieces: its settings form, with the inputs only
 //! operators fill in added, its status badges, and its secrets.
 
-use super::{Action, Change, REASON, confirm, data_table, moment, reason_input, refused_action};
+use super::{
+    Action, Badge, Change, REASON, badge, confirm, data_table, moment, reason_input, refused_action,
+};
 use crate::{
     clients::{
         ClientDraft, ClientRow, ClientStatus, Revealed, SecretRow, choice, client_form,
@@ -19,7 +21,7 @@ use serde::Deserialize;
 use sourceorigin_common::{UserId, admin::Client, clients::ClientKind, protocol::oauth::Scope};
 use topcoat::{
     Result,
-    view::{View, class, component, view},
+    view::{View, component, view},
 };
 
 /// A client in the list, and its page.
@@ -305,15 +307,13 @@ pub async fn client_list<'a>(rows: &'a [AdminClientRow<'a>], new: &'a str) -> Re
 /// A listed client's status, as a badge.
 #[component]
 async fn listed_status<'a>(client: &'a Client) -> Result<impl View> {
-    let (tone, label) = match client.status() {
-        "enabled" => ("ok", "Enabled"),
-        "suspended" => ("danger", "Suspended"),
-        "deleted" => ("neutral", "Deleted"),
-        _ => ("warning", "Disabled"),
+    let shown = match client.status() {
+        "enabled" => Badge::new("ok", "Enabled"),
+        "suspended" => Badge::new("danger", "Suspended"),
+        "deleted" => Badge::new("neutral", "Deleted"),
+        _ => Badge::new("warning", "Disabled"),
     };
-    Ok(view! {
-        <span class=(class!("badge", tone))>(label)</span>
-    })
+    Ok(view! { badge(shown: shown) })
 }
 
 /// One client's page as of `now`: what it is, why it does not sign users in,
