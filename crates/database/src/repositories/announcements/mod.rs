@@ -341,9 +341,9 @@ impl AnnouncementRepository<'_> {
     }
 
     /// How many of the recipients of `id` its email reaches now: those with a
-    /// primary verified address that no other account owns, who did not turn
-    /// announcements' email off unless it is essential. For a draft to everyone,
-    /// how many accounts.
+    /// primary verified address they hold ([`Self::mail_recipients`]), who did
+    /// not turn announcements' email off unless it is essential. For a draft to
+    /// everyone, how many accounts.
     ///
     /// # Errors
     ///
@@ -361,8 +361,13 @@ impl AnnouncementRepository<'_> {
                         WHERE r.announcement_id = a.id AND r.user_id = e.user_id)
                 )
                 WHERE a.id = $1 AND (a.essential OR announcements_emailed(e.user_id))
-                    AND NOT EXISTS (SELECT FROM active_verified_email_ownership o
-                        WHERE o.normalized_email = e.normalized_email AND o.user_id <> e.user_id)"#,
+                    AND e.user_id = coalesce(
+                        (SELECT o.user_id FROM active_verified_email_ownership o
+                            WHERE o.normalized_email = e.normalized_email),
+                        (SELECT v.user_id FROM user_emails v
+                            WHERE v.normalized_email = e.normalized_email
+                                AND v.verified_at IS NOT NULL
+                            ORDER BY v.verified_at DESC, v.user_id LIMIT 1))"#,
                 id.as_uuid(),
             )
         )?
@@ -390,10 +395,12 @@ impl AnnouncementRepository<'_> {
 
     /// The recipients of `id` with a primary verified address, whom its email
     /// goes to: unless it is essential, only those who did not turn
-    /// announcements' email off. A disabled account is left out when another
-    /// account, an active one or one being deleted, owns its address. Their rows
-    /// stay key-share locked until the transaction ends, so a purge of one waits
-    /// for the emails to be queued, and then deletes its own.
+    /// announcements' email off. Each address gets it once, for the account
+    /// that holds it: the account that owns it, an active one or one being
+    /// deleted, or else, as disabled accounts may share it, the one that
+    /// verified it most recently, the lowest account ID breaking a tie. Their
+    /// rows stay key-share locked until the transaction ends, so a purge of one
+    /// waits for the emails to be queued, and then deletes its own.
     ///
     /// # Errors
     ///
@@ -412,8 +419,13 @@ impl AnnouncementRepository<'_> {
                 JOIN user_emails e ON e.user_id = r.user_id AND e.is_primary
                 WHERE r.announcement_id = $1
                     AND (a.essential OR announcements_emailed(r.user_id))
-                    AND NOT EXISTS (SELECT FROM active_verified_email_ownership o
-                        WHERE o.normalized_email = e.normalized_email AND o.user_id <> e.user_id)
+                    AND e.user_id = coalesce(
+                        (SELECT o.user_id FROM active_verified_email_ownership o
+                            WHERE o.normalized_email = e.normalized_email),
+                        (SELECT v.user_id FROM user_emails v
+                            WHERE v.normalized_email = e.normalized_email
+                                AND v.verified_at IS NOT NULL
+                            ORDER BY v.verified_at DESC, v.user_id LIMIT 1))
                 ORDER BY r.user_id
                 FOR KEY SHARE OF r"#,
                 id.as_uuid(),

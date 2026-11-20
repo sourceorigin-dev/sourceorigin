@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT count(*) AS \"count!: Unsigned\"\n                FROM announcements a\n                JOIN user_emails e ON e.is_primary AND (\n                    (a.everyone AND a.sent_at IS NULL)\n                    OR EXISTS (SELECT FROM announcement_recipients r\n                        WHERE r.announcement_id = a.id AND r.user_id = e.user_id)\n                )\n                WHERE a.id = $1 AND (a.essential OR announcements_emailed(e.user_id))\n                    AND e.user_id = coalesce(\n                        (SELECT o.user_id FROM active_verified_email_ownership o\n                            WHERE o.normalized_email = e.normalized_email),\n                        (SELECT v.user_id FROM user_emails v\n                            WHERE v.normalized_email = e.normalized_email\n                                AND v.verified_at IS NOT NULL\n                            ORDER BY v.verified_at DESC, v.user_id LIMIT 1))",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!: Unsigned",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "18cf3dab701c47ab59563c0bbe80e08f56db33feb78499fcad0123bf1c875438"
+}

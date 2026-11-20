@@ -169,11 +169,12 @@ subject and text, to each recipient's inbox, from the recipients it locked, and
 records `AnnouncementSent`, whose fan-out creates one delivery per recipient
 with a primary verified address, leaving out, unless the announcement is
 essential, those who turned announcements' email off
-([email preferences](notifications.md#email-preferences)). Disabling an account
-releases its addresses to other accounts, so a disabled account is also left
-out when another account, an active one or one being deleted, owns its primary
-address. These emails go out here, never on the `email` channel, and link the
-inbox. Each names its list in
+([email preferences](notifications.md#email-preferences)). Each address gets
+it once, for the account that holds it. That is the account that owns it, an
+active one or one being deleted. Disabling an account releases its addresses,
+so disabled accounts may share one that nobody owns: then the one that verified
+it most recently holds it, the lowest account ID breaking a tie. These emails
+go out here, never on the `email` channel, and link the inbox. Each names its list in
 a `List-Id` header (RFC 2919), `<announcements.<sender's domain>>`, so mail
 clients can sort and filter announcements, and one that is not essential also
 carries the recipient's one-click unsubscribe link, in its body and its
@@ -183,7 +184,7 @@ about the account itself, none. A delivery stores only the account's ID
 as its recipient and the announcement's ID as its payload, and its `destination`
 names both. The sender reads the account's primary verified address and the text
 when it sends, so an address changed meanwhile gets it. An account with none
-left, whose address another account owns now, no longer a recipient, or that
+left, whose address another account holds now, no longer a recipient, or that
 turned announcements' email off since, unless it is essential, is skipped: the
 delivery succeeds without a send. The text of a sent announcement never changes,
 so every attempt sends the same message. `MAX_AGE` is three days, as an announcement stays worth reading

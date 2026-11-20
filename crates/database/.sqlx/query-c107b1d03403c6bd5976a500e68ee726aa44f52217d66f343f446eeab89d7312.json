@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT r.user_id AS \"user_id: UserId\"\n                FROM announcement_recipients r\n                JOIN announcements a ON a.id = r.announcement_id\n                JOIN user_emails e ON e.user_id = r.user_id AND e.is_primary\n                WHERE r.announcement_id = $1\n                    AND (a.essential OR announcements_emailed(r.user_id))\n                    AND e.user_id = coalesce(\n                        (SELECT o.user_id FROM active_verified_email_ownership o\n                            WHERE o.normalized_email = e.normalized_email),\n                        (SELECT v.user_id FROM user_emails v\n                            WHERE v.normalized_email = e.normalized_email\n                                AND v.verified_at IS NOT NULL\n                            ORDER BY v.verified_at DESC, v.user_id LIMIT 1))\n                ORDER BY r.user_id\n                FOR KEY SHARE OF r",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id: UserId",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c107b1d03403c6bd5976a500e68ee726aa44f52217d66f343f446eeab89d7312"
+}

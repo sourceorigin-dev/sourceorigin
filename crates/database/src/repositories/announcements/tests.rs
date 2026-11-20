@@ -380,6 +380,51 @@ async fn a_disabled_account_is_not_emailed_at_an_address_another_now_owns() {
     assert!(still.is_some());
 }
 
+/// An address that disabled accounts share, which nobody owns, gets one email:
+/// the announcement of the account that verified it most recently, whether it
+/// verified it before the email was queued or before it was sent.
+#[tokio::test]
+#[ignore = "requires a disposable TEST_DATABASE_URL"]
+async fn an_address_disabled_accounts_share_gets_one_announcement() {
+    let pool = Database::test_pool().await;
+    let first = account(&pool, Some("example.com")).await;
+    let address = format!("{first}@example.com");
+    let mut users = UserRepository::from_pool(&pool);
+    let disable = async |users: &mut UserRepository<'_>, user| {
+        let disabled = users.set_status(user, AccountStatus::Disabled).await;
+        assert!(disabled.expect("disable"));
+    };
+    disable(&mut users, first).await;
+    let second = account(&pool, None).await;
+    verify(&pool, second, address.clone()).await;
+    disable(&mut users, second).await;
+    let id = AnnouncementId::new();
+    let mut tx = DatabaseTransaction::new(pool.begin().await.expect("transaction"));
+    tx.announcements()
+        .insert_draft(&DraftedAnnouncement {
+            id,
+            subject: "Incident",
+            body: "What happened",
+            recipients: Recipients::Accounts(&[first, second]),
+            essential: true,
+        })
+        .await
+        .expect("draft");
+    tx.commit().await.expect("commit");
+    let mut announcements = AnnouncementRepository::from_pool(&pool);
+    assert_eq!(announcements.mailed(id).await.expect("mailed"), 1);
+    send(&pool, id, 1).await.expect("a draft");
+    assert_eq!(deliveries_to(&pool, first, id).await, 0);
+    assert_eq!(deliveries_to(&pool, second, id).await, 1);
+    let mut emails = EmailRepository::from_pool(&pool);
+    let queued = emails.announcement(second, id).await.expect("email");
+    assert!(queued.is_some());
+    let third = account(&pool, None).await;
+    verify(&pool, third, address).await;
+    disable(&mut users, third).await;
+    assert_eq!(emails.announcement(second, id).await.expect("email"), None);
+}
+
 /// Purges `user` in `tx` as auth's callers do: the administrator list locked,
 /// then the account, before the purge.
 async fn purge_as_callers_do(tx: &mut DatabaseTransaction<'_>, user: UserId) {

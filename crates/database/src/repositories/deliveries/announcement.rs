@@ -71,10 +71,12 @@ impl Channel for Announcement {
 
 impl EmailRepository<'_> {
     /// The email of the sent announcement `id` to `user_id`, at the account's
-    /// primary verified address now, if it still has one that no other account
-    /// owns (an active one or one being deleted), is still a recipient
+    /// primary verified address now, if it still has one it holds (see
+    /// [`mail_recipients`]), is still a recipient
     /// (a purge removes it), and, unless it is essential, did not turn
     /// announcements' email off since it was queued.
+    ///
+    /// [`mail_recipients`]: crate::repositories::AnnouncementRepository::mail_recipients
     ///
     /// # Errors
     ///
@@ -96,8 +98,13 @@ impl EmailRepository<'_> {
                 JOIN user_emails e ON e.user_id = r.user_id AND e.is_primary
                 WHERE r.user_id = $1 AND r.announcement_id = $2 AND a.sent_at IS NOT NULL
                     AND (a.essential OR announcements_emailed(r.user_id))
-                    AND NOT EXISTS (SELECT FROM active_verified_email_ownership o
-                        WHERE o.normalized_email = e.normalized_email AND o.user_id <> e.user_id)"#,
+                    AND e.user_id = coalesce(
+                        (SELECT o.user_id FROM active_verified_email_ownership o
+                            WHERE o.normalized_email = e.normalized_email),
+                        (SELECT v.user_id FROM user_emails v
+                            WHERE v.normalized_email = e.normalized_email
+                                AND v.verified_at IS NOT NULL
+                            ORDER BY v.verified_at DESC, v.user_id LIMIT 1))"#,
                 user_id.as_uuid(),
                 id.as_uuid(),
             )
