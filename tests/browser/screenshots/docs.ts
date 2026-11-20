@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test';
-import { authUrl } from '../helpers';
+import { adminUrl, authUrl } from '../helpers';
 
 /**
  * Helpers for the documentation's screenshots, which `just docs screenshots` takes
@@ -7,9 +7,6 @@ import { authUrl } from '../helpers';
  * `shoot` first rewrites what changes from run to run into what the guides show:
  * the handle, hosts, IDs and dates.
  */
-
-/** The admin dashboard's origin, when the deployment serves one. */
-export const adminUrl = process.env.E2E_ADMIN_URL ?? '';
 
 /**
  * A new handle, which every screenshot shows as `name`: `just docs screenshots`
@@ -74,20 +71,19 @@ export async function shoot(page: Page, name: string, area?: Locator): Promise<v
         [/\b(\d{1,3}\.){3}\d{1,3}\b/g, '203.0.113.7'],
         [/\b[0-9a-f]{1,4}(:[0-9a-f]{0,4}){2,7}\b/g, '2001:db8::7']
       ];
+      // Every replacement, in order.
+      const rewrite = (text: string) =>
+        replacements.reduce(
+          (text, [pattern, replacement]) =>
+            text.replace(pattern, replacement as (match: string) => string),
+          text
+        );
       const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
       for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-        let text = node.textContent ?? '';
-        for (const [pattern, replacement] of replacements) {
-          text = text.replace(pattern, replacement as (match: string) => string);
-        }
-        node.textContent = text;
+        node.textContent = rewrite(node.textContent ?? '');
       }
       for (const input of document.querySelectorAll('input')) {
-        let value = input.value;
-        for (const [pattern, replacement] of replacements) {
-          value = value.replace(pattern, replacement as (match: string) => string);
-        }
-        input.value = value;
+        input.value = rewrite(input.value);
       }
     },
     { shownHosts }

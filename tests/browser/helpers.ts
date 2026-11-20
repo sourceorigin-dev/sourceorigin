@@ -33,6 +33,18 @@ export async function scrollsSideways(page: Page): Promise<boolean> {
 }
 
 /**
+ * What every virtual authenticator of the tests is: one that keeps passkeys and
+ * verifies its user without asking.
+ */
+const authenticator = {
+  protocol: 'ctap2',
+  hasResidentKey: true,
+  hasUserVerification: true,
+  isUserVerified: true,
+  automaticPresenceSimulation: true
+} as const;
+
+/**
  * A virtual platform authenticator on `page`, which verifies its user without
  * asking. A `synced` one backs its credentials up, like a synced passkey.
  */
@@ -45,12 +57,8 @@ export async function addPasskeys(
   await cdp.send('WebAuthn.enable');
   const { authenticatorId } = await cdp.send('WebAuthn.addVirtualAuthenticator', {
     options: {
-      protocol: 'ctap2',
+      ...authenticator,
       transport: 'internal',
-      hasResidentKey: true,
-      hasUserVerification: true,
-      isUserVerified: true,
-      automaticPresenceSimulation: true,
       defaultBackupEligibility: synced,
       defaultBackupState: synced
     }
@@ -133,13 +141,13 @@ export async function expectAccepted(
 }
 
 /** Why the tests make a change through a deployment's CLI, which every change needs. */
-export const reason = ['--reason', 'Browser tests'];
+const reason = ['--reason', 'Browser tests'];
 
 /**
  * Runs `command`, a deployment's CLI named by an environment variable such as
  * `E2E_GRANT_ADMIN`, with `args` appended, and returns what it printed.
  */
-export function cli(command: string, ...args: string[]): string {
+function cli(command: string, ...args: string[]): string {
   const [program, ...given] = command.split(' ');
   return execFileSync(program, [...given, ...args], { encoding: 'utf8' });
 }
@@ -177,14 +185,7 @@ export async function secondAuthenticator(
 ): Promise<string> {
   await cdp.send('WebAuthn.setAutomaticPresenceSimulation', { authenticatorId, enabled: false });
   const second = await cdp.send('WebAuthn.addVirtualAuthenticator', {
-    options: {
-      protocol: 'ctap2',
-      transport: 'usb',
-      hasResidentKey: true,
-      hasUserVerification: true,
-      isUserVerified: true,
-      automaticPresenceSimulation: true
-    }
+    options: { ...authenticator, transport: 'usb' }
   });
   return second.authenticatorId;
 }
