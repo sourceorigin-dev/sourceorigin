@@ -164,6 +164,11 @@ notifications `record` just wrote, each with its account, and queues one
 - `Primary`: the primary verified address, for every other notification, an
   alert's and a message's included. An account without one gets no email.
 
+Disabling an account releases its addresses to other accounts, so another one
+may verify an address of a disabled account. That address is the other
+account's then, and the disabled account's notifications are no longer emailed
+to it.
+
 An announcement's email goes out on the `announcement` channel instead, which
 has workers of its own and links the inbox (see
 [announcements](delivery-queue.md#announcements)). A message's email reads like

@@ -343,7 +343,8 @@ The command reads the text from the file, or from standard input with
 `--body-file -`, and asks for confirmation before it sends.
 
 A message goes to an account in any status, so the owner of a disabled account
-can learn why. An administrator's account takes one too, from the dashboard as
+can learn why. It is not emailed to an address of the disabled account that
+another account has verified since, which is that account's now. An administrator's account takes one too, from the dashboard as
 from the command line: unlike the dashboard's other changes, a message changes
 nothing about it. Sending records a `message_sent` event with who sent it, but
 not the text, which may be personal: the inbox and the queued email hold the

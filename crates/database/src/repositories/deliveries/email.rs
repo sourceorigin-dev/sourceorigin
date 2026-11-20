@@ -8,13 +8,13 @@
 //! message is sent.
 //!
 //! Every notification an event gives its subject is emailed too, to the addresses
-//! [`Notification::addressees`] names, and says what the inbox says. Its delivery
-//! copies the address and the notification, so removing the address cannot
-//! cancel it.
+//! [`Notification::addressees`] names that no other account owns, and says what
+//! the inbox says. Its delivery copies the address and the notification, so
+//! removing the address cannot cancel it.
 
 use super::{Channel, NewDelivery};
 use crate::{
-    DatabaseError, DatabaseTransaction, Notified,
+    DatabaseError, DatabaseTransaction, Notified, StoredEmail,
     repositories::{EmailRepository, RepositoryExecutor},
 };
 use serde::{Deserialize, Serialize};
@@ -134,14 +134,15 @@ impl EmailMessage {
 
     /// The emails of `notified`, which `event` wrote, each with the ID of the
     /// address it goes to: one to each verified address of its account that its
-    /// addressees name. Runs in the event's transaction, before a removed address
-    /// is deleted.
+    /// addressees name, unless another account owns it now
+    /// ([`EmailRepository::mailable`]). Runs in the event's transaction, before a
+    /// removed address is deleted.
     async fn notifying(
         event: &DomainEvent,
         notified: &Notified,
         tx: &mut DatabaseTransaction<'_>,
     ) -> Result<Vec<(EmailId, Self)>, DatabaseError> {
-        let emails = tx.emails().list(notified.user_id).await?;
+        let emails = tx.emails().mailable(notified.user_id).await?;
         // The affected address and the recovery are the event's subject's: only
         // the subject's own notifications are about them.
         let affected = match event {
@@ -161,7 +162,6 @@ impl EmailMessage {
         let addressees = notified.notification.addressees();
         Ok(emails
             .into_iter()
-            .filter(|email| email.verified_at.is_some())
             .filter(|email| match addressees {
                 Addressees::Verified => true,
                 Addressees::Affected => affected == Some(email.id),
@@ -217,6 +217,33 @@ impl Channel for Email {
 }
 
 impl EmailRepository<'_> {
+    /// `user_id`'s verified addresses that no other account owns, primary first,
+    /// then oldest first: those its notifications are emailed to. Disabling an
+    /// account releases its addresses, so another account may verify one since,
+    /// which makes it that account's.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DatabaseError`] if the query fails or a row is invalid.
+    pub async fn mailable(&mut self, user_id: UserId) -> Result<Vec<StoredEmail>, DatabaseError> {
+        run!(
+            self,
+            fetch_all,
+            sqlx::query_as!(
+                StoredEmail,
+                r#"SELECT
+                    e.id AS "id: EmailId", e.user_id AS "user_id: UserId", e.normalized_email,
+                    e.verified_at, e.is_primary
+                FROM user_emails e
+                WHERE e.user_id = $1 AND e.verified_at IS NOT NULL
+                    AND NOT EXISTS (SELECT FROM active_verified_email_ownership o
+                        WHERE o.normalized_email = e.normalized_email AND o.user_id <> e.user_id)
+                ORDER BY e.is_primary DESC, e.created_at, e.id"#,
+                user_id.as_uuid(),
+            )
+        )
+    }
+
     /// `user_id`'s verified address `email_id`, if recovery `recovery_id` of the
     /// active account still has a working link, with the account's handle.
     ///

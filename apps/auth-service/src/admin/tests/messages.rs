@@ -18,6 +18,37 @@ fn letter() -> Letter {
 }
 
 impl Harness {
+    /// Gives `user_id` the verified address `id`, at `{id}@example.com`, or at
+    /// `address` if given.
+    async fn verify(
+        &self,
+        user_id: UserId,
+        id: EmailId,
+        is_primary: bool,
+        address: Option<String>,
+    ) {
+        let address = InsertVerifiedEmail {
+            id,
+            user_id,
+            normalized_email: address.unwrap_or_else(|| format!("{id}@example.com")),
+            is_primary,
+            verified_at: Utc::now(),
+        };
+        let inserted = self.database.emails().insert_verified(&address).await;
+        inserted.expect("address");
+    }
+
+    /// The messages emailed to `user_id`'s address `email_id`.
+    async fn emailed(&self, user_id: UserId, email_id: EmailId) -> Vec<serde_json::Value> {
+        let destination = format!("account {user_id}, address {email_id}");
+        let payloads = self.database.deliveries().payloads(&destination).await;
+        let payloads = payloads.expect("payloads");
+        payloads
+            .into_iter()
+            .filter(|payload| payload["notification"]["kind"] == "message")
+            .collect()
+    }
+
     /// The notifications in `user_id`'s inbox, newest first.
     async fn inbox(&self, user_id: UserId) -> Vec<Option<Notification>> {
         let stored = self.database.notifications().list(user_id, None, 10).await;
@@ -42,15 +73,7 @@ async fn messages_reach_the_inbox_and_the_primary_address_until_purged() {
     let user = harness.account().await.user_id;
     let (primary, other) = (EmailId::new(), EmailId::new());
     for (id, is_primary) in [(primary, true), (other, false)] {
-        let address = InsertVerifiedEmail {
-            id,
-            user_id: user,
-            normalized_email: format!("{id}@example.com"),
-            is_primary,
-            verified_at: Utc::now(),
-        };
-        let inserted = harness.database.emails().insert_verified(&address).await;
-        inserted.expect("address");
+        harness.verify(user, id, is_primary, None).await;
     }
     let off = NotificationPreference {
         category: EmailCategory::Announcements,
@@ -72,18 +95,13 @@ async fn messages_reach_the_inbox_and_the_primary_address_until_purged() {
         text: "Support needs a word with you.\n\nWrite to support@example.com.".into(),
     };
     assert_eq!(harness.inbox(user).await, [Some(message.clone())]);
-    let emailed = async |email_id: EmailId| {
-        let destination = format!("account {user}, address {email_id}");
-        let payloads = harness.database.deliveries().payloads(&destination).await;
-        payloads.expect("payloads")
-    };
-    let mailed = emailed(primary).await;
+    let mailed = harness.emailed(user, primary).await;
     assert_eq!(mailed.len(), 1);
     assert_eq!(
         mailed[0]["notification"],
         serde_json::to_value(&message).expect("JSON")
     );
-    assert_eq!(emailed(other).await.len(), 0);
+    assert_eq!(harness.emailed(user, other).await.len(), 0);
     let filter = EventFilter {
         kind: Some("message_sent".into()),
         subject: Some(user),
@@ -101,7 +119,45 @@ async fn messages_reach_the_inbox_and_the_primary_address_until_purged() {
         .await
         .expect("purge");
     assert_eq!(harness.inbox(user).await, []);
-    assert_eq!(emailed(primary).await.len(), 0);
+    assert_eq!(harness.emailed(user, primary).await.len(), 0);
+}
+
+/// A disabled account is still messaged at its primary verified address, until
+/// another account verifies that address, which disabling released: the message
+/// stays in the disabled account's inbox, but is no longer emailed to the
+/// address's new owner.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL"]
+async fn a_disabled_account_is_not_emailed_at_an_address_another_now_owns() {
+    let harness = Harness::new().await;
+    let service = harness.service();
+    let (claimed, unclaimed) = (
+        harness.account().await.user_id,
+        harness.account().await.user_id,
+    );
+    let (taken, kept) = (EmailId::new(), EmailId::new());
+    for (user, id) in [(claimed, taken), (unclaimed, kept)] {
+        harness.verify(user, id, true, None).await;
+        let disabled = service
+            .disable_user(&cli(), user, reason("Compromised"))
+            .await;
+        disabled.expect("disable");
+    }
+    let owner = harness.account().await.user_id;
+    let address = Some(format!("{taken}@example.com"));
+    harness.verify(owner, EmailId::new(), true, address).await;
+
+    for user in [claimed, unclaimed] {
+        let sent = service.message_user(&cli(), user, letter()).await;
+        sent.expect("send");
+        let inbox = harness.inbox(user).await;
+        assert!(matches!(
+            inbox.first(),
+            Some(Some(Notification::Message { .. }))
+        ));
+    }
+    assert_eq!(harness.emailed(claimed, taken).await.len(), 0);
+    assert_eq!(harness.emailed(unclaimed, kept).await.len(), 1);
 }
 
 /// The dashboard needs a recent passkey confirmation to send a message, and
