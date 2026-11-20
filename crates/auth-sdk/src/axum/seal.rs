@@ -10,13 +10,11 @@ use base64::{
 };
 use secrecy::zeroize::Zeroizing;
 use serde::{Serialize, de::DeserializeOwned};
+use sourceorigin_common::protocol::constants::{
+    COOKIE_KEY_BYTES, MAX_COOKIE_BYTES, PENDING_LOGIN_SEAL_INFO, SESSION_SEAL_INFO,
+};
 use sourceorigin_crypto::{CryptoError, Secret};
 use std::fmt;
-
-/// The most a browser stores in one cookie, which bounds a sealed value.
-const COOKIE_BYTES: usize = 4096;
-/// Bytes in a cookie key, and in the AES-256 keys derived from it.
-const SECRET_BYTES: usize = 32;
 
 /// How a cookie key may be written: `openssl rand -base64 32` prints padded
 /// standard base64, and piqueld generates secrets as hex or unpadded base64url.
@@ -83,8 +81,8 @@ impl Purpose {
     /// The HKDF `info`. Every SDK uses the same, so their cookies interoperate.
     const fn info(self) -> &'static [u8] {
         match self {
-            Self::Session => b"sourceorigin-auth session v1",
-            Self::PendingLogin => b"sourceorigin-auth pending login v1",
+            Self::Session => SESSION_SEAL_INFO.as_bytes(),
+            Self::PendingLogin => PENDING_LOGIN_SEAL_INFO.as_bytes(),
         }
     }
 }
@@ -117,7 +115,7 @@ impl SealingKey {
         // The value holds the user's tokens, so it is serialized into a zeroizing
         // buffer with room for any cookie, which never reallocates and leaves no
         // partial copy behind.
-        let mut plaintext = Zeroizing::new(Vec::with_capacity(COOKIE_BYTES));
+        let mut plaintext = Zeroizing::new(Vec::with_capacity(MAX_COOKIE_BYTES));
         serde_json::to_writer(&mut *plaintext, value)?;
         let sealed = self.0.seal(&plaintext, context.as_bytes())?;
         Ok(URL_SAFE_NO_PAD.encode(sealed))
@@ -196,7 +194,7 @@ impl CookieKey {
             .iter()
             .filter_map(|encoding| encoding.decode(text).map(Zeroizing::new))
             .collect();
-        match decoded.iter().find(|bytes| bytes.len() == SECRET_BYTES) {
+        match decoded.iter().find(|bytes| bytes.len() == COOKIE_KEY_BYTES) {
             Some(secret) => Self::from_secret(secret),
             None => Err(decoded
                 .first()

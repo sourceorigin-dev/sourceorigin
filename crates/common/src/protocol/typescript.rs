@@ -1,35 +1,44 @@
 //! Writes `packages/auth/src/protocol.ts`, the TypeScript SDK's declarations of these
-//! wire types, with ts-rs. Without `UPDATE_SDK_TYPES=1` it only compares, so
-//! `just test` fails while the committed file is stale; `just sdk-types` rewrites it.
+//! wire types and of the constants `sdk_constants!` declares, with ts-rs. Without
+//! `UPDATE_SDK_TYPES=1` it only compares, so `just test` fails while the committed
+//! file is stale; `just sdk-types` rewrites it.
 //!
 //! The structs derive `TS` under `cfg(test)`, so ts-rs stays a dev-dependency. Types
 //! that serialize by hand implement it here, from the same values serde writes:
-//! vocabularies as unions of their spellings, validated strings as `string`.
+//! vocabularies as unions of their spellings, validated strings as `string`. Each
+//! closed vocabulary also gets the list of its spellings, which decoders check
+//! values against.
 
 use super::{
     challenge::{BearerChallenge, BearerError},
+    claims,
     claims::{
         Absent, AccessTokenClaims, Acr, Actor, Amr, Audience, AuthenticationClaims,
         BACKCHANNEL_LOGOUT_EVENT, Confirmation, IdTokenClaims, LogoutEvents, LogoutTokenClaims,
         ProfileClaims, UserInfo,
     },
+    constants,
     jwt::{Algorithm, Claim, Jwk, JwkSet, KeyId, KeyOperation, KeyType, KeyUse, TokenType},
+    metadata,
     metadata::ServerMetadata,
     oauth::{
         ClientAuthMethod, CodeChallengeMethod, ErrorCode, ErrorDescription, ErrorResponse,
-        GrantType, Prompt, ResponseMode, ResponseType, Scope, Scopes, SubjectType,
+        GrantType, Prompt, PushedAuthorization, ResponseMode, ResponseType, Scope, Scopes,
+        SubjectType, TokenResponse,
     },
     sdk::{ErrorCategory, ErrorReason, SdkError},
     step_up::StepUpRequirement,
 };
 use crate::{ClientId, DeliveryId, SessionId, TokenId};
-use std::{collections::BTreeSet, fs, path::PathBuf};
+use chrono::TimeDelta;
+use std::{collections::BTreeSet, fs, path::PathBuf, time::Duration};
 use ts_rs::{Config, TS};
 
 /// Opens the generated file.
 const HEADER: &str = "\
 // Generated from sourceorigin_common::protocol by `just sdk-types`. Do not edit.
-// The wire types auth and every SDK share; docs/dev/architecture/sdk.md describes them.
+// The wire types and constants auth and every SDK share; docs/dev/architecture/sdk.md
+// describes them.
 ";
 
 /// Implements `TS` for a type declared in the generated file.
@@ -54,10 +63,25 @@ macro_rules! declared {
     };
 }
 
-/// Declares closed vocabularies as the union of their spellings.
+/// A closed vocabulary, declared with the list of its spellings.
+trait Closed: TS {
+    /// The list's name.
+    const LIST: &'static str;
+    /// Every spelling, in declaration order.
+    fn spellings() -> impl Iterator<Item = &'static str>;
+}
+
+/// Declares closed vocabularies as the union of their spellings, each with the
+/// name of its list.
 macro_rules! closed {
-    ($($name:ident),+ $(,)?) => {$(
-        declared!($name, union($name::ALL.iter().map(|value| value.as_str())));
+    ($($name:ident as $list:ident),+ $(,)?) => {$(
+        declared!($name, union($name::spellings()));
+        impl Closed for $name {
+            const LIST: &'static str = stringify!($list);
+            fn spellings() -> impl Iterator<Item = &'static str> {
+                $name::ALL.iter().map(|value| value.as_str())
+            }
+        }
     )+};
 }
 
@@ -93,23 +117,23 @@ macro_rules! builtin {
 }
 
 closed!(
-    Amr,
-    Acr,
-    TokenType,
-    Claim,
-    Algorithm,
-    KeyType,
-    KeyUse,
-    GrantType,
-    ResponseType,
-    ResponseMode,
-    ClientAuthMethod,
-    SubjectType,
-    CodeChallengeMethod,
-    Prompt,
-    Scope,
-    ErrorCategory,
-    ErrorReason,
+    Amr as AMR,
+    Acr as ACR,
+    TokenType as TOKEN_TYPES,
+    Claim as CLAIMS,
+    Algorithm as ALGORITHMS,
+    KeyType as KEY_TYPES,
+    KeyUse as KEY_USES,
+    GrantType as GRANT_TYPES,
+    ResponseType as RESPONSE_TYPES,
+    ResponseMode as RESPONSE_MODES,
+    ClientAuthMethod as CLIENT_AUTH_METHODS,
+    SubjectType as SUBJECT_TYPES,
+    CodeChallengeMethod as CODE_CHALLENGE_METHODS,
+    Prompt as PROMPTS,
+    Scope as SCOPES,
+    ErrorCategory as ERROR_CATEGORIES,
+    ErrorReason as ERROR_REASONS,
 );
 open!(ErrorCode, BearerError, KeyOperation);
 builtin!(
@@ -127,6 +151,63 @@ declared!(
     format!("{{ {BACKCHANNEL_LOGOUT_EVENT:?}: Record<string, unknown> }}")
 );
 builtin!("never" => Absent);
+
+/// A constant `sdk_constants!` declares, as TypeScript writes it.
+pub(super) trait Literal {
+    /// Its TypeScript type, or none for the literal's own, as strings keep.
+    fn ty(&self) -> Option<&'static str>;
+    /// Its value.
+    fn value(&self) -> String;
+    /// What its docs add: durations are in milliseconds.
+    fn unit(&self) -> &'static str {
+        ""
+    }
+}
+
+/// Writes integers as `number`s.
+macro_rules! number {
+    ($($type:ty),+) => {$(
+        impl Literal for $type {
+            fn ty(&self) -> Option<&'static str> {
+                Some("number")
+            }
+            fn value(&self) -> String {
+                self.to_string()
+            }
+        }
+    )+};
+}
+
+/// Writes durations as `number`s of milliseconds.
+macro_rules! milliseconds {
+    ($($type:ty => $millis:ident),+) => {$(
+        impl Literal for $type {
+            fn ty(&self) -> Option<&'static str> {
+                Some("number")
+            }
+            fn value(&self) -> String {
+                self.$millis().to_string()
+            }
+            fn unit(&self) -> &'static str {
+                "\nIn milliseconds."
+            }
+        }
+    )+};
+}
+
+number!(u8, usize);
+milliseconds!(TimeDelta => num_milliseconds, Duration => as_millis);
+
+/// Writes strings as their own literal type, with Rust's escapes, so a string
+/// constant must need none, as `union`'s spellings do.
+impl Literal for &str {
+    fn ty(&self) -> Option<&'static str> {
+        None
+    }
+    fn value(&self) -> String {
+        format!("{self:?}")
+    }
+}
 
 /// `"a" | "b"`, from spellings that need no escaping.
 fn union<'a>(values: impl Iterator<Item = &'a str>) -> String {
@@ -173,6 +254,48 @@ impl Declarations {
                 .map(|dependency| dependency.ts_name),
         );
         self
+    }
+
+    /// Appends a closed vocabulary's declaration and the list of its spellings.
+    fn closed<T: Closed + 'static>(self) -> Self {
+        let declarations = self.add::<T>();
+        let name = T::ident(&declarations.cfg);
+        let spellings: Vec<_> = T::spellings().map(|value| format!("{value:?}")).collect();
+        declarations.constant(
+            T::LIST,
+            &format!("Every `{name}` this version knows."),
+            Some(&format!("readonly {name}[]")),
+            &format!("[{}]", spellings.join(", ")),
+        )
+    }
+
+    /// Appends a constant of type `ty`, or of its literal's, with its docs.
+    fn constant(mut self, name: &str, docs: &str, ty: Option<&str>, value: &str) -> Self {
+        self.text.push_str("\n/**\n");
+        for line in docs.lines() {
+            self.text.push_str(" * ");
+            self.text.push_str(line.strip_prefix(' ').unwrap_or(line));
+            self.text.push('\n');
+        }
+        let ty = ty.map(|ty| format!(": {ty}")).unwrap_or_default();
+        for part in [" */\nexport const ", name, &ty, " = ", value, ";\n"] {
+            self.text.push_str(part);
+        }
+        self
+    }
+
+    /// Appends constants `sdk_constants!` declared.
+    fn constants(self, constants: Vec<(&str, &str, &dyn Literal)>) -> Self {
+        constants
+            .into_iter()
+            .fold(self, |declarations, (name, docs, value)| {
+                declarations.constant(
+                    name,
+                    &(docs.to_owned() + value.unit()),
+                    value.ty(),
+                    &value.value(),
+                )
+            })
     }
 
     /// The file, once every referenced type is declared in it. Drops the docs' Rust
@@ -226,39 +349,45 @@ fn generate() -> String {
         .add::<Audience>()
         .add::<Actor>()
         .add::<Confirmation>()
-        .add::<Amr>()
-        .add::<Acr>()
+        .closed::<Amr>()
+        .closed::<Acr>()
+        .constants(claims::typescript())
         // metadata
         .add::<ServerMetadata>()
+        .constants(metadata::typescript())
         // step_up
         .add::<StepUpRequirement>()
         // jwt
-        .add::<TokenType>()
-        .add::<Claim>()
-        .add::<Algorithm>()
+        .closed::<TokenType>()
+        .closed::<Claim>()
+        .closed::<Algorithm>()
         .add::<JwkSet>()
         .add::<Jwk>()
-        .add::<KeyType>()
-        .add::<KeyUse>()
+        .closed::<KeyType>()
+        .closed::<KeyUse>()
         .add::<KeyOperation>()
         // oauth
-        .add::<GrantType>()
-        .add::<ResponseType>()
-        .add::<ResponseMode>()
-        .add::<ClientAuthMethod>()
-        .add::<SubjectType>()
-        .add::<CodeChallengeMethod>()
-        .add::<Prompt>()
-        .add::<Scope>()
+        .closed::<GrantType>()
+        .closed::<ResponseType>()
+        .closed::<ResponseMode>()
+        .closed::<ClientAuthMethod>()
+        .closed::<SubjectType>()
+        .closed::<CodeChallengeMethod>()
+        .closed::<Prompt>()
+        .closed::<Scope>()
         .add::<ErrorCode>()
         .add::<ErrorResponse>()
+        .add::<TokenResponse>()
+        .add::<PushedAuthorization>()
         // challenge
         .add::<BearerChallenge>()
         .add::<BearerError>()
         // sdk
         .add::<SdkError>()
-        .add::<ErrorCategory>()
-        .add::<ErrorReason>()
+        .closed::<ErrorCategory>()
+        .closed::<ErrorReason>()
+        // constants
+        .constants(constants::typescript())
         .finish()
 }
 

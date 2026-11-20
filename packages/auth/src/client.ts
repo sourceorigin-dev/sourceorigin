@@ -3,22 +3,24 @@
  * then refresh, revocation, `UserInfo` and logout.
  */
 import * as base64 from './base64.ts';
-import { asciiLowercase, stepUpRequirement } from './challenge.ts';
+import { asciiLowercase, stepUpParameters, stepUpRequirement } from './challenge.ts';
 import { CLIENT_ID, scope, userInfo } from './claims.ts';
 import { AuthError } from './error.ts';
 import type { Reply } from './http.ts';
 import type { Issuer } from './issuer.ts';
 import * as json from './json.ts';
-import type {
-  ErrorResponse,
-  IdTokenClaims,
-  Prompt,
-  StepUpRequirement,
-  UserInfo
+import {
+  ACR,
+  type ErrorResponse,
+  type IdTokenClaims,
+  type Prompt,
+  type PushedAuthorization,
+  type StepUpRequirement,
+  type TokenResponse,
+  type UserInfo
 } from './protocol.ts';
 import { Scopes } from './scope.ts';
 import type { IdToken, LogoutToken } from './token.ts';
-import { ACR } from './vocabulary.ts';
 
 /** Random bytes in `state`, `nonce` and the PKCE verifier: 256 bits, a 43-character verifier. */
 const RANDOM_BYTES = 32;
@@ -118,7 +120,7 @@ const errorResponse: json.Decoder<ErrorResponse> = json.object({
   )
 });
 
-const tokenResponse = json.object({
+const tokenResponse: json.Decoder<TokenResponse> = json.object({
   access_token: json.string,
   token_type: json.string,
   expires_in: json.integer(0, 0xffff_ffff),
@@ -127,24 +129,16 @@ const tokenResponse = json.object({
   refresh_token: json.optional(json.string)
 });
 
-const pushedAuthorization = json.object({ request_uri: json.matching(/^\S+$/, 'a request URI') });
+// `expires_in` is not needed: the browser is redirected at once.
+const pushedAuthorization: json.Decoder<PushedAuthorization> = json.object({
+  request_uri: json.matching(/^\S+$/, 'a request URI')
+});
 
 /** Form-encodes a value, as RFC 6749 §2.3.1 asks for Basic credentials. */
 function formEncoded(value: string): string {
   return new URLSearchParams({ value }).toString().slice('value='.length);
 }
 
-/**
- * Signs users in with one issuer as one client, from {@link Issuer.client}:
- *
- * ```ts
- * const client = issuer.client({ clientId: 'notes-web', clientSecret, redirectUri });
- * // 1. Redirect the browser to `url`; keep `pending` server-side under its state.
- * const { url, pending } = await client.authorize({ scopes: ['profile'] });
- * // 2. On the callback, take the pending login back, once, and complete it.
- * const tokens = await client.complete(pending, new URL(request.url).searchParams);
- * ```
- */
 /**
  * An RP-initiated logout request ({@link Client.logout}): the fields the browser posts
  * to auth's end-session endpoint, as a form, so the ID token naming the sign-in never
@@ -188,6 +182,17 @@ export class LogoutRequest {
   }
 }
 
+/**
+ * Signs users in with one issuer as one client, from {@link Issuer.client}:
+ *
+ * ```ts
+ * const client = issuer.client({ clientId: 'notes-web', clientSecret, redirectUri });
+ * // 1. Redirect the browser to `url`; keep `pending` server-side under its state.
+ * const { url, pending } = await client.authorize({ scopes: ['profile'] });
+ * // 2. On the callback, take the pending login back, once, and complete it.
+ * const tokens = await client.complete(pending, new URL(request.url).searchParams);
+ * ```
+ */
 export class Client {
   /** The issuer it signs in with. */
   readonly issuer: Issuer;
@@ -255,8 +260,7 @@ export class Client {
       code_challenge_method: 'S256'
     };
     if (request.prompt !== undefined) parameters.prompt = request.prompt;
-    if (pending.stepUp.acr_values !== undefined) parameters.acr_values = pending.stepUp.acr_values;
-    if (pending.stepUp.max_age !== undefined) parameters.max_age = String(pending.stepUp.max_age);
+    for (const [name, value] of stepUpParameters(pending.stepUp)) parameters[name] = value;
     if (request.idTokenHint !== undefined) parameters.id_token_hint = request.idTokenHint.token;
     const url = new URL(this.issuer.metadata.authorization_endpoint);
     const endpoint = this.issuer.metadata.pushed_authorization_request_endpoint;
@@ -467,7 +471,7 @@ export class Client {
     const tokens: Tokens = {
       accessToken: response.access_token,
       expiresAt: this.issuer.clock() + response.expires_in * 1000,
-      scopes: Scopes.parse(response.scope) ?? Scopes.checked([])
+      scopes: Scopes.fromWire(response.scope)
     };
     if (response.id_token !== undefined) {
       tokens.idToken = await this.issuer.tokens.idToken(

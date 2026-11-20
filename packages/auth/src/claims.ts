@@ -4,20 +4,21 @@
  * canonical UUIDv7, unknown `amr` values dropped and an unknown `acr` read as none.
  */
 import * as json from './json.ts';
-import type {
-  AccessTokenClaims,
-  Actor,
-  Audience,
-  IdTokenClaims,
-  LogoutEvents,
-  LogoutTokenClaims,
-  UserInfo
+import {
+  type AccessTokenClaims,
+  ACR,
+  type Actor,
+  AMR,
+  type Audience,
+  type Confirmation,
+  BACKCHANNEL_LOGOUT_EVENT,
+  type IdTokenClaims,
+  type LogoutEvents,
+  type LogoutTokenClaims,
+  MAX_IDENTIFIER_BYTES,
+  type UserInfo
 } from './protocol.ts';
 import { Scopes } from './scope.ts';
-import { ACR, AMR } from './vocabulary.ts';
-
-/** The `events` member every logout token carries (OIDC Back-Channel Logout 1.0 §2.4). */
-export const BACKCHANNEL_LOGOUT_EVENT = 'http://schemas.openid.net/event/backchannel-logout';
 
 /** A canonical lower-case UUIDv7, as account, session and token IDs are. */
 export const uuid = json.matching(
@@ -25,8 +26,8 @@ export const uuid = json.matching(
   'a UUIDv7'
 );
 
-/** A registered client's ID: 1 to 64 ASCII letters, digits, `.`, `_` or `-`. */
-export const CLIENT_ID = /^[A-Za-z0-9._-]{1,64}$/;
+/** A registered client's ID: 1 to `MAX_IDENTIFIER_BYTES` ASCII letters, digits, `.`, `_` or `-`. */
+export const CLIENT_ID = new RegExp(`^[A-Za-z0-9._-]{1,${String(MAX_IDENTIFIER_BYTES)}}$`);
 const clientId = json.matching(CLIENT_ID, 'a client ID');
 
 /** `aud`: one string or an array (RFC 7519 §4.1.3). */
@@ -39,6 +40,9 @@ export const scope = json.refine('a scope list', (value) => Scopes.parse(value)?
 /** `act` (RFC 8693 §4.1), nested for delegation chains. */
 const actor: json.Decoder<Actor> = (value, path) =>
   json.object({ sub: json.string, act: json.optional(actor) })(value, path);
+
+/** `cnf` (RFC 7800), naming the key a token is bound to. */
+const confirmation: json.Decoder<Confirmation> = json.object({ jkt: json.optional(json.string) });
 
 /** How the session behind a token authenticated. An empty `amr` is left out, as Rust writes it. */
 const authentication = {
@@ -72,7 +76,7 @@ export const accessTokenClaims: json.Decoder<AccessTokenClaims> = json.object({
   exp: json.seconds,
   nbf: json.optional(json.seconds),
   act: json.optional(actor),
-  cnf: json.optional(json.object({ jkt: json.optional(json.string) })),
+  cnf: json.optional(confirmation),
   ...authentication,
   ...profile
 });

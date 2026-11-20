@@ -1,5 +1,6 @@
 // Generated from sourceorigin_common::protocol by `just sdk-types`. Do not edit.
-// The wire types auth and every SDK share; docs/dev/architecture/sdk.md describes them.
+// The wire types and constants auth and every SDK share; docs/dev/architecture/sdk.md
+// describes them.
 
 /**
  * Claims of an access token (RFC 9068), signed with `typ: at+jwt`. `X` holds
@@ -339,7 +340,22 @@ jkt?: string, };
 
 export type Amr = "pop" | "mfa" | "user" | "fed";
 
+/**
+ * Every `Amr` this version knows.
+ */
+export const AMR: readonly Amr[] = ["pop", "mfa", "user", "fed"];
+
 export type Acr = "phr" | "urn:sourceorigin:acr:social";
+
+/**
+ * Every `Acr` this version knows.
+ */
+export const ACR: readonly Acr[] = ["phr", "urn:sourceorigin:acr:social"];
+
+/**
+ * The `events` member every logout token carries (OIDC Back-Channel Logout 1.0 §2.4).
+ */
+export const BACKCHANNEL_LOGOUT_EVENT = "http://schemas.openid.net/event/backchannel-logout";
 
 /**
  * The metadata Origin Auth publishes. Every field it sends is required, except the
@@ -476,6 +492,11 @@ backchannel_logout_supported: boolean,
 backchannel_logout_session_supported: boolean, };
 
 /**
+ * Path of the OIDC Discovery document.
+ */
+export const OPENID_CONFIGURATION_PATH = "/.well-known/openid-configuration";
+
+/**
  * What a protected operation needs from the user's authentication: an `acr` to
  * meet, a maximum age of `auth_time`, or both. The default needs nothing.
  *
@@ -494,9 +515,24 @@ max_age?: number, };
 
 export type TokenType = "at+jwt" | "JWT" | "logout+jwt";
 
+/**
+ * Every `TokenType` this version knows.
+ */
+export const TOKEN_TYPES: readonly TokenType[] = ["at+jwt", "JWT", "logout+jwt"];
+
 export type Claim = "iss" | "sub" | "aud" | "iat" | "exp" | "nbf" | "sid" | "auth_time" | "amr" | "acr" | "act" | "cnf" | "azp" | "name" | "preferred_username" | "picture" | "email" | "email_verified" | "profile_version" | "client_id" | "jti" | "scope" | "nonce";
 
+/**
+ * Every `Claim` this version knows.
+ */
+export const CLAIMS: readonly Claim[] = ["iss", "sub", "aud", "iat", "exp", "nbf", "sid", "auth_time", "amr", "acr", "act", "cnf", "azp", "name", "preferred_username", "picture", "email", "email_verified", "profile_version", "client_id", "jti", "scope", "nonce"];
+
 export type Algorithm = "RS256";
+
+/**
+ * Every `Algorithm` this version knows.
+ */
+export const ALGORITHMS: readonly Algorithm[] = ["RS256"];
 
 /**
  * A JSON Web Key Set (RFC 7517 §5). Auth publishes `JwkSet<Jwk>`. Verifiers read the
@@ -546,25 +582,75 @@ use?: KeyUse, };
 
 export type KeyType = "RSA";
 
+/**
+ * Every `KeyType` this version knows.
+ */
+export const KEY_TYPES: readonly KeyType[] = ["RSA"];
+
 export type KeyUse = "sig";
+
+/**
+ * Every `KeyUse` this version knows.
+ */
+export const KEY_USES: readonly KeyUse[] = ["sig"];
 
 export type KeyOperation = "sign" | "verify" | "encrypt" | "decrypt" | "wrapKey" | "unwrapKey" | "deriveKey" | "deriveBits" | (string & Record<never, never>);
 
 export type GrantType = "authorization_code" | "refresh_token";
 
+/**
+ * Every `GrantType` this version knows.
+ */
+export const GRANT_TYPES: readonly GrantType[] = ["authorization_code", "refresh_token"];
+
 export type ResponseType = "code";
+
+/**
+ * Every `ResponseType` this version knows.
+ */
+export const RESPONSE_TYPES: readonly ResponseType[] = ["code"];
 
 export type ResponseMode = "query";
 
+/**
+ * Every `ResponseMode` this version knows.
+ */
+export const RESPONSE_MODES: readonly ResponseMode[] = ["query"];
+
 export type ClientAuthMethod = "none" | "client_secret_basic";
+
+/**
+ * Every `ClientAuthMethod` this version knows.
+ */
+export const CLIENT_AUTH_METHODS: readonly ClientAuthMethod[] = ["none", "client_secret_basic"];
 
 export type SubjectType = "public";
 
+/**
+ * Every `SubjectType` this version knows.
+ */
+export const SUBJECT_TYPES: readonly SubjectType[] = ["public"];
+
 export type CodeChallengeMethod = "S256";
+
+/**
+ * Every `CodeChallengeMethod` this version knows.
+ */
+export const CODE_CHALLENGE_METHODS: readonly CodeChallengeMethod[] = ["S256"];
 
 export type Prompt = "none" | "login" | "consent" | "select_account";
 
+/**
+ * Every `Prompt` this version knows.
+ */
+export const PROMPTS: readonly Prompt[] = ["none", "login", "consent", "select_account"];
+
 export type Scope = "openid" | "profile" | "email" | "offline_access";
+
+/**
+ * Every `Scope` this version knows.
+ */
+export const SCOPES: readonly Scope[] = ["openid", "profile", "email", "offline_access"];
 
 export type ErrorCode = "invalid_request" | "invalid_client" | "unauthorized_client" | "invalid_grant" | "invalid_scope" | "invalid_target" | "invalid_token" | "insufficient_scope" | "unsupported_response_type" | "unsupported_grant_type" | "login_required" | "consent_required" | "unmet_authentication_requirements" | "request_not_supported" | "invalid_request_uri" | "access_denied" | "server_error" | (string & Record<never, never>);
 
@@ -580,6 +666,52 @@ error: ErrorCode,
  * What the client should fix.
  */
 error_description?: string, };
+
+/**
+ * The token endpoint's success response (RFC 6749 §5.1), omitting the tokens the
+ * grant did not issue.
+ */
+export type TokenResponse = {
+/**
+ * Short-lived signed bearer token for the resource audience.
+ */
+access_token: string,
+/**
+ * The access token's HTTP authentication scheme: auth sends `Bearer`, which
+ * clients compare without regard to case.
+ */
+token_type: string,
+/**
+ * Access token lifetime, in seconds.
+ */
+expires_in: number,
+/**
+ * Granted scopes.
+ */
+scope: string,
+/**
+ * Signed client-bound identity token, with the `openid` scope.
+ */
+id_token?: string,
+/**
+ * Opaque refresh token: the first of a grant refresh policy permits, or the
+ * replacement of a rotated one. A client that keeps its token gets none.
+ */
+refresh_token?: string, };
+
+/**
+ * The pushed authorization endpoint's success response (RFC 9126 §2.2).
+ */
+export type PushedAuthorization = {
+/**
+ * What the browser brings to the authorization endpoint, with `client_id`.
+ */
+request_uri: string,
+/**
+ * Seconds until `request_uri` expires. Auth always sends it; clients redirect
+ * the browser at once, so they ignore it.
+ */
+expires_in?: number, };
 
 /**
  * One `Bearer` challenge. Without `error` it means no token was sent (RFC 6750 §3.1).
@@ -628,4 +760,194 @@ reason?: ErrorReason, };
 
 export type ErrorCategory = "discovery" | "keys" | "invalid_token" | "insufficient_scope" | "insufficient_user_authentication" | "callback" | "oauth" | "network";
 
+/**
+ * Every `ErrorCategory` this version knows.
+ */
+export const ERROR_CATEGORIES: readonly ErrorCategory[] = ["discovery", "keys", "invalid_token", "insufficient_scope", "insufficient_user_authentication", "callback", "oauth", "network"];
+
 export type ErrorReason = "issuer_mismatch" | "invalid_document" | "pkce_unsupported" | "duplicate_key_id" | "unusable_key" | "malformed" | "unsupported_critical_header" | "wrong_type" | "unsupported_algorithm" | "unknown_key" | "bad_signature" | "wrong_audience" | "expired" | "not_yet_valid" | "issued_in_future" | "lifetime_too_long" | "invalid_claims" | "nonce_mismatch" | "wrong_authorized_party" | "authentication_too_old" | "subject_mismatch" | "authentication_changed" | "state_mismatch" | "missing_issuer" | "missing_code";
+
+/**
+ * Every `ErrorReason` this version knows.
+ */
+export const ERROR_REASONS: readonly ErrorReason[] = ["issuer_mismatch", "invalid_document", "pkce_unsupported", "duplicate_key_id", "unusable_key", "malformed", "unsupported_critical_header", "wrong_type", "unsupported_algorithm", "unknown_key", "bad_signature", "wrong_audience", "expired", "not_yet_valid", "issued_in_future", "lifetime_too_long", "invalid_claims", "nonce_mismatch", "wrong_authorized_party", "authentication_too_old", "subject_mismatch", "authentication_changed", "state_mismatch", "missing_issuer", "missing_code"];
+
+/**
+ * Clock skew tolerated on `exp`, `nbf`, `iat` and `auth_time`. Auth tolerates the
+ * same on `iat` alone, and none on `exp` or `max_age`.
+ *
+ * In milliseconds.
+ */
+export const LEEWAY: number = 30000;
+
+/**
+ * Longest a logout token may be valid: auth signs each delivery attempt for two
+ * minutes, so a longer-lived token was not made for one attempt.
+ *
+ * In milliseconds.
+ */
+export const MAX_LOGOUT_LIFETIME: number = 600000;
+
+/**
+ * Longest compact token read, in bytes: decoding is bounded before it starts.
+ */
+export const MAX_TOKEN_BYTES: number = 16384;
+
+/**
+ * Shortest RSA modulus a key may have, in bits (RFC 7518 §3.3).
+ */
+export const MIN_MODULUS_BITS: number = 2048;
+
+/**
+ * Longest RSA modulus a key may have, in bits, as aws-lc verifies.
+ */
+export const MAX_MODULUS_BITS: number = 8192;
+
+/**
+ * `typ` media types may carry this prefix (RFC 7515 §4.1.9).
+ */
+export const MEDIA_TYPE_PREFIX = "application/";
+
+/**
+ * Shortest time between two key fetches, whatever triggers them. Bounds how often
+ * unknown key IDs or an outage can make the cache call the issuer.
+ *
+ * In milliseconds.
+ */
+export const MIN_KEY_FETCH_INTERVAL: number = 30000;
+
+/**
+ * How long keys keep verifying once they stop being fresh, while every refresh
+ * fails. Stale keys may still trust a revoked key, so they get the same bound
+ * auth gives its own keys.
+ *
+ * In milliseconds.
+ */
+export const KEYS_STALE_AFTER: number = 900000;
+
+/**
+ * How long fetched keys stay fresh when the response sets no `max-age`.
+ *
+ * In milliseconds.
+ */
+export const DEFAULT_KEYS_LIFETIME: number = 3600000;
+
+/**
+ * Longest time fetched keys stay fresh, whatever `max-age` says.
+ *
+ * In milliseconds.
+ */
+export const MAX_KEYS_LIFETIME: number = 86400000;
+
+/**
+ * Most bytes read from any response. Metadata, key sets and token responses are a
+ * few kilobytes.
+ */
+export const MAX_RESPONSE_BYTES: number = 262144;
+
+/**
+ * Longest a request may take, from connecting or sending it to its last body
+ * byte, whatever the HTTP client's own timeout.
+ *
+ * In milliseconds.
+ */
+export const REQUEST_DEADLINE: number = 10000;
+
+/**
+ * Access tokens this close to expiry are refreshed first.
+ *
+ * In milliseconds.
+ */
+export const REFRESH_MARGIN: number = 30000;
+
+/**
+ * Longest a refresh may take, auth's response and its ID token check included.
+ *
+ * In milliseconds.
+ */
+export const REFRESH_DEADLINE: number = 20000;
+
+/**
+ * Longest a session's revocation may hold up the sign-in or logout ending it,
+ * whatever the HTTP client's own timeout.
+ *
+ * In milliseconds.
+ */
+export const REVOCATION_DEADLINE: number = 5000;
+
+/**
+ * How long after a step-up sign-in the browser has to follow the redirect back.
+ * A refusal within it is that step-up's one retry; a later one is a new action.
+ *
+ * In milliseconds.
+ */
+export const STEP_UP_RETRY: number = 60000;
+
+/**
+ * How long a login may take at auth.
+ *
+ * In milliseconds.
+ */
+export const PENDING_LOGIN_LIFETIME: number = 600000;
+
+/**
+ * Default session lifetime.
+ *
+ * In milliseconds.
+ */
+export const DEFAULT_SESSION_LIFETIME: number = 43200000;
+
+/**
+ * Most bytes in a `return_to` path.
+ */
+export const MAX_RETURN_TO_BYTES: number = 2048;
+
+/**
+ * Longest client ID and scope, in bytes.
+ */
+export const MAX_IDENTIFIER_BYTES: number = 64;
+
+/**
+ * Starts the name of every login cookie, which goes on with the client ID, so
+ * apps sharing a host keep their own. `__Host-` makes browsers require `Secure`,
+ * `Path=/` and no `Domain`, so no other host can set or read them.
+ */
+export const COOKIE_PREFIX = "__Host-sourceorigin-";
+
+/**
+ * Most bytes in a cookie's name, `=` and value: browsers drop larger cookies.
+ */
+export const MAX_COOKIE_BYTES: number = 4096;
+
+/**
+ * Cookie slots for logins in progress: each login waits in the slot its `state`
+ * hashes to, replacing any login there. Responses to logins started at once cannot
+ * see each other's cookies, so only fixed slots bound how many a browser keeps.
+ */
+export const PENDING_LOGIN_SLOTS: number = 3;
+
+/**
+ * Most bytes in one pending login cookie's name and value, so all slots together
+ * take at most 3000 bytes. Common proxies refuse a `Cookie` header over 8 KiB, which
+ * they share with the session, up to 4 KiB, and the app's own cookies. A login
+ * whose `return_to` would outgrow it returns to the home page instead.
+ */
+export const MAX_PENDING_COOKIE_BYTES: number = 1000;
+
+/**
+ * Bytes in a cookie key, and in the AES-256 keys derived from it.
+ */
+export const COOKIE_KEY_BYTES: number = 32;
+
+/**
+ * The HKDF `info` of the key sealing sessions. Each names the format version: a new
+ * format gets a new `info`, so cookies of the old one no longer open, and every SDK
+ * uses the same, so their cookies interoperate.
+ */
+export const SESSION_SEAL_INFO = "sourceorigin-auth session v1";
+
+/**
+ * The HKDF `info` of the key sealing pending logins, versioned as
+ * `SESSION_SEAL_INFO` is.
+ */
+export const PENDING_LOGIN_SEAL_INFO = "sourceorigin-auth pending login v1";

@@ -1,7 +1,7 @@
 //! Validated tokens, the checks they pass, and why a token is rejected.
 
-use crate::{Issuer, KeyError, LEEWAY, keys::Jws, scope::ScopeSet};
-use chrono::{DateTime, TimeDelta, Utc};
+use crate::{Issuer, KeyError, keys::Jws, scope::ScopeSet};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use sourceorigin_common::{
     ClientId, SessionId, TokenId, UserId,
@@ -11,6 +11,7 @@ use sourceorigin_common::{
             AccessTokenClaims, Acr, Actor, Amr, Audience, Confirmation, IdTokenClaims,
             LogoutTokenClaims, ProfileClaims,
         },
+        constants::{LEEWAY, MAX_LOGOUT_LIFETIME},
         jwt::{Algorithm, Claim, TokenType},
         oauth::Scopes,
         sdk::{ErrorCategory, ErrorReason, SdkError},
@@ -622,10 +623,6 @@ impl IdToken {
     }
 }
 
-/// Longest a logout token may be valid: auth signs each delivery attempt for two
-/// minutes, so a longer-lived token was not made for one attempt.
-const MAX_LOGOUT_LIFETIME: TimeDelta = TimeDelta::minutes(10);
-
 /// Which sessions a back-channel logout ends.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum LogoutScope {
@@ -730,63 +727,53 @@ pub(crate) trait RegisteredClaims: DeserializeOwned {
     }
 }
 
-impl<X: DeserializeOwned> RegisteredClaims for AccessTokenClaims<X> {
-    const EXCLUSIVE_AUDIENCE: bool = false;
-
-    fn issuer(&self) -> &str {
-        &self.iss
-    }
-    fn audience(&self) -> &Audience {
-        &self.aud
-    }
-    fn expires_at(&self) -> DateTime<Utc> {
-        self.exp
-    }
-    fn not_before(&self) -> Option<DateTime<Utc>> {
-        self.nbf
-    }
-    fn issued_at(&self) -> DateTime<Utc> {
-        self.iat
-    }
-}
-
-impl RegisteredClaims for IdTokenClaims {
-    const EXCLUSIVE_AUDIENCE: bool = true;
-
-    fn issuer(&self) -> &str {
-        &self.iss
-    }
-    fn audience(&self) -> &Audience {
-        &self.aud
-    }
-    fn expires_at(&self) -> DateTime<Utc> {
-        self.exp
-    }
-    fn not_before(&self) -> Option<DateTime<Utc>> {
-        self.nbf
-    }
-    fn issued_at(&self) -> DateTime<Utc> {
-        self.iat
-    }
-}
-
-impl RegisteredClaims for LogoutTokenClaims {
-    const EXCLUSIVE_AUDIENCE: bool = true;
-
-    fn issuer(&self) -> &str {
-        &self.iss
-    }
-    fn audience(&self) -> &Audience {
-        &self.aud
-    }
-    fn expires_at(&self) -> DateTime<Utc> {
-        self.exp
-    }
-    fn not_before(&self) -> Option<DateTime<Utc>> {
+/// Implements [`RegisteredClaims`] for claims types whose registered claims are their
+/// `iss`, `aud`, `exp` and `iat` fields. Each names its `nbf` field, or `none` for a
+/// type without one, so no type can leave the not-before check out by omission.
+macro_rules! registered_claims {
+    (@not_before $claims:ident, none) => {
         None
+    };
+    (@not_before $claims:ident, $nbf:ident) => {
+        $claims.$nbf
+    };
+    ($(
+        impl $([$($generics:tt)*])? for $claims:ty {
+            exclusive_audience: $exclusive:literal, not_before: $nbf:ident
+        }
+    )+) => {$(
+        impl$(<$($generics)*>)? RegisteredClaims for $claims {
+            const EXCLUSIVE_AUDIENCE: bool = $exclusive;
+
+            fn issuer(&self) -> &str {
+                &self.iss
+            }
+            fn audience(&self) -> &Audience {
+                &self.aud
+            }
+            fn expires_at(&self) -> DateTime<Utc> {
+                self.exp
+            }
+            fn not_before(&self) -> Option<DateTime<Utc>> {
+                registered_claims!(@not_before self, $nbf)
+            }
+            fn issued_at(&self) -> DateTime<Utc> {
+                self.iat
+            }
+        }
+    )+};
+}
+
+registered_claims! {
+    impl [X: DeserializeOwned] for AccessTokenClaims<X> {
+        exclusive_audience: false, not_before: nbf
     }
-    fn issued_at(&self) -> DateTime<Utc> {
-        self.iat
+    impl for IdTokenClaims {
+        exclusive_audience: true, not_before: nbf
+    }
+    // `LogoutTokenClaims` has no `nbf`.
+    impl for LogoutTokenClaims {
+        exclusive_audience: true, not_before: none
     }
 }
 
@@ -849,10 +836,7 @@ impl Issuer {
                 .check(None, auth_time, self.now() - LEEWAY)
                 .is_err()
             {
-                return Err(TokenError::AuthenticationTooOld {
-                    auth_time: claims.authentication.auth_time,
-                    max_age,
-                });
+                return Err(TokenError::AuthenticationTooOld { auth_time, max_age });
             }
         }
         Ok(IdToken {

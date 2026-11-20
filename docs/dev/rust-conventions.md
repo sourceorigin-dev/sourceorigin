@@ -9,11 +9,12 @@ Keep implementations simple. Follow neighbouring modules and share repeated logi
   providers, `Personal<T>`, error-chain formatting, `str_enum!`, the client
   registration types (`clients`), and under `protocol` the wire types shared with
   the SDKs: token claims, metadata, JWK sets, OAuth/OIDC vocabulary and errors,
-  bearer challenges, step-up requirements, SDK error codes, the bodies of auth's
-  settings API, the same-origin rule for browser requests, and the browser
-  isolation headers every response of auth and sourceorigin.dev carries
-  (`isolation`). The rest are features: `admin` (the views of administration, which the admin dashboard
-  shows, the CLI prints as JSON and the database crate decodes into),
+  bearer challenges, step-up requirements, SDK error codes and the constants both
+  SDKs apply, the bodies of auth's settings API, the same-origin rule for browser
+  requests, and the browser isolation headers every response of auth and
+  sourceorigin.dev carries (`isolation`). The rest are features: `admin` (the
+  views of administration, which the admin dashboard shows, the CLI prints as
+  JSON and the database crate decodes into),
   `client-spans` (`SendTraced`, client spans around `reqwest` requests, for auth
   and the SDK), `config` (environment variables, validated origins, secret
   references), `email` (address normalization), `events` (domain events),

@@ -44,6 +44,14 @@ export class Scopes<S extends string = string> {
     return new Scopes(scopes);
   }
 
+  /**
+   * @internal Scopes from a list a decoder already checked, such as a token's `scope`:
+   * one that does not parse reads as none.
+   */
+  static fromWire(value: string): Scopes {
+    return Scopes.parse(value) ?? new Scopes([]);
+  }
+
   /** Whether the set holds `scope`. */
   has(scope: string): scope is S {
     return this.all.some((held) => held === scope);

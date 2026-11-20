@@ -32,8 +32,9 @@ its contract:
 - `step_up::StepUpRequirement`, what an operation needs from the user's
   authentication.
 - `jwt`: `typ` values, claim names, and `Jwk` and `JwkSet`.
-- `oauth`: grant, response and scope vocabulary, `Scopes`, `ErrorCode` and
-  `ErrorResponse`.
+- `oauth`: grant, response and scope vocabulary, `Scopes`, `ErrorCode`,
+  `ErrorResponse`, and the token and pushed authorization endpoints' answers,
+  `TokenResponse` and `PushedAuthorization`.
 - `challenge::BearerChallenge`, the `WWW-Authenticate` value.
 - `sdk`: the error codes below.
 
@@ -41,8 +42,17 @@ Auth issues tokens and documents by serializing these types, and the Rust SDK
 deserializes them, so the two cannot disagree. An SDK in another language mirrors
 them and is held to them by the vectors. The TypeScript SDK's mirror is generated:
 `sourceorigin-common`'s tests write `packages/auth/src/protocol.ts` from these types with
-ts-rs, vocabularies as unions of their spellings, and `just test` fails while it is
+ts-rs, vocabularies as unions of their spellings, each closed one with the list of
+its spellings its decoders check values against, and `just test` fails while it is
 stale (`just sdk-types` rewrites it).
+
+Both SDKs also take their limits, lifetimes and names from one place,
+`sourceorigin_common::protocol::constants`: the clock leeway, the key cache's
+intervals, the HTTP and token size limits, the RSA key sizes, and the login
+cookies' prefix, sizes, lifetimes and sealing `info` strings. Each constant
+declared with `sdk_constants!`, there or beside its wire type, is written into
+`protocol.ts` too, durations in milliseconds, so the TypeScript SDK reads the same
+values.
 
 ## Configuration
 

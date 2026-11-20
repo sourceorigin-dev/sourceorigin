@@ -283,8 +283,10 @@ pub struct IdTokenClaims {
     pub profile: ProfileClaims,
 }
 
-/// The `events` member every logout token carries (OIDC Back-Channel Logout 1.0 §2.4).
-pub const BACKCHANNEL_LOGOUT_EVENT: &str = "http://schemas.openid.net/event/backchannel-logout";
+super::sdk_constants! {
+    /// The `events` member every logout token carries (OIDC Back-Channel Logout 1.0 §2.4).
+    pub const BACKCHANNEL_LOGOUT_EVENT: &str = "http://schemas.openid.net/event/backchannel-logout";
+}
 
 /// A logout token's `events` claim, which must name [`BACKCHANNEL_LOGOUT_EVENT`].
 /// Every member's value must be a JSON object (RFC 8417 §2.2); their contents are
@@ -415,19 +417,15 @@ mod tests {
     /// no target.
     #[test]
     fn selection_takes_the_first_known_value() {
-        assert_eq!(
-            Acr::select("urn:sourceorigin:acr:social phr"),
-            Some(Acr::Social)
-        );
-        assert_eq!(
-            Acr::select("phr urn:sourceorigin:acr:social"),
-            Some(Acr::PhishingResistant)
-        );
-        assert_eq!(
-            Acr::select("urn:example:gold  phr"),
-            Some(Acr::PhishingResistant)
-        );
-        assert_eq!(Acr::select("urn:example:gold 2"), None);
-        assert_eq!(Acr::select(""), None);
+        let phr = Some(Acr::PhishingResistant);
+        for (values, selected) in [
+            ("urn:sourceorigin:acr:social phr", Some(Acr::Social)),
+            ("phr urn:sourceorigin:acr:social", phr),
+            ("urn:example:gold  phr", phr),
+            ("urn:example:gold 2", None),
+            ("", None),
+        ] {
+            assert_eq!(Acr::select(values), selected, "{values:?}");
+        }
     }
 }

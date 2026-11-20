@@ -12,52 +12,34 @@
  * access token's lifetime even while auth is unreachable.
  */
 import * as base64 from './base64.ts';
-import { readAcrValues, readMaxAge } from './challenge.ts';
+import { readAcrValues, readMaxAge, stepUpParameters } from './challenge.ts';
 import type { Client } from './client.ts';
 import { AuthError } from './error.ts';
-import { Http } from './http.ts';
-import type { IdTokenClaims, StepUpRequirement } from './protocol.ts';
+import { Http, TIMED_OUT } from './http.ts';
+import {
+  COOKIE_PREFIX,
+  DEFAULT_SESSION_LIFETIME,
+  type IdTokenClaims,
+  MAX_COOKIE_BYTES,
+  MAX_PENDING_COOKIE_BYTES,
+  MAX_RETURN_TO_BYTES,
+  PENDING_LOGIN_LIFETIME,
+  PENDING_LOGIN_SLOTS,
+  REFRESH_DEADLINE,
+  REFRESH_MARGIN,
+  REVOCATION_DEADLINE,
+  STEP_UP_RETRY,
+  type StepUpRequirement
+} from './protocol.ts';
 import { Scopes } from './scope.ts';
 import type { CookieKey } from './seal.ts';
 import { type PendingAuthorization, StoredLogin, pendingAuthorization } from './session.ts';
-import { REFRESH_MARGIN, STEP_UP_RETRY } from './time.ts';
 import { AuthenticatedToken, type LogoutToken } from './token.ts';
 
-/** How long a login may take at auth. */
-const PENDING_LIFETIME = 10 * 60_000;
-/** Default session lifetime. */
-const DEFAULT_SESSION_LIFETIME = 12 * 60 * 60_000;
-/** Longest a refresh may take, auth's response and its ID token check included. */
-const REFRESH_DEADLINE = 20_000;
-/**
- * Longest a session's revocation may hold up the sign-in or logout ending it,
- * whatever the injected `fetch` does with its own timeout.
- */
-const REVOCATION_DEADLINE = 5_000;
 /** Longest back-channel logout request read: a logout token is at most 16 KiB. */
 const MAX_LOGOUT_REQUEST = 64 * 1024;
 /** Methods that must not change anything, so any origin may send them with the session cookie. */
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS', 'TRACE']);
-/** Most bytes in a `return_to` path. */
-const MAX_RETURN_TO_BYTES = 2048;
-/** Most bytes in a cookie's name, `=` and value: browsers drop larger cookies. */
-const MAX_COOKIE_BYTES = 4096;
-/**
- * Cookie slots for logins in progress: each login waits in the slot its `state`
- * hashes to, replacing any login there. Responses to logins started at once cannot
- * see each other's cookies, so only fixed slots bound how many a browser keeps.
- */
-const PENDING_SLOTS = 3;
-/**
- * Most bytes in one pending login cookie's name and value, so all slots together take
- * at most 3000 bytes. Common proxies refuse a `Cookie` header over 8 KiB, which they
- * share with the session, up to 4 KiB, and the app's own cookies. A login whose
- * `return_to` would outgrow it returns to the home page instead.
- */
-const MAX_PENDING_COOKIE_BYTES = 1000;
-
-/** What {@link Promise.race} resolves to when a deadline passes first. */
-const TIMED_OUT: unique symbol = Symbol('timed out');
 
 /** How {@link Login} signs users in and keeps their sessions. */
 export type LoginOptions = {
@@ -233,7 +215,7 @@ export class Login {
     // Client IDs are letters, digits, `.`, `_` and `-`, all valid in a cookie name,
     // and each app sharing a host keeps its own cookies. `__Host-` makes browsers
     // require `Secure`, `Path=/` and no `Domain`, so no other host can set or read them.
-    const prefix = `__Host-sourceorigin-${client.config.clientId}`;
+    const prefix = `${COOKIE_PREFIX}${client.config.clientId}`;
     this.#sessionCookie = `${prefix}-session`;
     this.#stepUpCookie = `${prefix}-step-up`;
     this.#pendingCookie = `${prefix}-login-`;
@@ -360,8 +342,7 @@ export class Login {
     const returnTo = Login.#returnTo(Login.#page(request));
     if (returnTo !== undefined) query.append('return_to', returnTo);
     if (stepUp !== undefined) {
-      if (stepUp.acr_values !== undefined) query.append('acr_values', stepUp.acr_values);
-      if (stepUp.max_age !== undefined) query.append('max_age', String(stepUp.max_age));
+      for (const [name, value] of stepUpParameters(stepUp)) query.append(name, value);
       query.append('step_up', 'true');
     }
     return Login.#redirect(`${this.#mount}/login?${query.toString()}`);
@@ -496,6 +477,11 @@ export class Login {
     request: Request,
     cookies: Map<string, string>
   ): Promise<SignedIn | 'unavailable' | null> {
+    /** Ends the session: the response clears its cookie, and nobody is signed in. */
+    const end = () => {
+      cookies.set(this.#sessionCookie, Login.#clearCookie(this.#sessionCookie));
+      return null;
+    };
     // The `GET` a step-up login returns to is its retry, and uses up the marker.
     // Another tab loading the same page within the minute would use it instead.
     const marker = Login.#cookie(request, this.#stepUpCookie);
@@ -506,17 +492,11 @@ export class Login {
     if (retry) cookies.set(this.#stepUpCookie, Login.#clearCookie(this.#stepUpCookie));
     const opened = await this.openSession(request);
     if (opened === 'absent') return null;
-    if (opened === 'ended') {
-      cookies.set(this.#sessionCookie, Login.#clearCookie(this.#sessionCookie));
-      return null;
-    }
+    if (opened === 'ended') return end();
     let login = opened;
     if (login.refreshToken !== undefined && login.expiresAt <= this.now() + REFRESH_MARGIN) {
       const refreshed = await this.#refresh(login);
-      if (refreshed === 'ended') {
-        cookies.set(this.#sessionCookie, Login.#clearCookie(this.#sessionCookie));
-        return null;
-      }
+      if (refreshed === 'ended') return end();
       if (refreshed === 'kept') {
         if (login.expiresAt <= this.now()) return 'unavailable';
       } else {
@@ -532,10 +512,7 @@ export class Login {
       }
     }
     // The session may have reached its end while the refresh ran.
-    if (login.endsAt <= this.now()) {
-      cookies.set(this.#sessionCookie, Login.#clearCookie(this.#sessionCookie));
-      return null;
-    }
+    if (login.endsAt <= this.now()) return end();
     return SignedIn.from(this, login, request, retry);
   }
 
@@ -549,10 +526,7 @@ export class Login {
     if (refreshToken === undefined) return 'kept';
     let tokens;
     try {
-      tokens = await Login.#within(
-        REFRESH_DEADLINE,
-        this.client.refresh(refreshToken, login.claims)
-      );
+      tokens = await Http.within(REFRESH_DEADLINE, this.client.refresh(refreshToken, login.claims));
     } catch (error) {
       if (!(error instanceof AuthError)) throw error;
       // Auth refused the refresh token: the grant is over.
@@ -573,28 +547,6 @@ export class Login {
   }
 
   /**
-   * `promise`'s result, or {@link TIMED_OUT} once `milliseconds` pass first. The
-   * operation itself goes on, and its late result or failure is ignored.
-   */
-  static async #within<T>(
-    milliseconds: number,
-    promise: Promise<T>
-  ): Promise<T | typeof TIMED_OUT> {
-    promise.catch(() => undefined);
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const deadline = new Promise<typeof TIMED_OUT>((resolve) => {
-      timer = setTimeout(() => {
-        resolve(TIMED_OUT);
-      }, milliseconds);
-    });
-    try {
-      return await Promise.race([promise, deadline]);
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-
-  /**
    * Revokes the grant of `login`, a sign-in the callback refuses after redeeming its
    * code, so it does not live on at auth unused. A failure is logged by
    * {@link Login.#revoke} and changes nothing: the refusal stands either way.
@@ -611,7 +563,7 @@ export class Login {
   async #revoke(refreshToken: string): Promise<boolean> {
     let revoked;
     try {
-      revoked = await Login.#within(REVOCATION_DEADLINE, this.client.revoke(refreshToken));
+      revoked = await Http.within(REVOCATION_DEADLINE, this.client.revoke(refreshToken));
     } catch (error) {
       if (!(error instanceof AuthError)) throw error;
       console.warn('@sourceorigin/auth: a refresh token could not be revoked', error);
@@ -630,7 +582,7 @@ export class Login {
    */
   async #pendingName(state: string): Promise<string> {
     const [first = 0] = await Login.#sha256(state);
-    return `${this.#pendingCookie}${String(first % PENDING_SLOTS)}`;
+    return `${this.#pendingCookie}${String(first % PENDING_LOGIN_SLOTS)}`;
   }
 
   /** `pending`, sealed for the cookie `name`. */
@@ -682,7 +634,7 @@ export class Login {
       returnTo,
       stepUp: stepUpLogin,
       ...(session instanceof StoredLogin ? { subject: session.claims.sub } : {}),
-      expiresAt: this.now() + PENDING_LIFETIME
+      expiresAt: this.now() + PENDING_LOGIN_LIFETIME
     };
     // A `return_to` too long for the cookie returns home instead, or to the root if
     // home is too long too.
@@ -695,7 +647,9 @@ export class Login {
       pending.returnTo = fallback;
       sealed = await this.#sealPending(pending, name);
     }
-    return Login.#redirect(authorization.url, [Login.#setCookie(name, sealed, PENDING_LIFETIME)]);
+    return Login.#redirect(authorization.url, [
+      Login.#setCookie(name, sealed, PENDING_LOGIN_LIFETIME)
+    ]);
   }
 
   /**

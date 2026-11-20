@@ -5,9 +5,8 @@
  */
 import * as base64 from './base64.ts';
 import * as json from './json.ts';
+import { COOKIE_KEY_BYTES, PENDING_LOGIN_SEAL_INFO, SESSION_SEAL_INFO } from './protocol.ts';
 
-/** Bytes in a cookie key, and in the AES-256 keys derived from it. */
-const SECRET_BYTES = 32;
 /** Bytes in an AES-GCM nonce. */
 const NONCE_BYTES = 12;
 
@@ -43,8 +42,8 @@ function paddingOptional(text: string): Uint8Array<ArrayBuffer> | undefined {
  * same, so their cookies interoperate.
  */
 const PURPOSES = {
-  session: 'sourceorigin-auth session v1',
-  pending: 'sourceorigin-auth pending login v1'
+  session: SESSION_SEAL_INFO,
+  pending: PENDING_LOGIN_SEAL_INFO
 } as const;
 
 /**
@@ -159,7 +158,7 @@ export class CookieKey {
     const decoded = ENCODINGS.map((decode) => decode(trimmed)).filter(
       (bytes) => bytes !== undefined
     );
-    const secret = decoded.find((bytes) => bytes.length === SECRET_BYTES);
+    const secret = decoded.find((bytes) => bytes.length === COOKIE_KEY_BYTES);
     if (secret !== undefined) return new CookieKey(secret);
     const [other] = decoded;
     throw new TypeError(
@@ -174,7 +173,7 @@ export class CookieKey {
    * replicas cannot open its cookies, and a restart signs every user out.
    */
   static generate(): CookieKey {
-    return new CookieKey(crypto.getRandomValues(new Uint8Array(SECRET_BYTES)));
+    return new CookieKey(crypto.getRandomValues(new Uint8Array(COOKIE_KEY_BYTES)));
   }
 
   /** @internal The keys derived from the secret, derived on first use. */

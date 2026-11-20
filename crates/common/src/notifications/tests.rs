@@ -21,45 +21,47 @@ fn admin() -> Actor {
     }
 }
 
-/// Support renaming an account or one of its passkeys, or removing its picture,
-/// tells its owner; the owner doing so does not.
-#[test]
-fn only_support_renames_notify() {
-    let renamed = DomainEvent::DisplayNameChanged {
-        old: Personal::Value("Ada".to_owned()),
-        new: Personal::Value("Ada L.".to_owned()),
-    };
-    assert_eq!(renamed.notification(&owner()), None);
-    assert_eq!(
-        renamed.notification(&admin()),
-        Some(Notification::DisplayNameChanged)
-    );
-    let cli = Actor::Cli {
+/// An operator, through the CLI.
+fn cli() -> Actor {
+    Actor::Cli {
         os_user: "root".to_owned(),
         host: "host".to_owned(),
-    };
-    assert_eq!(
-        renamed.notification(&cli),
-        Some(Notification::DisplayNameChanged)
-    );
-    let passkey = DomainEvent::PasskeyRenamed {
-        passkey_id: PasskeyId::new(),
-    };
-    assert_eq!(passkey.notification(&owner()), None);
-    assert_eq!(
-        passkey.notification(&admin()),
-        Some(Notification::PasskeyRenamed)
-    );
-    assert_eq!(
-        passkey.notification(&cli),
-        Some(Notification::PasskeyRenamed)
-    );
-    let removed = DomainEvent::PictureRemoved {};
-    assert_eq!(removed.notification(&owner()), None);
-    assert_eq!(
-        removed.notification(&admin()),
-        Some(Notification::PictureRemoved)
-    );
+    }
+}
+
+/// Support changing an account's handle or display name, renaming one of its
+/// passkeys, or removing its picture, tells its owner; the owner doing so does not.
+#[test]
+fn only_support_renames_notify() {
+    for (event, notification) in [
+        (
+            DomainEvent::HandleChanged {
+                old: Personal::Value("ada".to_owned()),
+                new: Personal::Value("ada-l".parse().expect("handle")),
+            },
+            Notification::HandleChanged,
+        ),
+        (
+            DomainEvent::DisplayNameChanged {
+                old: Personal::Value("Ada".to_owned()),
+                new: Personal::Value("Ada L.".to_owned()),
+            },
+            Notification::DisplayNameChanged,
+        ),
+        (
+            DomainEvent::PasskeyRenamed {
+                passkey_id: PasskeyId::new(),
+            },
+            Notification::PasskeyRenamed,
+        ),
+        (DomainEvent::PictureRemoved {}, Notification::PictureRemoved),
+    ] {
+        assert_eq!(event.notification(&owner()), None, "{event:?}");
+        let expected = Some(notification);
+        for support in [admin(), cli()] {
+            assert_eq!(event.notification(&support), expected, "{event:?}");
+        }
+    }
 }
 
 /// Only a primary address that replaced another tells the owner: the first

@@ -4,14 +4,23 @@ import { AuthError } from './error.ts';
 import { type Fetch, Http, type Reply } from './http.ts';
 import * as json from './json.ts';
 import { KeyCache } from './keys.ts';
-import type { ServerMetadata } from './protocol.ts';
+import {
+  ACR,
+  ALGORITHMS,
+  CLAIMS,
+  CLIENT_AUTH_METHODS,
+  CODE_CHALLENGE_METHODS,
+  GRANT_TYPES,
+  OPENID_CONFIGURATION_PATH,
+  RESPONSE_MODES,
+  RESPONSE_TYPES,
+  SCOPES,
+  type ServerMetadata,
+  SUBJECT_TYPES
+} from './protocol.ts';
 import { Resource, type ResourceConfig } from './resource.ts';
 import type { Clock } from './time.ts';
 import { TokenValidator } from './token.ts';
-import * as vocabulary from './vocabulary.ts';
-
-/** Where an issuer publishes its metadata (OIDC Discovery 1.0 §4.1). */
-const OPENID_CONFIGURATION_PATH = '/.well-known/openid-configuration';
 
 const serverMetadata: json.Decoder<ServerMetadata> = json.object({
   issuer: json.string,
@@ -26,21 +35,18 @@ const serverMetadata: json.Decoder<ServerMetadata> = json.object({
   service_documentation: json.url,
   op_policy_uri: json.optional(json.url),
   op_tos_uri: json.optional(json.url),
-  scopes_supported: json.known(vocabulary.SCOPES),
-  response_types_supported: json.known(vocabulary.RESPONSE_TYPES),
-  response_modes_supported: json.known(vocabulary.RESPONSE_MODES),
-  grant_types_supported: json.known(vocabulary.GRANT_TYPES),
-  token_endpoint_auth_methods_supported: json.known(vocabulary.CLIENT_AUTH_METHODS),
-  revocation_endpoint_auth_methods_supported: json.known(vocabulary.CLIENT_AUTH_METHODS),
+  scopes_supported: json.known(SCOPES),
+  response_types_supported: json.known(RESPONSE_TYPES),
+  response_modes_supported: json.known(RESPONSE_MODES),
+  grant_types_supported: json.known(GRANT_TYPES),
+  token_endpoint_auth_methods_supported: json.known(CLIENT_AUTH_METHODS),
+  revocation_endpoint_auth_methods_supported: json.known(CLIENT_AUTH_METHODS),
   // Absent means no PKCE support (RFC 8414 §2), refused with a precise reason.
-  code_challenge_methods_supported: json.withDefault(
-    json.known(vocabulary.CODE_CHALLENGE_METHODS),
-    []
-  ),
-  subject_types_supported: json.known(vocabulary.SUBJECT_TYPES),
-  id_token_signing_alg_values_supported: json.known(vocabulary.ALGORITHMS),
-  claims_supported: json.known(vocabulary.CLAIMS),
-  acr_values_supported: json.withDefault(json.known(vocabulary.ACR), []),
+  code_challenge_methods_supported: json.withDefault(json.known(CODE_CHALLENGE_METHODS), []),
+  subject_types_supported: json.known(SUBJECT_TYPES),
+  id_token_signing_alg_values_supported: json.known(ALGORITHMS),
+  claims_supported: json.known(CLAIMS),
+  acr_values_supported: json.withDefault(json.known(ACR), []),
   claims_parameter_supported: json.boolean,
   request_parameter_supported: json.boolean,
   request_uri_parameter_supported: json.boolean,
@@ -83,7 +89,7 @@ export class Issuer {
     this.http = new Http(options.fetch);
     this.clock = options.clock ?? Date.now;
     this.keys = new KeyCache(metadata.jwks_uri, options);
-    const algorithms = vocabulary.ALGORITHMS.filter((algorithm) =>
+    const algorithms = ALGORITHMS.filter((algorithm) =>
       metadata.id_token_signing_alg_values_supported.includes(algorithm)
     );
     this.tokens = new TokenValidator(metadata.issuer, algorithms, this.keys, this.clock);

@@ -61,9 +61,11 @@ definition.
 ## 3. Regenerate the TypeScript declarations
 
 A new type joins `generate()` in `crates/common/src/protocol/typescript.rs`, in
-the group of its module. A closed vocabulary joins `closed!`, an open one
-`open!`, and an ID or a validated string `builtin!`. A new field of a type
-already listed needs nothing there. Then:
+the group of its module. A closed vocabulary takes two lines there: its list's
+name in the `closed!` call, and `.closed::<T>()` in `generate()`, which writes
+the list beside the union. An open vocabulary joins `open!`, and an ID or a
+validated string `builtin!`. A new field of a type already listed needs nothing
+there. Then:
 
 ```console
 just sdk-types
@@ -87,7 +89,18 @@ pub fn picture(&self) -> Option<&str> {
 
 `sourceorigin_auth::protocol` re-exports the shared modules by name, in
 `crates/auth-sdk/src/lib.rs`: that list is the SDK's contract, so a new
-protocol module joins it.
+protocol module joins it. `constants` stays out: its limits are how the SDKs
+behave, not part of the wire format.
+
+A limit, lifetime or name both SDKs apply goes in `sdk_constants!` in
+`crates/common/src/protocol/constants.rs`, or beside its wire type. The Rust SDK
+imports it from there, and `just sdk-types` writes it into `protocol.ts`,
+durations in milliseconds. A constant of a type that does not implement
+`Literal` in `crates/common/src/protocol/typescript.rs` yet needs it there: an
+integer or a duration joins the `number!` or `milliseconds!` list, anything
+else gets its own `impl`, as `&str` has. A module that starts declaring
+constants also joins `generate()` in the same file, with
+`.constants(<module>::typescript())`.
 
 ## 5. Add it to the TypeScript SDK
 
@@ -96,9 +109,10 @@ In `packages/auth/src`, mirror the Rust SDK:
 1. Decode the field where the SDK reads its document. The decoders read exactly
    what the Rust types accept: the profile claims are in `claims.ts`, as
    `picture: json.optional(json.string)`.
-2. Add a new value of a closed vocabulary to its list in `vocabulary.ts`. Each
-   list is keyed by the generated union, so `tsc` refuses one that misses a
-   value.
+2. A new value of a closed vocabulary needs nothing more: `just sdk-types`
+   writes it into the vocabulary's list in `protocol.ts`, which the decoders
+   read. A new closed vocabulary needs the two lines of
+   [section 3](#3-regenerate-the-typescript-declarations).
 3. Expose it under the Rust SDK's name, as the `picture` getter of `SignedIn`
    does in `login.ts`.
 

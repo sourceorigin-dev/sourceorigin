@@ -17,14 +17,10 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
 };
-use chrono::TimeDelta;
-use sourceorigin_common::ErrorChain;
-use std::time::Duration;
-
-/// Access tokens this close to expiry are refreshed first.
-const REFRESH_MARGIN: TimeDelta = TimeDelta::seconds(30);
-/// Longest a refresh may take, auth's response and its ID token check included.
-const REFRESH_DEADLINE: Duration = Duration::from_secs(20);
+use sourceorigin_common::{
+    ErrorChain,
+    protocol::constants::{REFRESH_DEADLINE, REFRESH_MARGIN},
+};
 
 /// What refreshing a session came to.
 enum Refresh {
