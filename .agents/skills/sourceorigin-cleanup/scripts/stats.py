@@ -10,10 +10,10 @@ plain comment or blank, and a line with code and a trailing comment counts as
 code. Rust test code is whole files under tests/, tests.rs files, and modules
 and inline items behind a test-only cfg: #[cfg(test)], #[cfg(all(test, ...))]
 or #[cfg(any(test, feature = "test-util"))]. The counts of unwrap, expect and
-the like read only production code lines, so doc examples are left out; TODO
-and FIXME are counted in comments too. TypeScript and
-JavaScript test code is packages/auth/test and tests/browser. Other languages
-are counted by cloc.
+the like read only production code lines, so doc examples are left out;
+TODO, FIXME and XXX are counted in comments too. TypeScript and JavaScript
+test code is packages/auth/test and tests/browser. Other languages are
+counted by cloc.
 """
 import bisect, csv, io, json, os, re, subprocess, sys
 from collections import defaultdict
@@ -42,7 +42,7 @@ GENERATED = marked - LOCKFILES
 TS_TESTS = ("packages/auth/test/", "tests/browser/")
 # An attribute compiling its item only for tests, or for other crates' tests
 # through the `test-util` feature.
-TEST_CFG = r'#\[cfg\((?:(?:all|any)\()?test\b[^\]]*\]'
+TEST_CFG = r'#\[cfg\(\s*(?:test|all\(\s*test\b[^\]]*|any\(\s*test\s*,\s*feature\s*=\s*"test-util"\s*\))\s*\)\]'
 
 
 def area(p):
@@ -128,7 +128,14 @@ def inline_test_lines(src, braces):
     for m in re.finditer(TEST_CFG, src):
         semi = src.find(";", m.end())
         k = bisect.bisect_left(offsets, m.end())
-        if k >= len(braces) or (semi >= 0 and semi < braces[k][0]):
+        brace = braces[k][0] if k < len(braces) else len(src)
+        if k < len(braces) and braces[k][1] == "}":
+            # A field, enum variant or match arm: it ends at its `,`, a last
+            # statement at its `;`, and a last one without either just before
+            # the `}` closing its parent.
+            ends = [e for e in (src.find(",", m.end(), brace), src.find(";", m.end(), brace)) if e >= 0]
+            end = min(ends, default=len(src[:brace].rstrip()) - 1)
+        elif 0 <= semi < brace:
             end = semi
         else:
             depth, end = 0, len(src)
