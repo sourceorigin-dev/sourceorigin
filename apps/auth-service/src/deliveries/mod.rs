@@ -252,10 +252,9 @@ impl<S: Sender> Worker<S> {
     async fn run(self, shutdown: Shutdown) {
         loop {
             let mut deliveries = self.database.deliveries();
-            let claimed = tokio::select! {
-                biased;
-                () = shutdown.requested() => return,
-                claimed = deliveries.claim::<S::Channel>(S::LEASE, S::MAX_AGE) => claimed,
+            let claim = deliveries.claim::<S::Channel>(S::LEASE, S::MAX_AGE);
+            let Some(claimed) = shutdown.unless(claim).await else {
+                return;
             };
             match claimed {
                 Ok(Some(delivery)) => {
@@ -271,10 +270,12 @@ impl<S: Sender> Worker<S> {
                     );
                 }
             }
-            tokio::select! {
-                biased;
-                () = shutdown.requested() => return,
-                () = tokio::time::sleep(POLL_INTERVAL) => {}
+            if shutdown
+                .unless(tokio::time::sleep(POLL_INTERVAL))
+                .await
+                .is_none()
+            {
+                return;
             }
         }
     }
@@ -389,16 +390,12 @@ impl Backlogs {
         let mut interval = tokio::time::interval(BACKLOG_EVERY);
         interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
         loop {
-            tokio::select! {
-                biased;
-                () = shutdown.requested() => return,
-                _ = interval.tick() => {}
+            if shutdown.unless(interval.tick()).await.is_none() {
+                return;
             }
             let mut deliveries = database.deliveries();
-            let counted = tokio::select! {
-                biased;
-                () = shutdown.requested() => return,
-                counted = deliveries.backlog::<C>() => counted,
+            let Some(counted) = shutdown.unless(deliveries.backlog::<C>()).await else {
+                return;
             };
             match counted {
                 Ok(backlog) => {
