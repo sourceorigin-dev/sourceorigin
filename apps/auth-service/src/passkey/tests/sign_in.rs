@@ -26,7 +26,7 @@ async fn handle_sign_in_refuses_a_handle_without_an_account_at_once() {
         assert_eq!(response.status(), StatusCode::NOT_FOUND, "{handle}");
         assert!(response.headers().get(header::SET_COOKIE).is_none());
         assert_eq!(
-            Fixture::json(response).await["error"],
+            json(response).await["error"],
             "No active account has this handle."
         );
     }
@@ -95,7 +95,7 @@ async fn a_forged_assertion_doesnt_tell_which_handle_an_account_has() {
                 json!({"ceremony_id": started["ceremony_id"], "credential": forged}),
             )
             .await;
-        answers.push((response.status(), Fixture::json(response).await));
+        answers.push((response.status(), json(response).await));
     }
     assert_eq!(answers[0], answers[1]);
 }

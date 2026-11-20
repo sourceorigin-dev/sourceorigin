@@ -5,26 +5,16 @@ use super::*;
 use crate::security::tests::assert_step_up_required;
 use crate::{
     account::AccountApplication,
-    tests::{AUTH_ORIGIN, Browser, MAX_RESPONSE_BYTES, Replicas},
+    tests::{AUTH_ORIGIN, Browser, Replicas, reply},
 };
 use axum::{
-    body::{Body, to_bytes},
-    http::{Method, Request, header},
+    http::{Method, header},
     response::Response,
 };
 use serde_json::{Value, json};
 use sourceorigin_common::AuthenticationMethod;
 use sourceorigin_repository::DeliverySummary;
 use std::net::{IpAddr, Ipv6Addr};
-use tower::ServiceExt;
-
-/// A scenario account with one signed-in browser.
-struct Account {
-    /// The account.
-    user_id: UserId,
-    /// The browser's session cookie pair.
-    cookie: String,
-}
 
 /// The address routes over the test database, as requests from one client IP of
 /// their own, so no other test shares its verification limit.
@@ -58,57 +48,38 @@ impl Harness {
 
     /// Creates an account and signs a browser in to it with `method`. Only a
     /// passkey sign-in confirms the session.
-    async fn account(&self, method: AuthenticationMethod) -> Account {
+    async fn account(&self, method: AuthenticationMethod) -> Browser {
         let user_id = self.database.users().insert_named("email").await;
-        let browser = Browser::sign_in_by(&self.database, self.context, user_id, method.into());
-        Account {
-            user_id,
-            cookie: browser.await.cookie,
-        }
+        Browser::sign_in_by(&self.database, self.context, user_id, method.into()).await
     }
 
     /// Sends a request, as `account`'s browser if any.
     async fn send(
         &self,
-        account: Option<&Account>,
+        account: Option<&Browser>,
         method: Method,
         path: &str,
         body: Option<Value>,
     ) -> Response {
-        let mut request = Request::builder()
-            .extension(self.context)
-            .method(method)
-            .uri(path)
-            .header(header::CONTENT_TYPE, "application/json");
-        if let Some(account) = account {
-            request = request.header(header::COOKIE, &account.cookie);
-        }
-        let body = body.map_or_else(Body::empty, |body| Body::from(body.to_string()));
-        self.router
-            .clone()
-            .oneshot(request.body(body).expect("request"))
+        account
+            .unwrap_or(&Browser::signed_out())
+            .send_from(&self.router, self.context, method, path, body)
             .await
-            .expect("response")
     }
 
     /// Sends a request and returns its status and JSON body.
     async fn call(
         &self,
-        account: Option<&Account>,
+        account: Option<&Browser>,
         method: Method,
         path: &str,
         body: Option<Value>,
     ) -> (StatusCode, Value) {
-        let response = self.send(account, method, path, body).await;
-        let status = response.status();
-        let body = to_bytes(response.into_body(), MAX_RESPONSE_BYTES)
-            .await
-            .expect("body");
-        (status, serde_json::from_slice(&body).unwrap_or(Value::Null))
+        reply(self.send(account, method, path, body).await).await
     }
 
     /// Adds `address` to `account`, returning the status and body.
-    async fn add(&self, account: &Account, address: &str) -> (StatusCode, Value) {
+    async fn add(&self, account: &Browser, address: &str) -> (StatusCode, Value) {
         let body = json!({ "email": address });
         self.call(
             Some(account),
@@ -120,7 +91,7 @@ impl Harness {
     }
 
     /// Adds `address` to `account` and returns its ID.
-    async fn added(&self, account: &Account, address: &str) -> EmailId {
+    async fn added(&self, account: &Browser, address: &str) -> EmailId {
         let (status, body) = self.add(account, address).await;
         assert_eq!(status, StatusCode::CREATED, "{body}");
         body["id"].as_str().expect("id").parse().expect("email ID")
@@ -140,19 +111,19 @@ impl Harness {
     }
 
     /// Makes `id` the primary address of `account`.
-    async fn make_primary(&self, account: &Account, id: EmailId) -> (StatusCode, Value) {
+    async fn make_primary(&self, account: &Browser, id: EmailId) -> (StatusCode, Value) {
         let path = routes::emails::PRIMARY.replace("{id}", &id.to_string());
         self.call(Some(account), Method::POST, &path, None).await
     }
 
     /// Removes `id` from `account`.
-    async fn remove(&self, account: &Account, id: EmailId) -> (StatusCode, Value) {
+    async fn remove(&self, account: &Browser, id: EmailId) -> (StatusCode, Value) {
         let path = routes::emails::ITEM.replace("{id}", &id.to_string());
         self.call(Some(account), Method::DELETE, &path, None).await
     }
 
     /// `account`'s addresses, as it lists them.
-    async fn list(&self, account: &Account) -> Vec<Value> {
+    async fn list(&self, account: &Browser) -> Vec<Value> {
         let (status, body) = self
             .call(Some(account), Method::GET, routes::emails::LIST, None)
             .await;
@@ -161,7 +132,7 @@ impl Harness {
     }
 
     /// The email deliveries queued for `account`.
-    async fn deliveries(&self, account: &Account) -> Vec<DeliverySummary> {
+    async fn deliveries(&self, account: &Browser) -> Vec<DeliverySummary> {
         let destination = format!("account {}", account.user_id);
         self.database
             .deliveries()

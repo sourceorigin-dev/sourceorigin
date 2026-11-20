@@ -121,14 +121,7 @@ impl Harness {
 
     /// The kinds of the events concerning `user_id`, newest first.
     async fn events(&self, user_id: UserId) -> Vec<DomainEvent> {
-        self.database
-            .events()
-            .history_for_user(user_id, 100)
-            .await
-            .expect("history")
-            .into_iter()
-            .map(|stored| stored.event.known().cloned().expect("a known event"))
-            .collect()
+        self.database.events().known_history(user_id, 100).await
     }
 }
 

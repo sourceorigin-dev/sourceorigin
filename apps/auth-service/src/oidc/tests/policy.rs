@@ -30,7 +30,7 @@ async fn suspending_an_app_during_an_exchange_issues_nothing() {
     let response = exchange.await.expect("exchange");
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     assert_eq!(
-        Flow::json(response).await["error"],
+        json(response).await["error"],
         OAuthCode::InvalidGrant.as_str()
     );
     let events = flow.events().await;

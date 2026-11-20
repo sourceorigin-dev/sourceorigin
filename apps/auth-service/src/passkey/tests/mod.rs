@@ -11,10 +11,10 @@ use super::{
 };
 use crate::{
     account::AccountApplication,
-    tests::{AUTH_ORIGIN, Browser, Replicas},
+    tests::{AUTH_ORIGIN, Browser, Replicas, json},
 };
 use axum::{
-    body::{Body, to_bytes},
+    body::Body,
     http::{Method, Request},
 };
 use serde_json::{Value, json};
@@ -35,9 +35,6 @@ mod related_pages;
 mod sign_in;
 mod telemetry;
 mod validation;
-
-/// Maximum JSON response accepted by the software browser fixture.
-const MAX_RESPONSE_BYTES: usize = 64 * 1024;
 
 /// A software authenticator, capable of user verification and monotonic counters,
 /// and the ID of the one credential it holds, which an account picker's challenge
@@ -199,16 +196,7 @@ impl Fixture {
         let response = self.request(path, Method::POST, cookies, body).await;
         assert_eq!(response.status(), StatusCode::OK);
         let cookie = Self::cookie(&response);
-        (Self::json(response).await, cookie)
-    }
-    /// Reads a response's JSON body.
-    pub(crate) async fn json(response: Response) -> Value {
-        serde_json::from_slice(
-            &to_bytes(response.into_body(), MAX_RESPONSE_BYTES)
-                .await
-                .expect("body"),
-        )
-        .expect("JSON")
+        (json(response).await, cookie)
     }
     /// Extracts the cookie pair from a response for the next simulated browser request.
     pub(crate) fn cookie(response: &Response) -> String {
@@ -305,12 +293,8 @@ impl Fixture {
         self.app
             .database
             .events()
-            .history_for_user(self.user_id, 100)
+            .known_history(self.user_id, 100)
             .await
-            .expect("history")
-            .into_iter()
-            .map(|stored| stored.event.known().cloned().expect("a known event"))
-            .collect()
     }
     /// Answers a started registration challenge with a fresh software credential.
     pub(crate) fn credential(&self, started: &Value) -> RegisterPublicKeyCredential {

@@ -9,8 +9,8 @@ use crate::{
     passkey::tests::{Fixture, SoftKey},
     security::{BrowserCookie, Credential},
     tests::{
-        Browser, reason, recovery_links, recovery_reason, recovery_token, refresh_grant, register,
-        registration, verified_address,
+        Browser, json, reason, recovery_links, recovery_reason, recovery_token, refresh_grant,
+        register, registration, verified_address,
     },
 };
 use axum::{
@@ -33,7 +33,7 @@ mod undo;
 
 /// An error body's `code`.
 async fn code(response: Response) -> Value {
-    Fixture::json(response).await["code"].clone()
+    json(response).await["code"].clone()
 }
 
 /// An account with a passkey, recovered by an operator at the terminal, and the
@@ -185,7 +185,7 @@ impl Scenario {
             .request(routes::recovery::STATUS, Method::GET, cookie, Value::Null)
             .await;
         assert_eq!(response.status(), StatusCode::OK);
-        Fixture::json(response).await
+        json(response).await
     }
 
     /// The account's latest recovery.
@@ -206,7 +206,7 @@ impl Scenario {
             return Err(response.status());
         }
         let browser = Fixture::cookie(&response);
-        Ok((Fixture::json(response).await, browser))
+        Ok((json(response).await, browser))
     }
 
     /// Undoes recovery `id` with the signing authenticator, from a browser with
@@ -230,7 +230,7 @@ impl Scenario {
             .headers()
             .contains_key(axum::http::header::SET_COOKIE)
             .then(|| Fixture::cookie(&response));
-        (status, Fixture::json(response).await, cookie)
+        (status, json(response).await, cookie)
     }
 
     /// Removes `passkey` from the browser holding `cookie`.

@@ -27,7 +27,7 @@ async fn public_consent_pkce_claim_scoping_and_replay() {
     let code = flow.code(Scope::OpenId.as_str()).await;
     let response = flow.exchange(&code, Flow::verifier(), None).await;
     assert_eq!(response.status(), StatusCode::OK);
-    let tokens = Flow::json(response).await;
+    let tokens = json(response).await;
     let claims: IdTokenClaims = flow
         .app
         .keys

@@ -87,7 +87,7 @@ async fn post_protocol_endpoints_and_error_contracts() {
             expected
         );
     }
-    let discovery = Flow::json(
+    let discovery = json(
         flow.request(Method::GET, "/.well-known/openid-configuration", &[], None)
             .await,
     )
@@ -108,7 +108,7 @@ async fn post_protocol_endpoints_and_error_contracts() {
         .await;
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     assert_eq!(
-        Flow::json(response).await["error"],
+        json(response).await["error"],
         OAuthCode::InvalidRequestUri.as_str()
     );
     assert_eq!(
@@ -119,7 +119,7 @@ async fn post_protocol_endpoints_and_error_contracts() {
         .authorize_with(Method::POST, PROFILE_SCOPES, None, &[])
         .await;
     let code = parameter(&flow.client_redirect(&response), "code");
-    let tokens = Flow::json(flow.exchange(&code, Flow::verifier(), None).await).await;
+    let tokens = json(flow.exchange(&code, Flow::verifier(), None).await).await;
     let bearer = format!(
         "{} {}",
         AuthScheme::Bearer.as_str(),
@@ -129,7 +129,7 @@ async fn post_protocol_endpoints_and_error_contracts() {
         .request(Method::POST, "/oidc/userinfo", &[], Some(&bearer))
         .await;
     assert_eq!(response.status(), StatusCode::OK);
-    let userinfo = Flow::json(response).await;
+    let userinfo = json(response).await;
     assert_eq!(userinfo["sub"], json!(flow.user_id));
     assert!(userinfo["profile_version"].is_number());
     let response = flow
@@ -148,7 +148,7 @@ async fn post_protocol_endpoints_and_error_contracts() {
         .await;
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     assert_eq!(
-        Flow::json(response).await["error"],
+        json(response).await["error"],
         OAuthCode::InvalidRequest.as_str()
     );
 }
@@ -242,7 +242,7 @@ async fn oauth_failures_preserve_sources_and_statuses() {
     );
     // The description reaches the client, restricted to the RFC 6749 character set.
     assert_eq!(
-        Flow::json(response).await,
+        json(response).await,
         serde_json::json!({
             "error": "invalid_grant",
             "error_description": "code is 'malformed' ? retry",

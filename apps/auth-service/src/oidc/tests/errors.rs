@@ -69,7 +69,7 @@ async fn state_is_optional_and_bounded_before_it_goes_back() {
     let uri = request_uri(&flow, &[("state", &long), ("response_type", "token")], &[]);
     let response = flow.request(Method::GET, &uri, &[], None).await;
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-    assert!(!Flow::text(response).await.contains(&long));
+    assert!(!html(response).await.contains(&long));
 }
 
 /// A pushed request's `request_uri` decides the request: other parameters, even
@@ -100,7 +100,7 @@ async fn pushed_requests_are_read_before_other_parameters() {
     let response = flow.post_query(&url, flow.basic.as_deref()).await;
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     assert_eq!(
-        Flow::json(response).await["error"],
+        json(response).await["error"],
         OAuthCode::InvalidRequest.as_str()
     );
 }
@@ -145,7 +145,7 @@ async fn token_endpoint_errors_follow_rfc_6749() {
             )
             .await;
         assert_eq!(
-            Flow::json(response).await["error"],
+            json(response).await["error"],
             OAuthCode::InvalidRequest.as_str(),
             "{grant}"
         );
@@ -191,7 +191,7 @@ async fn userinfo_needs_the_openid_scope() {
         "Bearer error=\"insufficient_scope\", scope=\"openid\""
     );
     assert_eq!(
-        Flow::json(response).await["error"],
+        json(response).await["error"],
         OAuthCode::InsufficientScope.as_str()
     );
 }

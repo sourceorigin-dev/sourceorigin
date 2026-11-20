@@ -14,7 +14,7 @@ async fn pushed_requests_are_one_time_client_bound_and_authoritative() {
     let response = flow.push(Scope::OpenId.as_str(), None, None).await;
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     assert_eq!(
-        Flow::json(response).await["error"],
+        json(response).await["error"],
         OAuthCode::InvalidClient.as_str()
     );
     let response = flow
@@ -22,7 +22,7 @@ async fn pushed_requests_are_one_time_client_bound_and_authoritative() {
         .await;
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     assert_eq!(
-        Flow::json(response).await["error"],
+        json(response).await["error"],
         OAuthCode::InvalidScope.as_str()
     );
     let request_uri = flow
@@ -53,7 +53,7 @@ async fn pushed_requests_are_one_time_client_bound_and_authoritative() {
     let rejected = async |client_id: &str, request_uri: &str| {
         let response = flow.claim(client_id, request_uri, &[]).await;
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-        let page = Flow::text(response).await;
+        let page = html(response).await;
         assert!(
             page.contains("request_uri is unknown, expired, already used or issued to another")
                 || page.contains("request_uri must come from the pushed authorization endpoint"),

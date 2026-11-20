@@ -54,7 +54,7 @@ async fn an_administrator_removes_an_app_with_a_reason() {
 async fn removing_an_app_ends_its_access() {
     let flow = Flow::new(false, false).await;
     let code = flow.code(REFRESH_SCOPES).await;
-    let tokens = Flow::json(flow.exchange(&code, Flow::verifier(), None).await).await;
+    let tokens = json(flow.exchange(&code, Flow::verifier(), None).await).await;
     let refresh = tokens["refresh_token"].as_str().expect("refresh token");
     let outstanding = flow.code(REFRESH_SCOPES).await;
     let service = crate::account::AccountService::new(flow.app.database.clone());
@@ -124,7 +124,7 @@ async fn an_exchange_waits_for_a_removal_and_finds_its_code_expired() {
     let exchanging = flow.clone();
     let exchange = tokio::spawn(async move {
         let response = exchanging.exchange(&code, Flow::verifier(), None).await;
-        (response.status(), Flow::json(response).await)
+        (response.status(), json(response).await)
     });
     until_blocked(&mut removal, 1).await;
     removal

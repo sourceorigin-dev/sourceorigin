@@ -332,18 +332,29 @@ impl Browser {
         path: &str,
         body: Option<Value>,
     ) -> (StatusCode, Value) {
+        let response = self
+            .send_from(router, RequestContext::TEST, method, path, body)
+            .await;
+        reply(response).await
+    }
+
+    /// Like [`Self::send`], with `context` attached instead, such as a client
+    /// address of a test's own, and returns the whole response.
+    pub(crate) async fn send_from(
+        &self,
+        router: &Router,
+        context: RequestContext,
+        method: Method,
+        path: &str,
+        body: Option<Value>,
+    ) -> Response {
         let request = self
             .request(method, path)
-            .extension(RequestContext::TEST)
+            .extension(context)
             .header(header::CONTENT_TYPE, "application/json")
             .body(body.map_or_else(Body::empty, |body| Body::from(body.to_string())))
             .expect("request");
-        let response = Self::dispatch(router, request).await;
-        let status = response.status();
-        let body = to_bytes(response.into_body(), MAX_RESPONSE_BYTES)
-            .await
-            .expect("body");
-        (status, serde_json::from_slice(&body).unwrap_or(Value::Null))
+        Self::dispatch(router, request).await
     }
 
     /// Navigates to `path` on the whole service as this browser, and returns the
@@ -485,6 +496,23 @@ pub(crate) async fn html(response: Response) -> String {
         .await
         .expect("body");
     String::from_utf8(body.to_vec()).expect("UTF-8 page")
+}
+
+/// `response`'s body, as JSON.
+pub(crate) async fn json(response: Response) -> Value {
+    let body = to_bytes(response.into_body(), MAX_RESPONSE_BYTES)
+        .await
+        .expect("body");
+    serde_json::from_slice(&body).expect("JSON")
+}
+
+/// `response`'s status, and its body as JSON, or null if it is none.
+pub(crate) async fn reply(response: Response) -> (StatusCode, Value) {
+    let status = response.status();
+    let body = to_bytes(response.into_body(), MAX_RESPONSE_BYTES)
+        .await
+        .expect("body");
+    (status, serde_json::from_slice(&body).unwrap_or(Value::Null))
 }
 
 /// A passkey of `user_id`'s account whose credential no ceremony can use, for the

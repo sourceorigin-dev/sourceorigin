@@ -67,7 +67,7 @@ impl Fixture {
             .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded");
         let response = self.send(request, form).await;
         assert_eq!(response.status(), StatusCode::CREATED);
-        Self::json(response).await["request_uri"]
+        json(response).await["request_uri"]
             .as_str()
             .expect("request_uri")
             .to_owned()
@@ -143,7 +143,7 @@ impl Fixture {
             "public, max-age=300, no-transform"
         );
         assert_eq!(response.headers()[header::ACCESS_CONTROL_ALLOW_ORIGIN], "*");
-        serde_json::from_value(Self::json(response).await["origins"].take()).expect("origins")
+        serde_json::from_value(json(response).await["origins"].take()).expect("origins")
     }
 }
 
@@ -180,7 +180,7 @@ async fn related_pages_sign_in_for_pkce_bound_codes() {
             "pages sign in without cookies"
         );
         assert!(headers.get(header::SET_COOKIE).is_none());
-        let started = Fixture::json(started).await;
+        let started = json(started).await;
         // Signed on one replica, finished on the other.
         let finished = fixture
             .on(&replicas.b)
@@ -188,7 +188,7 @@ async fn related_pages_sign_in_for_pkce_bound_codes() {
             .await;
         assert_eq!(finished.status(), StatusCode::OK);
         assert!(finished.headers().get(header::SET_COOKIE).is_none());
-        let answer = Fixture::json(finished).await;
+        let answer = json(finished).await;
         assert_eq!(answer["state"], "page-state");
         assert_eq!(answer["iss"], AUTH_ORIGIN);
         codes.push(answer["code"].as_str().expect("code").to_owned());
@@ -210,7 +210,7 @@ async fn related_pages_sign_in_for_pkce_bound_codes() {
     assert_eq!(redeemed.status(), StatusCode::BAD_REQUEST);
     let redeemed = fixture.redeem(&page, &codes[1], PAGE_VERIFIER).await;
     assert_eq!(redeemed.status(), StatusCode::OK);
-    let id_token = Fixture::json(redeemed).await["id_token"]
+    let id_token = json(redeemed).await["id_token"]
         .as_str()
         .expect("ID token")
         .to_owned();
@@ -289,7 +289,7 @@ async fn related_sign_in_refuses_other_origins_requests_and_unverified_users() {
     assert_eq!(claimed.status(), StatusCode::BAD_REQUEST);
     let started = fixture.start_related(&page, &request_uri).await;
     assert_eq!(started.status(), StatusCode::OK);
-    let started = Fixture::json(started).await;
+    let started = json(started).await;
     // The ceremony finishes only on the page that started it.
     let assertion = fixture.assertion_for(other.origin.url().clone(), &started);
     let moved = fixture
@@ -302,7 +302,7 @@ async fn related_sign_in_refuses_other_origins_requests_and_unverified_users() {
     assert_eq!(moved.status(), StatusCode::FORBIDDEN);
 
     // The verifier accepts auth's own origin too, but the page must have signed.
-    let started = Fixture::json(
+    let started = json(
         fixture
             .start_related(&page, &fixture.push(&page, &[]).await)
             .await,
@@ -318,7 +318,7 @@ async fn related_sign_in_refuses_other_origins_requests_and_unverified_users() {
         .await;
     assert_eq!(elsewhere.status(), StatusCode::BAD_REQUEST);
 
-    let mut started = Fixture::json(
+    let mut started = json(
         fixture
             .start_related(&page, &fixture.push(&page, &[]).await)
             .await,
@@ -339,7 +339,7 @@ async fn related_sign_in_refuses_other_origins_requests_and_unverified_users() {
     let request_uri = fixture.push(&page, &[("prompt", "consent")]).await;
     let refused = fixture.start_related(&page, &request_uri).await;
     assert_eq!(refused.status(), StatusCode::BAD_REQUEST);
-    assert_eq!(Fixture::json(refused).await["code"], "interaction_required");
+    assert_eq!(json(refused).await["code"], "interaction_required");
     let query = url::form_urlencoded::Serializer::new(String::new())
         .extend_pairs([
             ("client_id", page.client.id.as_str()),
@@ -398,11 +398,11 @@ async fn an_account_being_deleted_signs_in_on_auths_pages_only() {
     tx.commit().await.expect("commit");
 
     let request_uri = fixture.push(&page, &[]).await;
-    let started = Fixture::json(fixture.start_related(&page, &request_uri).await).await;
+    let started = json(fixture.start_related(&page, &request_uri).await).await;
     let refused = fixture.finish_related(&page, &started).await;
     assert_eq!(refused.status(), StatusCode::BAD_REQUEST);
     assert!(refused.headers().get(header::SET_COOKIE).is_none());
-    assert_eq!(Fixture::json(refused).await["code"], "interaction_required");
+    assert_eq!(json(refused).await["code"], "interaction_required");
 }
 
 /// While the account has a recovery that can still be undone, no passkey signs in
@@ -432,10 +432,10 @@ async fn a_probation_passkey_signs_in_on_auths_pages_only() {
     // A sign-in on the related page, for `target`, refused for `why`.
     let refused = async |fixture: &mut Fixture, target: &[(&str, &str)], why: &str| {
         let request_uri = fixture.push(&page, target).await;
-        let started = Fixture::json(fixture.start_related(&page, &request_uri).await).await;
+        let started = json(fixture.start_related(&page, &request_uri).await).await;
         let refused = fixture.finish_related(&page, &started).await;
         assert_eq!(refused.status(), StatusCode::BAD_REQUEST);
-        let body = Fixture::json(refused).await;
+        let body = json(refused).await;
         assert_eq!(body["code"], "interaction_required");
         let error = body["error"].as_str().expect("error");
         assert!(error.contains(why), "{error}");
@@ -469,7 +469,7 @@ async fn removing_an_origin_during_a_sign_in_refuses_it() {
     fixture.on(&replicas.a);
     let page = RelatedPage::approved(&fixture.app.database).await;
     let request_uri = fixture.push(&page, &[]).await;
-    let started = Fixture::json(fixture.start_related(&page, &request_uri).await).await;
+    let started = json(fixture.start_related(&page, &request_uri).await).await;
     let assertion = fixture.assertion_for(page.origin.url().clone(), &started);
     let database = fixture.app.database.clone();
     let mut removal = database.begin().await.expect("transaction");
