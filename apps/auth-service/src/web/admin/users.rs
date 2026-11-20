@@ -1,7 +1,10 @@
 //! Account search, one account's page, and the changes made to an account.
 
-use super::{AdminApplication as App, ReasonForm, Refused, invitations, lists, settings};
-use crate::{AdminError, Letter, Reason, admin::SignedInAdmin, deliveries::EmailSender, routes};
+use super::{AdminApplication as App, ReasonForm, Refusal, Refused, invitations, lists, settings};
+use crate::{
+    AdminError, Letter, Reason, account::Subject, admin::SignedInAdmin, deliveries::EmailSender,
+    routes,
+};
 use sourceorigin_common::{
     AccountStatus, PictureId, SessionId, UserId,
     admin::{EventSearch, MessageIntent, MessageUser, User, UserSearch},
@@ -324,9 +327,9 @@ enum AccountChange {
     Delete,
     /// `user restore`.
     Restore,
-    /// `session revoke-all`.
+    /// `account … sessions revoke-all`.
     RevokeSessions,
-    /// `session revoke`, of this session.
+    /// `account … sessions revoke`, of this session.
     RevokeSession(SessionId),
     /// `user recover`, mailing the link.
     Recover,
@@ -349,30 +352,38 @@ impl AccountChange {
         }
     }
 
-    /// Makes it to the account `id`, as `admin`, for `reason`.
+    /// Makes it to the account `id`, as `admin`, for `reason`: signing sessions out
+    /// through the account service, as the owner's settings and the CLI's
+    /// `account` command do, and the rest through the admin service.
     async fn make(
         self,
         app: &App,
         admin: &SignedInAdmin,
         id: UserId,
         reason: Reason,
-    ) -> Result<(), AdminError> {
+    ) -> Result<(), Refusal> {
         let (service, operator) = (&app.service, &admin.operator);
         match self {
-            Self::Disable => service.disable_user(operator, id, reason).await,
-            Self::Enable => service.enable_user(operator, id, reason).await,
-            Self::Delete => service.schedule_deletion(operator, id, reason).await,
-            Self::Restore => service.restore_user(operator, id, reason).await,
-            Self::RevokeSessions => service.revoke_user_sessions(operator, id, reason).await,
-            Self::RevokeSession(session) => {
-                service.revoke_session(operator, id, session, reason).await
+            Self::Disable => service.disable_user(operator, id, reason).await?,
+            Self::Enable => service.enable_user(operator, id, reason).await?,
+            Self::Delete => service.schedule_deletion(operator, id, reason).await?,
+            Self::Restore => service.restore_user(operator, id, reason).await?,
+            Self::RevokeSessions => {
+                let subject = Subject::operator(id, operator.clone(), reason);
+                app.account.revoke_other_sessions(&subject).await?;
             }
-            Self::Recover => service
-                .recover_account(operator, id, reason, &app.links, None)
-                .await
-                .map(drop),
-            Self::UndoRecovery => service.undo_recovery(operator, id, reason).await,
+            Self::RevokeSession(session) => {
+                let subject = Subject::operator(id, operator.clone(), reason);
+                app.account.revoke_session(&subject, session).await?;
+            }
+            Self::Recover => {
+                service
+                    .recover_account(operator, id, reason, &app.links, None)
+                    .await?;
+            }
+            Self::UndoRecovery => service.undo_recovery(operator, id, reason).await?,
         }
+        Ok(())
     }
 
     /// Its page: a `GET` asks for the reason, and a `POST` makes it, then goes

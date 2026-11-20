@@ -1,6 +1,7 @@
 //! Disabling and enabling an account, and reading its event history.
 
 use super::*;
+use crate::account::{AccountService, Subject};
 use axum::http::{Method, StatusCode};
 use serde_json::json;
 use sourceorigin_common::events::RevocationReason;
@@ -136,17 +137,14 @@ async fn every_change_to_an_account_shows_its_reason_to_the_owner() {
         .expect("enable");
     let laptop = Browser::sign_in(&harness.database, id).await;
     Browser::sign_in(&harness.database, id).await;
-    service
-        .revoke_session(
-            &administrator,
-            id,
-            laptop.session_id,
-            reason("Laptop stolen"),
-        )
+    let account = AccountService::new(harness.database.clone());
+    let signing_out = |why| Subject::operator(id, administrator.clone(), reason(why));
+    account
+        .revoke_session(&signing_out("Laptop stolen"), laptop.session_id)
         .await
         .expect("revoke one");
-    service
-        .revoke_user_sessions(&administrator, id, reason("Phone stolen too"))
+    account
+        .revoke_other_sessions(&signing_out("Phone stolen too"))
         .await
         .expect("revoke all");
     service

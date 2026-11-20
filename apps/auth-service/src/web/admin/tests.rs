@@ -2206,6 +2206,41 @@ async fn a_session_is_revoked_only_from_its_own_account() {
     assert!(session.is_some(), "still signed in");
 }
 
+/// An account's page signs one of its sessions out, then every one, each with a
+/// reason, and goes back to the account's page.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL"]
+async fn sessions_are_revoked_from_the_dashboard() {
+    let harness = Harness::new().await;
+    let admin = harness.admin().await;
+    let owner = Browser::new_account(&harness.database).await;
+    Browser::sign_in(&harness.database, owner.user_id).await;
+    let account = format!("/users/{}", owner.user_id);
+    let one = format!("{account}/sessions/{}/revoke", owner.session_id);
+    let all = format!("{account}/sessions/revoke");
+    let dashboard = harness.confirmed(&admin, &one, Utc::now()).await;
+    let post = async |path: &str| {
+        let url = format!("{DASHBOARD}{path}");
+        dashboard
+            .submit(&harness.dashboard, &url, &[REASON], OWN_PAGE)
+            .await
+    };
+    let active = async || {
+        harness
+            .database
+            .sessions()
+            .list_active_for_user(owner.user_id)
+            .await
+            .expect("sessions")
+            .len()
+    };
+    assert_eq!(active().await, 2);
+    assert_eq!(redirect(&post(&one).await), account);
+    assert_eq!(active().await, 1);
+    assert_eq!(redirect(&post(&all).await), account);
+    assert_eq!(active().await, 0);
+}
+
 /// The Alerts page shows an open alert as needing attention, with posting an
 /// update on it, and the overview's banner leads there. An update is recorded
 /// as the administrator's, and the alert then shows its status and note. The

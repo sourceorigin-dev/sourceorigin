@@ -9,7 +9,7 @@ use crate::{
     security::Session,
 };
 use sourceorigin_common::{
-    AccountStatus, Handle, HandleError, Personal, SessionId, UserId,
+    AccountStatus, Handle, HandleError, Personal, UserId,
     admin::{
         DashboardSession, Email, Paging, ReleasedHandle, ReservedHandle, ScheduledDeletion,
         UserDetail, UserPage,
@@ -17,7 +17,7 @@ use sourceorigin_common::{
     email::NormalizedEmail,
     events::{DomainEvent, RevocationReason},
 };
-use sourceorigin_repository::{DatabaseError, DatabaseTransaction, SessionScope, StoredUser};
+use sourceorigin_repository::{DatabaseError, DatabaseTransaction, StoredUser};
 
 /// Accounts per search page.
 const USER_PAGE_SIZE: u16 = 50;
@@ -316,47 +316,6 @@ impl AdminService {
         let reason = Reason::see_message();
         tx.record_message(&operator.context(&reason), user_id, subject, body)
             .await?;
-        Self::finish(tx, operator, &reason, Some(user_id), vec![]).await
-    }
-
-    /// Ends every session and refresh grant of an account, for `reason`.
-    pub(crate) async fn revoke_user_sessions(
-        &self,
-        operator: &Operator,
-        user_id: UserId,
-        reason: Reason,
-    ) -> Result<(), AdminError> {
-        let mut tx = self.database.begin().await?;
-        operator.lock(&mut tx, user_id).await?;
-        let context = operator.context(&reason);
-        Session::end_all(&mut tx, &context, user_id, RevocationReason::Admin).await?;
-        Self::finish(tx, operator, &reason, Some(user_id), vec![]).await
-    }
-
-    /// Ends `user_id`'s active session `session_id` and the refresh grants issued
-    /// from it, for `reason`. Another account's session is not found: the caller
-    /// names the account it means to sign out, as its page or command shows it.
-    pub(crate) async fn revoke_session(
-        &self,
-        operator: &Operator,
-        user_id: UserId,
-        session_id: SessionId,
-        reason: Reason,
-    ) -> Result<(), AdminError> {
-        let mut tx = self.database.begin().await?;
-        operator.lock(&mut tx, user_id).await?;
-        if tx
-            .revoke_sessions(
-                &operator.context(&reason),
-                user_id,
-                SessionScope::One(session_id),
-                &RevocationReason::Admin,
-            )
-            .await?
-            .is_empty()
-        {
-            return Err(AdminError::SessionNotFound);
-        }
         Self::finish(tx, operator, &reason, Some(user_id), vec![]).await
     }
 

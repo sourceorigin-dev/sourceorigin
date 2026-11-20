@@ -162,7 +162,6 @@ can skip the event. Its callers:
   passkey confirmation: a user who suspects a stolen cookie must be able to act
   at once. An administrator needs the dashboard's recent passkey confirmation,
   as for every change on the dashboard, and an operator at the terminal none.
-- `AdminService::revoke_session`, which `auth-service session revoke` runs.
 - Changes that end the account's other sessions: removing a passkey
   (`src/passkey/settings.rs`), unlinking an identity
   (`src/federation/identities.rs`) and reporting a history entry as not the
@@ -171,10 +170,8 @@ can skip the event. Its callers:
 - RP-initiated logout, which also ends the inline session of the app's own
   passkey sign-in that its `id_token_hint` names (`src/oidc/logout.rs`).
 - `Session::end_all`, for an account disabled, scheduled for deletion, purged or
-  recovered, for the sign-out link of a notification's email
-  (`src/notifications`), and for `AdminService::revoke_user_sessions`, which the
-  dashboard and `auth-service session revoke-all` run: every session, with every
-  refresh grant of the account.
+  recovered, and for the sign-out link of a notification's email
+  (`src/notifications`): every session, with every refresh grant of the account.
 
 Signing out (`AccountService::sign_out`) ends the browser's session and clears
 its cookie. RP-initiated logout signs out the same way, recording the client

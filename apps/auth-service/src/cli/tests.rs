@@ -40,17 +40,6 @@ impl AdminOperation {
                 "--reason",
                 "Spam account",
             ],
-            Self::RevokeUserSessions => {
-                &["session", "revoke-all", "alice", "--reason", "Phone stolen"]
-            }
-            Self::RevokeSession => &[
-                "session",
-                "revoke",
-                "alice",
-                AN_ID,
-                "--reason",
-                "Phone stolen",
-            ],
             Self::MessageUser => &[
                 "account",
                 "alice",

@@ -181,8 +181,8 @@ being misread:
   status, such as `400`, not `200`.
 
 An account's page acts only on that account: revoking a session another
-account holds is not found, from the dashboard and from `session revoke`, which
-names the account too.
+account holds is not found, from the dashboard and from
+`account <user> sessions revoke`, which names the account too.
 
 Lists page by number, with their totals, as the CLI's `--page` does.
 
@@ -250,7 +250,9 @@ command runs them as the operator at the terminal, and the dashboard's display
 name, sign-in methods, profile picture, email addresses, connected apps,
 security history and notifications pages call them in-process as an
 administrator, rendering the owner's own settings sections without what adds a
-way in, and asking for a reason with each change. All run the same safety
+way in, and asking for a reason with each change. The account page's **Revoke**
+and **Revoke all** sign its sessions out the same way, through the
+dashboard's own reason page. All run the same safety
 rules: for example, one active passkey always remains, whoever removes the
 others.
 
