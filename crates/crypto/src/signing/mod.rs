@@ -422,12 +422,17 @@ struct Pem;
 
 impl Pem {
     /// The DER of the first block labelled `label` in `text`, if it decodes.
-    /// A private key's base64 and DER are zeroized when dropped.
+    /// A private key's base64 and DER are zeroized when dropped; the base64 is
+    /// gathered into a buffer allocated at the body's size, so it never
+    /// reallocates and leaves no copy behind.
     fn decode(text: &str, label: &str) -> Option<Zeroizing<Vec<u8>>> {
         let begin = format!("-----BEGIN {label}-----");
         let end = format!("-----END {label}-----");
         let body = text.split_once(&begin)?.1.split_once(&end)?.0;
-        let base64: Zeroizing<String> = Zeroizing::new(body.split_whitespace().collect());
+        let mut base64 = Zeroizing::new(String::with_capacity(body.len()));
+        for piece in body.split_whitespace() {
+            base64.push_str(piece);
+        }
         STANDARD.decode(base64.as_str()).ok().map(Zeroizing::new)
     }
 
