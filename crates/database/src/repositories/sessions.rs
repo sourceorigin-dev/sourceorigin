@@ -74,16 +74,16 @@ pub struct StoredSession {
 
 /// A [`query_record!`] returning [`StoredSession`]s, read as `s`. With `active`
 /// first, it reads only the unrevoked, unexpired sessions of active accounts, as
-/// `u`: `$from` reads sessions, `$filter` follows the `WHERE`, and `$tail` the
-/// rule.
+/// `u`: `$from` reads sessions, `$filter` follows the `WHERE`, in parentheses so
+/// an `OR` in it never bypasses the rule, and `$tail` follows the rule.
 macro_rules! sessions {
     (active $from:literal, $filter:literal, $tail:literal $(, $arg:expr)* $(,)?) => {
         sessions!(
             "SELECT",
             $from
-                + " JOIN users u ON u.id = s.user_id WHERE "
+                + " JOIN users u ON u.id = s.user_id WHERE ("
                 + $filter
-                + " AND s.revoked_at IS NULL AND s.expires_at > now() AND u.status = 'active' "
+                + ") AND s.revoked_at IS NULL AND s.expires_at > now() AND u.status = 'active' "
                 + $tail
             $(, $arg)*
         )
@@ -297,7 +297,10 @@ impl SessionRepository<'_> {
         run!(
             self,
             fetch_optional,
-            sessions!(active "FROM sessions s", "s.id = $1", "",
+            sessions!(
+                active "FROM sessions s",
+                "s.id = $1",
+                "",
                 id.as_uuid(),
             )
         )
