@@ -490,29 +490,30 @@ pub(crate) fn policy(response: &Response) -> &str {
         .expect("CSP is text")
 }
 
+/// `response`'s whole body, of at most [`MAX_RESPONSE_BYTES`].
+async fn body(response: Response) -> axum::body::Bytes {
+    to_bytes(response.into_body(), MAX_RESPONSE_BYTES)
+        .await
+        .expect("body")
+}
+
 /// `response`'s body, as text.
 pub(crate) async fn html(response: Response) -> String {
-    let body = to_bytes(response.into_body(), MAX_RESPONSE_BYTES)
-        .await
-        .expect("body");
-    String::from_utf8(body.to_vec()).expect("UTF-8 page")
+    String::from_utf8(body(response).await.to_vec()).expect("UTF-8 page")
 }
 
 /// `response`'s body, as JSON.
 pub(crate) async fn json(response: Response) -> Value {
-    let body = to_bytes(response.into_body(), MAX_RESPONSE_BYTES)
-        .await
-        .expect("body");
-    serde_json::from_slice(&body).expect("JSON")
+    serde_json::from_slice(&body(response).await).expect("JSON")
 }
 
-/// `response`'s status, and its body as JSON, or null if it is none.
+/// `response`'s status, and its body as JSON, or null unless it is JSON.
 pub(crate) async fn reply(response: Response) -> (StatusCode, Value) {
     let status = response.status();
-    let body = to_bytes(response.into_body(), MAX_RESPONSE_BYTES)
-        .await
-        .expect("body");
-    (status, serde_json::from_slice(&body).unwrap_or(Value::Null))
+    (
+        status,
+        serde_json::from_slice(&body(response).await).unwrap_or(Value::Null),
+    )
 }
 
 /// A passkey of `user_id`'s account whose credential no ceremony can use, for the
