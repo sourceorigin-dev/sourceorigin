@@ -307,7 +307,8 @@ mod tests {
             ("Merge: things", "Other changes", "Merge: things"),
         ] {
             let (section, written) = Section::of(subject);
-            assert_eq!((section.title(), written.as_str()), (title, line));
+            let grouped = (section.title(), written.as_str());
+            assert_eq!(grouped, (title, line), "{subject}");
         }
     }
 }

@@ -64,7 +64,7 @@ fn main() -> Result<()> {
 
 /// The checkout `cargo xtask` runs in, which may be one of several worktrees.
 struct Workspace {
-    /// The checkout's top directory, which every command runs from.
+    /// The checkout's top directory, which commands run from and paths are relative to.
     root: PathBuf,
     /// The workspace's crates, as `cargo metadata` describes them.
     packages: Vec<Package>,
