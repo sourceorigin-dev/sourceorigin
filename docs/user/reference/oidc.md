@@ -82,9 +82,11 @@ can't be tried again. Every step of an authorization checks the client's registr
 as it is then, under a share lock when it issues a code or tokens: a client
 disabled, suspended or changed meanwhile gets nothing it no longer allows. Access tokens are
 intended for the configured client audience. Only requested claims are released;
-passkey-only accounts have no email claim. Browser clients should keep tokens in
-memory and use SSO again after reload. Refresh permission is off unless explicitly
-enabled and `offline_access` is allowed/requested. A public client's refresh token
+an account without a confirmed primary address has no `email` claim. Browser
+clients should keep tokens in memory and use SSO again after reload. Refresh
+tokens are issued only when the client allows them and the request asks for
+`offline_access`: a confidential client allows them by default, and a public one
+doesn't. A public client's refresh token
 rotates: each refresh answers with a new one, and presenting a spent one revokes
 the whole grant, so a stolen copy is caught as soon as both are used. The one
 exception is a refresh repeated within 10 seconds, such as two tabs refreshing
@@ -98,12 +100,11 @@ Consent is remembered per user,
 client and scope; explicitly trusted clients bypass consent. The consent page
 names the host the app sends the browser back to and the signed-in account, which
 can switch to another, and labels an app an account registered as unverified,
-with its owner's handle. Users see the apps
-they consented to, or whose refresh grants still work, under Connected apps in
-settings (`/settings/apps`), and remove an app's access there: its refresh grants
-end, it asks for consent again, and its outstanding codes stop working. Access
-tokens it already holds expire within five minutes. The settings API serves them too
-(`GET /account/apps`, `DELETE /account/apps/{client_id}`). An administrator removes
+with its owner's handle. Users see the apps they consented to, or whose refresh
+grants still work, and remove an app's access, in
+[connected apps](../account/connected-apps.md). Removing it also ends its
+refresh grants and stops its outstanding codes working. The settings API serves
+them too (`GET /account/apps`, `DELETE /account/apps/{client_id}`). An administrator removes
 one the same way from the account's Connected apps page on the dashboard, and an
 operator with `auth-service account <user> apps remove <client-id>`, each with a
 reason the owner sees in their history.
