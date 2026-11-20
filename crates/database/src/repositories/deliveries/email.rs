@@ -219,8 +219,8 @@ impl Channel for Email {
 impl EmailRepository<'_> {
     /// `user_id`'s verified addresses that no other account owns, primary first,
     /// then oldest first: those its notifications are emailed to. Disabling an
-    /// account releases its addresses, so another account may verify one since,
-    /// which makes it that account's.
+    /// account releases its addresses, so another account, an active one or one
+    /// being deleted, may own one of them.
     ///
     /// # Errors
     ///
