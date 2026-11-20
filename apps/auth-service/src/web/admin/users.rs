@@ -1,6 +1,8 @@
 //! Account search, one account's page, and the changes made to an account.
 
-use super::{AdminApplication as App, ReasonForm, Refusal, Refused, invitations, lists, settings};
+use super::{
+    AdminApplication as App, ReasonForm, ReasonPage, Refusal, Refused, invitations, lists, settings,
+};
 use crate::{
     AdminError, Letter, Reason, account::Subject, admin::SignedInAdmin, deliveries::EmailSender,
     routes,
@@ -391,12 +393,11 @@ impl AccountChange {
     /// one session, that session of it. A recovery's pages list the account's
     /// recent recoveries below the form.
     async fn page(self, cx: &Cx, form: Option<Form<ReasonForm>>) -> Result<Response> {
-        let admin = App::admin(cx).await?;
-        App::confirm(cx, admin)?;
+        let admin = App::confirmed(cx).await?;
         let app = App::of(cx);
         let id = *path_param::<Account>(cx)?;
         let back = App::account(cx, id);
-        let refusal = App::submit_reason(cx, form, back.clone(), async |reason| {
+        let refused = App::submit_reason(cx, form, back.clone(), async |reason| {
             self.make(app, admin, id, reason).await
         })
         .await?;
@@ -407,8 +408,6 @@ impl AccountChange {
             None
         };
         let (change, crumb) = self.change();
-        let reason = refusal.as_ref().map(Refused::reason);
-        let refusal = refusal.as_deref();
         let account = App::target(cx).await;
         // One session is named as that session of the account the crumb names.
         let session = match self {
@@ -426,19 +425,17 @@ impl AccountChange {
             }),
             None => account,
         };
-        let page = view! { cx =>
-            sourceorigin_ui::dashboard_change(
-                change: change,
-                target: target,
-                back: back.as_str(),
-                refusal: refusal,
-                reason: reason,
-                if let Some(rows) = &recent {
-                    sourceorigin_ui::recovery_list(rows: rows)
-                }
-            )
+        let page = ReasonPage {
+            crumb,
+            target,
+            ..ReasonPage::new(change, &back)
         };
-        App::render(cx, StatusCode::OK, crumb, page).await
+        let recoveries = view! { cx =>
+            if let Some(rows) = &recent {
+                sourceorigin_ui::recovery_list(rows: rows)
+            }
+        };
+        App::reason_page(cx, page, refused, recoveries).await
     }
 }
 

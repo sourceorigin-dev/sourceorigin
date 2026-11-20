@@ -136,8 +136,7 @@ enum Saved {
 /// page was read is refused, never sent unseen.
 #[route([GET, POST] "/announcements/{announcement}/send")]
 pub(super) async fn send(cx: &Cx, form: Option<Form<SendAnnouncement>>) -> Result<Response> {
-    let admin = App::admin(cx).await?;
-    App::confirm(cx, admin)?;
+    let admin = App::confirmed(cx).await?;
     let service = &App::of(cx).service;
     let id = *path_param::<Announcement>(cx)?;
     let checked: SendAnnouncement = parse_query_params(cx)

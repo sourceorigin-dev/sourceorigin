@@ -84,8 +84,7 @@ pub(super) async fn previous(cx: &Cx) -> Result<Response> {
 /// not found.
 #[route([GET, POST] "/alerts/{alert}/update")]
 pub(super) async fn update(cx: &Cx, form: Option<Form<UpdateForm>>) -> Result<Response> {
-    let admin = App::admin(cx).await?;
-    App::confirm(cx, admin)?;
+    let admin = App::confirmed(cx).await?;
     let service = &App::of(cx).service;
     let id = *path_param::<Alert>(cx)?;
     let alerts = service
