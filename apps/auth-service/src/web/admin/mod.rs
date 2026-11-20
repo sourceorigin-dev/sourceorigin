@@ -383,6 +383,7 @@ impl AdminApplication {
             .route(settings::history)
             .route(settings::notifications)
             .route(settings::display_name)
+            // The account page's session revocations, the account service's too.
             .route(users::revoke_sessions)
             .route(users::revoke_session)
             // `ListAlerts` lists the alerts that cleared on a page of their own.
