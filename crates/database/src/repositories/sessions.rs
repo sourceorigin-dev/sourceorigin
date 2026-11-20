@@ -1,6 +1,6 @@
 //! Active browser sessions, cookie digests and passkey confirmations.
 
-use super::{JsonArray, RepositoryExecutor, SessionRepository};
+use super::{JsonArray, RepositoryExecutor, SessionRepository, Unsigned};
 use crate::{DatabaseError, DatabaseTransaction};
 use chrono::{DateTime, TimeDelta, Utc};
 use serde::{Deserialize, Serialize};
@@ -421,16 +421,16 @@ impl SessionRepository<'_> {
     ///
     /// Returns [`DatabaseError`] if the query fails.
     pub async fn count_active(&mut self) -> Result<u64, DatabaseError> {
-        let count = run!(
+        Ok(run!(
             self,
             fetch_one,
             sqlx::query_scalar!(
-                r#"SELECT count(*) AS "count!"
+                r#"SELECT count(*) AS "count!: Unsigned"
                 FROM sessions
                 WHERE revoked_at IS NULL AND expires_at > now()"#
             )
-        )?;
-        Ok(count.try_into().unwrap_or_default())
+        )?
+        .into())
     }
 
     /// Records activity of the session from `ip`, at most once every
