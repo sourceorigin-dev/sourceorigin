@@ -47,18 +47,23 @@ async fn account(pool: &PgPool, address: Option<&str>) -> UserId {
         .expect("user")
         .id;
     if let Some(address) = address {
-        EmailRepository::from_pool(pool)
-            .insert_verified(&InsertVerifiedEmail {
-                id: EmailId::new(),
-                user_id: user,
-                normalized_email: format!("{user}@{address}"),
-                is_primary: true,
-                verified_at: Utc::now(),
-            })
-            .await
-            .expect("address");
+        verify(pool, user, format!("{user}@{address}")).await;
     }
     user
+}
+
+/// Gives `user` `address` as its primary verified one.
+async fn verify(pool: &PgPool, user: UserId, address: String) {
+    EmailRepository::from_pool(pool)
+        .insert_verified(&InsertVerifiedEmail {
+            id: EmailId::new(),
+            user_id: user,
+            normalized_email: address,
+            is_primary: true,
+            verified_at: Utc::now(),
+        })
+        .await
+        .expect("address");
 }
 
 /// Sends the draft `id` at `revision` in one transaction, recording its event as
@@ -317,6 +322,62 @@ async fn only_essential_announcements_email_those_who_turned_them_off() {
     assert_eq!(emails.announcement(on, news).await.expect("email"), None);
     let still = emails.announcement(on, essential).await.expect("email");
     assert!(still.is_some_and(|email| email.essential));
+}
+
+/// A disabled account still gets announcements at its primary verified address,
+/// until another account verifies that address, which disabling released: then
+/// the address's new owner gets only its own, whether it verified it before the
+/// email was queued or before it was sent.
+#[tokio::test]
+#[ignore = "requires a disposable TEST_DATABASE_URL"]
+async fn a_disabled_account_is_not_emailed_at_an_address_another_now_owns() {
+    let pool = Database::test_pool().await;
+    let (claimed, later, unclaimed) = (
+        account(&pool, Some("example.com")).await,
+        account(&pool, Some("example.com")).await,
+        account(&pool, Some("example.com")).await,
+    );
+    let mut users = UserRepository::from_pool(&pool);
+    for user in [claimed, later, unclaimed] {
+        assert!(
+            users
+                .set_status(user, AccountStatus::Disabled)
+                .await
+                .expect("disable")
+        );
+    }
+    let owner = account(&pool, None).await;
+    verify(&pool, owner, format!("{claimed}@example.com")).await;
+    let id = AnnouncementId::new();
+    let mut tx = DatabaseTransaction::new(pool.begin().await.expect("transaction"));
+    tx.announcements()
+        .insert_draft(&DraftedAnnouncement {
+            id,
+            subject: "Incident",
+            body: "What happened",
+            recipients: Recipients::Accounts(&[claimed, later, unclaimed, owner]),
+            essential: true,
+        })
+        .await
+        .expect("draft");
+    tx.commit().await.expect("commit");
+    let mut announcements = AnnouncementRepository::from_pool(&pool);
+    assert_eq!(announcements.mailed(id).await.expect("mailed"), 3);
+    send(&pool, id, 1).await.expect("a draft");
+    for (user, emails) in [(claimed, 0), (later, 1), (unclaimed, 1), (owner, 1)] {
+        assert!(inbox(&pool, user).await.contains(&id));
+        assert_eq!(deliveries_to(&pool, user, id).await, emails);
+    }
+    verify(
+        &pool,
+        account(&pool, None).await,
+        format!("{later}@example.com"),
+    )
+    .await;
+    let mut emails = EmailRepository::from_pool(&pool);
+    assert_eq!(emails.announcement(later, id).await.expect("email"), None);
+    let still = emails.announcement(unclaimed, id).await.expect("email");
+    assert!(still.is_some());
 }
 
 /// Purges `user` in `tx` as auth's callers do: the administrator list locked,

@@ -341,8 +341,9 @@ impl AnnouncementRepository<'_> {
     }
 
     /// How many of the recipients of `id` its email reaches now: those with a
-    /// primary verified address, who did not turn announcements' email off
-    /// unless it is essential. For a draft to everyone, how many accounts.
+    /// primary verified address that no other account owns, who did not turn
+    /// announcements' email off unless it is essential. For a draft to everyone,
+    /// how many accounts.
     ///
     /// # Errors
     ///
@@ -359,7 +360,9 @@ impl AnnouncementRepository<'_> {
                     OR EXISTS (SELECT FROM announcement_recipients r
                         WHERE r.announcement_id = a.id AND r.user_id = e.user_id)
                 )
-                WHERE a.id = $1 AND (a.essential OR announcements_emailed(e.user_id))"#,
+                WHERE a.id = $1 AND (a.essential OR announcements_emailed(e.user_id))
+                    AND NOT EXISTS (SELECT FROM active_verified_email_ownership o
+                        WHERE o.normalized_email = e.normalized_email AND o.user_id <> e.user_id)"#,
                 id.as_uuid(),
             )
         )?
@@ -387,7 +390,8 @@ impl AnnouncementRepository<'_> {
 
     /// The recipients of `id` with a primary verified address, whom its email
     /// goes to: unless it is essential, only those who did not turn
-    /// announcements' email off. Their rows stay key-share locked until the transaction ends, so a
+    /// announcements' email off. A disabled account's address that another
+    /// account verified since is that account's, so it is left out. Their rows stay key-share locked until the transaction ends, so a
     /// purge of one waits for the emails to be queued, and then deletes its own.
     ///
     /// # Errors
@@ -407,6 +411,8 @@ impl AnnouncementRepository<'_> {
                 JOIN user_emails e ON e.user_id = r.user_id AND e.is_primary
                 WHERE r.announcement_id = $1
                     AND (a.essential OR announcements_emailed(r.user_id))
+                    AND NOT EXISTS (SELECT FROM active_verified_email_ownership o
+                        WHERE o.normalized_email = e.normalized_email AND o.user_id <> e.user_id)
                 ORDER BY r.user_id
                 FOR KEY SHARE OF r"#,
                 id.as_uuid(),

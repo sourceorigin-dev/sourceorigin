@@ -169,7 +169,10 @@ subject and text, to each recipient's inbox, from the recipients it locked, and
 records `AnnouncementSent`, whose fan-out creates one delivery per
 recipient with a primary verified address, leaving out, unless the announcement
 is essential, those who turned announcements' email off
-([email preferences](notifications.md#email-preferences)). These emails go out
+([email preferences](notifications.md#email-preferences)). Disabling an account
+releases its addresses to other accounts: once another one verifies the disabled
+account's primary address, the address is the other account's, and the disabled
+account's email is left out. These emails go out
 here, never on the `email` channel, and link the inbox. Each names its list in
 a `List-Id` header (RFC 2919), `<announcements.<sender's domain>>`, so mail
 clients can sort and filter announcements, and one that is not essential also
@@ -180,8 +183,8 @@ about the account itself, none. A delivery stores only the account's ID
 as its recipient and the announcement's ID as its payload, and its `destination`
 names both. The sender reads the account's primary verified address and the text
 when it sends, so an address changed meanwhile gets it, and an account with none
-left, no longer a recipient, or that turned announcements' email off since,
-unless it is essential, is skipped: the delivery succeeds without a send. The text of a sent announcement never changes, so every attempt sends the
+left, whose address another account verified since, no longer a recipient, or
+that turned announcements' email off since, unless it is essential, is skipped: the delivery succeeds without a send. The text of a sent announcement never changes, so every attempt sends the
 same message. `MAX_AGE` is three days, as an announcement stays worth reading
 through a long relay outage or a slow send to every account. A purge deletes the
 account's announcement deliveries, which would find no recipient left.
