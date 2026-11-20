@@ -93,10 +93,11 @@ behave, not part of the wire format.
 A limit, lifetime or name both SDKs apply goes in `sdk_constants!` in
 `crates/common/src/protocol/constants.rs`, or beside its wire type. The Rust SDK
 imports it from there, and `just sdk-types` writes it into `protocol.ts`,
-durations in milliseconds; a constant of a type `Literal` does not cover yet
-needs it added to the `number!` or `milliseconds!` list in `typescript.rs`. A
-module that starts declaring constants also joins
-`generate()` in `crates/common/src/protocol/typescript.rs`, with
+durations in milliseconds. A constant of a type that does not implement
+`Literal` in `crates/common/src/protocol/typescript.rs` yet needs it there: an
+integer or a duration joins the `number!` or `milliseconds!` list, anything
+else gets its own `impl`, as `&str` has. A module that starts declaring
+constants also joins `generate()` in the same file, with
 `.constants(<module>::typescript())`.
 
 ## 5. Add it to the TypeScript SDK
