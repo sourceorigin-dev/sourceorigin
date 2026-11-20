@@ -122,8 +122,9 @@ Its link stops working at once.
   signs in instead.
 - If another account confirms the address before the person signs up, the new
   account starts without it.
-- Only a mailed invitation can be sent again, and not to an address an account
-  has confirmed since.
+- Only a mailed invitation can be sent again, and only while email is enabled:
+  the dashboard offers **Resend** only then. It can't go to an address an
+  account has confirmed since.
 - Where signup is open, a signup that starts at GitHub or Google doesn't carry
   the invitation: the account is created without it, and without its address.
 

@@ -20,7 +20,7 @@ use topcoat::{
 path_param!(pub invitation: TokenId, error = not_found);
 
 /// `/invitations`: signup invitations, newest first, with the changes each
-/// open one takes.
+/// open one takes: a mailed one is resent only while email is on.
 #[route(GET "/invitations")]
 pub(super) async fn list(cx: &Cx) -> Result<Response> {
     let admin = App::admin(cx).await?;
@@ -34,8 +34,11 @@ pub(super) async fn list(cx: &Cx) -> Result<Response> {
             let action = |href: String| Action { href, inline };
             InvitationRow {
                 invitation,
-                resend: (open && invitation.expires_at > now && invitation.email.is_some())
-                    .then(|| action(href!(resend, Invitation(invitation.id)).resolve(cx))),
+                resend: (open
+                    && invitation.expires_at > now
+                    && invitation.email.is_some()
+                    && app.service.mails())
+                .then(|| action(href!(resend, Invitation(invitation.id)).resolve(cx))),
                 revoke: open.then(|| action(href!(revoke, Invitation(invitation.id)).resolve(cx))),
             }
         })
