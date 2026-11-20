@@ -74,8 +74,8 @@ export async function shoot(page: Page, name: string, area?: Locator): Promise<v
       // Every replacement, in order.
       const rewrite = (text: string) =>
         replacements.reduce(
-          (text, [pattern, replacement]) =>
-            text.replace(pattern, replacement as (match: string) => string),
+          (done, [pattern, replacement]) =>
+            done.replace(pattern, replacement as (match: string) => string),
           text
         );
       const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
