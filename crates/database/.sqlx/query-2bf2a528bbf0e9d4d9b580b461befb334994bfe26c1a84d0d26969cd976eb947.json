@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n                    s.id AS \"id: SessionId\", s.user_id AS \"user_id: UserId\",\n                    s.authentication_methods AS \"authentication_methods: JsonArray<AuthenticationMethod>\",\n                    s.authenticated_at, s.expires_at, s.last_seen_at, s.revoked_at,\n                    s.passkey_confirmed_at,\n                    s.user_agent_family AS \"user_agent_family: UserAgentFamily\",\n                    s.last_seen_ip AS \"last_seen_ip: IpAddr\"\n                FROM sessions s\n                JOIN users u ON u.id = s.user_id\n                WHERE s.id = $1\n                AND s.revoked_at IS NULL\n                AND s.expires_at > now()\n                AND u.status = 'active'",
+  "query": "SELECT s.id AS \"id: SessionId\", s.user_id AS \"user_id: UserId\",\n            s.authentication_methods AS \"authentication_methods: JsonArray<AuthenticationMethod>\",\n            s.authenticated_at, s.expires_at, s.last_seen_at, s.revoked_at,\n            s.passkey_confirmed_at, s.user_agent_family AS \"user_agent_family: UserAgentFamily\",\n            s.last_seen_ip AS \"last_seen_ip: IpAddr\" FROM browser_session_secrets b JOIN sessions s ON s.id = b.session_id JOIN users u ON u.id = s.user_id WHERE b.secret_digest = $1 AND s.revoked_at IS NULL AND s.expires_at > now() AND u.status = 'active' ",
   "describe": {
     "columns": [
       {
@@ -56,7 +56,7 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Bytea"
       ]
     },
     "nullable": [
@@ -72,5 +72,5 @@
       true
     ]
   },
-  "hash": "c1e20cc6b6742bee1b6c5dc4f7cbe437e891c494346ac4a1b0940bae92adfb53"
+  "hash": "2bf2a528bbf0e9d4d9b580b461befb334994bfe26c1a84d0d26969cd976eb947"
 }

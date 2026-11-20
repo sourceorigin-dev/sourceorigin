@@ -72,6 +72,35 @@ pub struct StoredSession {
     pub last_seen_ip: Option<IpAddr>,
 }
 
+/// A [`query_record!`] returning [`StoredSession`]s, read as `s`. With `active`
+/// first, it reads only the unrevoked, unexpired sessions of active accounts, as
+/// `u`: `$from` reads sessions, `$filter` follows the `WHERE`, and `$tail` the
+/// rule.
+macro_rules! sessions {
+    (active $from:literal, $filter:literal, $tail:literal $(, $arg:expr)* $(,)?) => {
+        sessions!(
+            "SELECT",
+            $from
+                + " JOIN users u ON u.id = s.user_id WHERE "
+                + $filter
+                + " AND s.revoked_at IS NULL AND s.expires_at > now() AND u.status = 'active' "
+                + $tail
+            $(, $arg)*
+        )
+    };
+    ($($query:tt)*) => {
+        query_record!(
+            StoredSession,
+            r#"s.id AS "id: SessionId", s.user_id AS "user_id: UserId",
+            s.authentication_methods AS "authentication_methods: JsonArray<AuthenticationMethod>",
+            s.authenticated_at, s.expires_at, s.last_seen_at, s.revoked_at,
+            s.passkey_confirmed_at, s.user_agent_family AS "user_agent_family: UserAgentFamily",
+            s.last_seen_ip AS "last_seen_ip: IpAddr""#,
+            $($query)*
+        )
+    };
+}
+
 /// Which of an account's sessions [`DatabaseTransaction::revoke_sessions`] ends.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SessionScope {
@@ -176,28 +205,23 @@ impl SessionRepository<'_> {
         run!(
             self,
             fetch_one,
-            sqlx::query_as!(
-                StoredSession,
-                r#"WITH active_user AS (
+            sessions!(
+                "WITH active_user AS (
                     SELECT id
                     FROM users
                     WHERE id = $2
                     AND status = 'active'
                     FOR NO KEY UPDATE
                 )
-                INSERT INTO sessions (
+                INSERT INTO sessions AS s (
                     id, user_id, authentication_methods, authenticated_at, expires_at,
                     last_seen_at, user_agent_family, passkey_confirmed_at, created_ip,
                     last_seen_ip, passkey_id
                 )
                 SELECT $1, id, $3, $4, $5, $4, $6, $7, $8, $8, $9
                 FROM active_user
-                RETURNING
-                    id AS "id: SessionId", user_id AS "user_id: UserId",
-                    authentication_methods AS "authentication_methods: JsonArray<AuthenticationMethod>",
-                    authenticated_at, expires_at, last_seen_at, revoked_at, passkey_confirmed_at,
-                    user_agent_family AS "user_agent_family: UserAgentFamily",
-                    last_seen_ip AS "last_seen_ip: IpAddr""#,
+                RETURNING",
+                "",
                 input.id.as_uuid(),
                 input.user_id.as_uuid(),
                 Json(&input.authentication_methods) as _,
@@ -223,16 +247,10 @@ impl SessionRepository<'_> {
         run!(
             self,
             fetch_optional,
-            sqlx::query_as!(
-                StoredSession,
-                r#"SELECT
-                    id AS "id: SessionId", user_id AS "user_id: UserId",
-                    authentication_methods AS "authentication_methods: JsonArray<AuthenticationMethod>",
-                    authenticated_at, expires_at, last_seen_at, revoked_at, passkey_confirmed_at,
-                    user_agent_family AS "user_agent_family: UserAgentFamily",
-                    last_seen_ip AS "last_seen_ip: IpAddr"
-                FROM sessions
-                WHERE id = $1"#,
+            sessions!(
+                "SELECT",
+                "FROM sessions s
+                WHERE s.id = $1",
                 id.as_uuid(),
             )
         )
@@ -279,21 +297,7 @@ impl SessionRepository<'_> {
         run!(
             self,
             fetch_optional,
-            sqlx::query_as!(
-                StoredSession,
-                r#"SELECT
-                    s.id AS "id: SessionId", s.user_id AS "user_id: UserId",
-                    s.authentication_methods AS "authentication_methods: JsonArray<AuthenticationMethod>",
-                    s.authenticated_at, s.expires_at, s.last_seen_at, s.revoked_at,
-                    s.passkey_confirmed_at,
-                    s.user_agent_family AS "user_agent_family: UserAgentFamily",
-                    s.last_seen_ip AS "last_seen_ip: IpAddr"
-                FROM sessions s
-                JOIN users u ON u.id = s.user_id
-                WHERE s.id = $1
-                AND s.revoked_at IS NULL
-                AND s.expires_at > now()
-                AND u.status = 'active'"#,
+            sessions!(active "FROM sessions s", "s.id = $1", "",
                 id.as_uuid(),
             )
         )
@@ -313,22 +317,10 @@ impl SessionRepository<'_> {
         run!(
             self,
             fetch_optional,
-            sqlx::query_as!(
-                StoredSession,
-                r#"SELECT
-                    s.id AS "id: SessionId", s.user_id AS "user_id: UserId",
-                    s.authentication_methods AS "authentication_methods: JsonArray<AuthenticationMethod>",
-                    s.authenticated_at, s.expires_at, s.last_seen_at, s.revoked_at,
-                    s.passkey_confirmed_at,
-                    s.user_agent_family AS "user_agent_family: UserAgentFamily",
-                    s.last_seen_ip AS "last_seen_ip: IpAddr"
-                FROM sessions s
-                JOIN users u ON u.id = s.user_id
-                WHERE s.id = $1
-                AND s.revoked_at IS NULL
-                AND s.expires_at > now()
-                AND u.status = 'active'
-                FOR NO KEY UPDATE OF s"#,
+            sessions!(
+                active "FROM sessions s",
+                "s.id = $1",
+                "FOR NO KEY UPDATE OF s",
                 id.as_uuid(),
             )
         )
@@ -411,19 +403,13 @@ impl SessionRepository<'_> {
         run!(
             self,
             fetch_all,
-            sqlx::query_as!(
-                StoredSession,
-                r#"SELECT
-                    id AS "id: SessionId", user_id AS "user_id: UserId",
-                    authentication_methods AS "authentication_methods: JsonArray<AuthenticationMethod>",
-                    authenticated_at, expires_at, last_seen_at, revoked_at, passkey_confirmed_at,
-                    user_agent_family AS "user_agent_family: UserAgentFamily",
-                    last_seen_ip AS "last_seen_ip: IpAddr"
-                FROM sessions
-                WHERE user_id = $1
-                AND revoked_at IS NULL
-                AND expires_at > now()
-                ORDER BY last_seen_at DESC, id DESC"#,
+            sessions!(
+                "SELECT",
+                "FROM sessions s
+                WHERE s.user_id = $1
+                AND s.revoked_at IS NULL
+                AND s.expires_at > now()
+                ORDER BY s.last_seen_at DESC, s.id DESC",
                 user_id.as_uuid(),
             )
         )
@@ -503,22 +489,10 @@ impl SessionRepository<'_> {
         run!(
             self,
             fetch_optional,
-            sqlx::query_as!(
-                StoredSession,
-                r#"SELECT
-                    s.id AS "id: SessionId", s.user_id AS "user_id: UserId",
-                    s.authentication_methods AS "authentication_methods: JsonArray<AuthenticationMethod>",
-                    s.authenticated_at, s.expires_at, s.last_seen_at, s.revoked_at,
-                    s.passkey_confirmed_at,
-                    s.user_agent_family AS "user_agent_family: UserAgentFamily",
-                    s.last_seen_ip AS "last_seen_ip: IpAddr"
-                FROM browser_session_secrets b
-                JOIN sessions s ON s.id = b.session_id
-                JOIN users u ON u.id = s.user_id
-                WHERE b.secret_digest = $1
-                AND s.revoked_at IS NULL
-                AND s.expires_at > now()
-                AND u.status = 'active'"#,
+            sessions!(
+                active "FROM browser_session_secrets b JOIN sessions s ON s.id = b.session_id",
+                "b.secret_digest = $1",
+                "",
                 digest,
             )
         )
@@ -539,9 +513,9 @@ impl SessionRepository<'_> {
         at: DateTime<Utc>,
     ) -> Result<(), DatabaseError> {
         let passkey = Json([AuthenticationMethod::Passkey]);
-        let updated = run!(
+        run!(
             self,
-            execute,
+            required,
             sqlx::query!(
                 "UPDATE sessions
                 SET passkey_confirmed_at = $2,
@@ -558,12 +532,7 @@ impl SessionRepository<'_> {
                 passkey as _,
                 passkey_id.as_uuid(),
             )
-        )?
-        .rows_affected();
-        if updated == 0 {
-            return Err(DatabaseError::NotFound);
-        }
-        Ok(())
+        )
     }
 
     /// The passkey that last proved possession for session `id`: the one that
@@ -600,9 +569,9 @@ impl SessionRepository<'_> {
         at: DateTime<Utc>,
     ) -> Result<(), DatabaseError> {
         let method = Json([AuthenticationMethod::Passkey]);
-        let updated = run!(
+        run!(
             self,
-            execute,
+            required,
             sqlx::query!(
                 "UPDATE sessions
                 SET authenticated_at = $2,
@@ -621,12 +590,7 @@ impl SessionRepository<'_> {
                 passkey.map(PasskeyId::as_uuid),
                 method as _,
             )
-        )?
-        .rows_affected();
-        if updated == 0 {
-            return Err(DatabaseError::NotFound);
-        }
-        Ok(())
+        )
     }
 
     /// Replaces the digest of a session's browser cookie secret, so the cookie from
@@ -642,20 +606,15 @@ impl SessionRepository<'_> {
         session_id: SessionId,
         digest: &[u8],
     ) -> Result<(), DatabaseError> {
-        let updated = run!(
+        run!(
             self,
-            execute,
+            required,
             sqlx::query!(
                 "UPDATE browser_session_secrets SET secret_digest = $2 WHERE session_id = $1",
                 session_id.as_uuid(),
                 digest,
             )
-        )?
-        .rows_affected();
-        if updated == 0 {
-            return Err(DatabaseError::NotFound);
-        }
-        Ok(())
+        )
     }
 }
 
