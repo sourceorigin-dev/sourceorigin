@@ -233,6 +233,12 @@ impl AuthRejection {
         }
     }
 
+    /// Refuses a token `validator` accepted, which the handler cannot use: it lacks a
+    /// scope, or its authentication is too weak or too old.
+    fn refused<X>(error: TokenError, validator: &ResourceValidator<X>) -> Self {
+        Self::new(Reason::Token(Arc::new(error)), Some(validator))
+    }
+
     /// The token error behind the rejection, if any.
     #[must_use]
     pub fn token_error(&self) -> Option<&TokenError> {
@@ -299,24 +305,27 @@ impl IntoResponse for AuthRejection {
     }
 }
 
-/// Reads the layer's result for an extractor requiring `scope`.
-fn token<X: Clone + Send + Sync + 'static>(
-    parts: &Parts,
-    scope: Option<Scopes>,
-) -> Result<(AccessToken<Scopes, X>, &ResourceValidator<X>), AuthRejection> {
-    let bearer = parts
-        .extensions
-        .get::<Arc<Bearer<X>>>()
-        .ok_or_else(|| AuthRejection::new::<X>(Reason::MissingLayer, None))?;
-    let validator = &bearer.validator;
-    match &bearer.outcome {
-        Outcome::Missing => Err(AuthRejection::new(Reason::Missing(scope), Some(validator))),
-        Outcome::Malformed => Err(AuthRejection::new(Reason::InvalidRequest, Some(validator))),
-        Outcome::Validated(Err(error)) => Err(AuthRejection::new(
-            Reason::Token(error.clone()),
-            Some(validator),
-        )),
-        Outcome::Validated(Ok(token)) => Ok((token.as_ref().clone(), validator)),
+impl<X: Clone + Send + Sync + 'static> Bearer<X> {
+    /// Reads the layer's result for an extractor requiring `scope`, with the
+    /// validator that produced it.
+    fn token(
+        parts: &Parts,
+        scope: Option<Scopes>,
+    ) -> Result<(AccessToken<Scopes, X>, &ResourceValidator<X>), AuthRejection> {
+        let bearer = parts
+            .extensions
+            .get::<Arc<Self>>()
+            .ok_or_else(|| AuthRejection::new::<X>(Reason::MissingLayer, None))?;
+        let validator = &bearer.validator;
+        match &bearer.outcome {
+            Outcome::Missing => Err(AuthRejection::new(Reason::Missing(scope), Some(validator))),
+            Outcome::Malformed => Err(AuthRejection::new(Reason::InvalidRequest, Some(validator))),
+            Outcome::Validated(Err(error)) => Err(AuthRejection::new(
+                Reason::Token(error.clone()),
+                Some(validator),
+            )),
+            Outcome::Validated(Ok(token)) => Ok((token.as_ref().clone(), validator)),
+        }
     }
 }
 
@@ -340,7 +349,7 @@ impl<St: Send + Sync, X: Clone + Send + Sync + 'static> FromRequestParts<St> for
         parts: &mut Parts,
         _: &St,
     ) -> impl Future<Output = Result<Self, AuthRejection>> + Send {
-        std::future::ready(token(parts, None).map(|(token, _)| Self(token)))
+        std::future::ready(Bearer::token(parts, None).map(|(token, _)| Self(token)))
     }
 }
 
@@ -370,13 +379,14 @@ impl<St: Send + Sync, S: ScopeSet, X: Clone + Send + Sync + 'static> FromRequest
         parts: &mut Parts,
         _: &St,
     ) -> impl Future<Output = Result<Self, AuthRejection>> + Send {
-        std::future::ready(
-            token(parts, Some(S::required())).and_then(|(token, validator)| {
-                token.require::<S>().map(Self).map_err(|error| {
-                    AuthRejection::new(Reason::Token(Arc::new(error)), Some(validator))
-                })
-            }),
-        )
+        std::future::ready(Bearer::token(parts, Some(S::required())).and_then(
+            |(token, validator)| {
+                token
+                    .into_scoped()
+                    .map(Self)
+                    .map_err(|error| AuthRejection::refused(error, validator))
+            },
+        ))
     }
 }
 
@@ -412,12 +422,10 @@ where
         parts: &mut Parts,
         _: &St,
     ) -> impl Future<Output = Result<Self, AuthRejection>> + Send {
-        std::future::ready(token(parts, None).and_then(|(token, validator)| {
+        std::future::ready(Bearer::token(parts, None).and_then(|(token, validator)| {
             token
                 .require_authentication(P::REQUIREMENT, validator.now())
-                .map_err(|error| {
-                    AuthRejection::new(Reason::Token(Arc::new(error)), Some(validator))
-                })?;
+                .map_err(|error| AuthRejection::refused(error, validator))?;
             Ok(Self(token, PhantomData))
         }))
     }

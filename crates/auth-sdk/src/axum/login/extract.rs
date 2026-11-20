@@ -125,18 +125,13 @@ impl SignedIn {
     /// The [`StepUp`] asking for `P`'s requirement.
     pub fn require<P: AuthenticationPolicy>(&self) -> Result<(), StepUp> {
         let authentication = &self.claims().authentication;
-        if TokenError::require_authentication(
+        TokenError::require_authentication(
             P::REQUIREMENT,
             authentication.acr.as_ref(),
             authentication.auth_time,
             self.checked_at,
         )
-        .is_ok()
-        {
-            Ok(())
-        } else {
-            Err(self.step_up(P::REQUIREMENT))
-        }
+        .map_err(|_| self.step_up(P::REQUIREMENT))
     }
 
     /// Answers an API's `insufficient_user_authentication` challenge (RFC 9470) with
