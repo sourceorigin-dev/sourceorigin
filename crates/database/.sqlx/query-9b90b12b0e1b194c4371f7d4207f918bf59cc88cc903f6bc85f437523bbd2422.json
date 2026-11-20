@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT count(*) AS \"count!\" FROM users",
+  "query": "SELECT count(*) AS \"count!: Unsigned\" FROM users",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "count!",
+        "name": "count!: Unsigned",
         "type_info": "Int8"
       }
     ],
@@ -16,5 +16,5 @@
       null
     ]
   },
-  "hash": "780556e46140dd1c1d9385ff28e8114dbb517fd075bba227d471d8a70a1186fc"
+  "hash": "9b90b12b0e1b194c4371f7d4207f918bf59cc88cc903f6bc85f437523bbd2422"
 }

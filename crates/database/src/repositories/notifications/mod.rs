@@ -2,7 +2,7 @@
 //! read them. [`DatabaseTransaction::record`](crate::DatabaseTransaction::record)
 //! writes the notification an event gives its subject in the event's transaction.
 
-use super::{KindProbe, NotificationRepository, RepositoryExecutor};
+use super::{KindProbe, NotificationRepository, RepositoryExecutor, Unsigned};
 use crate::DatabaseError;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
@@ -184,17 +184,17 @@ impl NotificationRepository<'_> {
     ///
     /// Returns [`DatabaseError`] if the query fails.
     pub async fn unread(&mut self, user_id: UserId) -> Result<u64, DatabaseError> {
-        let count = run!(
+        Ok(run!(
             self,
             fetch_one,
             sqlx::query_scalar!(
-                r#"SELECT count(*) AS "count!"
+                r#"SELECT count(*) AS "count!: Unsigned"
                 FROM notifications
                 WHERE user_id = $1 AND read_at IS NULL"#,
                 user_id.as_uuid(),
             )
-        )?;
-        Ok(count.try_into().unwrap_or_default())
+        )?
+        .into())
     }
 
     /// Marks `user_id`'s notification `id` read, keeping when it was first read,
