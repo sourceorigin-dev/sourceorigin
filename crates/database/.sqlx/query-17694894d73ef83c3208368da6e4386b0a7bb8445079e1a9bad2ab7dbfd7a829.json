@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM passkey_credentials WHERE ctid IN (SELECT ctid FROM passkey_credentials WHERE revoked_at < now() - interval '90 days' LIMIT $1 FOR UPDATE SKIP LOCKED)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "17694894d73ef83c3208368da6e4386b0a7bb8445079e1a9bad2ab7dbfd7a829"
+}

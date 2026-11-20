@@ -99,34 +99,35 @@ impl MaintenanceRepository<'_> {
     ) -> Result<u64, DatabaseError> {
         let limit = i64::from(batch_size.clamp(1, MAX_PURGE_BATCH));
         // Runs each statement in order, each removing at most `$1` expired rows
-        // that no live request has locked. A checked query needs a literal, and
-        // each has its own type, so the statements cannot share a loop.
+        // that no live request has locked, and adds up what they removed. A
+        // checked query needs a literal, and each has its own type, so the
+        // statements cannot share a loop. Most delete the rows of one table that
+        // match a condition, which `$table where $condition` writes.
+        let mut purged = 0;
         macro_rules! purge {
-            ($($statement:literal,)+) => {
-                Ok(0 $(+ run!(self, execute, sqlx::query!($statement, limit))?.rows_affected())+)
+            ($table:literal where $condition:literal) => {
+                purge!(
+                    "DELETE FROM "
+                        + $table
+                        + " WHERE ctid IN (SELECT ctid FROM "
+                        + $table
+                        + " WHERE "
+                        + $condition
+                        + " LIMIT $1 FOR UPDATE SKIP LOCKED)"
+                )
+            };
+            ($statement:literal $(+ $more:literal)*) => {
+                purged += run!(self, execute, sqlx::query!($statement $(+ $more)*, limit))?
+                    .rows_affected()
             };
         }
+        purge!("request_limits" where "expires_at < now()");
+        purge!("invitations" where "expires_at < now()
+            OR redeemed_at < now() - interval '1 day'");
+        // An unverified address goes with its expired verification link; the
+        // secret's row cascades. Both rows are locked, skipping any a
+        // verification holds, so cleanup never waits on one.
         purge!(
-            "DELETE FROM request_limits
-            WHERE ctid IN (
-                SELECT ctid
-                FROM request_limits
-                WHERE expires_at < now()
-                LIMIT $1
-                FOR UPDATE SKIP LOCKED
-            )",
-            "DELETE FROM invitations
-            WHERE ctid IN (
-                SELECT ctid
-                FROM invitations
-                WHERE expires_at < now()
-                OR redeemed_at < now() - interval '1 day'
-                LIMIT $1
-                FOR UPDATE SKIP LOCKED
-            )",
-            // An unverified address goes with its expired verification link; the
-            // secret's row cascades. Both rows are locked, skipping any a
-            // verification holds, so cleanup never waits on one.
             "DELETE FROM user_emails
             WHERE id IN (
                 SELECT secret.email_id
@@ -136,66 +137,26 @@ impl MaintenanceRepository<'_> {
                 AND email.verified_at IS NULL
                 LIMIT $1
                 FOR UPDATE OF secret, email SKIP LOCKED
-            )",
-            "DELETE FROM pending_federation
-            WHERE ctid IN (
-                SELECT ctid
-                FROM pending_federation
-                WHERE expires_at < now()
-                LIMIT $1
-                FOR UPDATE SKIP LOCKED
-            )",
-            "DELETE FROM federation_transactions
-            WHERE ctid IN (
-                SELECT ctid
-                FROM federation_transactions
-                WHERE expires_at < now()
-                OR consumed_at < now() - interval '1 day'
-                LIMIT $1
-                FOR UPDATE SKIP LOCKED
-            )",
-            "DELETE FROM webauthn_ceremonies
-            WHERE ctid IN (
-                SELECT ctid
-                FROM webauthn_ceremonies
-                WHERE expires_at < now()
-                OR consumed_at < now() - interval '1 day'
-                LIMIT $1
-                FOR UPDATE SKIP LOCKED
-            )",
-            "DELETE FROM dashboard_handoffs
-            WHERE ctid IN (
-                SELECT ctid
-                FROM dashboard_handoffs
-                WHERE expires_at < now()
-                LIMIT $1
-                FOR UPDATE SKIP LOCKED
-            )",
-            // A session that went unused too long has ended too, but stays until
-            // its `expires_at`, which comes soon after.
-            "DELETE FROM dashboard_sessions
-            WHERE ctid IN (
-                SELECT ctid
-                FROM dashboard_sessions
-                WHERE expires_at < now()
-                LIMIT $1
-                FOR UPDATE SKIP LOCKED
-            )",
-            "DELETE FROM authorization_requests
-            WHERE ctid IN (
-                SELECT ctid
-                FROM authorization_requests
-                WHERE expires_at < now()
-                OR consumed_at < now() - interval '1 day'
-                LIMIT $1
-                FOR UPDATE SKIP LOCKED
-            )",
-            // A redeemed code stays while a replay could still revoke something: an
-            // unrevoked family it produced whose session is live (refresh tokens expire
-            // with the session). The first day after redemption is kept regardless, so
-            // replays are still recorded even for codes that produced no refresh family.
-            // Retained codes are rechecked on every pass, so this scan grows with
-            // every redeemed code past its first day, not only with purgeable ones.
+            )"
+        );
+        purge!("pending_federation" where "expires_at < now()");
+        purge!("federation_transactions" where "expires_at < now()
+            OR consumed_at < now() - interval '1 day'");
+        purge!("webauthn_ceremonies" where "expires_at < now()
+            OR consumed_at < now() - interval '1 day'");
+        purge!("dashboard_handoffs" where "expires_at < now()");
+        // A session that went unused too long has ended too, but stays until
+        // its `expires_at`, which comes soon after.
+        purge!("dashboard_sessions" where "expires_at < now()");
+        purge!("authorization_requests" where "expires_at < now()
+            OR consumed_at < now() - interval '1 day'");
+        // A redeemed code stays while a replay could still revoke something: an
+        // unrevoked family it produced whose session is live (refresh tokens expire
+        // with the session). The first day after redemption is kept regardless, so
+        // replays are still recorded even for codes that produced no refresh family.
+        // Retained codes are rechecked on every pass, so this scan grows with
+        // every redeemed code past its first day, not only with purgeable ones.
+        purge!(
             "DELETE FROM authorization_codes c
             WHERE c.ctid IN (
                 SELECT code.ctid
@@ -215,7 +176,9 @@ impl MaintenanceRepository<'_> {
                 )
                 LIMIT $1
                 FOR UPDATE OF code SKIP LOCKED
-            )",
+            )"
+        );
+        purge!(
             "DELETE FROM refresh_tokens t
             WHERE t.ctid IN (
                 SELECT token.ctid
@@ -225,7 +188,9 @@ impl MaintenanceRepository<'_> {
                 OR family.revoked_at < now() - interval '1 day'
                 LIMIT $1
                 FOR UPDATE OF token SKIP LOCKED
-            )",
+            )"
+        );
+        purge!(
             "DELETE FROM refresh_token_families f
             WHERE f.ctid IN (
                 SELECT family.ctid
@@ -241,7 +206,9 @@ impl MaintenanceRepository<'_> {
                 )
                 LIMIT $1
                 FOR UPDATE SKIP LOCKED
-            )",
+            )"
+        );
+        purge!(
             "DELETE FROM browser_session_secrets b
             WHERE b.ctid IN (
                 SELECT secret.ctid
@@ -251,69 +218,29 @@ impl MaintenanceRepository<'_> {
                 OR session.revoked_at < now() - interval '1 day'
                 LIMIT $1
                 FOR UPDATE OF secret SKIP LOCKED
-            )",
-            // A browser unused for 400 days has lost its device cookie, which
-            // lives as long: its next sign-in is a new device's either way.
-            "DELETE FROM known_devices
-            WHERE ctid IN (
-                SELECT ctid
-                FROM known_devices
-                WHERE last_seen_at < now() - interval '400 days'
-                LIMIT $1
-                FOR UPDATE SKIP LOCKED
-            )",
-            // Events are kept indefinitely; the personal data beside them is not.
-            // A purge erasing its apps' origins may hold some of these rows.
-            "DELETE FROM event_personal_data
-            WHERE ctid IN (
-                SELECT ctid
-                FROM event_personal_data
-                WHERE created_at < now() - interval '90 days'
-                LIMIT $1
-                FOR UPDATE SKIP LOCKED
-            )",
-            // An account's ended records go once its history no longer shows their
-            // events' details, 90 days on, as event personal data does.
-            "DELETE FROM passkey_credentials
-            WHERE ctid IN (
-                SELECT ctid
-                FROM passkey_credentials
-                WHERE revoked_at < now() - interval '90 days'
-                LIMIT $1
-                FOR UPDATE SKIP LOCKED
-            )",
-            "DELETE FROM external_login_identities
-            WHERE ctid IN (
-                SELECT ctid
-                FROM external_login_identities
-                WHERE revoked_at < now() - interval '90 days'
-                LIMIT $1
-                FOR UPDATE SKIP LOCKED
-            )",
-            // A recovery ends when it is undone or its probation settles, or,
-            // unused, when its link is cancelled or expires, whichever comes first:
-            // cancelling an expired link, as the next start does, ends nothing.
-            "DELETE FROM account_recoveries
-            WHERE ctid IN (
-                SELECT ctid
-                FROM account_recoveries
-                WHERE CASE WHEN completed_at IS NULL THEN least(expires_at, cancelled_at)
-                    ELSE least(undone_at, settles_at) END < now() - interval '90 days'
-                LIMIT $1
-                FOR UPDATE SKIP LOCKED
-            )",
-            "DELETE FROM notifications
-            WHERE ctid IN (
-                SELECT ctid
-                FROM notifications
-                WHERE created_at < now() - interval '1 year'
-                LIMIT $1
-                FOR UPDATE SKIP LOCKED
-            )",
-            // Who received an announcement goes with the inbox copies, a year on.
-            // One to every account stays, as the administrators' record of what
-            // they said; one to chosen accounts may concern them, so it goes
-            // with its last recipient, as a purge does.
+            )"
+        );
+        // A browser unused for 400 days has lost its device cookie, which
+        // lives as long: its next sign-in is a new device's either way.
+        purge!("known_devices" where "last_seen_at < now() - interval '400 days'");
+        // Events are kept indefinitely; the personal data beside them is not.
+        // A purge erasing its apps' origins may hold some of these rows.
+        purge!("event_personal_data" where "created_at < now() - interval '90 days'");
+        // An account's ended records go once its history no longer shows their
+        // events' details, 90 days on, as event personal data does.
+        purge!("passkey_credentials" where "revoked_at < now() - interval '90 days'");
+        purge!("external_login_identities" where "revoked_at < now() - interval '90 days'");
+        // A recovery ends when it is undone or its probation settles, or,
+        // unused, when its link is cancelled or expires, whichever comes first:
+        // cancelling an expired link, as the next start does, ends nothing.
+        purge!("account_recoveries" where "CASE WHEN completed_at IS NULL THEN least(expires_at, cancelled_at)
+            ELSE least(undone_at, settles_at) END < now() - interval '90 days'");
+        purge!("notifications" where "created_at < now() - interval '1 year'");
+        // Who received an announcement goes with the inbox copies, a year on.
+        // One to every account stays, as the administrators' record of what
+        // they said; one to chosen accounts may concern them, so it goes
+        // with its last recipient, as a purge does.
+        purge!(
             "DELETE FROM announcement_recipients r
             WHERE r.ctid IN (
                 SELECT recipient.ctid
@@ -322,7 +249,9 @@ impl MaintenanceRepository<'_> {
                 WHERE a.sent_at < now() - interval '1 year'
                 LIMIT $1
                 FOR UPDATE OF recipient SKIP LOCKED
-            )",
+            )"
+        );
+        purge!(
             "DELETE FROM announcements a
             WHERE a.ctid IN (
                 SELECT announcement.ctid
@@ -335,18 +264,13 @@ impl MaintenanceRepository<'_> {
                 )
                 LIMIT $1
                 FOR UPDATE SKIP LOCKED
-            )",
-            // A purged account's handles were released at its purge (the
-            // `handles_release_purged` trigger), and stay reserved a year, so
-            // nobody takes one to pass for it.
-            "DELETE FROM handles
-            WHERE ctid IN (
-                SELECT ctid
-                FROM handles
-                WHERE user_id IS NULL AND released_at < now() - interval '1 year'
-                LIMIT $1
-                FOR UPDATE SKIP LOCKED
-            )",
+            )"
+        );
+        // A purged account's handles were released at its purge (the
+        // `handles_release_purged` trigger), and stay reserved a year, so
+        // nobody takes one to pass for it.
+        purge!("handles" where "user_id IS NULL AND released_at < now() - interval '1 year'");
+        purge!(
             "DELETE FROM deliveries d
             WHERE d.ctid IN (
                 SELECT delivery.ctid
@@ -358,7 +282,9 @@ impl MaintenanceRepository<'_> {
                 )
                 LIMIT $1
                 FOR UPDATE SKIP LOCKED
-            )",
+            )"
+        );
+        purge!(
             "DELETE FROM sessions s
             WHERE s.ctid IN (
                 SELECT session.ctid
@@ -379,8 +305,9 @@ impl MaintenanceRepository<'_> {
                 )
                 LIMIT $1
                 FOR UPDATE SKIP LOCKED
-            )",
-        )
+            )"
+        );
+        Ok(purged)
     }
 }
 

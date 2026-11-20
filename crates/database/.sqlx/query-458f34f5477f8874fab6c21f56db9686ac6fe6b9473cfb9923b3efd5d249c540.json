@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM known_devices WHERE ctid IN (SELECT ctid FROM known_devices WHERE last_seen_at < now() - interval '400 days' LIMIT $1 FOR UPDATE SKIP LOCKED)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "458f34f5477f8874fab6c21f56db9686ac6fe6b9473cfb9923b3efd5d249c540"
+}
