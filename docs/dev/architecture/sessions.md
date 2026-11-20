@@ -55,7 +55,7 @@ session secret and the browser's device secret (see
 [known devices](#known-devices)). The caller sets both cookies with
 `SignedIn::set_on`, only after its transaction commits.
 
-Three sign-ins differ:
+Four sign-ins differ:
 
 - **Signing up** and a **recovery link** sign in with `Session::sign_in_anew`,
   which always revokes the browser's session and creates a new one, so an
@@ -67,6 +67,8 @@ Three sign-ins differ:
   out like any other. It never sees the device cookie either, so it is never a
   new device's: the related origin's passkey ceremony already needed the
   passkey itself.
+- **Undoing a recovery** signs in with `Session::sign_in_quietly`, which alerts
+  nobody of a new device: the undo's own notification tells the owner.
 
 ## Known devices
 
@@ -158,14 +160,18 @@ can skip the event. Its callers:
   or every other one out from the settings, the admin dashboard and
   `auth-service account <user> sessions`. They need a session but no passkey
   confirmation: a user who suspects a stolen cookie must be able to act at once.
+- `AdminService::revoke_session`, which `auth-service session revoke` runs.
 - Changes that end the account's other sessions: removing a passkey
   (`src/passkey/settings.rs`), unlinking an identity
   (`src/federation/identities.rs`) and reporting a history entry as not the
   owner's (`src/history`). Undoing a recovery (`src/recovery`) ends every session.
+- RP-initiated logout, which also ends the inline session of the app's own
+  passkey sign-in that its `id_token_hint` names (`src/oidc/logout.rs`).
 - `Session::end_all`, for an account disabled, scheduled for deletion, purged or
-  recovered, and for `AdminService::revoke_user_sessions`, which the dashboard
-  and `auth-service session revoke-all` run: every session, with every refresh
-  grant of the account.
+  recovered, for the sign-out link of a notification's email
+  (`src/notifications`), and for `AdminService::revoke_user_sessions`, which the
+  dashboard and `auth-service session revoke-all` run: every session, with every
+  refresh grant of the account.
 
 Signing out (`AccountService::sign_out`) ends the browser's session and clears
 its cookie. RP-initiated logout signs out the same way, recording the client

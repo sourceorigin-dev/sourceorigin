@@ -30,8 +30,9 @@ crosses a crate or a process.
   configured, an admin listener (`AUTH_ADMIN_LISTENER`) for admin.sourceorigin.dev, which
   only a private route reaches. Each listener has its own router and security
   layer (`AuthConfig::router` and `AuthConfig::admin_router` in `src/lib.rs`).
-  Both stop together: when one ends, `Command::listen` in `src/cli/serve.rs` stops
-  the other, then background jobs get a grace period to finish. The same
+  Both stop together: on SIGTERM, both listeners stop accepting and background
+  jobs are told to stop, then open requests and running jobs share a grace
+  period to finish (`src/cli/serve/mod.rs`). The same
   executable is the operator CLI: migrations, invitations, administrators, keys
   and every admin operation.
 - **`sourceorigin-web`** (`apps/web`) is sourceorigin.dev's own server: the homepage and
@@ -60,7 +61,7 @@ Auth renders every page itself, sign-in included, and the account settings at
 
 | Location | Responsibility |
 | --- | --- |
-| `apps/auth-service` | The auth authority: browser ceremonies, social sign-in, OIDC, the server-rendered pages, the settings API, the admin dashboard and the CLI. `assets/passkey.js` runs the WebAuthn ceremonies and the form hooks that start them, `assets/picture.js` lets the picture form choose its crop, `assets/search.js` ranks the top bar's search, `assets/copy.js` copies a value to the clipboard, and `assets/dashboard.js` confirms the admin dashboard with a passkey |
+| `apps/auth-service` | The auth authority: browser ceremonies, social sign-in, OIDC, the server-rendered pages, the settings API, the admin dashboard and the CLI. `assets/passkey.js` runs the WebAuthn ceremonies and the form hooks that start them, `assets/picture.js` lets the picture form choose its crop, `assets/search.js` ranks the top bar's search, `assets/copy.js` copies a value to the clipboard, `assets/client-form.js` sets a new client's scopes and refresh tokens to its kind's defaults, and `assets/dashboard.js` confirms the admin dashboard with a passkey |
 | `apps/web` | `sourceorigin-web`, sourceorigin.dev's own web server, with SourceOrigin's policies in `assets/policies/` |
 | `packages/auth` | `@sourceorigin/auth`, the TypeScript SDK, published to npm: its `.` entry point (discovery, token validation, typed scopes, challenges, the JWKS cache and the login client), `./server` (server-side login over `Request` and `Response`) and `./browser` (a public client, with passkey sign-in on the app's page). It has no runtime dependencies, and `src/protocol.ts` is generated from `sourceorigin_common::protocol` |
 | `tests/sdk-vectors` | Generated cases every SDK must pass; see [SDK design](sdk.md#test-vectors) |
