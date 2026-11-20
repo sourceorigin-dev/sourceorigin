@@ -77,9 +77,14 @@ create accounts in it and leave it migrated, so name only a database you can
 throw away, never one that holds real accounts. A TCP URL must include
 `sslmode=disable` or `sslmode=verify-full`.
 
-A new database test connects through its crate's fixture:
-`Database::test_pool()` in `crates/database`, or `Replicas::database()` in
-`apps/auth-service/src/tests.rs`.
+A new database test starts from the fixtures in `crates/database/src/fixtures.rs`.
+`Database::test()` connects with the limits every connection of the service has.
+`insert_named` creates an account, `InsertSession::lasting` describes a session,
+and `test_channels!` declares channels whose deliveries a test inserts itself.
+Another crate's tests get them through the `test-util` feature. A test in
+`crates/database` that inserts rows with plain SQL connects through
+`Database::test_pool()` instead, and auth-service's tests use `Replicas` and
+`Browser` in `apps/auth-service/src/tests.rs`.
 
 ### SDK test vectors
 

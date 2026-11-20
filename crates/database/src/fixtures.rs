@@ -2,7 +2,7 @@
 //! delivery channels. This crate's tests use them, and so do other crates' tests,
 //! behind the `test-util` feature.
 
-use crate::{Database, InsertSession, InsertUser, UserRepository};
+use crate::{Database, DatabaseConfig, InsertSession, InsertUser, UserRepository};
 use chrono::{TimeDelta, Utc};
 use sourceorigin_common::{
     Handle, SessionId, UserId,
@@ -11,20 +11,22 @@ use sourceorigin_common::{
 use std::net::IpAddr;
 
 impl Database {
-    /// Connects a default pool to `TEST_DATABASE_URL` and applies the schema.
+    /// Connects up to five connections to `TEST_DATABASE_URL`, with the time
+    /// limits every connection of the service has, and applies the schema.
     ///
     /// # Panics
     ///
-    /// Panics if `TEST_DATABASE_URL` is unset, or connecting or migrating fails.
+    /// Panics if `TEST_DATABASE_URL` is unset or invalid, or connecting or
+    /// migrating fails.
     #[expect(
         clippy::expect_used,
         reason = "test-only fixture; documented under `# Panics`"
     )]
     pub async fn test() -> Self {
         let url = std::env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL");
-        let database = Self {
-            pool: sqlx::PgPool::connect(&url).await.expect("connect"),
-        };
+        let config = DatabaseConfig::new(&url, 5, std::time::Duration::from_secs(5))
+            .expect("database configuration");
+        let database = Self::connect(config).await.expect("connect");
         database.run_migrations().await.expect("migrate");
         database
     }
@@ -122,8 +124,8 @@ macro_rules! test_channels {
                     ::std::vec::Vec<$crate::NewDelivery<Self>>,
                     $crate::DatabaseError,
                 >,
-            > + Send {
-                ::core::future::ready(Ok(::std::vec::Vec::new()))
+            > + ::core::marker::Send {
+                ::core::future::ready(::core::result::Result::Ok(::std::vec::Vec::new()))
             }
         }
     )*};

@@ -30,6 +30,8 @@ impl Owner {
     /// Connects and migrates.
     async fn new() -> Self {
         let db = Database::test().await;
+        // A repository never hands out its pool, so the raw statements get one
+        // of their own.
         let url = std::env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL");
         let pool = sqlx::PgPool::connect(&url).await.expect("pool");
         Self { db, pool }
