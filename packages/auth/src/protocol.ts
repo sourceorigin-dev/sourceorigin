@@ -1,5 +1,6 @@
 // Generated from sourceorigin_common::protocol by `just sdk-types`. Do not edit.
-// The wire types auth and every SDK share; docs/dev/architecture/sdk.md describes them.
+// The wire types and constants auth and every SDK share; docs/dev/architecture/sdk.md
+// describes them.
 
 /**
  * Claims of an access token (RFC 9068), signed with `typ: at+jwt`. `X` holds
@@ -845,8 +846,8 @@ export const MAX_KEYS_LIFETIME: number = 86400000;
 export const MAX_RESPONSE_BYTES: number = 262144;
 
 /**
- * Longest a request may take, from sending it to its last body byte, whatever the
- * HTTP client's own timeout.
+ * Longest a request may take, from connecting or sending it to its last body
+ * byte, whatever the HTTP client's own timeout.
  *
  * In milliseconds.
  */

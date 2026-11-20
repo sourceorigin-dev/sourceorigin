@@ -36,8 +36,8 @@ super::sdk_constants! {
     /// Most bytes read from any response. Metadata, key sets and token responses are a
     /// few kilobytes.
     pub const MAX_RESPONSE_BYTES: usize = 256 * 1024;
-    /// Longest a request may take, from sending it to its last body byte, whatever the
-    /// HTTP client's own timeout.
+    /// Longest a request may take, from connecting or sending it to its last body
+    /// byte, whatever the HTTP client's own timeout.
     pub const REQUEST_DEADLINE: Duration = Duration::from_secs(10);
 
     /// Access tokens this close to expiry are refreshed first.

@@ -10,8 +10,8 @@ Keep implementations simple. Follow neighbouring modules and share repeated logi
   registration types (`clients`), and under `protocol` the wire types shared with
   the SDKs: token claims, metadata, JWK sets, OAuth/OIDC vocabulary and errors,
   bearer challenges, step-up requirements, SDK error codes and the constants both
-  SDKs apply, the bodies of auth's
-  settings API, and the same-origin rule for browser requests. The rest are
+  SDKs apply, the bodies of auth's settings API, and the same-origin rule for
+  browser requests. The rest are
   features: `admin` (the views of administration, which the admin dashboard
   shows, the CLI prints as JSON and the database crate decodes into),
   `client-spans` (`SendTraced`, client spans around `reqwest` requests, for auth
