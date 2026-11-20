@@ -91,21 +91,15 @@ export class Resource<S extends string = never, X = undefined> {
     const joined = values.length > 1 && values.some((value) => /^bearer(?: |$)/i.test(value));
     const space = header.indexOf(' ');
     const scheme = space === -1 ? header : header.slice(0, space);
-    if (joined || (asciiLowercase(scheme) === 'bearer' && space === -1)) {
-      throw new AuthError(
-        { code: 'invalid_request' },
-        'the Authorization header is malformed'
-      ).forResource(this.metadata);
-    }
-    if (asciiLowercase(scheme) !== 'bearer') {
+    if (!joined && asciiLowercase(scheme) !== 'bearer') {
       const scope = scopes.length === 0 ? undefined : Scopes.checked(scopes).toString();
       throw new AuthError(
         scope === undefined ? { code: 'missing_token' } : { code: 'missing_token', scope },
         'the request has no bearer token'
       ).forResource(this.metadata);
     }
-    const token = header.slice(space + 1).trim();
-    if (token === '') {
+    const token = space === -1 ? '' : header.slice(space + 1).trim();
+    if (joined || token === '') {
       throw new AuthError(
         { code: 'invalid_request' },
         'the Authorization header is malformed'

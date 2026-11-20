@@ -103,11 +103,7 @@ export class Jws {
       raw = json.parse(new TextDecoder('utf-8', { fatal: true }).decode(headerBytes));
       parsed = jwsHeader(raw, 'header');
     } catch (error) {
-      throw new AuthError(
-        { code: 'invalid_token', reason: 'malformed' },
-        'the header is not a JWS header',
-        { cause: error }
-      );
+      throw AuthError.invalidToken('malformed', 'the header is not a JWS header', error);
     }
     if (json.isObject(raw) && Object.hasOwn(raw, 'crit')) {
       throw AuthError.invalidToken(

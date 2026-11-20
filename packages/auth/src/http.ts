@@ -7,6 +7,9 @@ import { AuthError } from './error.ts';
 import { DecodeError, parse } from './json.ts';
 import { MAX_RESPONSE_BYTES, REQUEST_DEADLINE } from './protocol.ts';
 
+/** What {@link Http.within} resolves to when its deadline passes first. */
+export const TIMED_OUT: unique symbol = Symbol('timed out');
+
 /** The `fetch` the SDK sends requests with; inject one to proxy or mock them. */
 export type Fetch = (input: string, init: RequestInit) => Promise<Response>;
 
@@ -141,20 +144,29 @@ export class Http {
       throw new AuthError({ code: 'network', url }, `${url} does not use https`);
     }
     const controller = new AbortController();
+    const reply = await Http.within(REQUEST_DEADLINE, this.#exchange(url, init, controller.signal));
+    if (reply !== TIMED_OUT) return reply;
+    controller.abort();
+    throw new AuthError(
+      { code: 'network', url },
+      `request to ${url} took longer than ${String(REQUEST_DEADLINE / 1000)} seconds`
+    );
+  }
+
+  /**
+   * @internal `promise`'s result, or {@link TIMED_OUT} once `milliseconds` pass first.
+   * The operation itself goes on, and its late result or failure is ignored.
+   */
+  static async within<T>(milliseconds: number, promise: Promise<T>): Promise<T | typeof TIMED_OUT> {
+    promise.catch(() => undefined);
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const deadline = new Promise<never>((_, reject) => {
+    const deadline = new Promise<typeof TIMED_OUT>((resolve) => {
       timer = setTimeout(() => {
-        controller.abort();
-        reject(
-          new AuthError(
-            { code: 'network', url },
-            `request to ${url} took longer than ${String(REQUEST_DEADLINE / 1000)} seconds`
-          )
-        );
-      }, REQUEST_DEADLINE);
+        resolve(TIMED_OUT);
+      }, milliseconds);
     });
     try {
-      return await Promise.race([this.#exchange(url, init, controller.signal), deadline]);
+      return await Promise.race([promise, deadline]);
     } finally {
       clearTimeout(timer);
     }
