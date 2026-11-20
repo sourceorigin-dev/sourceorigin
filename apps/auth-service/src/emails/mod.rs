@@ -238,6 +238,30 @@ impl EmailApplication {
         Ok(())
     }
 
+    /// Records the verification of `user_id`'s address `email_id` as
+    /// `context`'s, and, if it became the `primary` one, being the account's
+    /// first, that too: what a verification link and an address that joins
+    /// verified both record.
+    async fn record_verified(
+        tx: &mut DatabaseTransaction<'_>,
+        context: &EventContext,
+        user_id: UserId,
+        email_id: EmailId,
+        primary: bool,
+    ) -> Result<(), DatabaseError> {
+        let subject = Some(user_id);
+        tx.record(context, subject, DomainEvent::EmailVerified { email_id })
+            .await?;
+        if primary {
+            let event = DomainEvent::PrimaryEmailChanged {
+                email_id,
+                previous_email_id: None,
+            };
+            tx.record(context, subject, event).await?;
+        }
+        Ok(())
+    }
+
     /// Refuses another address for an account that holds `count`.
     const fn room(count: usize) -> Result<(), EmailError> {
         if count >= MAX_EMAILS {
@@ -402,18 +426,7 @@ impl Added<'_> {
             })
             .await?;
         self.record(tx, id).await?;
-        let subject = Some(self.user_id);
-        tx.record(
-            self.context,
-            subject,
-            DomainEvent::EmailVerified { email_id: id },
-        )
-        .await?;
-        let primary = DomainEvent::PrimaryEmailChanged {
-            email_id: id,
-            previous_email_id: None,
-        };
-        tx.record(self.context, subject, primary).await?;
+        EmailApplication::record_verified(tx, self.context, self.user_id, id, true).await?;
         Ok(())
     }
 
@@ -536,17 +549,14 @@ impl AccountService {
             Err(DatabaseError::Conflict(_)) => return Err(EmailError::OwnedElsewhere.into()),
             Err(error) => return Err(error.into()),
         };
-        let email_id = pending.email_id;
-        let subject = Some(pending.user_id);
-        tx.record(&context, subject, DomainEvent::EmailVerified { email_id })
-            .await?;
-        if primary {
-            let event = DomainEvent::PrimaryEmailChanged {
-                email_id,
-                previous_email_id: None,
-            };
-            tx.record(&context, subject, event).await?;
-        }
+        EmailApplication::record_verified(
+            &mut tx,
+            &context,
+            pending.user_id,
+            pending.email_id,
+            primary,
+        )
+        .await?;
         tx.commit().await?;
         Ok(Verified {
             address: pending.address,

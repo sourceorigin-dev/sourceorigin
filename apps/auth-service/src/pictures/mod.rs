@@ -37,7 +37,7 @@ use sourceorigin_common::{
     PictureId, UserId,
     events::{DomainEvent, EventContext},
 };
-use sourceorigin_repository::{Database, DatabaseError, StoredPicture};
+use sourceorigin_repository::{Database, DatabaseError, DatabaseTransaction, StoredPicture};
 use std::time::Duration;
 use thiserror::Error;
 
@@ -154,16 +154,9 @@ impl AccountService {
         crop: Option<Crop>,
     ) -> Result<PictureView, AccountError> {
         let jpeg = Jpeg::encode(turn, upload, crop).await?;
-        let id = PictureId::new();
         let mut tx = self.database.begin().await?;
         owner.lock(&mut tx).await?;
-        let picture = tx.pictures().set(owner.user(), id, jpeg.as_bytes()).await?;
-        tx.record(
-            &owner.context(),
-            Some(owner.user()),
-            DomainEvent::PictureChanged { picture_id: id },
-        )
-        .await?;
+        let picture = Self::store(&mut tx, &owner.context(), owner.user(), &jpeg).await?;
         tx.commit().await?;
         Ok(picture.into())
     }
@@ -202,15 +195,24 @@ impl AccountService {
         {
             return Ok(());
         }
-        let id = PictureId::new();
-        tx.pictures().set(user, id, jpeg.as_bytes()).await?;
-        tx.record(
-            context,
-            Some(user),
-            DomainEvent::PictureChanged { picture_id: id },
-        )
-        .await?;
+        Self::store(&mut tx, context, user, &jpeg).await?;
         Ok(tx.commit().await?)
+    }
+
+    /// Makes `jpeg` the picture of `user`, whom `tx` locked, under a new ID, and
+    /// records the change as `context`'s: the step setting and importing a
+    /// picture share.
+    async fn store(
+        tx: &mut DatabaseTransaction<'_>,
+        context: &EventContext,
+        user: UserId,
+        jpeg: &Jpeg,
+    ) -> Result<StoredPicture, DatabaseError> {
+        let id = PictureId::new();
+        let picture = tx.pictures().set(user, id, jpeg.as_bytes()).await?;
+        let changed = DomainEvent::PictureChanged { picture_id: id };
+        tx.record(context, Some(user), changed).await?;
+        Ok(picture)
     }
 
     /// The account's picture, if it has one.

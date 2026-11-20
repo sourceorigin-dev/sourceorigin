@@ -178,16 +178,26 @@ impl HistoryItem {
         user: UserId,
         event_id: EventId,
     ) -> Result<Option<Self>, DatabaseError> {
+        let Some(stored) = Self::stored(database.events(), user, event_id).await? else {
+            return Ok(None);
+        };
+        let clients = Self::client_names(database.oidc()).await?;
+        Ok(Self::new(&stored, &clients))
+    }
+
+    /// The event `event_id` of `user`'s, as recorded, if the account's history
+    /// still keeps it: what [`Self::find`] and a report look up.
+    async fn stored(
+        mut events: EventRepository<'_>,
+        user: UserId,
+        event_id: EventId,
+    ) -> Result<Option<StoredEvent>, DatabaseError> {
         let filter = EventFilter {
             subject: Some(user),
             id: Some(event_id),
             ..EventFilter::default()
         };
-        let Some(stored) = database.events().list(&filter, 1).await?.pop() else {
-            return Ok(None);
-        };
-        let clients = Self::client_names(database.oidc()).await?;
-        Ok(Self::new(&stored, &clients))
+        Ok(events.list(&filter, 1).await?.pop())
     }
 }
 
@@ -384,19 +394,12 @@ impl AccountService {
     /// The account `user`'s entry `event_id`, as recorded and as its history shows
     /// it.
     async fn entry(
-        mut events: EventRepository<'_>,
+        events: EventRepository<'_>,
         user: UserId,
         event_id: EventId,
     ) -> Result<(StoredEvent, HistoryEntry), AccountError> {
-        let filter = EventFilter {
-            subject: Some(user),
-            id: Some(event_id),
-            ..EventFilter::default()
-        };
-        let stored = events
-            .list(&filter, 1)
+        let stored = HistoryItem::stored(events, user, event_id)
             .await?
-            .pop()
             .ok_or(HistoryError::EntryNotFound)?;
         let entry = stored
             .event
