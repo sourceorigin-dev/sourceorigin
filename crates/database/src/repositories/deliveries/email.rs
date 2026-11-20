@@ -8,9 +8,10 @@
 //! message is sent.
 //!
 //! Every notification an event gives its subject is emailed too, to the addresses
-//! [`Notification::addressees`] names that no other account owns, and says what
-//! the inbox says. Its delivery copies the address and the notification, so
-//! removing the address cannot cancel it.
+//! [`Notification::addressees`] names that the account holds
+//! ([`EmailRepository::mailable`]), and says what the inbox says. Its delivery
+//! copies the address and the notification, so removing the address cannot
+//! cancel it.
 
 use super::{Channel, NewDelivery};
 use crate::{
@@ -134,9 +135,8 @@ impl EmailMessage {
 
     /// The emails of `notified`, which `event` wrote, each with the ID of the
     /// address it goes to: one to each verified address of its account that its
-    /// addressees name, unless another account owns it now
-    /// ([`EmailRepository::mailable`]). Runs in the event's transaction, before a
-    /// removed address is deleted.
+    /// addressees name and that it holds ([`EmailRepository::mailable`]). Runs in
+    /// the event's transaction, before a removed address is deleted.
     async fn notifying(
         event: &DomainEvent,
         notified: &Notified,
@@ -217,10 +217,12 @@ impl Channel for Email {
 }
 
 impl EmailRepository<'_> {
-    /// `user_id`'s verified addresses that no other account owns, primary first,
-    /// then oldest first: those its notifications are emailed to. Disabling an
-    /// account releases its addresses, so another account, an active one or one
-    /// being deleted, may own one of them.
+    /// `user_id`'s verified addresses that it holds, primary first, then oldest
+    /// first: those its notifications are emailed to. An account holds an
+    /// address it owns, an active one or one being deleted. Disabling an account
+    /// releases its addresses, so disabled accounts may share one that nobody
+    /// owns: the one that verified it most recently holds it then, the lowest
+    /// account ID breaking a tie.
     ///
     /// # Errors
     ///
@@ -236,8 +238,13 @@ impl EmailRepository<'_> {
                     e.verified_at, e.is_primary
                 FROM user_emails e
                 WHERE e.user_id = $1 AND e.verified_at IS NOT NULL
-                    AND NOT EXISTS (SELECT FROM active_verified_email_ownership o
-                        WHERE o.normalized_email = e.normalized_email AND o.user_id <> e.user_id)
+                    AND e.user_id = coalesce(
+                        (SELECT o.user_id FROM active_verified_email_ownership o
+                            WHERE o.normalized_email = e.normalized_email),
+                        (SELECT v.user_id FROM user_emails v
+                            WHERE v.normalized_email = e.normalized_email
+                                AND v.verified_at IS NOT NULL
+                            ORDER BY v.verified_at DESC, v.user_id LIMIT 1))
                 ORDER BY e.is_primary DESC, e.created_at, e.id"#,
                 user_id.as_uuid(),
             )

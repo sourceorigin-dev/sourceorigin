@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n                    e.id AS \"id: EmailId\", e.user_id AS \"user_id: UserId\", e.normalized_email,\n                    e.verified_at, e.is_primary\n                FROM user_emails e\n                WHERE e.user_id = $1 AND e.verified_at IS NOT NULL\n                    AND e.user_id = coalesce(\n                        (SELECT o.user_id FROM active_verified_email_ownership o\n                            WHERE o.normalized_email = e.normalized_email),\n                        (SELECT v.user_id FROM user_emails v\n                            WHERE v.normalized_email = e.normalized_email\n                                AND v.verified_at IS NOT NULL\n                            ORDER BY v.verified_at DESC, v.user_id LIMIT 1))\n                ORDER BY e.is_primary DESC, e.created_at, e.id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id: EmailId",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "user_id: UserId",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "normalized_email",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "verified_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 4,
+        "name": "is_primary",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "3b78ecc1f275851afc178c324bc1aae61e5b19ea1dcdd57d6ee1a82cee3c7693"
+}

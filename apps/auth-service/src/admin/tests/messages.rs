@@ -166,6 +166,35 @@ async fn a_disabled_account_is_not_emailed_at_an_address_another_now_owns() {
     assert_eq!(harness.messaged(unclaimed, kept).await, 1);
 }
 
+/// An address that disabled accounts share, which nobody owns, is emailed only
+/// the messages of the account that verified it most recently.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL"]
+async fn an_address_disabled_accounts_share_gets_one_notification() {
+    let harness = Harness::new().await;
+    let service = harness.service();
+    let (first, second) = (
+        harness.account().await.user_id,
+        harness.account().await.user_id,
+    );
+    let (earlier, later) = (EmailId::new(), EmailId::new());
+    let address = format!("{earlier}@example.com");
+    for (user, id) in [(first, earlier), (second, later)] {
+        harness.verify(user, id, true, Some(address.clone())).await;
+        let disabled = service
+            .disable_user(&cli(), user, reason("Compromised"))
+            .await;
+        disabled.expect("disable");
+    }
+
+    for user in [first, second] {
+        let sent = service.message_user(&cli(), user, letter()).await;
+        sent.expect("send");
+    }
+    assert_eq!(harness.messaged(first, earlier).await, 0);
+    assert_eq!(harness.messaged(second, later).await, 1);
+}
+
 /// The dashboard needs a recent passkey confirmation to send a message, and
 /// sends nothing without one. A message changes nothing about an account, so
 /// the dashboard and the CLI both message an administrator's.
