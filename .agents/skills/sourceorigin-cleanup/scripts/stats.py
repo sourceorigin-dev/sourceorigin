@@ -7,8 +7,11 @@ history to OUT for charts. Generated files are the ones .gitattributes marks
 linguist-generated, and lockfiles are Cargo.lock and pnpm-lock.yaml. Rust lines
 are classified by a small lexer: a line is code, a doc comment (/// or //!), a
 plain comment or blank, and a line with code and a trailing comment counts as
-code. Rust test code is whole files under tests/, tests.rs files, modules
-declared behind #[cfg(test)], and inline #[cfg(test)] items. TypeScript and
+code. Rust test code is whole files under tests/, tests.rs files, and modules
+and inline items behind a test-only cfg: #[cfg(test)], #[cfg(all(test, ...))]
+or #[cfg(any(test, feature = "test-util"))]. The counts of unwrap, expect and
+the like read only production code lines, so doc examples are left out; TODO
+and FIXME are counted in comments too. TypeScript and
 JavaScript test code is packages/auth/test and tests/browser. Other languages
 are counted by cloc.
 """
@@ -37,6 +40,9 @@ LOCKFILE = re.compile(r"(^|/)(Cargo\.lock|pnpm-lock\.yaml)$")
 LOCKFILES = {p for p in files if LOCKFILE.search(p)}
 GENERATED = marked - LOCKFILES
 TS_TESTS = ("packages/auth/test/", "tests/browser/")
+# An attribute compiling its item only for tests, or for other crates' tests
+# through the `test-util` feature.
+TEST_CFG = r'#\[cfg\((?:(?:all|any)\()?test\b[^\]]*\]'
 
 
 def area(p):
@@ -117,9 +123,9 @@ def lex_rust(src):
 
 
 def inline_test_lines(src, braces):
-    """Line numbers of #[cfg(test)] items inside a file that isn't all test code."""
+    """Line numbers of test-only items inside a file that isn't all test code."""
     test, offsets = set(), [b[0] for b in braces]
-    for m in re.finditer(r"#\[cfg\(test\)\]", src):
+    for m in re.finditer(TEST_CFG, src):
         semi = src.find(";", m.end())
         k = bisect.bisect_left(offsets, m.end())
         if k >= len(braces) or (semi >= 0 and semi < braces[k][0]):
@@ -138,7 +144,7 @@ def test_files(rs, sources):
     """Rust files that are test code as a whole."""
     tf = {p for p in rs if "/tests/" in "/" + p or p.endswith("/tests.rs")}
     for p in rs:
-        for m in re.finditer(r"#\[cfg\(test\)\]\s*(?:pub(?:\([a-z]+\))?\s+)?mod\s+(\w+)\s*;", sources[p]):
+        for m in re.finditer(TEST_CFG + r"\s*(?:pub(?:\([a-z]+\))?\s+)?mod\s+(\w+)\s*;", sources[p]):
             d, base = os.path.split(p)
             stem = base[:-3]
             root = os.path.join(d if stem in ("mod", "lib", "main") else os.path.join(d, stem), m.group(1))
@@ -187,9 +193,11 @@ for p in files:
                 rec["blank"] += 1
         rec["lang"] = "Rust"
         if kind == "handwritten":
-            prod = "\n".join(l for i, l in enumerate(lines) if i not in tl)
+            prod = [i for i in range(len(lines)) if i not in tl]
+            prod_code = "\n".join(lines[i] for i in prod if code[i])
+            prod_all = "\n".join(lines[i] for i in prod)
             for k, rx in FACTS.items():
-                facts[k] += len(re.findall(rx, prod, re.M))
+                facts[k] += len(re.findall(rx, prod_all if k == "TODO/FIXME" else prod_code, re.M))
             n = len(re.findall(r"#\[(tokio::)?test\b", src))
             tests["rust integration" if "/tests/" in "/" + p and "/src/" not in p else "rust unit"] += n
             pg_tests += len(re.findall(r'#\[ignore = "requires (a disposable )?TEST_DATABASE_URL"\]', src))
