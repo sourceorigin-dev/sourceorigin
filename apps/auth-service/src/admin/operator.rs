@@ -283,9 +283,10 @@ impl Operator {
     /// Share-locks an administrator's rights until `tx` ends, refusing one who no
     /// longer holds them, before anything in `tx` locks their account: a purge
     /// of them, which deletes the rights first, then waits rather than
-    /// deadlocks. A change takes it before recording an event that may notify
-    /// every administrator, which locks their rights too. Checks nothing else,
-    /// so what the caller needs stays as it was.
+    /// deadlocks. Verifying the audit chain takes it before recording what it
+    /// found, which may raise an alert notifying every administrator, and that
+    /// locks their rights too. Checks nothing else, so what the caller needs
+    /// stays as it was.
     pub(crate) async fn hold_rights(
         &self,
         tx: &mut DatabaseTransaction<'_>,
@@ -293,11 +294,16 @@ impl Operator {
         let Self::Admin(session) = self else {
             return Ok(());
         };
-        if tx
-            .administrators()
-            .contains_for_share(session.user_id)
-            .await?
-        {
+        Self::hold_rights_of(tx, session.user_id).await
+    }
+
+    /// Requires `user_id` to hold administrator rights, share-locked until `tx`
+    /// ends, so a revocation of them waits for `tx`.
+    pub(super) async fn hold_rights_of(
+        tx: &mut DatabaseTransaction<'_>,
+        user_id: UserId,
+    ) -> Result<(), AdminError> {
+        if tx.administrators().contains_for_share(user_id).await? {
             Ok(())
         } else {
             Err(AdminError::NotAdministrator)

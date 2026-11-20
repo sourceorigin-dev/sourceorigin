@@ -45,7 +45,7 @@ use sourceorigin_common::{
     events::{Actor, DomainEvent},
 };
 use sourceorigin_crypto::Secret;
-use sourceorigin_repository::{Database, DatabaseTransaction, InsertHandoff};
+use sourceorigin_repository::{Database, InsertHandoff};
 use sourceorigin_ui::{HandoffQuery, Query};
 use url::Url;
 
@@ -175,7 +175,11 @@ impl DashboardSignIn {
         let return_to = Self::path(&handoff.return_to)?;
         let code = Secret::generate()?;
         let mut tx = self.database.begin().await?;
-        Self::hold_rights(&mut tx, session.user_id).await?;
+        // The rights first, share-locked: the handoff written here then commits
+        // before a revocation of them, which deletes it, or not at all. A
+        // revocation takes them before the handoffs and sessions it deletes, so
+        // neither waits for the other in a cycle.
+        Operator::hold_rights_of(&mut tx, session.user_id).await?;
         tx.dashboard()
             .insert_handoff(&InsertHandoff {
                 code_digest: code.digest().as_bytes(),
@@ -215,7 +219,9 @@ impl DashboardSignIn {
             .handoff_user(code.digest().as_bytes())
             .await?)
             .ok_or(AdminError::InvalidHandoff)?;
-        Self::hold_rights(&mut tx, user_id).await?;
+        // The rights first, as for the handoff: the session written here commits
+        // before a revocation of them, which ends it, or not at all.
+        Operator::hold_rights_of(&mut tx, user_id).await?;
         let handoff = tx
             .dashboard()
             .redeem_handoff(code.digest().as_bytes(), state.digest().as_bytes())
@@ -337,22 +343,6 @@ impl DashboardSignIn {
             tx.commit().await?;
         }
         Ok(DashboardCookie(Step::SignedOut))
-    }
-
-    /// Requires `user_id` to hold administrator rights, share-locked until `tx`
-    /// ends: a handoff or a dashboard session written in `tx` then commits before
-    /// a revocation of the rights, which ends it, or not at all. The rights come
-    /// first, as a revocation takes them before the handoffs and sessions it
-    /// deletes, so neither waits for the other in a cycle.
-    async fn hold_rights(
-        tx: &mut DatabaseTransaction<'_>,
-        user_id: UserId,
-    ) -> Result<(), AdminError> {
-        if tx.administrators().contains_for_share(user_id).await? {
-            Ok(())
-        } else {
-            Err(AdminError::NotAdministrator)
-        }
     }
 
     /// The earliest last request of a dashboard session still in use: one unused

@@ -11,8 +11,8 @@ use crate::{
 use sourceorigin_common::{
     AccountStatus, Handle, HandleError, Personal, SessionId, UserId,
     admin::{
-        DashboardSession, Email, Paging, ReleasedHandle, ReservedHandle, ScheduledDeletion,
-        UserDetail, UserPage,
+        DashboardSession, Paging, ReleasedHandle, ReservedHandle, ScheduledDeletion, UserDetail,
+        UserPage,
     },
     email::NormalizedEmail,
     events::{DomainEvent, RevocationReason},
@@ -74,13 +74,12 @@ impl AdminService {
         user_id: UserId,
     ) -> Result<Handle, AdminError> {
         operator.authorize_read(&self.database).await?;
-        let user = self
-            .database
+        self.database
             .users()
             .find_by_id(user_id)
             .await?
-            .ok_or(AdminError::UserNotFound)?;
-        Ok(user.handle)
+            .map(|user| user.handle)
+            .ok_or(AdminError::UserNotFound)
     }
 
     /// Lists `page` of the accounts matching `query`, the closest first: the
@@ -118,13 +117,7 @@ impl AdminService {
             .ok_or(AdminError::UserNotFound)?;
         let detail = UserDetail {
             administrator: tx.administrators().contains(user_id).await?,
-            emails: tx
-                .emails()
-                .list(user_id)
-                .await?
-                .into_iter()
-                .map(Email::from)
-                .collect(),
+            emails: Self::views(tx.emails().list(user_id).await?),
             passkeys: Self::views(tx.passkeys().list_active(user_id).await?),
             identities: Self::views(tx.federation().list_active(user_id).await?),
             sessions: {
@@ -411,16 +404,13 @@ impl AdminService {
         reason: Reason,
         allow_reserved: bool,
     ) -> Result<(), AdminError> {
+        let handles = Handles::new(&self.database);
         if !allow_reserved {
-            Handles::new(&self.database)
-                .ensure_unreserved(&handle)
-                .await?;
+            handles.ensure_unreserved(&handle).await?;
         }
         let mut tx = self.database.begin().await?;
         let user = operator.lock(&mut tx, user_id).await?;
-        let (tx, changed) = Handles::new(&self.database)
-            .rename(tx, &user, handle)
-            .await?;
+        let (tx, changed) = handles.rename(tx, &user, handle).await?;
         Self::finish(tx, operator, &reason, Some(user_id), vec![changed]).await
     }
 
