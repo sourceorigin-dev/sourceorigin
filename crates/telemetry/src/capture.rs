@@ -5,6 +5,7 @@
 )]
 
 use crate::Telemetry;
+use opentelemetry::KeyValue;
 use opentelemetry_sdk::{
     logs::{InMemoryLogExporter, SdkLogRecord, SdkLoggerProvider},
     trace::{InMemorySpanExporter, SdkTracerProvider, SpanData},
@@ -90,19 +91,10 @@ impl Capture {
         let mut text = Vec::new();
         for span in self.spans() {
             text.push(span.name.to_string());
-            text.extend(
-                span.attributes
-                    .iter()
-                    .map(|attribute| format!("{}={}", attribute.key, attribute.value)),
-            );
+            text.extend(Self::pairs(&span.attributes));
             for event in span.events.iter() {
                 text.push(event.name.to_string());
-                text.extend(
-                    event
-                        .attributes
-                        .iter()
-                        .map(|attribute| format!("{}={}", attribute.key, attribute.value)),
-                );
+                text.extend(Self::pairs(&event.attributes));
             }
         }
         for log in self.logs() {
@@ -113,5 +105,12 @@ impl Capture {
             );
         }
         text
+    }
+
+    /// A span's or event's `attributes`, each as `key=value`.
+    fn pairs(attributes: &[KeyValue]) -> impl Iterator<Item = String> + '_ {
+        attributes
+            .iter()
+            .map(|attribute| format!("{}={}", attribute.key, attribute.value))
     }
 }

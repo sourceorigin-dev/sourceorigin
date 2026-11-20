@@ -59,6 +59,24 @@ impl<const N: usize> Labels for [Label; N] {
     }
 }
 
+/// Builds the instrument `descriptor` declares on the meter of [`SCOPE`] with
+/// `$kind`, such as `u64_counter`, configured further by any builder calls after it.
+macro_rules! build {
+    ($descriptor:expr, $kind:ident $(.$method:ident($($arg:expr),*))*) => {{
+        let Descriptor {
+            name,
+            unit,
+            description,
+        } = $descriptor;
+        global::meter(SCOPE)
+            .$kind(name)
+            .with_unit(unit)
+            .with_description(description)
+            $(.$method($($arg),*))*
+            .build()
+    }};
+}
+
 /// What every instrument declares: its semantic-convention name, its UCUM unit
 /// (e.g. `s`, or `{request}` for a count of requests) and a description.
 struct Descriptor {
@@ -98,18 +116,7 @@ impl<L: Labels> Counter<L> {
     /// Adds `value` to the count with `labels`.
     pub fn add(&self, value: u64, labels: &L) {
         self.instrument
-            .get_or_init(|| {
-                let Descriptor {
-                    name,
-                    unit,
-                    description,
-                } = self.descriptor;
-                global::meter(SCOPE)
-                    .u64_counter(name)
-                    .with_unit(unit)
-                    .with_description(description)
-                    .build()
-            })
+            .get_or_init(|| build!(self.descriptor, u64_counter))
             .add(value, &labels.attributes());
     }
 }
@@ -156,17 +163,10 @@ impl<L: Labels> Histogram<L> {
     pub(crate) fn record_attributes(&self, value: f64, attributes: &[KeyValue]) {
         self.instrument
             .get_or_init(|| {
-                let Descriptor {
-                    name,
-                    unit,
-                    description,
-                } = self.descriptor;
-                global::meter(SCOPE)
-                    .f64_histogram(name)
-                    .with_unit(unit)
-                    .with_description(description)
-                    .with_boundaries(self.boundaries.to_vec())
-                    .build()
+                build!(
+                    self.descriptor,
+                    f64_histogram.with_boundaries(self.boundaries.to_vec())
+                )
             })
             .record(value, attributes);
     }
@@ -204,21 +204,14 @@ impl<L: Labels + 'static> Gauge<L> {
         I: IntoIterator<Item = (u64, L)>,
     {
         self.instrument.get_or_init(|| {
-            let Descriptor {
-                name,
-                unit,
-                description,
-            } = self.descriptor;
-            global::meter(SCOPE)
-                .u64_observable_gauge(name)
-                .with_unit(unit)
-                .with_description(description)
-                .with_callback(move |observer| {
+            build!(
+                self.descriptor,
+                u64_observable_gauge.with_callback(move |observer| {
                     for (value, labels) in observe() {
                         observer.observe(value, &labels.attributes());
                     }
                 })
-                .build()
+            )
         });
     }
 }

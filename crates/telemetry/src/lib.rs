@@ -146,27 +146,27 @@ impl Telemetry {
         };
         let resource = Self::resource(service);
         let mut tracer = SdkTracerProvider::builder().with_resource(resource.clone());
-        let mut telemetry = Self {
-            tracer: SdkTracerProvider::default(),
-            meter: None,
-            logger: None,
-        };
+        let (mut meter, mut logger) = (None, None);
         if let Some(exporters) = exporters {
             tracer = tracer.with_batch_exporter(exporters.spans);
-            let meter = SdkMeterProvider::builder()
+            let provider = SdkMeterProvider::builder()
                 .with_resource(resource.clone())
                 .with_periodic_exporter(exporters.metrics)
                 .build();
-            opentelemetry::global::set_meter_provider(meter.clone());
-            telemetry.meter = Some(meter);
-            telemetry.logger = Some(
+            opentelemetry::global::set_meter_provider(provider.clone());
+            meter = Some(provider);
+            logger = Some(
                 SdkLoggerProvider::builder()
                     .with_resource(resource)
                     .with_batch_exporter(exporters.logs)
                     .build(),
             );
         }
-        telemetry.tracer = tracer.build();
+        let telemetry = Self {
+            tracer: tracer.build(),
+            meter,
+            logger,
+        };
         Self::subscriber(
             &telemetry.tracer,
             telemetry.logger.as_ref(),
