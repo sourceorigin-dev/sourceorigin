@@ -2,7 +2,7 @@
 //! handles kept from others: released ones and reserved ones.
 
 use super::{
-    CliError, Confirm, Console,
+    CliError, Confirm, Console, Why, WhyOwnerSees,
     output::{Cell, Style, report},
 };
 use crate::{HandleProblem, Reason, UserRef};
@@ -27,10 +27,9 @@ pub(super) enum HandleCommand {
         /// Its new handle.
         #[arg(value_parser = Handle::parse)]
         new: Handle,
-        /// Why, recorded with the change and shown to the owner in their history:
-        /// 1 to 500 characters.
-        #[arg(long)]
-        reason: Reason,
+        /// Why.
+        #[command(flatten)]
+        why: WhyOwnerSees,
         /// Allow a reserved name, or one that looks like it.
         #[arg(long)]
         allow_reserved: bool,
@@ -42,9 +41,9 @@ pub(super) enum HandleCommand {
         /// The released handle.
         #[arg(value_parser = Handle::parse)]
         handle: Handle,
-        /// Why, recorded with the change: 1 to 500 characters.
-        #[arg(long)]
-        reason: Reason,
+        /// Why.
+        #[command(flatten)]
+        why: Why,
         /// Confirmation.
         #[command(flatten)]
         confirm: Confirm,
@@ -68,9 +67,9 @@ pub(super) enum HandleCommand {
         /// The handle.
         #[arg(value_parser = Handle::parse)]
         handle: Handle,
-        /// Why, recorded with the change: 1 to 500 characters.
-        #[arg(long)]
-        reason: Reason,
+        /// Why.
+        #[command(flatten)]
+        why: Why,
     },
 }
 
@@ -88,18 +87,18 @@ impl HandleCommand {
             Self::Rename {
                 user,
                 new,
-                reason,
+                why,
                 allow_reserved,
             } => {
                 let id = console.user(&user).await?;
                 service
-                    .rename_handle(operator, id, new.clone(), reason, allow_reserved)
+                    .rename_handle(operator, id, new.clone(), why.reason, allow_reserved)
                     .await?;
                 out.info(format_args!("Renamed {user} to @{new}."))?;
             }
             Self::Release {
                 handle,
-                reason,
+                why,
                 confirm,
             } => {
                 confirm.ask(
@@ -109,7 +108,7 @@ impl HandleCommand {
                     ),
                 )?;
                 service
-                    .release_handle(operator, handle.clone(), reason)
+                    .release_handle(operator, handle.clone(), why.reason)
                     .await?;
                 out.info(format_args!("Released @{handle}: anyone may claim it."))?;
             }
@@ -124,9 +123,9 @@ impl HandleCommand {
                     .await?;
                 out.info(format_args!("Reserved @{handle}."))?;
             }
-            Self::Unreserve { handle, reason } => {
+            Self::Unreserve { handle, why } => {
                 service
-                    .unreserve_handle(operator, handle.clone(), reason)
+                    .unreserve_handle(operator, handle.clone(), why.reason)
                     .await?;
                 out.info(format_args!("Unreserved @{handle}: anyone may claim it."))?;
             }

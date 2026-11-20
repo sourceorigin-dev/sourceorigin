@@ -5,11 +5,11 @@
 //! keys page does.
 
 use super::{
-    CliError, Confirm, Console,
+    CliError, Confirm, Console, Why,
     output::{Cell, Output, Single, report},
 };
 use crate::{
-    AuditConfig, KeyEncryptionKeys, KeyStore, PUBLIC_BASE_URL, Reason, TokenDigestKeys,
+    AuditConfig, KeyEncryptionKeys, KeyStore, PUBLIC_BASE_URL, TokenDigestKeys,
     admin::{AdminOperation, OperatorName},
 };
 use clap::Subcommand;
@@ -31,9 +31,9 @@ pub(super) enum KeysCommand {
         /// Asks first.
         #[arg(long)]
         now: bool,
-        /// Why, recorded with the change: 1 to 500 characters.
-        #[arg(long)]
-        reason: Reason,
+        /// Why.
+        #[command(flatten)]
+        why: Why,
         /// Confirmation, which `--now` needs.
         #[command(flatten)]
         confirm: Confirm,
@@ -45,9 +45,9 @@ pub(super) enum KeysCommand {
     Revoke {
         /// The key's ID.
         id: KeyId,
-        /// Why, recorded with the change: 1 to 500 characters.
-        #[arg(long)]
-        reason: Reason,
+        /// Why.
+        #[command(flatten)]
+        why: Why,
         /// Confirmation.
         #[command(flatten)]
         confirm: Confirm,
@@ -56,9 +56,9 @@ pub(super) enum KeysCommand {
     /// a change of key-encryption key, so `AUTH_KEY_ENCRYPTION_KEY_ACCEPTED` can
     /// be removed. Refuses, changing nothing, if a key opens under neither.
     Rewrap {
-        /// Why, recorded with the change: 1 to 500 characters.
-        #[arg(long)]
-        reason: Reason,
+        /// Why.
+        #[command(flatten)]
+        why: Why,
         /// Confirmation.
         #[command(flatten)]
         confirm: Confirm,
@@ -122,11 +122,7 @@ impl KeysCommand {
                 } = &console()?;
                 out.emit(&service.list_signing_keys(operator).await?[..])?;
             }
-            Self::Rotate {
-                now,
-                reason,
-                confirm,
-            } => {
+            Self::Rotate { now, why, confirm } => {
                 let Console {
                     service, operator, ..
                 } = &console()?;
@@ -137,25 +133,21 @@ impl KeysCommand {
                     )?;
                 }
                 let id = service
-                    .rotate_signing_key(operator, &store()?, now, reason)
+                    .rotate_signing_key(operator, &store()?, now, why.reason)
                     .await?;
                 out.emit(&Single {
                     name: "id",
                     value: id,
                 })?;
             }
-            Self::Revoke {
-                id,
-                reason,
-                confirm,
-            } => {
+            Self::Revoke { id, why, confirm } => {
                 let Console {
                     service, operator, ..
                 } = &console()?;
                 let keys = service.list_signing_keys(operator).await?;
                 confirm.ask(&out, &Self::revoking(&id, &keys))?;
                 match service
-                    .revoke_signing_key(operator, &store()?, &id, reason)
+                    .revoke_signing_key(operator, &store()?, &id, why.reason)
                     .await?
                 {
                     Some(replacement) => out.info(format_args!(
@@ -164,7 +156,7 @@ impl KeysCommand {
                     None => out.info(format_args!("Revoked key {id}."))?,
                 }
             }
-            Self::Rewrap { reason, confirm } => {
+            Self::Rewrap { why, confirm } => {
                 let Console {
                     service, operator, ..
                 } = &console()?;
@@ -173,7 +165,7 @@ impl KeysCommand {
                     "Seal every signing key again under AUTH_KEY_ENCRYPTION_KEY: a replica that has it neither as its key-encryption key nor as its accepted one can no longer open them",
                 )?;
                 let ids = service
-                    .rewrap_signing_keys(operator, &store()?, reason)
+                    .rewrap_signing_keys(operator, &store()?, why.reason)
                     .await?;
                 if ids.is_empty() {
                     out.info("No signing key has a private key to rewrap.")?;

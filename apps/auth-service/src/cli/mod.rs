@@ -17,7 +17,7 @@ mod announcement;
 mod audit;
 /// Registering, inspecting and changing OIDC clients.
 mod client;
-/// The service and operator, and confirmation.
+/// The service and operator, and the reasons and confirmation changes take.
 mod console;
 /// The outbound delivery queue.
 mod deliveries;
@@ -53,7 +53,7 @@ use announcement::AnnouncementCommand;
 use audit::AuditCommand;
 use clap::{Parser, Subcommand};
 use client::{ClientCommand, OriginCommand};
-use console::{Confirm, Console};
+use console::{Confirm, Console, Why, WhyOwnerSees};
 use deliveries::DeliveriesCommand;
 use error::CliError;
 use handle::HandleCommand;

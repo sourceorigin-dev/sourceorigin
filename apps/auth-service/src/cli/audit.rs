@@ -2,11 +2,11 @@
 //! over them (see `docs/dev/security/audit-history.md`).
 
 use super::{
-    CliError, Confirm, Console,
+    CliError, Confirm, Console, Why,
     output::{Cell, Style, report},
 };
 use crate::{
-    AuditError, AuditKeys, PUBLIC_BASE_URL, Reason, UserRef,
+    AuditError, AuditKeys, PUBLIC_BASE_URL, UserRef,
     audit::{AuditVerification, ChainPoint},
 };
 use clap::{Args, Subcommand};
@@ -40,9 +40,9 @@ pub(super) enum AuditCommand {
         /// The keys to check checkpoints against.
         #[command(flatten)]
         keys: AuditKeyArgs,
-        /// Why, recorded with the change: 1 to 500 characters.
-        #[arg(long)]
-        reason: Reason,
+        /// Why.
+        #[command(flatten)]
+        why: Why,
         /// Confirmation.
         #[command(flatten)]
         confirm: Confirm,
@@ -93,7 +93,7 @@ impl AuditCommand {
             Self::Prune {
                 through,
                 keys,
-                reason,
+                why,
                 confirm,
             } => {
                 confirm.ask(
@@ -101,7 +101,7 @@ impl AuditCommand {
                     &format!("This deletes every audit event through position {through}"),
                 )?;
                 let deleted = service
-                    .prune_audit_chain(operator, &keys.keys()?, through, reason)
+                    .prune_audit_chain(operator, &keys.keys()?, through, why.reason)
                     .await?;
                 out.info(format_args!(
                     "Pruned {deleted} events through position {through}."
