@@ -3,7 +3,7 @@
 //! developer console's pieces: its settings form, with the inputs only
 //! operators fill in added, its status badges, and its secrets.
 
-use super::{Action, Change, REASON, confirm, moment, reason_input, refused_action};
+use super::{Action, Change, REASON, confirm, data_table, moment, reason_input, refused_action};
 use crate::{
     clients::{
         ClientDraft, ClientRow, ClientStatus, Revealed, SecretRow, choice, client_form,
@@ -277,35 +277,27 @@ pub async fn client_list<'a>(rows: &'a [AdminClientRow<'a>], new: &'a str) -> Re
             },
         )
         <section class="card">
-            if rows.is_empty() {
-                <p class="empty">"No client is registered."</p>
-            } else {
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr><th>"name"</th><th>"ID"</th><th>"managed by"</th><th>"status"</th><th></th></tr>
-                        </thead>
-                        <tbody>
-                            for row in rows {
-                                let client = row.client;
-                                <tr>
-                                    <td>
-                                        <a href=(row.href.as_str())>
-                                            (if client.display_name.is_empty() { "Deleted client" } else { client.display_name.as_str() })
-                                        </a>
-                                    </td>
-                                    <td><code>(client.id.as_str())</code></td>
-                                    <td>(if client.owner_id.is_some() { "An account" } else { "Operators" })</td>
-                                    <td>listed_status(client: client)</td>
-                                    <td class="right">
-                                        if client.trusted { <span class="badge">"Trusted"</span> }
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            }
+            data_table(
+                headings: &["name", "ID", "managed by", "status", ""],
+                empty: "No client is registered.",
+                filled: !rows.is_empty(),
+                for row in rows {
+                    let client = row.client;
+                    <tr>
+                        <td>
+                            <a href=(row.href.as_str())>
+                                (if client.display_name.is_empty() { "Deleted client" } else { client.display_name.as_str() })
+                            </a>
+                        </td>
+                        <td><code>(client.id.as_str())</code></td>
+                        <td>(if client.owner_id.is_some() { "An account" } else { "Operators" })</td>
+                        <td>listed_status(client: client)</td>
+                        <td class="right">
+                            if client.trusted { <span class="badge">"Trusted"</span> }
+                        </td>
+                    </tr>
+                }
+            )
         </section>
     })
 }

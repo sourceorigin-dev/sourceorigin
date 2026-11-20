@@ -1,7 +1,8 @@
 //! Account search and one account's page.
 
 use super::{
-    Action, Change, EventRow, Target, account_status, confirm, event_rows, moment, refused_action,
+    Action, Change, EventRow, Target, account_status, confirm, data_table, event_rows,
+    message_fields, moment, refused_action,
 };
 use crate::{
     email::{Mail, email_preview},
@@ -97,39 +98,31 @@ pub async fn user_search<'a>(
             },
         )
         <section class="card">
-            if rows.is_empty() {
-                <p class="empty">"No account matches."</p>
-            } else {
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr><th>"handle"</th><th>"name"</th><th>"role"</th><th>"status"</th><th>"created"</th></tr>
-                        </thead>
-                        <tbody>
-                            for row in rows {
-                                <tr>
-                                    <td><a class="mono" href=(row.href.as_str())>(format!("@{}", row.user.handle))</a></td>
-                                    <td>
-                                        <span class="row nowrap">
-                                            avatar(who: row.who(), size: AvatarSize::Small)
-                                            (row.user.display_name.as_str())
-                                        </span>
-                                    </td>
-                                    <td>
-                                        if row.administrator {
-                                            <span class="badge admin"><span class="dot"></span>"Admin"</span>
-                                        } else {
-                                            <span class="muted">"User"</span>
-                                        }
-                                    </td>
-                                    <td>account_status(status: row.user.status)</td>
-                                    <td>moment(at: row.user.created_at)</td>
-                                </tr>
+            data_table(
+                headings: &["handle", "name", "role", "status", "created"],
+                empty: "No account matches.",
+                filled: !rows.is_empty(),
+                for row in rows {
+                    <tr>
+                        <td><a class="mono" href=(row.href.as_str())>(format!("@{}", row.user.handle))</a></td>
+                        <td>
+                            <span class="row nowrap">
+                                avatar(who: row.who(), size: AvatarSize::Small)
+                                (row.user.display_name.as_str())
+                            </span>
+                        </td>
+                        <td>
+                            if row.administrator {
+                                <span class="badge admin"><span class="dot"></span>"Admin"</span>
+                            } else {
+                                <span class="muted">"User"</span>
                             }
-                        </tbody>
-                    </table>
-                </div>
-            }
+                        </td>
+                        <td>account_status(status: row.user.status)</td>
+                        <td>moment(at: row.user.created_at)</td>
+                    </tr>
+                }
+            )
         </section>
         pager(pages: pages, what: "accounts")
     })
@@ -277,40 +270,32 @@ async fn session_list<'a>(
                 }
             }
         </header>
-        if sessions.is_empty() {
-            <p class="empty">"No active session."</p>
-        } else {
-            <div class="table-wrap">
-                <table>
-                    <thead>
-                        <tr><th>"signed in"</th><th>"methods"</th><th>"last seen"</th><th>"expires"</th><th></th></tr>
-                    </thead>
-                    <tbody>
-                        for row in sessions {
-                            <tr>
-                                <td>moment(at: row.session.authenticated_at)</td>
-                                <td>
-                                    (row.methods())
-                                    // An administrator's sign-in to this dashboard,
-                                    // resting on the session.
-                                    if let Some(dashboard) = row.session.dashboard.first() {
-                                        <br><small>"dashboard, used " moment(at: dashboard.last_used_at)</small>
-                                    }
-                                </td>
-                                <td>moment(at: row.session.last_seen_at)</td>
-                                <td>moment(at: row.session.expires_at)</td>
-                                <td class="right">
-                                    if let Some(revoke) = &row.revoke {
-                                        let session = format!("{handle}, session ({})", row.session.id);
-                                        confirm(action: revoke, change: Change::RevokeSession, target: session.as_str())
-                                    }
-                                </td>
-                            </tr>
+        data_table(
+            headings: &["signed in", "methods", "last seen", "expires", ""],
+            empty: "No active session.",
+            filled: !sessions.is_empty(),
+            for row in sessions {
+                <tr>
+                    <td>moment(at: row.session.authenticated_at)</td>
+                    <td>
+                        (row.methods())
+                        // An administrator's sign-in to this dashboard,
+                        // resting on the session.
+                        if let Some(dashboard) = row.session.dashboard.first() {
+                            <br><small>"dashboard, used " moment(at: dashboard.last_used_at)</small>
                         }
-                    </tbody>
-                </table>
-            </div>
-        }
+                    </td>
+                    <td>moment(at: row.session.last_seen_at)</td>
+                    <td>moment(at: row.session.expires_at)</td>
+                    <td class="right">
+                        if let Some(revoke) = &row.revoke {
+                            let session = format!("{handle}, session ({})", row.session.id);
+                            confirm(action: revoke, change: Change::RevokeSession, target: session.as_str())
+                        }
+                    </td>
+                </tr>
+            }
+        )
     </section>
         })
 }
@@ -404,15 +389,7 @@ pub async fn message_page<'a>(
             <form class="stack" method="post" data-submit-once="" data-unconfirmed="" data-confirming=(confirming.as_str())>
                 match preview {
                     None => {
-                        <label>
-                            "Subject"
-                            <input name="subject" required="" maxlength="150" value=(form.subject.as_str()) autofocus="">
-                        </label>
-                        <label>
-                            "Text"
-                            <textarea name="body" required="" rows="14" maxlength="20000">(form.body.as_str())</textarea>
-                            <small>"The email starts with “Hello,” and ends with “SourceOrigin”. Separate paragraphs with a blank line. Links are written out in full: mail apps make them clickable."</small>
-                        </label>
+                        message_fields(subject: form.subject.as_str(), body: form.body.as_str(), autofocus: true)
                         <div class="row actions">
                             <button name="intent" value="preview">"Preview the email"</button>
                             <a class="button secondary" href=(back)>"Cancel"</a>

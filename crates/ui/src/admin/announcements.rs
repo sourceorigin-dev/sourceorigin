@@ -1,7 +1,7 @@
 //! Announcements to accounts: the list, one announcement with its email as its
 //! recipients read it, and the form drafting one.
 
-use super::{Action, Change, confirm, moment};
+use super::{Action, Change, confirm, data_table, message_fields, moment};
 use crate::icons::{Icon, icon};
 use crate::{
     clients::choice,
@@ -72,31 +72,23 @@ pub async fn announcement_list<'a>(
             actions: view! { <a class="button" href=(create)>"New announcement"</a> },
         )
         <section class="card">
-            if rows.is_empty() {
-                <p class="empty">"No announcement yet."</p>
-            } else {
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr><th>"subject"</th><th>"to"</th><th>"sent"</th></tr>
-                        </thead>
-                        <tbody>
-                            for row in rows {
-                                <tr>
-                                    <td><a href=(row.page.as_str())>(row.announcement.subject.as_str())</a></td>
-                                    <td>(audience(row.announcement))</td>
-                                    <td>
-                                        match row.announcement.sent_at {
-                                            Some(at) => moment(at: at),
-                                            None => <span class="badge warning">"Draft"</span>,
-                                        }
-                                    </td>
-                                </tr>
+            data_table(
+                headings: &["subject", "to", "sent"],
+                empty: "No announcement yet.",
+                filled: !rows.is_empty(),
+                for row in rows {
+                    <tr>
+                        <td><a href=(row.page.as_str())>(row.announcement.subject.as_str())</a></td>
+                        <td>(audience(row.announcement))</td>
+                        <td>
+                            match row.announcement.sent_at {
+                                Some(at) => moment(at: at),
+                                None => <span class="badge warning">"Draft"</span>,
                             }
-                        </tbody>
-                    </table>
-                </div>
-            }
+                        </td>
+                    </tr>
+                }
+            )
         </section>
     })
 }
@@ -251,15 +243,7 @@ pub async fn announcement_form<'a>(
         alert_notice(message: refusal)
         <section class="card">
             <form class="stack" method="post" data-submit-once="" data-unconfirmed="" data-confirming=(sending.as_str())>
-                <label>
-                    "Subject"
-                    <input name="subject" required="" maxlength="150" value=(form.subject.as_str())>
-                </label>
-                <label>
-                    "Text"
-                    <textarea name="body" required="" rows="14" maxlength="20000">(form.body.as_str())</textarea>
-                    <small>"The email starts with “Hello,” and ends with “SourceOrigin”. Separate paragraphs with a blank line. Links are written out in full: mail apps make them clickable."</small>
-                </label>
+                message_fields(subject: form.subject.as_str(), body: form.body.as_str())
                 <fieldset>
                     <legend>"Send it to"</legend>
                     choice(

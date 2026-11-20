@@ -1,11 +1,11 @@
 //! The audit chain's state and its checkpoints.
 
-use super::moment;
+use super::{Badge, badge, data_table, moment};
 use crate::layout::{alert_notice, page_head};
 use sourceorigin_common::admin::{AuditPage, ChainPoint, Pruning, VerificationKeys};
 use topcoat::{
     Result,
-    view::{View, class, component, view},
+    view::{View, component, view},
 };
 
 /// The audit chain, as stored and as last verified, why the last attempt to
@@ -47,38 +47,30 @@ pub async fn audit_page<'a>(
                  which auth never holds, so run the command shown as the owner. It verifies the \
                  chain again first, and refuses if it breaks at or before that checkpoint."
             </p>
-            if page.checkpoints.is_empty() {
-                <p class="empty">"No checkpoint to show."</p>
-            } else {
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr><th>"position"</th><th>"signed"</th><th>"pruning"</th></tr>
-                        </thead>
-                        <tbody>
-                            for checkpoint in &page.checkpoints {
-                                <tr>
-                                    <td><code title=(checkpoint.point.hash.as_str())>(checkpoint.point.position.to_string())</code></td>
-                                    <td>moment(at: checkpoint.signed_at)</td>
-                                    <td>
-                                        match &checkpoint.pruning {
-                                            Pruning::Prunable => {
-                                                <code>(format!("auth-service audit prune --through {}{key}", checkpoint.point.position))</code>
-                                            },
-                                            Pruning::Pruned { .. } => {
-                                                <span class="muted">"Already pruned"</span>
-                                            },
-                                            Pruning::Broken(broken) => {
-                                                <span class="muted">(format!("Not prunable: the chain breaks at {}", broken.position))</span>
-                                            },
-                                        }
-                                    </td>
-                                </tr>
+            data_table(
+                headings: &["position", "signed", "pruning"],
+                empty: "No checkpoint to show.",
+                filled: !page.checkpoints.is_empty(),
+                for checkpoint in &page.checkpoints {
+                    <tr>
+                        <td><code title=(checkpoint.point.hash.as_str())>(checkpoint.point.position.to_string())</code></td>
+                        <td>moment(at: checkpoint.signed_at)</td>
+                        <td>
+                            match &checkpoint.pruning {
+                                Pruning::Prunable => {
+                                    <code>(format!("auth-service audit prune --through {}{key}", checkpoint.point.position))</code>
+                                },
+                                Pruning::Pruned { .. } => {
+                                    <span class="muted">"Already pruned"</span>
+                                },
+                                Pruning::Broken(broken) => {
+                                    <span class="muted">(format!("Not prunable: the chain breaks at {}", broken.position))</span>
+                                },
                             }
-                        </tbody>
-                    </table>
-                </div>
-            }
+                        </td>
+                    </tr>
+                }
+            )
         </section>
         if let Some(later) = later {
             <div class="row"><a class="button secondary" href=(later)>"Later checkpoints"</a></div>
@@ -108,10 +100,10 @@ async fn chain_card<'a>(page: &'a AuditPage, uncommitted: bool) -> Result<impl V
     let since = verification
         .filter(|verification| verification.broken.is_none())
         .map(|verification| position(&chain.newest).saturating_sub(position(&verification.newest)));
-    let (badge, status) = match (verification, broken) {
-        (None, _) => ("warning", "Not verified"),
-        (Some(_), Some(_)) => ("danger", "Broken at last check"),
-        (Some(_), None) => ("ok", "Intact at last check"),
+    let status = match (verification, broken) {
+        (None, _) => Badge::new("warning", "Not verified"),
+        (Some(_), Some(_)) => Badge::new("danger", "Broken at last check"),
+        (Some(_), None) => Badge::new("ok", "Intact at last check"),
     };
     let broken = broken.map(|broken| {
         format!(
@@ -124,7 +116,7 @@ async fn chain_card<'a>(page: &'a AuditPage, uncommitted: bool) -> Result<impl V
         <section class="card">
             <header>
                 <h2>"Chain"</h2>
-                <span class=(class!("badge", badge))>(status)</span>
+                badge(shown: status)
             </header>
             <div class="body">
                 alert_notice(message: broken.as_deref())

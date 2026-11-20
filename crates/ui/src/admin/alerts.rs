@@ -1,6 +1,6 @@
 //! The alerts administrators are shown, and the updates they post on them.
 
-use super::{Action, Change, confirm, moment};
+use super::{Action, Badge, Change, badge, confirm, moment};
 use crate::layout::page_head;
 use sourceorigin_common::alerts::{
     Alert, AlertAuthor, AlertDetail, AlertState, AlertStatus, AlertUpdate,
@@ -20,22 +20,24 @@ pub struct AlertCard<'a> {
     pub update: Option<Action>,
 }
 
-/// Where an alert's handling stands, as a badge's tone and label: monitoring
-/// means the fix is in, so it reads as good.
-const fn status_badge(status: AlertStatus) -> (&'static str, &'static str) {
+/// Where an alert's handling stands, as a badge: monitoring means the fix is
+/// in, so it reads as good.
+const fn status_badge(status: AlertStatus) -> Badge {
     match status {
-        AlertStatus::Investigating => ("warning", "Investigating"),
-        AlertStatus::Fixing => ("warning", "Fixing"),
-        AlertStatus::Monitoring => ("ok", "Monitoring"),
+        AlertStatus::Investigating => Badge::new("warning", "Investigating"),
+        AlertStatus::Fixing => Badge::new("warning", "Fixing"),
+        AlertStatus::Monitoring => Badge::new("ok", "Monitoring"),
     }
 }
 
-/// An alert's badge, as a tone and a label: whether it needs attention, the
-/// status its latest update gave, or that it cleared.
-fn badge(detail: &AlertDetail) -> (&'static str, &'static str) {
+/// An alert's badge: whether it needs attention, the status its latest update
+/// gave, or that it cleared.
+fn alert_badge(detail: &AlertDetail) -> Badge {
     match (detail.alert.state(), detail.updates.last()) {
-        (AlertState::Cleared, _) => ("neutral", "Cleared"),
-        (AlertState::Open, _) | (AlertState::Acknowledged, None) => ("danger", "Needs attention"),
+        (AlertState::Cleared, _) => Badge::new("neutral", "Cleared"),
+        (AlertState::Open, _) | (AlertState::Acknowledged, None) => {
+            Badge::new("danger", "Needs attention")
+        }
         (AlertState::Acknowledged, Some(update)) => status_badge(update.status),
     }
 }
@@ -103,13 +105,12 @@ pub async fn previous_alerts<'a>(
 async fn alert_card<'a>(card: &'a AlertCard<'a>) -> Result<impl View> {
     let detail = card.detail;
     let alert = &detail.alert;
-    let (tone, label) = badge(detail);
     let subject = alert.alert.as_ref().map_or(Alert::UNKNOWN, Alert::subject);
     Ok(view! {
         <section class="card">
             <header>
                 <h2>(subject)</h2>
-                <span class=(class!("badge", tone))>(label)</span>
+                badge(shown: alert_badge(detail))
             </header>
             <div class="body">
                 if let Some(says) = &alert.alert {
@@ -134,9 +135,9 @@ async fn alert_card<'a>(card: &'a AlertCard<'a>) -> Result<impl View> {
                     for update in detail.updates.iter().rev() {
                         <li>
                             moment(at: update.posted_at)
-                            <span class=(class!("dot", status_badge(update.status).0))></span>
+                            <span class=(class!("dot", status_badge(update.status).tone))></span>
                             <div class="text">
-                                <strong>(status_badge(update.status).1)</strong>
+                                <strong>(status_badge(update.status).label)</strong>
                                 (format!(" by {}", author(update)))
                                 if let Some(note) = &update.note {
                                     <small class="wrap">(note.as_str())</small>
@@ -164,7 +165,7 @@ pub async fn alert_update_fields<'a>(
             "Status"
             <select name="status" required="">
                 for each in AlertStatus::ALL {
-                    <option value=(each.as_str()) selected=(status == Some(each))>(status_badge(each).1)</option>
+                    <option value=(each.as_str()) selected=(status == Some(each))>(status_badge(each).label)</option>
                 }
             </select>
         </label>

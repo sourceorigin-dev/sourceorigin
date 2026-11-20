@@ -1,6 +1,9 @@
 //! The dashboard's lists: administrators and invitations.
 
-use super::{Action, Change, UserRow, account_status, confirm, moment, refused_action};
+use super::{
+    Action, Badge, Change, UserRow, account_status, badge, confirm, data_table, moment,
+    refused_action,
+};
 use crate::{
     clients::copyable,
     icons::{Icon, icon},
@@ -13,7 +16,7 @@ use sourceorigin_common::{
 };
 use topcoat::{
     Result,
-    view::{View, class, component, view},
+    view::{View, component, view},
 };
 
 /// An administrator, the link to their account, and the change revoking their
@@ -42,17 +45,17 @@ pub struct InvitationRow<'a> {
 }
 
 impl InvitationRow<'_> {
-    /// Whether it can still be used, as of `now`, as a badge's tone and label.
-    fn state(&self, now: DateTime<Utc>) -> (&'static str, &'static str) {
+    /// Whether it can still be used, as of `now`, as a badge.
+    fn state(&self, now: DateTime<Utc>) -> Badge {
         let invitation = self.invitation;
         if invitation.redeemed_at.is_some() {
-            ("ok", "Redeemed")
+            Badge::new("ok", "Redeemed")
         } else if invitation.revoked_at.is_some() {
-            ("danger", "Revoked")
+            Badge::new("danger", "Revoked")
         } else if invitation.expires_at <= now {
-            ("neutral", "Expired")
+            Badge::new("neutral", "Expired")
         } else {
-            ("", "Open")
+            Badge::new("", "Open")
         }
     }
 }
@@ -200,42 +203,33 @@ pub async fn invitation_list<'a>(
             actions: view! { <a data-confirm-first="" class="button" href=(create)>"Invite someone"</a> },
         )
         <section class="card">
-            if rows.is_empty() {
-                <p class="empty">"No invitation yet."</p>
-            } else {
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr><th>"sent to"</th><th>"created"</th><th>"expires"</th><th>"state"</th><th></th></tr>
-                        </thead>
-                        <tbody>
-                            for row in rows {
-                                let (tone, label) = row.state(now);
-                                let named = format!("Invitation ({})", row.invitation.id);
-                                <tr>
-                                    <td>
-                                        match &row.invitation.email {
-                                            Some(email) => (email),
-                                            None => <span class="muted">"Link passed on"</span>,
-                                        }
-                                    </td>
-                                    <td>moment(at: row.invitation.created_at)</td>
-                                    <td>moment(at: row.invitation.expires_at)</td>
-                                    <td><span class=(class!("badge", tone))>(label)</span></td>
-                                    <td class="right">
-                                        if let Some(resend) = &row.resend {
-                                            confirm(action: resend, change: Change::ResendInvitation, target: named.as_str())
-                                        }
-                                        if let Some(revoke) = &row.revoke {
-                                            confirm(action: revoke, change: Change::RevokeInvitation, target: named.as_str())
-                                        }
-                                    </td>
-                                </tr>
+            data_table(
+                headings: &["sent to", "created", "expires", "state", ""],
+                empty: "No invitation yet.",
+                filled: !rows.is_empty(),
+                for row in rows {
+                    let named = format!("Invitation ({})", row.invitation.id);
+                    <tr>
+                        <td>
+                            match &row.invitation.email {
+                                Some(email) => (email),
+                                None => <span class="muted">"Link passed on"</span>,
                             }
-                        </tbody>
-                    </table>
-                </div>
-            }
+                        </td>
+                        <td>moment(at: row.invitation.created_at)</td>
+                        <td>moment(at: row.invitation.expires_at)</td>
+                        <td>badge(shown: row.state(now))</td>
+                        <td class="right">
+                            if let Some(resend) = &row.resend {
+                                confirm(action: resend, change: Change::ResendInvitation, target: named.as_str())
+                            }
+                            if let Some(revoke) = &row.revoke {
+                                confirm(action: revoke, change: Change::RevokeInvitation, target: named.as_str())
+                            }
+                        </td>
+                    </tr>
+                }
+            )
         </section>
     })
 }
