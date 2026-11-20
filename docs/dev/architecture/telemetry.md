@@ -128,6 +128,7 @@ Only the standard variables, read by `Telemetry::init`:
 | `OTEL_SERVICE_NAME` | Overrides the default, `auth-service` or `sourceorigin-web` |
 | `OTEL_RESOURCE_ATTRIBUTES` | e.g. `deployment.environment.name=staging`, which dashboards filter on |
 | `OTEL_TRACES_SAMPLER`, `OTEL_TRACES_SAMPLER_ARG` | Sampling; every trace is kept by default |
+| `OTEL_EXPORTER_OTLP_HEADERS` | Headers sent with every export request, such as a collector's credentials |
 | `OTEL_EXPORTER_OTLP_TIMEOUT` | Bound on each export request, in milliseconds; 10000 by default. The per-signal variants are not supported |
 | `RUST_LOG` | What is logged; spans keep the service's default filter. A value that does not parse stops every command |
 

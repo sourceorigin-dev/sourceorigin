@@ -10,9 +10,10 @@ depends on this crate and re-exports what an app needs from it.
 
 ## Features
 
-With no features, the crate is what the SDKs build on. The others are for
+With no features, the crate is what the SDKs build on; the Rust SDK adds
+`client-spans`, for a span around each request it sends. The others are for
 SourceOrigin's own servers, and compile nothing unless enabled: `admin`,
-`client-spans`, `config`, `email`, `events`, `similarity` and `sqlx`. The
+`config`, `email`, `events`, `similarity` and `sqlx`. The
 [API documentation](https://docs.rs/sourceorigin-common) describes each.
 
 It needs Rust 1.88 or newer.

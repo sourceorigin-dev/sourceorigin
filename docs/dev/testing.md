@@ -64,8 +64,8 @@ shows the difference.
 just db test
 ```
 
-Tests that need PostgreSQL are marked
-`#[ignore = "requires TEST_DATABASE_URL"]`, so `just test` skips them.
+Tests that need PostgreSQL are marked `#[ignore]`, with a reason that names
+`TEST_DATABASE_URL`, so `just test` skips them.
 `just db test` starts a throwaway PostgreSQL 18 cluster that listens only on a
 Unix socket, runs every test of `auth-service` and `sourceorigin-repository` in it,
 ignored ones included, and deletes it. It then runs `just db prepare-check`,
@@ -84,7 +84,9 @@ and `test_channels!` declares channels whose deliveries a test inserts itself.
 Another crate's tests get them through the `test-util` feature. A test in
 `crates/database` that inserts rows with plain SQL connects through
 `Database::test_pool()` instead, and auth-service's tests use `Replicas` and
-`Browser` in `apps/auth-service/src/tests.rs`.
+`Browser` in `apps/auth-service/src/tests.rs`. A test that needs a migrated
+schema no other test shares, such as the audit chain's verification tests, gets
+one from `Database::isolated`.
 
 ### SDK test vectors
 

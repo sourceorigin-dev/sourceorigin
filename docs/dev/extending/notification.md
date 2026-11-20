@@ -23,8 +23,9 @@ emails. So adding one changes no page, route or job.
 
 - Find the event the notification comes from. If the change records none yet,
   add one first: see [recording its event](admin-operation.md#3-record-its-event).
-- Decide who is told. Every notification is emailed, and none can be turned off,
-  so notify only what the owner needs to know about their account. A change the
+- Decide who is told. A notification about the account is always emailed, and
+  nobody can turn its email off, so notify only what the owner needs to know
+  about their account. A change the
   owner made themselves usually tells them nothing new.
 
 ## 1. Add the kind
@@ -154,14 +155,13 @@ surface needs a change.
   offers more names it in `Notification::action`, which its page and its email
   both read: a recovery's undo page or the dashboard's Alerts tab. A new kind of
   action needs a `NotificationAction` variant, and each surface must say where
-  it links: the notification page (`src/web/settings/notifications.rs`) and the
-  email (`EmailSender::content`).
-- **During a deploy or a rollback.** The previous release's email workers may
-  claim the email of a kind they don't know. They can't decode it, so they leave
-  it pending for the new release, which sends it at the latest 30 seconds after
-  the previous release stops. After a rollback to a release that doesn't know
-  the kind, its emails wait, then fail at the email channel's 24-hour `MAX_AGE`.
-  A release from before this behaviour marks them failed at once. Either way, an
-  operator retries them with
+  it links: the notification page
+  (`apps/auth-service/src/web/settings/notifications.rs`) and the email
+  (`EmailSender::content`).
+- **During a deploy or a rollback.** A release that doesn't know the kind can't
+  decode its emails, and leaves them pending for one that does, until the email
+  channel's 24-hour `MAX_AGE` fails them
+  ([life of a delivery](../architecture/delivery-queue.md#life-of-a-delivery)).
+  An operator retries a failed one with
   `auth-service deliveries retry <id> --reason "…"` once a release that knows the
-  kind serves again; see [the delivery queue](../architecture/delivery-queue.md#operations).
+  kind serves again.

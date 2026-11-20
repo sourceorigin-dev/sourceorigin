@@ -27,10 +27,12 @@ values before any SQL runs.
 
 ## Repositories and queries
 
-Each repository has its own module under `src/repositories/` (`users`, `handles`, `emails`,
-`sessions`, `events`, `audit`, `deliveries`, `passkeys`, `oidc`, `tokens`, `federation`,
-`security`, `maintenance`, `administrators`, `deletions`, `pictures`, `announcements`), holding its methods and the
-records they take and return.
+Each repository has its own module under `src/repositories/` (`users`, `handles`,
+`emails`, `sessions`, `events`, `audit`, `deliveries`, `passkeys`, `oidc`, `tokens`,
+`federation`, `security`, `maintenance`, `administrators`, `recoveries`,
+`dashboard`, `signing_keys`, `deletions`, `pictures`, `notifications`, `alerts`,
+`announcements`, `exports`), holding its methods and the records they take and
+return.
 `repositories/mod.rs` holds only shared plumbing: the executor, the
 `repositories!` macro that declares every handle and its accessors on `Database`,
 `DatabaseTransaction` and `ExclusiveConnection`, the `run!` query macro and the
@@ -55,9 +57,13 @@ or JSON outside the record's type, becomes `DatabaseError::InvalidStoredData`
 with the column index SQLx reports and the decoding error as its source. Uniqueness conflicts, writes a check refused
 (`DatabaseError::Refused`) and deadline failures retain their sources too.
 
-Only `Database::provision` runs unchecked SQL: DDL takes no bind parameters, so a
-checked query renders its script (`src/connection/runtime_role.sql`) with
-`format`, which quotes the values, and `raw_sql` runs it.
+Only `Database::provision` runs unchecked SQL outside the tests: DDL takes no
+bind parameters, so a checked query renders its script
+(`src/connection/runtime_role.sql`) with `format`, which quotes the values, and
+`raw_sql` runs it. The test helpers behind the `test-util` feature run DDL the
+same way, to create a schema (`Database::isolated`) or to turn the audit tables'
+guards off and on (`AuditRepository::tamper`), with names they generate or
+write as literals. Test fixtures may use unchecked `sqlx::query`.
 
 Queries only administration reads decode straight into its views from
 `sourceorigin_common::admin`. Records that auth also uses elsewhere convert into those views
@@ -348,8 +354,8 @@ That function runs as its owner (`SECURITY DEFINER`), like the one that records
 redeemed codes in `oidc_session_clients`, or those that hold account
 recoveries' rules for every writer, and only its owner may execute it. A role that could create temporary tables and
 types could otherwise attach the function to a table of its own and have it run
-that type's cast as the owner. The runtime role no longer can, but a test still
-fails for any such function others may execute.
+that type's cast as the owner. The runtime role cannot, and a test fails for any
+such function others may execute.
 
 ## Domain events
 
@@ -391,8 +397,8 @@ payload or a renamed field, must be written with a new version of that kind only
 `DomainEvent::version` decides it per event: every kind starts at
 `DomainEvent::FIRST_VERSION`, and only the events that use the change get the next
 version, so an older release still reads the others. `SessionRevoked` with
-`RevocationReason::UserRevoked` is version 2, and every other `SessionRevoked` is
-still version 1. A release reads an event as known only if it decodes to an event
+`RevocationReason::UserRevoked` is version 2, with `RevocationReason::SignOutLink`
+version 3, and every other `SessionRevoked` version 1. A release reads an event as known only if it decodes to an event
 whose `version()` is the stored one, so a version it does not write reads as
 unknown. Adding a field is not one, since older releases ignore fields they do not
 know, but the field must be an `Option` or `#[serde(default)]`, so that the new

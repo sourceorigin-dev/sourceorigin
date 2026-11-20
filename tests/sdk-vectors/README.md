@@ -54,5 +54,6 @@ and `header` must parse back to `challenge`. Parse cases only parse, since their
 headers are not in canonical form; `challenge` is `null` when the header holds no
 valid Bearer challenge.
 
-Session cases are sealed with OpenSSL and a fixed nonce, apart from either SDK's own
-sealing, so an SDK that opens them reads the format every SDK writes.
+Session cases are sealed by the generator itself, with AES-256-GCM and a fixed
+nonce, apart from either SDK's own sealing, so an SDK that opens them reads the
+format every SDK writes.

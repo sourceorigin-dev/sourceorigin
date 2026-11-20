@@ -57,8 +57,7 @@ page.
    both releases run, a worker of either may claim it each time it comes due, so
    the next release sends it at the latest 30 seconds after the previous one
    stops. One that no release has decoded by its channel's `MAX_AGE` fails with
-   that error. A release from before this behaviour marks such a delivery failed
-   at once instead: retry it once a release that decodes it serves.
+   that error.
 3. It sends outside any transaction, with a 10 second timeout. A delivery that
    waited past its channel's `MAX_AGE`, counted from its creation or from an
    operator's last retry, fails without being sent.
@@ -112,12 +111,8 @@ link was used, cancelled or expired, or the account was disabled.
 Every notification an event gives (`DomainEvent::notification`) is emailed
 too: `record` hands the notifications it just wrote, each with its account, to
 the channels, and the `email` channel queues one `EmailMessage::Notification`
-per address of that account that `Notification::addressees` names, each once.
-A recovery that secured the account or added a passkey (`AccountSecured`,
-`Recovered`) goes to every verified address, so a compromised one cannot hide
-it; a replaced or removed address's to that address, so whoever reads it hears
-of it; any other to the primary verified address, and an account without one
-gets no email. The message copies the address and the notification, read in the
+per address of that account that `Notification::addressees` names, each once
+([which addresses](notifications.md#email)). The message copies the address and the notification, read in the
 event's transaction, so removing the address right after cannot cancel it, and
 says what the inbox says. It links the notification's page, except a message's,
 which reads like an announcement's and links the inbox. A recovery's also

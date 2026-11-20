@@ -2,8 +2,8 @@
 
 The cryptography [Origin Auth](https://auth.sourceorigin.dev) and its Rust SDK
 share, so both judge keys and signatures the same way: secrets and digests, PKCE,
-RS256 signing and verification of JSON Web Tokens, AES-256-GCM sealing, and signed
-notes. It builds on [aws-lc-rs](https://docs.rs/aws-lc-rs), which needs a C
+RS256 signing and verification of JSON Web Tokens, AES-256-GCM sealing, signed
+notes, and the SCRAM-SHA-256 verifiers of auth's database roles. It builds on [aws-lc-rs](https://docs.rs/aws-lc-rs), which needs a C
 compiler.
 
 To sign users in or validate tokens, use

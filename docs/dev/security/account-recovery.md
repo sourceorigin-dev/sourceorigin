@@ -35,7 +35,7 @@ recovery-specific has to remember it.
 
 The code is `apps/auth-service/src/recovery` (links, the probation passkey,
 undo), `AdminService::recover_account`, `recent_recoveries` and `undo_recovery`
-(`apps/auth-service/src/admin/service.rs`), the passkey routes
+(`apps/auth-service/src/admin/service/recovery.rs`), the passkey routes
 (`apps/auth-service/src/passkey`), the pages `/recover` and `/recover/undo`
 (`apps/auth-service/src/web/auth/recovery`, with their views in
 `crates/ui/src/recovery/mod.rs`), the account recoveries section of
@@ -336,7 +336,8 @@ on a disabled account (U4a)
   `oidc::tests::tokens::a_refresh_that_waits_for_an_undo_or_disablement_issues_nothing`,
   and the code exchange's own session check). A refresh holds the lock until it
   commits, even a confidential client's, which writes nothing
-  (`db: a_kept_token_writes_nothing_and_holds_its_locks_until_commit`).
+  (`a_kept_token_writes_nothing_and_holds_its_locks_until_commit`, in
+  `crates/database/src/repositories/tokens/tests.rs`).
 
 What undo doesn't reach: what the link holder did inside apps that don't ask for
 `phr` (app data, accounts of their own inside an app, app sessions of clients
@@ -394,14 +395,16 @@ cannot shadow `account_recoveries`
 - A rollback to this release's predecessor keeps every way-in property and the
   owner's ability to undo: the backstops hold, and the predecessor already
   needs a confirmation for every owned-client change and re-reads a consent's
-  session under the lock (the prerequisite PR). Never roll back below that
+  session under the lock. Never roll back below that
   predecessor while a recovery can be undone.
 - What a rollback loses is availability: the recovery pages, P4 and the typed
   errors, until the release is back. This release's CLI still runs `user
   undo-recovery` against the same schema.
-- Start recoveries only once a rollout is over. A replica of the previous release
-  can't decode the new recovery emails, and marks them failed; resend them with
-  `auth-service deliveries retry <id> --reason "…"`.
+- Start recoveries only once a rollout is over. A replica of a release that
+  can't decode a recovery email leaves it pending for one that can, until the
+  email channel's 24-hour `MAX_AGE` fails it
+  ([life of a delivery](../architecture/delivery-queue.md#life-of-a-delivery));
+  resend a failed one with `auth-service deliveries retry <id> --reason "…"`.
 
 ## Threat model
 

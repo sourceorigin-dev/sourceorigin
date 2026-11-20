@@ -14,7 +14,7 @@ TCP listener (HTTP/1.1, peer address attached, 10 s header and write timeouts)
          ├─ preflight               OPTIONS answered here
          ├─ browser proof           same-origin forms, CSRF header
          ├─ rate limit              budget per category and client IP
-         ├─ DefaultBodyLimit        64 KiB
+         ├─ DefaultBodyLimit        64 KiB, 512 KiB on the admin listener
          └─ router → extractors → handler → service → DatabaseTransaction
          decorate                   Cache-Control, isolation and CORS headers
 ```
@@ -42,8 +42,11 @@ The admin router is `AuthConfig::admin_router`: only the dashboard's pages
 (`AdminApplication` in `src/web/admin`), under a security layer of its own.
 
 Both routers are wrapped the same way, outermost first: `HttpTelemetry`, then
-`HttpSecurity::protect`, then the 64 KiB `DefaultBodyLimit`. The layers run after
-routing, so they know the route template a request matched (`MatchedPath`).
+`HttpSecurity::protect`, then a `DefaultBodyLimit`: 64 KiB on the public
+listener, and 512 KiB on the admin listener, which an announcement's text needs.
+The settings' profile page takes a picture upload on top of its 64 KiB. The
+layers run after routing, so they know the route template a request matched
+(`MatchedPath`).
 
 ## Telemetry
 
@@ -81,7 +84,7 @@ read:
 | --- | --- | --- | --- |
 | `OAuthBackChannel` | token, revocation, PAR | auth, enabled public clients' redirect origins | `token` |
 | `UserInfo` | userinfo | auth, enabled public clients' redirect origins | `userinfo` |
-| `Discovery` | discovery, JWKS, `/.well-known/webauthn` | any | none |
+| `Discovery` | discovery, `/.well-known/oauth-authorization-server`, JWKS, `/.well-known/webauthn` | any | none |
 | `Checkpoints` | audit checkpoints | any | `audit` |
 | `Picture` | `/pictures/{id}` | any | `picture` |
 | `Health` | `/health/live`, `/health/ready` | auth | none |
@@ -89,11 +92,13 @@ read:
 | `Logout` | `/oidc/logout` | auth | `login` |
 | `RelatedLogin` | `/webauthn/related/*` | approved related origins | `login` |
 | `Account` | `/account/…` JSON APIs | auth | `account` |
-| `Page` | every route in `routes::page::ALL`, and `/` | auth | `page` |
+| `Unsubscribe` | `/unsubscribe` | auth | `page` |
+| `Page` | every other route in `routes::page::ALL`, and `/` | auth | `page` |
 | `Other` | passkey ceremonies, providers' callbacks, the rest | auth | `login` |
 
-Every request on the admin listener is `Dashboard`, with its own `dashboard`
-budget, and only the dashboard's origin is allowed. A route that should differ
+A request on the admin listener is `Dashboard`, on the `dashboard` budget, or,
+for its searches, `DashboardSearch`, on the `search` budget
+([rate limit](#rate-limit)). Only the dashboard's origin is allowed on either. A route that should differ
 from `Other` must be listed in `classify`.
 
 ### Host
@@ -119,8 +124,9 @@ An `OPTIONS` request is answered `204` if its origin is allowed, and `403`
 otherwise. Then `check_browser` applies the CSRF rule of the endpoint's class:
 
 - **Protocol endpoints** (`OAuthBackChannel`, `UserInfo`, `Authorize`, `Logout`)
-  are exempt: their handlers check client credentials, bearer tokens or their own
-  hints.
+  and `Unsubscribe` are exempt: their handlers check client credentials, bearer
+  tokens or their own hints, and mail clients post an email's one-click
+  unsubscribe from anywhere, with its link's token as the credential.
 - **Pages and the dashboard** take any navigation, but a form only from their own
   origin's pages, by `BrowserRequest::is_same_origin`
   (`sourceorigin_common::protocol::same_origin`): `Sec-Fetch-Site: same-origin` when the

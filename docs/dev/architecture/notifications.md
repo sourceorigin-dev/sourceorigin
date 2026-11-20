@@ -142,8 +142,8 @@ An account purged while a request was in flight gets no notification. Cleanup
 deletes a notification a year after it arrives, and an announcement's
 recipients a year after it is sent: the dashboard then says whom it went to was
 deleted, rather than counting none.
-[Notifications](database.md#notifications) in the PostgreSQL page covers the
-ordering of pages and the indexes.
+[Notifications](database.md#notifications) in the PostgreSQL page covers how
+they are written, locked and ordered.
 
 ## Email
 

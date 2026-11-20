@@ -18,8 +18,7 @@ pages a ceremony needs (login, signup, consent, passkey confirmation, account
 recovery at `/recover` and `/recover/undo`, device verification *(planned)*). It
 also serves the account settings at `/settings`, an overview first, then the
 inbox at `/settings/notifications`, the sign-in methods at `/settings/sign-in` and
-the other pages on the paths
-sourceorigin.dev used, and redirects its root there, and the developer console, where
+the other pages under `/settings`, and redirects its root there, and the developer console, where
 accounts register their own OIDC clients, at `/developers`. The admin dashboard is the same
 executable too, on another listener and host (see admin.sourceorigin.dev below).
 
@@ -31,9 +30,11 @@ serves, sign-in, consent, logout, account recovery, the settings and the
 developer console, is server-rendered in the executable, with plain forms, and
 never cached. Their scripts are the passkey script, which runs the passkey
 ceremonies their forms need and keeps a form from posting twice, the picture
-script, which lets the picture form choose its crop, the search script, and
-the copy script, whose buttons, and the values beside them, copy a value such as
-a client secret or a signup link to the clipboard.
+script, which lets the picture form choose its crop, the search script, the
+copy script, whose buttons, and the values beside them, copy a value such as a
+client secret or a signup link to the clipboard, and the client form script,
+which sets a new client's scopes and refresh tokens to the defaults of the kind
+chosen.
 
 The search script ranks the top bar's results as the user types. Every signed-in
 page holds its area's pages, settings and actions as results
@@ -106,8 +107,8 @@ The admin listener has a security layer of its own. It answers only requests tha
 name the dashboard's host, takes a form only from the dashboard's own pages (the
 same-origin rule auth's pages follow), spends a request budget of its own, and
 limits bodies to 512 KiB, which an announcement's text and accounts need. Every
-page loads only the stylesheet, the dashboard's own script, the search script
-and the copy script, which its Content-Security-Policy names alone, and its forms post only
+page loads only the stylesheet, the dashboard's own script, the search, copy
+and client form scripts, which its Content-Security-Policy names alone, and its forms post only
 to the dashboard, whose answer may go on to auth's handoff page.
 
 The dashboard is no OIDC client. An administrator signs in by a handoff from auth:
@@ -167,7 +168,7 @@ handoff refuses, and kept as the dashboard's confirmation only. The dialog names
 what it confirms, from the link's or form's `data-confirming`: the change, and
 what it acts on. The script also posts each change's form once, so a double
 click makes no second change. Without the script, or in a browser without
-related origins, the browser goes to the handoff page and back as before.
+related origins, the browser goes to the handoff page and back.
 
 Every change goes through `AdminApplication::change`, which keeps a change from
 being misread:

@@ -95,7 +95,7 @@ been restored meanwhile.
    the announcements to chosen accounts it was the last recipient of, which may
    concern it, then erases the
    personal data of every event it is the subject or actor of
-   (`DeletionRepository::purge`). Its handles lose their owner, which releases
+   (`AccountDeletionRepository::purge`). Its handles lose their owner, which releases
    them: cleanup deletes them a year later, when anyone may claim them, unless
    an operator releases one sooner (`handle release`);
 4. records `AccountPurged`, once the account is gone, so the purge's own

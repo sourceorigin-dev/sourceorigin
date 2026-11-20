@@ -5,7 +5,7 @@ your changes on a preview.
 
 ## Install the tools
 
-- Rust, at the version `rust-toolchain.toml` pins.
+- Rust stable, which `rust-toolchain.toml` selects, with rustfmt and Clippy.
 - [just](https://just.systems) 1.42 or later. Every task runs through it.
 - Node 24 or later and pnpm, for the web tools and the TypeScript SDK. The
   workspace pins pnpm's version.
@@ -21,7 +21,7 @@ Then install the rest:
 
 ```console
 just install         # Prettier, ESLint, tsc, knip and Playwright
-just install-tools   # cargo-nextest, cargo-llvm-cov, cargo-deny, cargo-machete, sqlx-cli, mdBook and lychee
+just install-tools   # cargo-nextest, cargo-llvm-cov, cargo-deny, cargo-machete, cargo-semver-checks, sqlx-cli, mdBook and lychee
 ```
 
 Recipes are grouped into the `rust`, `web`, `db`, `auth`, `infra` and `docs`

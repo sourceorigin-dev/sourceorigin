@@ -78,7 +78,7 @@ let budget: std::num::NonZeroU32 =
 
 A secret is never set directly. Its variable holds a `SecretReference`, an
 `env://NAME` or `file:///path` that `resolve()` reads. Its bytes stay redacted;
-`utf8()` borrows them as text.
+`SecretBytes::text()` reads them as text, without one trailing line ending.
 
 Reject a bad value with `variable.invalid(reason)`, or `variable.error(reason,
 source)` to keep the parser's error as its source. The reason says what the

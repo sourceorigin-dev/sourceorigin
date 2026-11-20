@@ -102,7 +102,7 @@ detail.
   The one exception is `/unsubscribe`, which mail clients post to from anywhere
   (RFC 8058): its link's token is its credential, and it only turns one
   account's announcements' email off.
-- Request throttling and expiring-state cleanup use PostgreSQL. Throttling uses separate login, token, userinfo, account and page budgets per client IP, and covers every API route except health probes and discovery.
+- Request throttling and expiring-state cleanup use PostgreSQL. Throttling uses a separate budget per client IP for each rate category ([rate limit](../architecture/request-lifecycle.md#rate-limit)), and covers every route except health probes and discovery.
   By default it uses the direct peer IP; only peers in `AUTH_TRUSTED_PROXIES`
   may supply a single overwritten `X-Forwarded-For`. Configure this when terminating TLS
   at a reverse proxy so users do not share the proxy’s budget. Untrusted headers

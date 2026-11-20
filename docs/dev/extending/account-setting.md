@@ -137,7 +137,7 @@ Then:
    `Picture::Remove { .. } => Op::RemovePicture`.
 2. Run it in `AccountCommand::run`: a change as `change.on(id, console)`, the
    operator's `Subject` with the `--reason` the `Change` flattens, and a read as
-   `read()`, printed with `output.print`.
+   `read()`, printed with `out.emit`.
 3. If it cuts off access, as removing a passkey does, flatten a `Confirm` into it.
 
 ## 6. Add it to the dashboard
@@ -159,7 +159,8 @@ let refused = App::submit(cx, form, App::here(cx), |posted| async move {
 Reads take `App::viewer(user, admin)`, and the page ends with
 `App::settings_page`. A new tab is mounted with `.route(settings::…)` in
 `AdminApplication::routes` (`web/admin/mod.rs`), and linked from
-`App::settings_tab` and from the account's page in `web/admin/users.rs`.
+the tab list in `App::settings_page` and from the account's page in
+`web/admin/users.rs`.
 
 ## 7. Add it to the data export
 
@@ -167,10 +168,12 @@ The owner downloads everything auth stores about their account, as
 `AccountExport` (`apps/auth-service/src/deletion/export/mod.rs`). If the setting
 stores something new:
 
-1. Add a field to `AccountExport`, with a doc comment saying what it holds.
-2. Read it in `AccountExport::read`, from the export's transaction, so the export
-   is one snapshot.
-3. Raise `VERSION`, and say what the version added in the struct's doc comment.
+1. Add a field to `Records`, the export's sections, with a doc comment saying
+   what it holds.
+2. Read it where `AccountExport::read` builds `Records`, from the export's
+   transaction, so the export is one snapshot.
+3. Raise `VERSION`, and say what the version added in `AccountExport`'s doc
+   comment.
 
 The export never holds a secret, a digest or key material.
 
@@ -197,9 +200,9 @@ apart by its actor: see [adding a notification](notification.md).
 4. Test the settings page and the dashboard page, in
    `apps/auth-service/src/web/settings/tests.rs` and `web/admin/tests.rs`.
 5. If the export grew, add the new field to
-   `serializes_every_category_in_its_documented_shape`
+   `serializes_every_section_in_its_documented_shape`
    (`deletion/export/tests.rs`), which builds an export and checks each
-   category's name and shape.
+   section's name and shape.
 
 ```console
 just test -p auth-service

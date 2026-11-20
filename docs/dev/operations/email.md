@@ -50,7 +50,7 @@ SourceOrigin, so auth can still email people while it is broken.
 5. Delete the old key in Resend.
 
 A preview still running the old key fails to send once it is deleted, until the
-preview deploys again. Its messages wait and retry for 24 hours (see
+preview deploys again. Its messages wait and retry for 24 hours or more (see
 [delivery and retries](#delivery-and-retries)).
 
 ## Follow a message from a preview
@@ -84,8 +84,10 @@ Auth queues every message as a delivery, which a worker sends (see
 
 - A permanent (5xx) SMTP reply fails the delivery.
 - A temporary (4xx) reply, a rejected login (`530`, `534`, `535`), a timeout, or
-  a connection or TLS failure is retried, for up to 24 hours. So mail queued
-  while the Resend key was wrong goes out once auth runs with the right one.
+  a connection or TLS failure is retried: for up to 24 hours on the `email`
+  channel, which sends links and notices, and 72 hours on the `invitation` and
+  `announcement` channels. So mail queued while the Resend key was wrong goes
+  out once auth runs with the right one.
 - A delivery's recorded error is the SMTP reply code, never its text, which can
   quote the recipient.
 - An email the running release can't decode, such as one of a kind the release

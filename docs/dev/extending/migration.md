@@ -40,11 +40,11 @@ Open the file with SQL comments that say what the migration changes, why, and
 why the previous release keeps working:
 
 ```sql
--- The profile picture URL a provider reported with its evidence, so a social
--- signup can import it once the account exists. Nullable: the previous release
--- inserts evidence without one, and its signups import nothing.
-ALTER TABLE pending_federation
-    ADD COLUMN picture_url TEXT CHECK (char_length(picture_url) <= 2048);
+-- The language an account's emails are written in, as a BCP 47 tag the owner
+-- picks in their settings. Nullable: the previous release creates accounts
+-- without one, and their emails stay in English.
+ALTER TABLE users
+    ADD COLUMN locale TEXT CHECK (char_length(locale) <= 35);
 ```
 
 The comments are the migration's documentation; nothing else describes it.

@@ -163,7 +163,7 @@ npm install @sourceorigin/auth
 ```
 
 docs.rs builds the crates' documentation within a few minutes. The GitHub
-release lists the merged pull requests, and the `v<version>` milestone is
+release lists the merged pull requests, and the `v<major>.<minor>` milestone is
 closed.
 
 ## Troubleshooting

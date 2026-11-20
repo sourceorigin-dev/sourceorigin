@@ -134,8 +134,8 @@ auth-service user search ali     # by ID, or part of a handle, name or email
 auth-service user show alice     # the account's profile, emails, passkeys, sessions, known browsers and consents
 ```
 
-Both list the closest matches first: the account whose ID, handle or email is
-what you typed, then handles starting with it, then display names with a word
+`user search` lists the closest matches first: the account whose ID, handle or
+email is what you typed, then handles starting with it, then display names with a word
 starting with it. A handle may keep its `@`.
 
 On the dashboard, type into the search box at the top of any page; **/** or
@@ -537,6 +537,11 @@ Each alert says what to look at. Auth raises these:
     derive its link.
   - `client origin add` needs `AUTH_PUBLIC_BASE_URL`, to tell auth's own domain
     apart.
+  - `keys rotate`, `keys revoke` and `keys rewrap` need
+    `AUTH_KEY_ENCRYPTION_KEY`, to seal and open the signing keys.
+  - `keys digest-usage` needs `AUTH_TOKEN_DIGEST_KEY`, to name the keys it
+    counts.
+  - `keys audit` needs `AUTH_PUBLIC_BASE_URL` and `AUTH_AUDIT_KEY_PROVIDER`.
   - `audit verify` and `audit prune` need `AUTH_PUBLIC_BASE_URL`, to pick the
     environment's audit key. `audit prune` connects as the schema owner when
     `AUTH_DATABASE_OWNER_URL` is set, since auth's own role may not delete
@@ -583,24 +588,13 @@ Auth serves the dashboard on its admin listener (`AUTH_ADMIN_LISTENER`, port
 auth's health check stays on 8080. The dashboard's pages call `AdminService`
 in-process: there is no admin API.
 
-The dashboard is no OIDC client, so it needs no client or secret. An
-administrator signs in by a handoff from auth: auth's `/admin` page needs a
-session signed in with a passkey, of an account that still holds administrator
-rights, asks for a passkey, and sends the browser back with a single-use code
-bound to that session and to the dashboard's state cookie. The dashboard stores
-its own session as a digest in PostgreSQL, so it survives restarts and replicas.
-
-- A dashboard session ends after 30 minutes without a request, and 12 hours
-  after its sign-in.
-- Every request checks the administrator's rights again, and revoking their
-  rights deletes their dashboard sessions, so revoking their rights, or their
-  auth session, takes effect at once.
-- Changes need the dashboard's own passkey confirmation from the last five
-  minutes, which a confirmation for auth's pages never gives.
-- Administrators can't grant or revoke their own rights, and nobody can revoke
-  the last administrator's. The dashboard never changes an administrator's
-  account: revoke their rights first.
-- Every change is recorded as an event with its administrator.
+The dashboard is no OIDC client, so it needs no client or secret: an
+administrator signs in by a passkey handoff from auth's `/admin` page, as
+[signing in to the admin dashboard](#sign-in-to-the-admin-dashboard) shows.
+Administrators can't grant or revoke their own rights, and nobody can revoke the
+last administrator's. The dashboard never changes an administrator's account:
+revoke their rights first. Every change is recorded as an event with its
+administrator.
 
 See [admin.sourceorigin.dev](../architecture/surfaces.md#adminsourceorigindev) for the
-design.
+handoff, the dashboard's session and its confirmations.

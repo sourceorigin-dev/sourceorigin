@@ -255,8 +255,9 @@ so the pruned history stays signed, and the prune itself is recorded as an
 
 Auth's own role may not delete events, so pruning connects as the schema owner:
 set `AUTH_DATABASE_OWNER_URL` and `AUTH_DATABASE_OWNER_PASSWORD`, as for
-`migrate`. Without them, `audit prune` refuses before verifying anything. In a
-deployed environment, only the `migrate` job gets the owner's credentials, by
+`migrate`. Without them, `audit prune` connects as the runtime role, which works
+where that role owns the schema, as in development. Where it doesn't, the chain
+verifies, then the delete fails on permissions. In a deployed environment, only the `migrate` job gets the owner's credentials, by
 design, and piqueld runs jobs only before a rollout, so pruning there is not
 supported yet: it needs a one-off job with those credentials. Until then, history
 is kept. The dashboard therefore never prunes. Its Audit tab lists the

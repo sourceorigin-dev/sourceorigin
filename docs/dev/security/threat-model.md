@@ -13,7 +13,7 @@ own. It builds on the [security boundaries](boundaries.md); the
 | Sessions | A session signs its browser in for up to 30 days | `sessions`, with only the cookie's digest, in `browser_session_secrets` |
 | Tokens | Codes, refresh tokens and ID and access tokens let apps act as the user | Codes and refresh tokens as HMAC digests; issued tokens at the apps |
 | Signing keys | Whoever holds one can mint any token apps accept | `signing_keys`, sealed under the key-encryption key |
-| Personal data | Email addresses, IP addresses, devices, profile pictures, the apps an account uses | PostgreSQL; IPs and devices in `event_personal_data`, deleted after 90 days |
+| Personal data | Email addresses, IP addresses, devices, profile pictures, the apps an account uses | PostgreSQL; the events' IPs and devices in `event_personal_data`, deleted after 90 days; a session's IPs and device as long as its row; known browsers' device until unused for 400 days |
 | The audit history | The record of every change, which owners, support and the chain rely on | `domain_events`, sealed into a hash chain with signed checkpoints |
 
 ## Actors
@@ -70,7 +70,7 @@ own. It builds on the [security boundaries](boundaries.md); the
 | Threat | Mitigation |
 | --- | --- |
 | Taking over an account | Administrators view, edit and remove, but never add a way in or an address; the types make it a compile error ([changing an account](../architecture/surfaces.md#changing-an-account-on-its-owners-behalf)). A recovery an administrator starts is only mailed, never shown to them. |
-| Acting without a trace | Every change is recorded with the administrator as its actor, and reads as views. Changes to an account's settings on its owner's behalf, and most actions on the account, need a reason, most of which the owner sees in their history; granting or revoking rights, enabling an account and signing its sessions out from the account's dashboard page or with `session revoke` and `session revoke-all` need none. |
+| Acting without a trace | Every change is recorded with the administrator as its actor, and reads as views. Changes to an account's settings on its owner's behalf, the actions on the account and granting or revoking rights need a reason, most of which the owner sees in their history. |
 | One administrator against another | An administrator may not change another administrator's account, nor their own rights or the last active administrator's. |
 | A stolen session reaching the dashboard | The dashboard needs a passkey sign-in, a confirmation of its own for every change, a request naming its host, and the tailnet ([admin.sourceorigin.dev](../architecture/surfaces.md#adminsourceorigindev)). |
 
@@ -88,8 +88,9 @@ Beyond these, database access is trusted: it can bind any passkey to any account
 ## Accepted risks and limits
 
 - **Operators are trusted.** Whoever holds database access, or a shell in an
-  auth container, can do anything. The CLI records its changes with `$USER` and
-  the host name, which the operator's own environment supplies.
+  auth container, can do anything. The CLI records its changes with the
+  operator's name, from `--operator`, `AUTH_OPERATOR` or `$USER`, and the host
+  name, which the operator supplies.
 - **Truncation and new events go unseen.** Someone with the schema owner's
   rights can delete the newest events with their checkpoints, and the runtime
   role can insert events that seal like genuine ones. No external witness exists

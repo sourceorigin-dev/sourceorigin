@@ -63,7 +63,7 @@ The commands in `E2E_GRANT_ADMIN`, `E2E_INVITE` and `E2E_RECOVER` must use the
 deployment's own configuration: `user recover`, for example, derives its link
 with the deployment's token digest key.
 
-With `E2E_MAIL_URL` set, a run sends three confirmation emails, and auth sends at
+With `E2E_MAIL_URL` set, a run sends four confirmation emails, and auth sends at
 most ten an hour for one IP address. Wait between reruns against one deployment.
 
 ## Clients
