@@ -3,7 +3,7 @@
 use super::*;
 use crate::security::CONFIRMATION_MAX_AGE;
 use sourceorigin_common::DeliveryId;
-use sourceorigin_repository::{Channel, DatabaseError, DeliveryStatus, EventFilter, NewDelivery};
+use sourceorigin_repository::{Channel, DeliveryStatus, EventFilter, NewDelivery};
 
 sourceorigin_repository::test_channels! {
     /// A delivery no worker sends, which the tests only retry and cancel.

@@ -28,10 +28,7 @@ use sourceorigin_common::{
     events::{Actor, DomainEvent},
     notifications::Notification,
 };
-use sourceorigin_repository::{
-    Channel, Database, DatabaseError, DatabaseTransaction, EventFilter, NewDelivery,
-    SigningKeyState,
-};
+use sourceorigin_repository::{Channel, Database, EventFilter, NewDelivery, SigningKeyState};
 use sourceorigin_telemetry::{HttpTelemetry, Telemetry};
 use sourceorigin_ui::HandoffQuery;
 use std::net::SocketAddr;
