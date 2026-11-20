@@ -58,8 +58,8 @@ impl AdminService {
         Self { database, mails }
     }
 
-    /// Whether email is enabled, so an invitation can be mailed again: pages
-    /// offer a resend only while it is.
+    /// Whether email is enabled, so an invitation can be mailed: pages offer to
+    /// mail or resend one only while it is.
     #[must_use]
     pub(crate) const fn mails(&self) -> bool {
         self.mails

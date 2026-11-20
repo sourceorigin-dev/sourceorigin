@@ -57,7 +57,7 @@ pub(super) async fn list(cx: &Cx) -> Result<Response> {
 
 /// `/invitations/new`: creates an invitation, mailed to the address given or
 /// shown to pass on, then comes back here, which shows its link once, or where
-/// it was mailed.
+/// it was mailed. The form asks for an address only while email is on.
 #[route([GET, POST] "/invitations/new")]
 pub(super) async fn create(cx: &Cx, form: Option<Form<CreateInvitation>>) -> Result<Response> {
     let admin = App::admin(cx).await?;
@@ -108,6 +108,7 @@ pub(super) async fn create(cx: &Cx, form: Option<Form<CreateInvitation>>) -> Res
         )
     });
     let (created, refused) = (&created, refused.as_deref());
+    let mails = app.service.mails();
     let page = view! { cx =>
         match created {
             Some(created) => {
@@ -123,11 +124,13 @@ pub(super) async fn create(cx: &Cx, form: Option<Form<CreateInvitation>>) -> Res
                     back: back.as_str(),
                     refusal: refused,
                     reason: reason,
-                    <label>
-                        "Email address"
-                        <input name="email" type="email" autocomplete="off" value=(email)>
-                        <small>"Origin Auth mails the link here. Leave it empty to get a link to pass on yourself."</small>
-                    </label>
+                    if mails {
+                        <label>
+                            "Email address"
+                            <input name="email" type="email" autocomplete="off" value=(email)>
+                            <small>"Origin Auth mails the link here. Leave it empty to get a link to pass on yourself."</small>
+                        </label>
+                    }
                     <label>
                         "Valid for"
                         <input name="expires_in" placeholder="7d" pattern="[0-9]+[hd]" value=(expires_in)>
