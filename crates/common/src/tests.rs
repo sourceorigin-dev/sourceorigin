@@ -86,8 +86,8 @@ fn trace_ids_are_lower_case_hex() {
     }
 }
 
-/// One event of every kind, which [`event_kinds_match_their_serde_tags`] proves
-/// covers every variant of `DomainEvent`.
+/// One event of every kind, which [`one_event_per_kind_covers_every_variant`]
+/// proves covers every variant of `DomainEvent`.
 #[cfg(feature = "events")]
 #[expect(
     clippy::too_many_lines,
@@ -334,12 +334,11 @@ fn one_event_per_kind() -> Vec<events::DomainEvent> {
     ]
 }
 
-/// `DomainEvent::kind` is the serde tag each variant is stored under, for every
-/// variant: a variant serde knows that [`one_event_per_kind`] doesn't build fails
-/// the test.
+/// [`one_event_per_kind`] builds one event of every variant serde knows, each
+/// under the kind it is stored as, so the tests that read it cover every event.
 #[cfg(feature = "events")]
 #[test]
-fn event_kinds_match_their_serde_tags() {
+fn one_event_per_kind_covers_every_variant() {
     use events::DomainEvent;
     use serde::Deserialize;
 
