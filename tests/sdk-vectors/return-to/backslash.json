@@ -1,0 +1,9 @@
+{
+  "description": "a backslash anywhere is refused",
+  "input": {
+    "return_to": "/a\\b"
+  },
+  "expected": {
+    "ok": false
+  }
+}

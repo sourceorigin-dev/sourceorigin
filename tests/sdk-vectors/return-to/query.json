@@ -1,0 +1,9 @@
+{
+  "description": "a path with a query string is accepted",
+  "input": {
+    "return_to": "/notes?page=2&sort=title"
+  },
+  "expected": {
+    "ok": true
+  }
+}

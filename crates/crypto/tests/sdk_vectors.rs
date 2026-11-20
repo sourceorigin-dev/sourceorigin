@@ -169,6 +169,7 @@ impl Vectors {
             "challenges",
             "callbacks",
             "same-origin",
+            "return-to",
             "sessions",
             "cookie-keys",
         ]
@@ -1399,6 +1400,108 @@ impl Vectors {
         }
     }
 
+    /// `return_to` cases: whether login accepts `return_to` as a path on the app to
+    /// come back to, a printable ASCII path a `Location` header can hold that cannot
+    /// lead to another site. Anything else returns home.
+    fn return_to(&mut self) {
+        let printable: String = ('!'..='~')
+            .filter(|character| !matches!(character, '\\' | '#'))
+            .collect();
+        let longest = format!("/{}", "a".repeat(2047));
+        let too_long = format!("{longest}a");
+        for (name, description, return_to, accepted) in [
+            (
+                "printable-ascii",
+                "every printable ASCII character but \\ and # is accepted",
+                format!("/{printable}"),
+                true,
+            ),
+            (
+                "query",
+                "a path with a query string is accepted",
+                "/notes?page=2&sort=title".into(),
+                true,
+            ),
+            (
+                "percent-encoded-utf8",
+                "UTF-8 percent-encoded is accepted",
+                "/caf%C3%A9".into(),
+                true,
+            ),
+            ("longest", "a path of 2048 bytes is accepted", longest, true),
+            (
+                "too-long",
+                "a path over 2048 bytes is refused",
+                too_long,
+                false,
+            ),
+            (
+                "space",
+                "a raw space is refused, as a Location header cannot hold it",
+                "/a b".into(),
+                false,
+            ),
+            (
+                "raw-utf8",
+                "raw UTF-8 is refused, as a Location header cannot hold it",
+                "/café".into(),
+                false,
+            ),
+            (
+                "control-character",
+                "a control character is refused",
+                "/a\nb".into(),
+                false,
+            ),
+            (
+                "protocol-relative",
+                "// starts a path on another host",
+                "//evil.example".into(),
+                false,
+            ),
+            (
+                "backslash-relative",
+                "/\\ starts a path on another host for browsers",
+                "/\\evil.example".into(),
+                false,
+            ),
+            (
+                "backslash",
+                "a backslash anywhere is refused",
+                "/a\\b".into(),
+                false,
+            ),
+            (
+                "fragment",
+                "a fragment is refused",
+                "/notes#x".into(),
+                false,
+            ),
+            (
+                "relative",
+                "a path not starting with / is refused",
+                "notes".into(),
+                false,
+            ),
+            (
+                "absolute-url",
+                "a URL is refused, even one on another site",
+                "https://evil.example/".into(),
+                false,
+            ),
+        ] {
+            self.case(
+                &format!("return-to/{name}.json"),
+                &Case {
+                    description,
+                    now: None,
+                    input: json!({ "return_to": return_to }),
+                    expected: Expected::ok(&accepted),
+                },
+            );
+        }
+    }
+
     /// Session cookie cases: the session a `Cookie` header holds for the fixture
     /// client, sealed with [`COOKIE_KEY`]. They are sealed here with OpenSSL, apart
     /// from any SDK's own code, and a fixed nonce, so they are reproducible.
@@ -1687,6 +1790,7 @@ fn sdk_vectors_are_current() {
     vectors.challenges();
     vectors.callbacks();
     vectors.same_origin();
+    vectors.return_to();
     vectors.sessions();
     vectors.cookie_keys();
     vectors.finish();

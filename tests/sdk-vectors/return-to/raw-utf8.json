@@ -1,0 +1,9 @@
+{
+  "description": "raw UTF-8 is refused, as a Location header cannot hold it",
+  "input": {
+    "return_to": "/café"
+  },
+  "expected": {
+    "ok": false
+  }
+}

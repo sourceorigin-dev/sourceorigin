@@ -59,7 +59,8 @@ route that reads the session. `ended`, the sessions auth ended, is the state of
 The router serves:
 
 - `GET /auth/login?return_to=/page` sends the browser to auth, and back to
-  `/page` once signed in. `return_to` must be a path on your app.
+  `/page` once signed in. `return_to` must be a path on your app, percent-encoded
+  as a URL holds it: a raw space or non-ASCII character returns home instead.
 - `GET /auth/callback` completes the sign-in and sets the session cookie.
 - `POST /auth/logout` signs the user out.
 

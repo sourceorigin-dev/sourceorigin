@@ -336,6 +336,12 @@ nothing: it holds a 32-byte cookie key, the same on every replica.
   latest ID token's claims, and when one comes without a `nonce`, the sign-in's,
   which the next refresh is checked against. A sign-in that brings no refresh token
   ends with its access token.
+- **Return path.** `return_to`, and the home page an app configures, must be a
+  path on the app, so login cannot be turned into an open redirect. It starts with
+  one `/` (not `//` or `/\`), is printable ASCII without `\` or `#`, as a
+  `Location` header holds it, and has at most 2048 bytes. A `return_to` that breaks
+  the rule returns home, so a space or a non-ASCII character must come
+  percent-encoded. `tests/sdk-vectors/return-to` pins the rule.
 - **Pending logins.** Each waits in one of three cookie slots, `-login-0` to
   `-login-2`, chosen by the first byte of its `state`'s SHA-256, with its own expiry
   10 minutes out. A login that lands in a taken slot replaces the one there, so two
