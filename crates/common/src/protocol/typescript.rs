@@ -1,6 +1,7 @@
 //! Writes `packages/auth/src/protocol.ts`, the TypeScript SDK's declarations of these
-//! wire types and of the constants `sdk_constants!` declares, with ts-rs. Without `UPDATE_SDK_TYPES=1` it only compares, so
-//! `just test` fails while the committed file is stale; `just sdk-types` rewrites it.
+//! wire types and of the constants `sdk_constants!` declares, with ts-rs. Without
+//! `UPDATE_SDK_TYPES=1` it only compares, so `just test` fails while the committed
+//! file is stale; `just sdk-types` rewrites it.
 //!
 //! The structs derive `TS` under `cfg(test)`, so ts-rs stays a dev-dependency. Types
 //! that serialize by hand implement it here, from the same values serde writes:
