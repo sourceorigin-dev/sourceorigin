@@ -29,7 +29,9 @@ fn key(id: &str, state: SigningKeyState) -> InsertSigningKey {
 #[tokio::test]
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn the_lock_excludes_and_one_key_per_type_signs() {
-    let database = Database::test().await;
+    let database = Database {
+        pool: Database::test_pool().await,
+    };
     let mut holder = database.begin().await.expect("transaction");
     holder.signing_keys().lock().await.expect("lock");
     let mut other = database.begin().await.expect("transaction");

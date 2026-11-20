@@ -11,8 +11,8 @@ use sourceorigin_common::{
 use std::net::IpAddr;
 
 impl Database {
-    /// Connects up to five connections to `TEST_DATABASE_URL`, with the time
-    /// limits every connection of the service has, and applies the schema.
+    /// Opens a pool of up to five connections to `TEST_DATABASE_URL`, with the
+    /// time limits every connection of the service has, and applies the schema.
     ///
     /// # Panics
     ///
