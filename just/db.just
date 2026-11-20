@@ -13,8 +13,7 @@ test *ARGS:
 # Catches a migration that renames a column a cached query uses, and a cached
 # query the code no longer uses. `test` runs it last; CI runs it after its
 # database tests migrate the database.
-# Fail unless the query cache matches exactly what the code compiles against
-# TEST_DATABASE_URL's migrated schema.
+# Fail unless the query cache matches exactly what the code compiles against TEST_DATABASE_URL's migrated schema.
 prepare-check:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -41,9 +40,9 @@ _prepare *ARGS:
 # DATABASE_URL, TEST_DATABASE_URL and libpq's PG* variables point at the cluster,
 # which listens only on a socket under /tmp (socket paths are limited to about 100
 # bytes, which a long TMPDIR can exceed). Needs the PostgreSQL 18 server binaries.
-# Run a command against a throwaway migrated cluster, e.g. `just db scratch -- psql`.
 # Every test fixture pools a few connections, and nextest runs one test per core,
 # so the cluster allows more than PostgreSQL's hundred.
+# Run a command against a throwaway migrated cluster, e.g. `just db scratch -- psql`.
 [positional-arguments]
 scratch *ARGS:
     #!/usr/bin/env bash

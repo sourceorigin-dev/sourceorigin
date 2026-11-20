@@ -25,6 +25,7 @@ fmt-check:
 # The workspace pass unifies features, so a crate's own tests can compile only
 # because another crate's dev-dependency enables a feature such as `test-util`.
 # Linting each crate alone too catches that.
+# Clippy over the workspace, then over each crate alone, with warnings denied.
 lint:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -37,9 +38,9 @@ lint:
 unused:
     @cargo machete
 
-# Advisories, licenses, wildcard requirements and sources other than crates.io,
-# as deny.toml configures them. Every feature is on, so the audit covers what
+# deny.toml configures the checks. Every feature is on, so the audit covers what
 # the SDKs' features pull in even when no workspace crate enables them.
+# Advisories, licenses, wildcard requirements and sources other than crates.io, by cargo-deny.
 audit:
     @cargo deny --all-features check
 
