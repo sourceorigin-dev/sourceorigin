@@ -38,15 +38,21 @@ impl Harness {
         inserted.expect("address");
     }
 
-    /// The messages emailed to `user_id`'s address `email_id`.
+    /// The emails queued to `user_id`'s address `email_id`.
     async fn emailed(&self, user_id: UserId, email_id: EmailId) -> Vec<serde_json::Value> {
         let destination = format!("account {user_id}, address {email_id}");
         let payloads = self.database.deliveries().payloads(&destination).await;
-        let payloads = payloads.expect("payloads");
-        payloads
-            .into_iter()
-            .filter(|payload| payload["notification"]["kind"] == "message")
-            .collect()
+        payloads.expect("payloads")
+    }
+
+    /// The messages emailed to `user_id`'s address `email_id`, leaving out its
+    /// other notifications, such as the account's disabling.
+    async fn messaged(&self, user_id: UserId, email_id: EmailId) -> usize {
+        let emailed = self.emailed(user_id, email_id).await;
+        let messages = emailed
+            .iter()
+            .filter(|payload| payload["notification"]["kind"] == "message");
+        messages.count()
     }
 
     /// The notifications in `user_id`'s inbox, newest first.
@@ -156,8 +162,8 @@ async fn a_disabled_account_is_not_emailed_at_an_address_another_now_owns() {
             Some(Some(Notification::Message { .. }))
         ));
     }
-    assert_eq!(harness.emailed(claimed, taken).await.len(), 0);
-    assert_eq!(harness.emailed(unclaimed, kept).await.len(), 1);
+    assert_eq!(harness.messaged(claimed, taken).await, 0);
+    assert_eq!(harness.messaged(unclaimed, kept).await, 1);
 }
 
 /// The dashboard needs a recent passkey confirmation to send a message, and
