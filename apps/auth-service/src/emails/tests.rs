@@ -53,16 +53,15 @@ impl Harness {
         Browser::sign_in_by(&self.database, self.context, user_id, method.into()).await
     }
 
-    /// Sends a request, as `account`'s browser if any.
+    /// Sends a request as `browser`.
     async fn send(
         &self,
-        account: Option<&Browser>,
+        browser: &Browser,
         method: Method,
         path: &str,
         body: Option<Value>,
     ) -> Response {
-        account
-            .unwrap_or(&Browser::signed_out())
+        browser
             .send_from(&self.router, self.context, method, path, body)
             .await
     }
@@ -70,24 +69,19 @@ impl Harness {
     /// Sends a request and returns its status and JSON body.
     async fn call(
         &self,
-        account: Option<&Browser>,
+        browser: &Browser,
         method: Method,
         path: &str,
         body: Option<Value>,
     ) -> (StatusCode, Value) {
-        reply(self.send(account, method, path, body).await).await
+        reply(self.send(browser, method, path, body).await).await
     }
 
     /// Adds `address` to `account`, returning the status and body.
     async fn add(&self, account: &Browser, address: &str) -> (StatusCode, Value) {
         let body = json!({ "email": address });
-        self.call(
-            Some(account),
-            Method::POST,
-            routes::emails::LIST,
-            Some(body),
-        )
-        .await
+        self.call(account, Method::POST, routes::emails::LIST, Some(body))
+            .await
     }
 
     /// Adds `address` to `account` and returns its ID.
@@ -106,26 +100,31 @@ impl Harness {
     /// Presents `token`, signed out.
     async fn verify_token(&self, token: &str) -> (StatusCode, Value) {
         let body = json!({ "token": token });
-        self.call(None, Method::POST, routes::emails::VERIFY, Some(body))
-            .await
+        self.call(
+            &Browser::signed_out(),
+            Method::POST,
+            routes::emails::VERIFY,
+            Some(body),
+        )
+        .await
     }
 
     /// Makes `id` the primary address of `account`.
     async fn make_primary(&self, account: &Browser, id: EmailId) -> (StatusCode, Value) {
         let path = routes::emails::PRIMARY.replace("{id}", &id.to_string());
-        self.call(Some(account), Method::POST, &path, None).await
+        self.call(account, Method::POST, &path, None).await
     }
 
     /// Removes `id` from `account`.
     async fn remove(&self, account: &Browser, id: EmailId) -> (StatusCode, Value) {
         let path = routes::emails::ITEM.replace("{id}", &id.to_string());
-        self.call(Some(account), Method::DELETE, &path, None).await
+        self.call(account, Method::DELETE, &path, None).await
     }
 
     /// `account`'s addresses, as it lists them.
     async fn list(&self, account: &Browser) -> Vec<Value> {
         let (status, body) = self
-            .call(Some(account), Method::GET, routes::emails::LIST, None)
+            .call(account, Method::GET, routes::emails::LIST, None)
             .await;
         assert_eq!(status, StatusCode::OK, "{body}");
         body.as_array().expect("addresses").clone()
@@ -157,12 +156,7 @@ async fn adding_asks_for_confirmation_first() {
         let body = json!({ "email": "not an address" });
         assert_step_up_required(
             harness
-                .send(
-                    Some(&social),
-                    Method::POST,
-                    routes::emails::LIST,
-                    Some(body),
-                )
+                .send(&social, Method::POST, routes::emails::LIST, Some(body))
                 .await,
         )
         .await;
@@ -311,7 +305,7 @@ async fn verification_checks_the_signed_in_account() {
 
     let first = format!("{}-first@example.com", owner.user_id);
     let first = harness.added(&owner, &first).await;
-    let (status, body) = verify(Some(&other), first).await;
+    let (status, body) = verify(&other, first).await;
     assert_eq!(status, StatusCode::CONFLICT);
     assert_eq!(
         body["error"],
@@ -319,11 +313,16 @@ async fn verification_checks_the_signed_in_account() {
          to. Sign out first if you meant to confirm it."
     );
     assert_eq!(harness.list(&owner).await[0]["verified"], false);
-    assert_eq!(verify(None, first).await.0, StatusCode::OK, "link kept");
+    let signed_out = Browser::signed_out();
+    assert_eq!(
+        verify(&signed_out, first).await.0,
+        StatusCode::OK,
+        "link kept"
+    );
 
     let second = format!("{}-second@example.com", owner.user_id);
     let second = harness.added(&owner, &second).await;
-    assert_eq!(verify(Some(&owner), second).await.0, StatusCode::OK);
+    assert_eq!(verify(&owner, second).await.0, StatusCode::OK);
     let verified = harness
         .database
         .events()
@@ -385,7 +384,7 @@ async fn expired_links_replacements_and_limits() {
     }
     let response = harness
         .send(
-            Some(&account),
+            &account,
             Method::POST,
             routes::emails::LIST,
             Some(json!({ "email": "sixth@example.com" })),
