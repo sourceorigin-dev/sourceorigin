@@ -2,3 +2,21 @@
 # fails with a report instead of stalling validation indefinitely.
 [profile.default]
 slow-timeout = { period = "60s", terminate-after = 5 }
+
+# Tests that change the signing keys hold their lock, which is one for the whole
+# database, for their whole transaction. A test waiting for it waits under the
+# statement timeout, which on a busy machine cancels the last of several waiting
+# ones. So they run one at a time, as the lock would make them anyway.
+[test-groups]
+signing-keys = { max-threads = 1 }
+
+[[profile.default.overrides]]
+filter = '''
+(package(auth-service) & (
+    test(/^keys::tests::/)
+    | test(/^admin::tests::keys::/)
+    | test(=web::admin::tests::signing_keys_are_rotated_and_revoked_from_the_dashboard)
+))
+| (package(sourceorigin-repository) & test(/^repositories::signing_keys::tests::/))
+'''
+test-group = "signing-keys"

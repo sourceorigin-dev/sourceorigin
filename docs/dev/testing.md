@@ -81,6 +81,13 @@ A new database test connects through its crate's fixture:
 `Database::test_pool()` in `crates/database`, or `Replicas::database()` in
 `apps/auth-service/src/tests.rs`.
 
+The tests share one database, so they share its advisory locks too, even in a
+schema of their own. A test that holds the signing key lock for its whole
+transaction, as the key rotation tests do, belongs in the `signing-keys` test
+group in `.config/nextest.toml`. The group runs them one at a time. Otherwise
+they queue for the lock under the 15-second statement timeout, and on a busy
+machine the last one is cancelled.
+
 ### SDK test vectors
 
 The Rust and TypeScript SDKs run the same cases, in
