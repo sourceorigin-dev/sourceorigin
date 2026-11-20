@@ -56,6 +56,28 @@ impl Recipients<'_> {
     }
 }
 
+/// A [`query_record!`] returning [`Announcement`]s, read as `a`. A draft to
+/// everyone counts every account now; any other, its rows.
+macro_rules! announcements {
+    ($($query:tt)*) => {
+        query_record!(
+            Announcement,
+            r#"a.id AS "id: AnnouncementId", a.subject, a.body, a.everyone,
+            a.essential, a.revision AS "revision: Unsigned",
+            CASE WHEN a.everyone AND a.sent_at IS NULL
+                THEN (SELECT count(*) FROM users)
+                ELSE (SELECT count(*) FROM announcement_recipients r
+                    WHERE r.announcement_id = a.id)
+            END AS "recipients!: Unsigned",
+            -- Cleanup's cutoff for recipients (`purge_expired_auth_state`).
+            (a.sent_at IS NULL OR a.sent_at >= now() - interval '1 year')
+                AS "recipients_kept!",
+            a.created_at, a.updated_at, a.sent_at"#,
+            $($query)*
+        )
+    };
+}
+
 impl AnnouncementRepository<'_> {
     /// Stores a new draft and its chosen recipients. Run it in a transaction, so
     /// the draft never lacks them.
@@ -253,26 +275,14 @@ impl AnnouncementRepository<'_> {
     ///
     /// Returns [`DatabaseError`] if the query fails or a row is invalid.
     pub async fn list(&mut self, limit: u32) -> Result<Vec<Announcement>, DatabaseError> {
-        // A draft to everyone counts every account now; any other, its rows.
         run!(
             self,
             fetch_all,
-            sqlx::query_as!(
-                Announcement,
-                r#"SELECT a.id AS "id: AnnouncementId", a.subject, a.body, a.everyone,
-                    a.essential, a.revision AS "revision: Unsigned",
-                    CASE WHEN a.everyone AND a.sent_at IS NULL
-                        THEN (SELECT count(*) FROM users)
-                        ELSE (SELECT count(*) FROM announcement_recipients r
-                            WHERE r.announcement_id = a.id)
-                    END AS "recipients!: Unsigned",
-                    -- Cleanup's cutoff for recipients (`purge_expired_auth_state`).
-                    (a.sent_at IS NULL OR a.sent_at >= now() - interval '1 year')
-                        AS "recipients_kept!",
-                    a.created_at, a.updated_at, a.sent_at
-                FROM announcements a
+            announcements!(
+                "SELECT",
+                "FROM announcements a
                 ORDER BY a.created_at DESC, a.id DESC
-                LIMIT $1"#,
+                LIMIT $1",
                 i64::from(limit),
             )
         )
@@ -290,21 +300,10 @@ impl AnnouncementRepository<'_> {
         run!(
             self,
             fetch_optional,
-            sqlx::query_as!(
-                Announcement,
-                r#"SELECT a.id AS "id: AnnouncementId", a.subject, a.body, a.everyone,
-                    a.essential, a.revision AS "revision: Unsigned",
-                    CASE WHEN a.everyone AND a.sent_at IS NULL
-                        THEN (SELECT count(*) FROM users)
-                        ELSE (SELECT count(*) FROM announcement_recipients r
-                            WHERE r.announcement_id = a.id)
-                    END AS "recipients!: Unsigned",
-                    -- Cleanup's cutoff for recipients (`purge_expired_auth_state`).
-                    (a.sent_at IS NULL OR a.sent_at >= now() - interval '1 year')
-                        AS "recipients_kept!",
-                    a.created_at, a.updated_at, a.sent_at
-                FROM announcements a
-                WHERE a.id = $1"#,
+            announcements!(
+                "SELECT",
+                "FROM announcements a
+                WHERE a.id = $1",
                 id.as_uuid(),
             )
         )

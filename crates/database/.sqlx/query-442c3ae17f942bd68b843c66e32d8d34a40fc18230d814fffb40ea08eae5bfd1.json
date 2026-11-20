@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n                    u.id AS \"id: UserId\", h.handle AS \"handle: Handle\", u.display_name,\n                    u.status AS \"status: AccountStatus\", p.id AS \"picture?: PictureId\", u.created_at\n                FROM users u\n                JOIN handles h ON h.user_id = u.id AND h.released_at IS NULL\n                LEFT JOIN profile_pictures p ON p.user_id = u.id AND u.status = 'active'\n                ORDER BY u.created_at DESC, u.id DESC\n                LIMIT $1",
+  "query": "SELECT u.id AS \"id: UserId\", h.handle AS \"handle: Handle\", u.display_name,\n            u.status AS \"status: AccountStatus\", p.id AS \"picture?: PictureId\", u.created_at FROM users u\n            JOIN handles h ON h.user_id = u.id AND h.released_at IS NULL\n            LEFT JOIN profile_pictures p ON p.user_id = u.id AND u.status = 'active' ORDER BY u.created_at DESC, u.id DESC\n                LIMIT $1",
   "describe": {
     "columns": [
       {
@@ -48,5 +48,5 @@
       false
     ]
   },
-  "hash": "33ce45258e44e080b5f2eb9af17c35dfefb3ac6738439107ad65b2d31a81f3e7"
+  "hash": "442c3ae17f942bd68b843c66e32d8d34a40fc18230d814fffb40ea08eae5bfd1"
 }
