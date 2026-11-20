@@ -97,7 +97,7 @@ impl Paging {
     /// How many items the pages before this one hold: the query's offset.
     #[must_use]
     pub fn offset(self) -> u64 {
-        u64::from(self.page - 1) * u64::from(self.per_page)
+        u64::from(self.page.saturating_sub(1)) * u64::from(self.per_page)
     }
 
     /// The numbers of the first and last item of the page, counting from 1, or
