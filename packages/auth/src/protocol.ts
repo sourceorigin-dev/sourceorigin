@@ -339,7 +339,17 @@ jkt?: string, };
 
 export type Amr = "pop" | "mfa" | "user" | "fed";
 
+/**
+ * Every `Amr` this version knows.
+ */
+export const AMR: readonly Amr[] = ["pop", "mfa", "user", "fed"];
+
 export type Acr = "phr" | "urn:sourceorigin:acr:social";
+
+/**
+ * Every `Acr` this version knows.
+ */
+export const ACR: readonly Acr[] = ["phr", "urn:sourceorigin:acr:social"];
 
 /**
  * The metadata Origin Auth publishes. Every field it sends is required, except the
@@ -494,9 +504,24 @@ max_age?: number, };
 
 export type TokenType = "at+jwt" | "JWT" | "logout+jwt";
 
+/**
+ * Every `TokenType` this version knows.
+ */
+export const TOKEN_TYPES: readonly TokenType[] = ["at+jwt", "JWT", "logout+jwt"];
+
 export type Claim = "iss" | "sub" | "aud" | "iat" | "exp" | "nbf" | "sid" | "auth_time" | "amr" | "acr" | "act" | "cnf" | "azp" | "name" | "preferred_username" | "picture" | "email" | "email_verified" | "profile_version" | "client_id" | "jti" | "scope" | "nonce";
 
+/**
+ * Every `Claim` this version knows.
+ */
+export const CLAIMS: readonly Claim[] = ["iss", "sub", "aud", "iat", "exp", "nbf", "sid", "auth_time", "amr", "acr", "act", "cnf", "azp", "name", "preferred_username", "picture", "email", "email_verified", "profile_version", "client_id", "jti", "scope", "nonce"];
+
 export type Algorithm = "RS256";
+
+/**
+ * Every `Algorithm` this version knows.
+ */
+export const ALGORITHMS: readonly Algorithm[] = ["RS256"];
 
 /**
  * A JSON Web Key Set (RFC 7517 §5). Auth publishes `JwkSet<Jwk>`. Verifiers read the
@@ -546,25 +571,75 @@ use?: KeyUse, };
 
 export type KeyType = "RSA";
 
+/**
+ * Every `KeyType` this version knows.
+ */
+export const KEY_TYPES: readonly KeyType[] = ["RSA"];
+
 export type KeyUse = "sig";
+
+/**
+ * Every `KeyUse` this version knows.
+ */
+export const KEY_USES: readonly KeyUse[] = ["sig"];
 
 export type KeyOperation = "sign" | "verify" | "encrypt" | "decrypt" | "wrapKey" | "unwrapKey" | "deriveKey" | "deriveBits" | (string & Record<never, never>);
 
 export type GrantType = "authorization_code" | "refresh_token";
 
+/**
+ * Every `GrantType` this version knows.
+ */
+export const GRANT_TYPES: readonly GrantType[] = ["authorization_code", "refresh_token"];
+
 export type ResponseType = "code";
+
+/**
+ * Every `ResponseType` this version knows.
+ */
+export const RESPONSE_TYPES: readonly ResponseType[] = ["code"];
 
 export type ResponseMode = "query";
 
+/**
+ * Every `ResponseMode` this version knows.
+ */
+export const RESPONSE_MODES: readonly ResponseMode[] = ["query"];
+
 export type ClientAuthMethod = "none" | "client_secret_basic";
+
+/**
+ * Every `ClientAuthMethod` this version knows.
+ */
+export const CLIENT_AUTH_METHODS: readonly ClientAuthMethod[] = ["none", "client_secret_basic"];
 
 export type SubjectType = "public";
 
+/**
+ * Every `SubjectType` this version knows.
+ */
+export const SUBJECT_TYPES: readonly SubjectType[] = ["public"];
+
 export type CodeChallengeMethod = "S256";
+
+/**
+ * Every `CodeChallengeMethod` this version knows.
+ */
+export const CODE_CHALLENGE_METHODS: readonly CodeChallengeMethod[] = ["S256"];
 
 export type Prompt = "none" | "login" | "consent" | "select_account";
 
+/**
+ * Every `Prompt` this version knows.
+ */
+export const PROMPTS: readonly Prompt[] = ["none", "login", "consent", "select_account"];
+
 export type Scope = "openid" | "profile" | "email" | "offline_access";
+
+/**
+ * Every `Scope` this version knows.
+ */
+export const SCOPES: readonly Scope[] = ["openid", "profile", "email", "offline_access"];
 
 export type ErrorCode = "invalid_request" | "invalid_client" | "unauthorized_client" | "invalid_grant" | "invalid_scope" | "invalid_target" | "invalid_token" | "insufficient_scope" | "unsupported_response_type" | "unsupported_grant_type" | "login_required" | "consent_required" | "unmet_authentication_requirements" | "request_not_supported" | "invalid_request_uri" | "access_denied" | "server_error" | (string & Record<never, never>);
 
@@ -628,4 +703,14 @@ reason?: ErrorReason, };
 
 export type ErrorCategory = "discovery" | "keys" | "invalid_token" | "insufficient_scope" | "insufficient_user_authentication" | "callback" | "oauth" | "network";
 
+/**
+ * Every `ErrorCategory` this version knows.
+ */
+export const ERROR_CATEGORIES: readonly ErrorCategory[] = ["discovery", "keys", "invalid_token", "insufficient_scope", "insufficient_user_authentication", "callback", "oauth", "network"];
+
 export type ErrorReason = "issuer_mismatch" | "invalid_document" | "pkce_unsupported" | "duplicate_key_id" | "unusable_key" | "malformed" | "unsupported_critical_header" | "wrong_type" | "unsupported_algorithm" | "unknown_key" | "bad_signature" | "wrong_audience" | "expired" | "not_yet_valid" | "issued_in_future" | "lifetime_too_long" | "invalid_claims" | "nonce_mismatch" | "wrong_authorized_party" | "authentication_too_old" | "subject_mismatch" | "authentication_changed" | "state_mismatch" | "missing_issuer" | "missing_code";
+
+/**
+ * Every `ErrorReason` this version knows.
+ */
+export const ERROR_REASONS: readonly ErrorReason[] = ["issuer_mismatch", "invalid_document", "pkce_unsupported", "duplicate_key_id", "unusable_key", "malformed", "unsupported_critical_header", "wrong_type", "unsupported_algorithm", "unknown_key", "bad_signature", "wrong_audience", "expired", "not_yet_valid", "issued_in_future", "lifetime_too_long", "invalid_claims", "nonce_mismatch", "wrong_authorized_party", "authentication_too_old", "subject_mismatch", "authentication_changed", "state_mismatch", "missing_issuer", "missing_code"];

@@ -9,16 +9,16 @@ import { AuthError } from './error.ts';
 import type { Reply } from './http.ts';
 import type { Issuer } from './issuer.ts';
 import * as json from './json.ts';
-import type {
-  ErrorResponse,
-  IdTokenClaims,
-  Prompt,
-  StepUpRequirement,
-  UserInfo
+import {
+  ACR,
+  type ErrorResponse,
+  type IdTokenClaims,
+  type Prompt,
+  type StepUpRequirement,
+  type UserInfo
 } from './protocol.ts';
 import { Scopes } from './scope.ts';
 import type { IdToken, LogoutToken } from './token.ts';
-import { ACR } from './vocabulary.ts';
 
 /** Random bytes in `state`, `nonce` and the PKCE verifier: 256 bits, a 43-character verifier. */
 const RANDOM_BYTES = 32;

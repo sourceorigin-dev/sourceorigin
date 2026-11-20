@@ -96,9 +96,10 @@ In `packages/auth/src`, mirror the Rust SDK:
 1. Decode the field where the SDK reads its document. The decoders read exactly
    what the Rust types accept: the profile claims are in `claims.ts`, as
    `picture: json.optional(json.string)`.
-2. Add a new value of a closed vocabulary to its list in `vocabulary.ts`. Each
-   list is keyed by the generated union, so `tsc` refuses one that misses a
-   value.
+2. A new value of a closed vocabulary needs nothing more: `just sdk-types`
+   writes it into the vocabulary's list in `protocol.ts`, which the decoders
+   read. A new closed vocabulary gets its list's name in the `closed!` call in
+   `crates/common/src/protocol/typescript.rs`.
 3. Expose it under the Rust SDK's name, as the `picture` getter of `SignedIn`
    does in `login.ts`.
 

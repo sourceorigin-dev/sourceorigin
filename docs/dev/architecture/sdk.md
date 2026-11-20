@@ -41,7 +41,8 @@ Auth issues tokens and documents by serializing these types, and the Rust SDK
 deserializes them, so the two cannot disagree. An SDK in another language mirrors
 them and is held to them by the vectors. The TypeScript SDK's mirror is generated:
 `sourceorigin-common`'s tests write `packages/auth/src/protocol.ts` from these types with
-ts-rs, vocabularies as unions of their spellings, and `just test` fails while it is
+ts-rs, vocabularies as unions of their spellings, each closed one with the list of
+its spellings its decoders check values against, and `just test` fails while it is
 stale (`just sdk-types` rewrites it).
 
 ## Configuration

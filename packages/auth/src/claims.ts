@@ -4,17 +4,18 @@
  * canonical UUIDv7, unknown `amr` values dropped and an unknown `acr` read as none.
  */
 import * as json from './json.ts';
-import type {
-  AccessTokenClaims,
-  Actor,
-  Audience,
-  IdTokenClaims,
-  LogoutEvents,
-  LogoutTokenClaims,
-  UserInfo
+import {
+  ACR,
+  AMR,
+  type AccessTokenClaims,
+  type Actor,
+  type Audience,
+  type IdTokenClaims,
+  type LogoutEvents,
+  type LogoutTokenClaims,
+  type UserInfo
 } from './protocol.ts';
 import { Scopes } from './scope.ts';
-import { ACR, AMR } from './vocabulary.ts';
 
 /** The `events` member every logout token carries (OIDC Back-Channel Logout 1.0 §2.4). */
 export const BACKCHANNEL_LOGOUT_EVENT = 'http://schemas.openid.net/event/backchannel-logout';
