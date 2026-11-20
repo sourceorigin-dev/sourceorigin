@@ -390,9 +390,10 @@ impl AnnouncementRepository<'_> {
 
     /// The recipients of `id` with a primary verified address, whom its email
     /// goes to: unless it is essential, only those who did not turn
-    /// announcements' email off. A disabled account's address that another
-    /// account verified since is that account's, so it is left out. Their rows stay key-share locked until the transaction ends, so a
-    /// purge of one waits for the emails to be queued, and then deletes its own.
+    /// announcements' email off. A disabled account is left out when another
+    /// account, an active one or one being deleted, owns its address. Their rows
+    /// stay key-share locked until the transaction ends, so a purge of one waits
+    /// for the emails to be queued, and then deletes its own.
     ///
     /// # Errors
     ///

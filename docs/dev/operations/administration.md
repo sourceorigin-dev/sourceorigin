@@ -400,8 +400,8 @@ meanwhile, by another administrator say, is refused, to be checked again. Once
 sent, its page says how many recipients read it. One to everyone goes to every
 account at that moment, disabled ones and ones being deleted included, since
 SourceOrigin still holds their data. A disabled account is not emailed at an
-address another account has verified since, which is that account's now. Sending records an `announcement_sent` event with
-who sent it and to how many accounts. Its emails go out on a delivery channel of
+address another account owns, an active one or one being deleted. Sending
+records an `announcement_sent` event with who sent it and to how many accounts. Its emails go out on a delivery channel of
 their own, so sending one to every account holds back no verification or
 recovery link (see
 [announcements](../architecture/delivery-queue.md#announcements)).

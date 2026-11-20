@@ -72,7 +72,7 @@ impl Channel for Announcement {
 impl EmailRepository<'_> {
     /// The email of the sent announcement `id` to `user_id`, at the account's
     /// primary verified address now, if it still has one that no other account
-    /// verified since (as one may a disabled account's), is still a recipient
+    /// owns (an active one or one being deleted), is still a recipient
     /// (a purge removes it), and, unless it is essential, did not turn
     /// announcements' email off since it was queued.
     ///
