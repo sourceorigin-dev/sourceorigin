@@ -134,7 +134,7 @@ impl UserRepository<'_> {
         run!(
             self,
             fetch_optional,
-            users!("WHERE u.id = $1", id.as_uuid(),)
+            users!("WHERE u.id = $1", id.as_uuid())
         )
     }
 
@@ -225,7 +225,7 @@ impl UserRepository<'_> {
         run!(
             self,
             fetch_optional,
-            users!("WHERE h.handle = $1", handle.as_str(),)
+            users!("WHERE h.handle = $1", handle.as_str())
         )
     }
 
