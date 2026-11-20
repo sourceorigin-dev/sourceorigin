@@ -48,25 +48,20 @@ const SILENT_LOGIN_REQUIRED: &str = "prompt=none was requested, but the user mus
 struct AuthorizationRequest(Bytes);
 
 impl AuthorizationRequest {
+    /// What a rejection of a request that cannot be read calls it.
+    const NAME: &str = "authorization request";
+
     /// The request's parameters; `RawForm` reads the query string of `GET`
     /// requests.
     fn new(form: Result<RawForm, RawFormRejection>) -> Result<Self, OAuthError> {
-        form.map(|RawForm(form)| Self(form)).map_err(|error| {
-            OAuthCode::InvalidRequest.reject_with(
-                format!("authorization request is malformed: {error}"),
-                error,
-            )
-        })
+        form.map(|RawForm(form)| Self(form))
+            .map_err(|error| OAuthError::malformed(Self::NAME, error))
     }
 
     /// The parameters `T` names, ignoring the others.
     fn read<T: DeserializeOwned>(&self) -> Result<T, OAuthError> {
-        serde_urlencoded::from_bytes(&self.0).map_err(|error| {
-            OAuthCode::InvalidRequest.reject_with(
-                format!("authorization request is malformed: {error}"),
-                error,
-            )
-        })
+        serde_urlencoded::from_bytes(&self.0)
+            .map_err(|error| OAuthError::malformed(Self::NAME, error))
     }
 }
 
@@ -134,10 +129,7 @@ impl OidcApplication {
         headers: HeaderMap,
         query: Result<Query<TransactionQuery>, QueryRejection>,
     ) -> Result<Redirect, OAuthError> {
-        let Query(q) = query.map_err(|error| {
-            OAuthCode::InvalidRequest
-                .reject_with(format!("resume request is malformed: {error}"), error)
-        })?;
+        let Query(q) = query.map_err(|error| OAuthError::malformed("resume request", error))?;
         let next = app
             .continue_authorization(
                 context,
@@ -167,14 +159,8 @@ impl OidcApplication {
         let q: AuthorizationParameters = request.read()?;
         let client_id = q.client_id.as_deref().unwrap_or_default();
         let client = self
-            .database
-            .oidc()
-            .find_client(client_id)
-            .await?
-            .filter(|client| client.enabled)
-            .ok_or_else(|| {
-                OAuthCode::InvalidRequest.reject("client_id is not a registered, enabled client")
-            })?;
+            .enabled_client(client_id, OAuthCode::InvalidRequest)
+            .await?;
         let redirect = q.redirect_uri(&client)?;
         q.state()?;
         // The redirect URI is now verified, so rejections go back to the client.

@@ -500,16 +500,7 @@ impl OidcApplication {
             return Err(OAuthCode::InvalidClient
                 .reject("client_id does not match the HTTP Basic client credentials"));
         }
-        // Client IDs are public, so naming an unknown one reveals nothing secret.
-        let client = self
-            .database
-            .oidc()
-            .find_client(id)
-            .await?
-            .filter(|client| client.enabled)
-            .ok_or_else(|| {
-                OAuthCode::InvalidClient.reject("client_id is not a registered, enabled client")
-            })?;
+        let client = self.enabled_client(id, OAuthCode::InvalidClient).await?;
         let method = match basic {
             Some(_) => ClientAuthMethod::ClientSecretBasic,
             None => ClientAuthMethod::None,
@@ -549,6 +540,22 @@ impl OidcApplication {
                 }
             }
         }
+    }
+
+    /// The registered, enabled client `id`, or a rejection with `code` saying it
+    /// is none. Client IDs are public, so naming an unknown one reveals nothing
+    /// secret.
+    async fn enabled_client(
+        &self,
+        id: &str,
+        code: OAuthCode,
+    ) -> Result<StoredOidcClient, OAuthError> {
+        self.database
+            .oidc()
+            .find_client(id)
+            .await?
+            .filter(|client| client.enabled)
+            .ok_or_else(|| code.reject("client_id is not a registered, enabled client"))
     }
 
     /// Decodes HTTP Basic client credentials into an ID and secret.

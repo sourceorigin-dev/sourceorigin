@@ -188,30 +188,22 @@ impl OAuthError {
         }
     }
 
+    /// Rejects a request whose parameters, the `request`'s, cannot be read, as
+    /// `invalid_request` saying why.
+    pub(crate) fn malformed(request: &str, error: impl StdError + Send + Sync + 'static) -> Self {
+        OAuthCode::InvalidRequest.reject_with(format!("{request} is malformed: {error}"), error)
+    }
+
     /// Answers the rejection with `challenge`, which then sets its status.
-    pub(super) fn challenged(self, challenge: Challenge) -> Self {
-        match self {
-            Self::Protocol {
-                code,
-                description,
-                redirect,
-                source,
-                ..
-            } => Self::Protocol {
-                code,
-                description,
-                redirect,
-                challenge: Some(Box::new(challenge)),
-                source,
-            },
-            error @ (Self::Database(_)
-            | Self::Crypto(_)
-            | Self::Keys(_)
-            | Self::Url(_)
-            | Self::CookieHeader(_)
-            | Self::PageAddress(_)
-            | Self::StoredScopes(_)) => error,
+    /// Internal failures are never challenged.
+    pub(super) fn challenged(mut self, challenge: Challenge) -> Self {
+        if let Self::Protocol {
+            challenge: slot, ..
+        } = &mut self
+        {
+            *slot = Some(Box::new(challenge));
         }
+        self
     }
 
     /// Turns a missing or already consumed record into `expected` with `description`;
@@ -235,29 +227,17 @@ impl OAuthError {
 
     /// Sends a rejection back to the client's verified redirect URI.
     /// Internal failures stay JSON 500 responses.
-    pub(super) fn redirected(self, to: &ClientRedirect<'_>) -> Self {
-        match self {
-            Self::Protocol {
-                code,
-                description,
-                challenge,
-                source,
-                ..
-            } => Self::Protocol {
-                redirect: Some(Box::new(code.redirect_url(to, &description))),
-                code,
-                description,
-                challenge,
-                source,
-            },
-            error @ (Self::Database(_)
-            | Self::Crypto(_)
-            | Self::Keys(_)
-            | Self::Url(_)
-            | Self::CookieHeader(_)
-            | Self::PageAddress(_)
-            | Self::StoredScopes(_)) => error,
+    pub(super) fn redirected(mut self, to: &ClientRedirect<'_>) -> Self {
+        if let Self::Protocol {
+            code,
+            description,
+            redirect,
+            ..
+        } = &mut self
+        {
+            *redirect = Some(Box::new(code.redirect_url(to, description)));
         }
+        self
     }
 }
 
