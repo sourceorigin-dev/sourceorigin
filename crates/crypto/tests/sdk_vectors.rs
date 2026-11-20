@@ -1410,6 +1410,7 @@ impl Vectors {
         let longest = format!("/{}", "a".repeat(2047));
         let too_long = format!("{longest}a");
         for (name, description, return_to, accepted) in [
+            ("root", "the site root is accepted", "/".into(), true),
             (
                 "printable-ascii",
                 "every printable ASCII character but \\ and # is accepted",
@@ -1477,6 +1478,7 @@ impl Vectors {
                 "/notes#x".into(),
                 false,
             ),
+            ("empty", "an empty path is refused", String::new(), false),
             (
                 "relative",
                 "a path not starting with / is refused",
