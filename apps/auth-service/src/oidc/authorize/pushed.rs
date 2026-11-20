@@ -44,12 +44,8 @@ impl OidcApplication {
         headers: HeaderMap,
         form: Result<Form<AuthorizationParameters>, FormRejection>,
     ) -> Result<(StatusCode, Json<PushedAuthorization>), OAuthError> {
-        let Form(q) = form.map_err(|error| {
-            OAuthCode::InvalidRequest.reject_with(
-                format!("pushed authorization request is malformed: {error}"),
-                error,
-            )
-        })?;
+        let Form(q) =
+            form.map_err(|error| OAuthError::malformed("pushed authorization request", error))?;
         // RFC 9126 §2.1: the pushed parameters are an authorization request's,
         // which always name the client (RFC 6749 §4.1.1), Basic credentials or not.
         let Some(client_id) = q.client_id.as_deref() else {

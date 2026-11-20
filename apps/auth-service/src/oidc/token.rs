@@ -275,10 +275,7 @@ impl OidcApplication {
         headers: HeaderMap,
         form: Result<Form<TokenForm>, axum::extract::rejection::FormRejection>,
     ) -> Result<([(HeaderName, &'static str); 1], Json<TokenResponse>), OAuthError> {
-        let Form(form) = form.map_err(|error| {
-            OAuthCode::InvalidRequest
-                .reject_with(format!("token request is malformed: {error}"), error)
-        })?;
+        let Form(form) = form.map_err(|error| OAuthError::malformed("token request", error))?;
         let client = app
             .authenticate_client(&headers, form.client_id.as_deref())
             .await?;
@@ -594,10 +591,8 @@ impl OidcApplication {
         headers: HeaderMap,
         form: Result<Form<RevokeForm>, axum::extract::rejection::FormRejection>,
     ) -> Result<StatusCode, OAuthError> {
-        let Form(form) = form.map_err(|error| {
-            OAuthCode::InvalidRequest
-                .reject_with(format!("revocation request is malformed: {error}"), error)
-        })?;
+        let Form(form) =
+            form.map_err(|error| OAuthError::malformed("revocation request", error))?;
         let client = app
             .authenticate_client(&headers, form.client_id.as_deref())
             .await?;

@@ -193,15 +193,7 @@ impl OidcApplication {
             OAuthCode::InvalidRequest
                 .reject("post_logout_redirect_uri needs client_id or id_token_hint")
         })?;
-        let client = self
-            .database
-            .oidc()
-            .find_client(id)
-            .await?
-            .filter(|c| c.enabled)
-            .ok_or_else(|| {
-                OAuthCode::InvalidRequest.reject("client_id is not a registered, enabled client")
-            })?;
+        let client = self.enabled_client(id, OAuthCode::InvalidRequest).await?;
         if !client
             .post_logout_uris
             .iter()
