@@ -19,11 +19,6 @@ invite *ARGS:
 user *ARGS:
     @just auth run user "$@"
 
-# End sessions, e.g. `just auth session revoke-all alice --reason "Phone stolen"`.
-[positional-arguments]
-session *ARGS:
-    @just auth run session "$@"
-
 # Page through, verify or prune the audit history, e.g. `just auth audit list --user alice`.
 [positional-arguments]
 audit *ARGS:

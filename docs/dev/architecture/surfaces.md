@@ -247,8 +247,8 @@ who acts on it, and a read a `Viewer`, the account and who reads it. The owner's
 settings pages and `/account` routes run them as the owner of the session cookie,
 the only way to act as an owner. The `auth-service account <user> …`
 command runs them as the operator at the terminal, and the dashboard's display
-name, sign-in methods, profile picture, email addresses, connected apps,
-security history and notifications pages call them in-process as an
+name, sign-in methods, sessions, profile picture, email addresses, connected
+apps, security history and notifications pages call them in-process as an
 administrator, rendering the owner's own settings sections without what adds a
 way in, and asking for a reason with each change. All run the same safety
 rules: for example, one active passkey always remains, whoever removes the
