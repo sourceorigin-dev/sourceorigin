@@ -819,7 +819,7 @@ export const MIN_KEY_FETCH_INTERVAL: number = 30000;
 /**
  * How long keys keep verifying once they stop being fresh, while every refresh
  * fails. Stale keys may still trust a revoked key, so they get the same bound
- * auth gives its own: its `STALE_AFTER` (`apps/auth-service/src/keys/mod.rs`).
+ * auth gives its own keys.
  *
  * In milliseconds.
  */
@@ -876,8 +876,8 @@ export const REFRESH_DEADLINE: number = 20000;
 export const REVOCATION_DEADLINE: number = 5000;
 
 /**
- * How long after a step-up sign-in the browser has to follow the redirect back,
- * and a refusal is that step-up's one retry; a later one counts as a new action.
+ * How long after a step-up sign-in the browser has to follow the redirect back.
+ * A refusal within it is that step-up's one retry; a later one is a new action.
  *
  * In milliseconds.
  */

@@ -26,7 +26,7 @@ super::sdk_constants! {
     pub const MIN_KEY_FETCH_INTERVAL: TimeDelta = TimeDelta::seconds(30);
     /// How long keys keep verifying once they stop being fresh, while every refresh
     /// fails. Stale keys may still trust a revoked key, so they get the same bound
-    /// auth gives its own: its `STALE_AFTER` (`apps/auth-service/src/keys/mod.rs`).
+    /// auth gives its own keys.
     pub const KEYS_STALE_AFTER: TimeDelta = TimeDelta::minutes(15);
     /// How long fetched keys stay fresh when the response sets no `max-age`.
     pub const DEFAULT_KEYS_LIFETIME: TimeDelta = TimeDelta::hours(1);
@@ -47,8 +47,8 @@ super::sdk_constants! {
     /// Longest a session's revocation may hold up the sign-in or logout ending it,
     /// whatever the HTTP client's own timeout.
     pub const REVOCATION_DEADLINE: Duration = Duration::from_secs(5);
-    /// How long after a step-up sign-in the browser has to follow the redirect back,
-    /// and a refusal is that step-up's one retry; a later one counts as a new action.
+    /// How long after a step-up sign-in the browser has to follow the redirect back.
+    /// A refusal within it is that step-up's one retry; a later one is a new action.
     pub const STEP_UP_RETRY: TimeDelta = TimeDelta::minutes(1);
     /// How long a login may take at auth.
     pub const PENDING_LOGIN_LIFETIME: TimeDelta = TimeDelta::minutes(10);

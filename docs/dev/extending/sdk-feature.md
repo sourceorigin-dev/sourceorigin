@@ -61,9 +61,11 @@ definition.
 ## 3. Regenerate the TypeScript declarations
 
 A new type joins `generate()` in `crates/common/src/protocol/typescript.rs`, in
-the group of its module. A closed vocabulary joins `closed!`, an open one
-`open!`, and an ID or a validated string `builtin!`. A new field of a type
-already listed needs nothing there. Then:
+the group of its module. A closed vocabulary takes two lines there: its list's
+name in the `closed!` call, and `.closed::<T>()` in `generate()`, which writes
+the list beside the union. An open vocabulary joins `open!`, and an ID or a
+validated string `builtin!`. A new field of a type already listed needs nothing
+there. Then:
 
 ```console
 just sdk-types
@@ -109,10 +111,7 @@ In `packages/auth/src`, mirror the Rust SDK:
    `picture: json.optional(json.string)`.
 2. A new value of a closed vocabulary needs nothing more: `just sdk-types`
    writes it into the vocabulary's list in `protocol.ts`, which the decoders
-   read. A new closed vocabulary takes two lines in
-   `crates/common/src/protocol/typescript.rs`: its list's name in the `closed!`
-   call, and `.closed::<T>()` in `generate()`, which writes the list beside the
-   union.
+   read. A new closed vocabulary needs the two lines of step 3.
 3. Expose it under the Rust SDK's name, as the `picture` getter of `SignedIn`
    does in `login.ts`.
 
