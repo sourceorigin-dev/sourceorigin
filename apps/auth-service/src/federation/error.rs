@@ -184,9 +184,10 @@ pub(crate) enum InvalidReturnTo {
     /// Fragments are not kept through the sign-in redirects.
     #[error("return_to cannot contain a # fragment")]
     Fragment,
-    /// Control characters have no place in a URL path.
-    #[error("return_to cannot contain control characters")]
-    ControlCharacter,
+    /// A space, a control character or raw UTF-8, which would reach `Location`
+    /// as it is: anything but printable ASCII must be percent-encoded.
+    #[error("return_to must be printable ASCII; percent-encode anything else")]
+    NotPrintableAscii,
     /// The path is longer than we store.
     #[error("return_to is {0} bytes; at most {MAX_RETURN_TO_BYTES} are allowed")]
     TooLong(usize),

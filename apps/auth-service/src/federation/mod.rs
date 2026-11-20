@@ -65,8 +65,8 @@ const DEFAULT_RETURN_TO: &str = routes::page::settings::HOME;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct ReturnTo(String);
 impl ReturnTo {
-    /// Accepts a path that cannot leave the auth origin. Absolute URLs are refused,
-    /// even auth's own: its pages send paths.
+    /// Accepts a path that cannot leave the auth origin, in printable ASCII as the
+    /// SDKs require. Absolute URLs are refused, even auth's own: its pages send paths.
     pub(crate) fn parse(value: Option<&str>) -> Result<Self, InvalidReturnTo> {
         let value = value.unwrap_or(DEFAULT_RETURN_TO);
         if value.len() > MAX_RETURN_TO_BYTES {
@@ -78,8 +78,8 @@ impl ReturnTo {
         if value.contains('#') {
             return Err(InvalidReturnTo::Fragment);
         }
-        if value.chars().any(char::is_control) {
-            return Err(InvalidReturnTo::ControlCharacter);
+        if !value.bytes().all(|byte| byte.is_ascii_graphic()) {
+            return Err(InvalidReturnTo::NotPrintableAscii);
         }
         // One leading `/` makes this a path on the current origin.
         if value.starts_with("//") {
