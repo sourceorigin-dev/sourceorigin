@@ -102,7 +102,10 @@ impl MaintenanceRepository<'_> {
         // that no live request has locked, and adds up what they removed. A
         // checked query needs a literal, and each has its own type, so the
         // statements cannot share a loop. Most delete the rows of one table that
-        // match a condition, which `$table where $condition` writes.
+        // match a condition, which `$table where $condition` writes; the rest
+        // join, lock only some of the tables they read (`FOR UPDATE OF`), or
+        // check other tables against the row, so they keep their full SQL. The
+        // second arm's `+` pieces are only for the first arm to pass through.
         let mut purged = 0;
         macro_rules! purge {
             ($table:literal where $condition:literal) => {
