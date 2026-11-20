@@ -231,10 +231,10 @@ For a leaked key, replace it at once instead:
      holder, through a channel support already trusts, whether they used it,
      and undo it only if they didn't.
 4. Revoke, with `auth-service invite revoke`, the invitations created before
-   the new key was deployed, which `auth-service invite list` lists, and invite
-   again: each invitation's link works until the invitation expires, 7 days by
-   default and up to a year, and **Resend** rebuilds it under the old key, which
-   no longer works.
+   the new key was deployed, which `auth-service invite list` lists, and create
+   new ones: a link already sent keeps working against its stored digest until
+   the invitation expires, 7 days by default and up to a year. **Resend** can't
+   rebuild such a link once the old key is removed, so its delivery fails.
 
 Links already sent are checked against the digest stored when they were made,
 so verification and recovery links keep working until they expire, within 24

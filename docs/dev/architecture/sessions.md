@@ -158,13 +158,16 @@ can skip the event. Its callers:
   the account switch of a sign-in.
 - `AccountService`'s session operations (`src/sessions`), which sign one session
   or every other one out from the settings, the admin dashboard and
-  `auth-service account <user> sessions`. They need a session but no passkey
-  confirmation: a user who suspects a stolen cookie must be able to act at once.
+  `auth-service account <user> sessions`. The owner needs a session but no
+  passkey confirmation: a user who suspects a stolen cookie must be able to act
+  at once. An administrator needs the dashboard's recent passkey confirmation,
+  as for every change on the dashboard, and an operator at the terminal none.
 - `AdminService::revoke_session`, which `auth-service session revoke` runs.
 - Changes that end the account's other sessions: removing a passkey
   (`src/passkey/settings.rs`), unlinking an identity
   (`src/federation/identities.rs`) and reporting a history entry as not the
-  owner's (`src/history`). Undoing a recovery (`src/recovery`) ends every session.
+  owner's (`src/history`). Undoing a recovery (`src/recovery`) whose link was
+  used ends every session; undoing one still unused only cancels its link.
 - RP-initiated logout, which also ends the inline session of the app's own
   passkey sign-in that its `id_token_hint` names (`src/oidc/logout.rs`).
 - `Session::end_all`, for an account disabled, scheduled for deletion, purged or
