@@ -71,7 +71,7 @@ impl AccountService {
         id: PasskeyId,
         name: String,
     ) -> Result<(), AccountError> {
-        let friendly_name = PasskeyName::parse(name.trim().to_owned())?;
+        let friendly_name = PasskeyName::parse(&name)?;
         let mut tx = self.database.begin().await?;
         subject.lock(&mut tx).await?;
         if !tx

@@ -193,6 +193,48 @@ async fn registration_attaches_a_pending_social_signup_only_when_it_names_it() {
     }
 }
 
+/// Signup trims the display name and the first passkey's name, and a blank
+/// display name becomes the handle.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL"]
+async fn signup_trims_the_display_name_and_passkey_name() {
+    let fixture = Fixture::new().await;
+    let database = &fixture.app.database;
+    let user = async |handle: &str| {
+        let handle = Handle::parse(handle).expect("handle");
+        let user = database.users().find_active_by_handle(&handle).await;
+        user.expect("user").expect("registered")
+    };
+    let handle = format!("trim-{}", &TokenId::new().to_string()[24..]);
+    let body = json!({"handle": handle, "display_name": "  Alice  "});
+    let (started, browser) = fixture.start("/webauthn/register/start", "", body).await;
+    let credential = fixture.credential(&started);
+    let finish = json!({
+        "ceremony_id": started["ceremony_id"],
+        "credential": credential,
+        "friendly_name": "  Laptop  ",
+    });
+    let response = fixture
+        .request("/webauthn/register/finish", Method::POST, &browser, finish)
+        .await;
+    assert_eq!(response.status(), StatusCode::NO_CONTENT);
+    let alice = user(&handle).await;
+    assert_eq!(alice.display_name, "Alice");
+    let passkeys = database.passkeys().list_active(alice.id).await;
+    let names: Vec<_> = passkeys
+        .expect("passkeys")
+        .into_iter()
+        .map(|passkey| passkey.friendly_name)
+        .collect();
+    assert_eq!(names, ["Laptop"]);
+
+    let blank = format!("{handle}-2");
+    let body = json!({"handle": blank, "display_name": "   "});
+    let response = fixture.register("", body).await;
+    assert_eq!(response.status(), StatusCode::NO_CONTENT);
+    assert_eq!(user(&blank).await.display_name, blank);
+}
+
 /// An account keeps at most 100 active passkeys: enrolling a 101st is refused as
 /// it starts, before the authenticator creates a passkey, and the database refuses
 /// one that started before the account filled up. Neither stores anything.

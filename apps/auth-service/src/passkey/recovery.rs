@@ -64,7 +64,7 @@ impl PasskeyApplication {
         headers: HeaderMap,
         Json(input): Json<RegistrationFinish>,
     ) -> Result<Response, ApiError> {
-        let friendly_name = PasskeyName::parse(input.friendly_name)?;
+        let friendly_name = PasskeyName::parse(&input.friendly_name)?;
         let RecoveryCeremony {
             recovery_id,
             user_id,

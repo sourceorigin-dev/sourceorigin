@@ -3,26 +3,26 @@
 
 use super::*;
 
-/// Names count Unicode characters, preserve spacing and reject blank/control input.
+/// Names count Unicode characters and reject blank/control input. A name from a
+/// request is trimmed; one read back from stored ceremony state keeps its text.
 #[test]
 fn display_and_passkey_names_share_unicode_validation() {
-    for valid in [" Alice ".to_owned(), "é".repeat(80)] {
+    let (longest, too_long) = ("é".repeat(80), "é".repeat(81));
+    for (given, valid) in [(" Alice ", "Alice"), (longest.as_str(), longest.as_str())] {
         assert_eq!(
-            DisplayName::parse(valid.clone())
-                .expect("display name")
-                .as_str(),
+            DisplayName::parse(given).expect("display name").as_str(),
             valid
         );
         assert_eq!(
-            PasskeyName::parse(valid.clone())
-                .expect("passkey name")
-                .as_str(),
+            PasskeyName::parse(given).expect("passkey name").as_str(),
             valid
         );
     }
-    for invalid in [String::new(), " \t ".into(), "a\0b".into(), "é".repeat(81)] {
+    let stored = PasskeyName::try_from(" Alice ".to_owned()).expect("stored name");
+    assert_eq!(stored.as_str(), " Alice ");
+    for invalid in ["", " \t ", "a\0b", too_long.as_str()] {
         assert!(matches!(
-            DisplayName::parse(invalid.clone()),
+            DisplayName::parse(invalid),
             Err(PasskeyError::InvalidDisplayName)
         ));
         assert!(matches!(

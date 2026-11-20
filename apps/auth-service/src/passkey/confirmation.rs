@@ -290,7 +290,7 @@ impl PasskeyApplication {
         headers: HeaderMap,
         Json(input): Json<RegistrationFinish>,
     ) -> Result<StatusCode, ApiError> {
-        let friendly_name = PasskeyName::parse(input.friendly_name)?;
+        let friendly_name = PasskeyName::parse(&input.friendly_name)?;
 
         let EnrollmentCeremony {
             user_id,
