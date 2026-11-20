@@ -83,7 +83,7 @@ Knowing that a handle has an account gives an attacker little:
 - **Nothing to guess.** Sign-in needs a passkey. A handle doesn't help forge
   one, and passkeys resist phishing.
 - **No lockout.** Rate limits count requests per client IP, never per account
-  (`apps/auth-service/src/security/mod.rs`), so naming an account can't lock its
+  (`apps/auth-service/src/security/http.rs`), so naming an account can't lock its
   owner out.
 - **Not evidence.** Support's evidence policy never counts knowing a handle
   ([account recovery](account-recovery.md#supports-evidence-policy)).

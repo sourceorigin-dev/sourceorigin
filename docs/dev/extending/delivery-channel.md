@@ -51,7 +51,7 @@ impl Channel for BackchannelLogout {
     async fn deliveries(
         event: &DomainEvent,
         _: Option<UserId>,
-        _: Option<&Notified>,
+        _: &[Notified],
         tx: &mut DatabaseTransaction<'_>,
     ) -> Result<Vec<NewDelivery<Self>>, DatabaseError> {
         let DomainEvent::SessionRevoked { session_id, .. } = event else {
@@ -66,8 +66,9 @@ impl Channel for BackchannelLogout {
 - `NAME` is stored in every row, so never rename a released channel.
 - `Recipient` holds the facts copied about the recipient, and `Payload` the
   message, both stored as JSON. Never store a plaintext secret in either.
-- `deliveries` receives the event, its subject, and the notification it just gave
-  the subject, if any, which the `email` channel sends. It runs inside the
+- `deliveries` receives the event, its subject, and the notifications it just
+  wrote, such as one per administrator for a raised alert, which the `email`
+  channel sends. It runs inside the
   event's transaction, so it sees the rows as the change left them.
 - Each `NewDelivery` names its `destination`, an endpoint URL or an address.
 
@@ -81,7 +82,7 @@ Add the channel to `Registered` in `deliveries/mod.rs`, a nested list that
 `DatabaseTransaction::record` fans every event out to:
 
 ```rust
-pub(crate) type Registered = (BackchannelLogout, (Email, (Announcement, (Witness, ()))));
+pub(crate) type Registered = (BackchannelLogout, (Email, (Announcement, (Invitation, ()))));
 ```
 
 A delivery that no event causes, such as a witness's checkpoint, is inserted

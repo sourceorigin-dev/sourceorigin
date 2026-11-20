@@ -94,7 +94,8 @@ Provider::GitLab => (GITLAB_CLIENT_ID, GITLAB_CLIENT_SECRET),
 ```
 
 `ProviderConfig::from_environment` already reads every provider's pair: an empty
-or unset client ID leaves the provider off, and a client ID requires the secret.
+client ID, or neither variable set, leaves the provider off, and setting either
+requires both.
 The doc comments are the variables' entries in the configuration reference, so
 write them for operators. See
 [adding a configuration variable](configuration-variable.md).
@@ -109,8 +110,8 @@ specific to the provider:
 - **`impl ProviderEndpoints`:** `pub(super) fn gitlab() -> Self`, with the issuer
   stored beside each subject, the authorization and token URLs, the scopes and
   the identity strategy. A provider whose facts need a request, such as Google's
-  key cache, takes the client and may fail:
-  `fn google(client: &reqwest::Client) -> Result<Self, FederationConfigError>`.
+  key cache, builds its client with `FederationApplication::http_client()` and
+  may fail: `fn google() -> Result<Self, FederationConfigError>`.
 - **`GitLabProtocol`:** the back-channel URLs the identity step calls, such as
   the key set or the profile endpoint. They are `String`s, so tests can point
   them at a local fixture.
