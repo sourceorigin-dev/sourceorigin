@@ -3,8 +3,8 @@
 use super::{AdminApplication as App, ReasonForm, ReasonPage};
 use crate::{AdminError, Reason};
 use serde::Deserialize;
-use sourceorigin_common::{UserId, admin::UserSearch};
-use sourceorigin_ui::{Action, AdministratorRow, Change, Pager, Query};
+use sourceorigin_common::UserId;
+use sourceorigin_ui::{Action, AdministratorRow, Change};
 use topcoat::{
     Result,
     context::Cx,
@@ -83,22 +83,9 @@ pub(super) async fn grant(cx: &Cx, form: Option<Form<GrantForm>>) -> Result<Resp
             .await
     })
     .await?;
-    let found = service.search_users(&admin.operator, &q, page).await?;
-    let administrators: Vec<_> = service
-        .list_administrators(&admin.operator)
-        .await?
-        .into_iter()
-        .map(|administrator| administrator.user_id)
-        .collect();
     let action = href!(grant).resolve(cx);
-    let rows = App::user_rows(cx, &found.users, &administrators);
-    let pager = Pager::of(found.paging, |page| {
-        UserSearch {
-            q: q.clone(),
-            page: Some(page),
-        }
-        .on(&action)
-    })?;
+    let (users, administrators, pager) = App::found_users(cx, admin, &q, page, &action).await?;
+    let rows = App::user_rows(cx, &users, &administrators);
     let (q, rows, pager, refusal) = (&q, &rows, &pager, refusal.as_deref());
     let page = view! { cx =>
         sourceorigin_ui::grant_search(

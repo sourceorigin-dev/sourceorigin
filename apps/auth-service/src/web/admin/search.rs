@@ -1,14 +1,14 @@
 //! What the top bar's search finds beyond the page's own results: accounts and
 //! clients, which the search script fetches as the administrator types.
 
-use super::{AdminApplication as App, clients};
+use super::AdminApplication as App;
 use sourceorigin_common::admin::Client;
-use sourceorigin_ui::{AdminClientRow, Destination};
+use sourceorigin_ui::Destination;
 use topcoat::{
     Result,
     context::Cx,
     router::{
-        HeaderValue, StatusCode, header, href, query_params,
+        HeaderValue, StatusCode, header, query_params,
         response::{IntoResponse, Response},
         route,
     },
@@ -47,13 +47,7 @@ pub(super) async fn suggest(cx: &Cx) -> Result<Response> {
         (users, App::closest_clients(clients, q))
     };
     let accounts = App::user_rows(cx, &users, &[]);
-    let clients: Vec<_> = clients
-        .iter()
-        .map(|client| AdminClientRow {
-            client,
-            href: href!(clients::detail, clients::Client(client.id.clone())).resolve(cx),
-        })
-        .collect();
+    let clients = App::client_rows(cx, &clients);
     let found: Vec<Destination<'_>> = accounts
         .iter()
         .map(Destination::from)
