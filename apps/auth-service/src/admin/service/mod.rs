@@ -63,8 +63,9 @@ impl AdminService {
     /// Ends every mutation: rechecks `operator`, records `events` about `subject`
     /// with their `reason`, then commits. Every mutation ends here, so none
     /// commits without a reason; a draft announcement's changes, which are not
-    /// mutations, commit on their own. The check runs after the mutation's last write,
-    /// so it waits for nothing afterwards, and a failure rolls the writes back.
+    /// mutations, commit on their own. The check runs after the mutation's last
+    /// write, so it waits for nothing afterwards, and a failure rolls the writes
+    /// back.
     async fn finish(
         mut tx: DatabaseTransaction<'_>,
         operator: &Operator,
