@@ -78,10 +78,7 @@ impl Sender for BackchannelLogoutSender {
     async fn send(&self, delivery: &Delivery<BackchannelLogout>) -> Result<(), DeliveryError> {
         let token = self.token(delivery, Utc::now()).map_err(|error| {
             tracing::error!(error = %ErrorChain(&error), id = %delivery.id, "could not sign a logout token");
-            DeliveryError::Retryable {
-                failure: Failure::Signing,
-                retry_after: None,
-            }
+            DeliveryError::retryable(Failure::Signing)
         })?;
         self.outbound
             .send(Method::POST, &delivery.destination, |request| {

@@ -172,10 +172,7 @@ impl OutboundClient {
     /// Classifies a request that got no response. A refused address is found in
     /// the error's sources, where the resolver's error ends up.
     fn transport_error(error: &reqwest::Error) -> DeliveryError {
-        let retryable = |failure| DeliveryError::Retryable {
-            failure,
-            retry_after: None,
-        };
+        let retryable = DeliveryError::retryable;
         let mut source: Option<&(dyn StdError + 'static)> = Some(error);
         while let Some(current) = source {
             if let Some(refused) = current.downcast_ref::<ResolutionError>() {
