@@ -72,11 +72,7 @@ impl From<Checkpoint> for PublishedCheckpoint {
     /// Keeps the stored values; the note is what readers verify.
     fn from(checkpoint: Checkpoint) -> Self {
         Self {
-            head: ChainLink {
-                position: checkpoint.position,
-                hash: checkpoint.head,
-            }
-            .point(),
+            head: ChainLink::signed(&checkpoint).point(),
             time: checkpoint.created_at,
             note: checkpoint.note,
         }

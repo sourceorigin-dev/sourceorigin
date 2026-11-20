@@ -62,10 +62,7 @@ impl AuditKeys {
     /// Returns [`AuditError::Verifying`] if the cryptographic provider fails, which
     /// says nothing about the checkpoint.
     fn check(&self, checkpoint: &Checkpoint) -> Result<Checked, AuditError> {
-        let stored = ChainLink {
-            position: checkpoint.position,
-            hash: checkpoint.head,
-        };
+        let stored = ChainLink::signed(checkpoint);
         let problem = match self.verifiers.open(&checkpoint.note) {
             Ok(text) => match CheckpointText::parse(text) {
                 Some(text) if text.head == stored && text.time == checkpoint.created_at => None,
@@ -202,13 +199,7 @@ impl AuditChain {
     pub(crate) async fn page(&self, after: Option<u64>) -> Result<AuditPage, AuditError> {
         let mut tx = self.database.begin().await?;
         tx.audit().read_snapshot().await?;
-        let point = |checkpoint: Checkpoint| {
-            ChainLink {
-                position: checkpoint.position,
-                hash: checkpoint.head,
-            }
-            .point()
-        };
+        let point = |checkpoint: Checkpoint| ChainLink::signed(&checkpoint).point();
         let chain = StoredChain {
             anchor: tx.audit().anchor().await?.map(point),
             newest: tx.audit().head().await?.as_ref().map(Chain::point),
@@ -263,10 +254,7 @@ impl AuditChain {
         keys: &AuditKeys,
     ) -> Result<AuditVerification, AuditError> {
         let checkpoints = Self::checkpoints(tx, keys).await?;
-        let anchor = tx.audit().anchor().await?.map(|anchor| ChainLink {
-            position: anchor.position,
-            hash: anchor.head,
-        });
+        let anchor = tx.audit().anchor().await?.as_ref().map(ChainLink::signed);
         let start = anchor.unwrap_or(ChainLink::GENESIS);
         // Pruning deletes every event through the anchor, so one left there means
         // the anchor was moved to hide it.

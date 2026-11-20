@@ -33,7 +33,7 @@ use chrono::{DateTime, SecondsFormat, Utc};
 use serde::Serialize;
 use sourceorigin_common::config::Origin;
 use sourceorigin_crypto::{CryptoError, Digest, NoteVerifier, NoteVerifiers};
-use sourceorigin_repository::{ChainLink, Database, DatabaseError, EventContent};
+use sourceorigin_repository::{ChainLink, Checkpoint, Database, DatabaseError, EventContent};
 use thiserror::Error;
 
 /// The verifier keys committed to the repository, one per line: each environment's
@@ -112,6 +112,9 @@ trait Chain: Sized {
     /// [`EventContent::NEWEST_FORMAT`], or [`AuditError::Canonical`].
     fn extend(&self, content: &EventContent) -> Result<Self, AuditError>;
 
+    /// The link `checkpoint` signs: its position and the head stored beside it.
+    fn signed(checkpoint: &Checkpoint) -> Self;
+
     /// This link as verification reports it.
     fn point(&self) -> ChainPoint;
 }
@@ -149,6 +152,13 @@ impl Chain for ChainLink {
             position,
             hash: *Digest::sha256(&input).as_bytes(),
         })
+    }
+
+    fn signed(checkpoint: &Checkpoint) -> Self {
+        Self {
+            position: checkpoint.position,
+            hash: checkpoint.head,
+        }
     }
 
     fn point(&self) -> ChainPoint {
