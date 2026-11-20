@@ -352,6 +352,11 @@ export type Acr = "phr" | "urn:sourceorigin:acr:social";
 export const ACR: readonly Acr[] = ["phr", "urn:sourceorigin:acr:social"];
 
 /**
+ * The `events` member every logout token carries (OIDC Back-Channel Logout 1.0 §2.4).
+ */
+export const BACKCHANNEL_LOGOUT_EVENT = "http://schemas.openid.net/event/backchannel-logout";
+
+/**
  * The metadata Origin Auth publishes. Every field it sends is required, except the
  * PKCE methods, so a client parsing it learns of a missing capability at once. Lists
  * keep only the values this version knows, so a newer auth advertising more does not
@@ -484,6 +489,11 @@ backchannel_logout_supported: boolean,
  * Whether logout tokens name the ended session with `sid`. False when absent.
  */
 backchannel_logout_session_supported: boolean, };
+
+/**
+ * Path of the OIDC Discovery document.
+ */
+export const OPENID_CONFIGURATION_PATH = "/.well-known/openid-configuration";
 
 /**
  * What a protected operation needs from the user's authentication: an `acr` to
@@ -714,3 +724,183 @@ export type ErrorReason = "issuer_mismatch" | "invalid_document" | "pkce_unsuppo
  * Every `ErrorReason` this version knows.
  */
 export const ERROR_REASONS: readonly ErrorReason[] = ["issuer_mismatch", "invalid_document", "pkce_unsupported", "duplicate_key_id", "unusable_key", "malformed", "unsupported_critical_header", "wrong_type", "unsupported_algorithm", "unknown_key", "bad_signature", "wrong_audience", "expired", "not_yet_valid", "issued_in_future", "lifetime_too_long", "invalid_claims", "nonce_mismatch", "wrong_authorized_party", "authentication_too_old", "subject_mismatch", "authentication_changed", "state_mismatch", "missing_issuer", "missing_code"];
+
+/**
+ * Clock skew tolerated on `exp`, `nbf`, `iat` and `auth_time`. Auth tolerates the
+ * same on `iat` alone, and none on `exp` or `max_age`.
+ *
+ * In milliseconds.
+ */
+export const LEEWAY: number = 30000;
+
+/**
+ * Longest a logout token may be valid: auth signs each delivery attempt for two
+ * minutes, so a longer-lived token was not made for one attempt.
+ *
+ * In milliseconds.
+ */
+export const MAX_LOGOUT_LIFETIME: number = 600000;
+
+/**
+ * Longest compact token read, in bytes: decoding is bounded before it starts.
+ */
+export const MAX_TOKEN_BYTES: number = 16384;
+
+/**
+ * Shortest RSA modulus a key may have, in bits (RFC 7518 §3.3).
+ */
+export const MIN_MODULUS_BITS: number = 2048;
+
+/**
+ * Longest RSA modulus a key may have, in bits, as aws-lc verifies.
+ */
+export const MAX_MODULUS_BITS: number = 8192;
+
+/**
+ * `typ` media types may carry this prefix (RFC 7515 §4.1.9).
+ */
+export const MEDIA_TYPE_PREFIX = "application/";
+
+/**
+ * Shortest time between two key fetches, whatever triggers them. Bounds how often
+ * unknown key IDs or an outage can make the cache call the issuer.
+ *
+ * In milliseconds.
+ */
+export const MIN_KEY_FETCH_INTERVAL: number = 30000;
+
+/**
+ * How long keys keep verifying once they stop being fresh, while every refresh
+ * fails. Stale keys may still trust a revoked key, so they get the same bound
+ * auth gives its own: its `STALE_AFTER` (`apps/auth-service/src/keys/mod.rs`).
+ *
+ * In milliseconds.
+ */
+export const KEYS_STALE_AFTER: number = 900000;
+
+/**
+ * How long fetched keys stay fresh when the response sets no `max-age`.
+ *
+ * In milliseconds.
+ */
+export const DEFAULT_KEYS_LIFETIME: number = 3600000;
+
+/**
+ * Longest time fetched keys stay fresh, whatever `max-age` says.
+ *
+ * In milliseconds.
+ */
+export const MAX_KEYS_LIFETIME: number = 86400000;
+
+/**
+ * Most bytes read from any response. Metadata, key sets and token responses are a
+ * few kilobytes.
+ */
+export const MAX_RESPONSE_BYTES: number = 262144;
+
+/**
+ * Longest a request may take, from sending it to its last body byte, whatever the
+ * HTTP client's own timeout.
+ *
+ * In milliseconds.
+ */
+export const REQUEST_DEADLINE: number = 10000;
+
+/**
+ * Access tokens this close to expiry are refreshed first.
+ *
+ * In milliseconds.
+ */
+export const REFRESH_MARGIN: number = 30000;
+
+/**
+ * Longest a refresh may take, auth's response and its ID token check included.
+ *
+ * In milliseconds.
+ */
+export const REFRESH_DEADLINE: number = 20000;
+
+/**
+ * Longest a session's revocation may hold up the sign-in or logout ending it,
+ * whatever the HTTP client's own timeout.
+ *
+ * In milliseconds.
+ */
+export const REVOCATION_DEADLINE: number = 5000;
+
+/**
+ * How long after a step-up sign-in the browser has to follow the redirect back,
+ * and a refusal is that step-up's one retry; a later one counts as a new action.
+ *
+ * In milliseconds.
+ */
+export const STEP_UP_RETRY: number = 60000;
+
+/**
+ * How long a login may take at auth.
+ *
+ * In milliseconds.
+ */
+export const PENDING_LOGIN_LIFETIME: number = 600000;
+
+/**
+ * Default session lifetime.
+ *
+ * In milliseconds.
+ */
+export const DEFAULT_SESSION_LIFETIME: number = 43200000;
+
+/**
+ * Most bytes in a `return_to` path.
+ */
+export const MAX_RETURN_TO_BYTES: number = 2048;
+
+/**
+ * Longest client ID and scope, in bytes.
+ */
+export const MAX_IDENTIFIER_BYTES: number = 64;
+
+/**
+ * Starts the name of every login cookie, which goes on with the client ID, so
+ * apps sharing a host keep their own. `__Host-` makes browsers require `Secure`,
+ * `Path=/` and no `Domain`, so no other host can set or read them.
+ */
+export const COOKIE_PREFIX = "__Host-sourceorigin-";
+
+/**
+ * Most bytes in a cookie's name, `=` and value: browsers drop larger cookies.
+ */
+export const MAX_COOKIE_BYTES: number = 4096;
+
+/**
+ * Cookie slots for logins in progress: each login waits in the slot its `state`
+ * hashes to, replacing any login there. Responses to logins started at once cannot
+ * see each other's cookies, so only fixed slots bound how many a browser keeps.
+ */
+export const PENDING_LOGIN_SLOTS: number = 3;
+
+/**
+ * Most bytes in one pending login cookie's name and value, so all slots together
+ * take at most 3000 bytes. Common proxies refuse a `Cookie` header over 8 KiB, which
+ * they share with the session, up to 4 KiB, and the app's own cookies. A login
+ * whose `return_to` would outgrow it returns to the home page instead.
+ */
+export const MAX_PENDING_COOKIE_BYTES: number = 1000;
+
+/**
+ * Bytes in a cookie key, and in the AES-256 keys derived from it.
+ */
+export const COOKIE_KEY_BYTES: number = 32;
+
+/**
+ * The HKDF `info` of the key sealing sessions. Each names the format version: a new
+ * format gets a new `info`, so cookies of the old one no longer open, and every SDK
+ * uses the same, so their cookies interoperate.
+ */
+export const SESSION_SEAL_INFO = "sourceorigin-auth session v1";
+
+/**
+ * The HKDF `info` of the key sealing pending logins, versioned as
+ * `SESSION_SEAL_INFO` is.
+ */
+export const PENDING_LOGIN_SEAL_INFO = "sourceorigin-auth pending login v1";

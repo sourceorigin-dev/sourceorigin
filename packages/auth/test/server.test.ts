@@ -6,7 +6,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { inspect } from 'node:util';
-import { BACKCHANNEL_LOGOUT_EVENT } from '../src/claims.ts';
+import { BACKCHANNEL_LOGOUT_EVENT } from '../src/protocol.ts';
 import {
   Issuer,
   type IdTokenClaims,

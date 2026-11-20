@@ -3,22 +3,21 @@ import * as wire from './claims.ts';
 import { AuthError } from './error.ts';
 import { Jws, type KeyCache } from './keys.ts';
 import * as json from './json.ts';
-import type {
-  AccessTokenClaims,
-  Acr,
-  Algorithm,
-  Audience,
-  AuthenticationClaims,
-  IdTokenClaims,
-  LogoutTokenClaims,
-  StepUpRequirement,
-  TokenType
+import {
+  type AccessTokenClaims,
+  type Acr,
+  type Algorithm,
+  type Audience,
+  type AuthenticationClaims,
+  type IdTokenClaims,
+  LEEWAY,
+  type LogoutTokenClaims,
+  MAX_LOGOUT_LIFETIME,
+  type StepUpRequirement,
+  type TokenType
 } from './protocol.ts';
 import { Scopes } from './scope.ts';
-import { type Clock, LEEWAY } from './time.ts';
-
-/** Longest a logout token may be valid, in seconds: auth signs each delivery attempt for two minutes. */
-const MAX_LOGOUT_LIFETIME = 10 * 60;
+import type { Clock } from './time.ts';
 
 /** The registered claims every token type checks the same way. */
 type RegisteredClaims = { iss: string; aud: Audience; exp: number; iat: number; nbf?: number };
@@ -284,7 +283,7 @@ export class LogoutToken {
    * `nonce`.
    */
   static from(claims: LogoutTokenClaims): LogoutToken {
-    if (claims.exp - claims.iat > MAX_LOGOUT_LIFETIME) {
+    if (claims.exp - claims.iat > MAX_LOGOUT_LIFETIME / 1000) {
       throw AuthError.invalidToken(
         'lifetime_too_long',
         'the logout token is valid for over 10 minutes'

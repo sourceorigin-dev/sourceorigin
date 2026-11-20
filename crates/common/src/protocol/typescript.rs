@@ -10,12 +10,15 @@
 
 use super::{
     challenge::{BearerChallenge, BearerError},
+    claims,
     claims::{
         Absent, AccessTokenClaims, Acr, Actor, Amr, Audience, AuthenticationClaims,
         BACKCHANNEL_LOGOUT_EVENT, Confirmation, IdTokenClaims, LogoutEvents, LogoutTokenClaims,
         ProfileClaims, UserInfo,
     },
+    constants,
     jwt::{Algorithm, Claim, Jwk, JwkSet, KeyId, KeyOperation, KeyType, KeyUse, TokenType},
+    metadata,
     metadata::ServerMetadata,
     oauth::{
         ClientAuthMethod, CodeChallengeMethod, ErrorCode, ErrorDescription, ErrorResponse,
@@ -25,7 +28,8 @@ use super::{
     step_up::StepUpRequirement,
 };
 use crate::{ClientId, DeliveryId, SessionId, TokenId};
-use std::{collections::BTreeSet, fs, path::PathBuf};
+use chrono::TimeDelta;
+use std::{collections::BTreeSet, fs, path::PathBuf, time::Duration};
 use ts_rs::{Config, TS};
 
 /// Opens the generated file.
@@ -145,6 +149,61 @@ declared!(
 );
 builtin!("never" => Absent);
 
+/// A constant `sdk_constants!` declares, as TypeScript writes it.
+pub(super) trait Literal {
+    /// Its TypeScript type, or none for the literal's own, as strings keep.
+    fn ty(&self) -> Option<&'static str>;
+    /// Its value.
+    fn value(&self) -> String;
+    /// What its docs add: durations are in milliseconds.
+    fn unit(&self) -> &'static str {
+        ""
+    }
+}
+
+/// Writes integers as `number`s.
+macro_rules! number {
+    ($($type:ty),+) => {$(
+        impl Literal for $type {
+            fn ty(&self) -> Option<&'static str> {
+                Some("number")
+            }
+            fn value(&self) -> String {
+                self.to_string()
+            }
+        }
+    )+};
+}
+
+/// Writes durations as `number`s of milliseconds.
+macro_rules! milliseconds {
+    ($($type:ty => $millis:ident),+) => {$(
+        impl Literal for $type {
+            fn ty(&self) -> Option<&'static str> {
+                Some("number")
+            }
+            fn value(&self) -> String {
+                self.$millis().to_string()
+            }
+            fn unit(&self) -> &'static str {
+                "\nIn milliseconds."
+            }
+        }
+    )+};
+}
+
+number!(u8, usize);
+milliseconds!(TimeDelta => num_milliseconds, Duration => as_millis);
+
+impl Literal for &str {
+    fn ty(&self) -> Option<&'static str> {
+        None
+    }
+    fn value(&self) -> String {
+        format!("{self:?}")
+    }
+}
+
 /// `"a" | "b"`, from spellings that need no escaping.
 fn union<'a>(values: impl Iterator<Item = &'a str>) -> String {
     values
@@ -200,23 +259,38 @@ impl Declarations {
         declarations.constant(
             T::LIST,
             &format!("Every `{name}` this version knows."),
-            &format!("readonly {name}[]"),
+            Some(&format!("readonly {name}[]")),
             &format!("[{}]", spellings.join(", ")),
         )
     }
 
-    /// Appends a constant of type `ty`, with its docs.
-    fn constant(mut self, name: &str, docs: &str, ty: &str, value: &str) -> Self {
+    /// Appends a constant of type `ty`, or of its literal's, with its docs.
+    fn constant(mut self, name: &str, docs: &str, ty: Option<&str>, value: &str) -> Self {
         self.text.push_str("\n/**\n");
         for line in docs.lines() {
             self.text.push_str(" * ");
             self.text.push_str(line.trim());
             self.text.push('\n');
         }
-        for part in [" */\nexport const ", name, ": ", ty, " = ", value, ";\n"] {
+        let ty = ty.map(|ty| format!(": {ty}")).unwrap_or_default();
+        for part in [" */\nexport const ", name, &ty, " = ", value, ";\n"] {
             self.text.push_str(part);
         }
         self
+    }
+
+    /// Appends constants `sdk_constants!` declared.
+    fn constants(self, constants: Vec<(&str, &str, &dyn Literal)>) -> Self {
+        constants
+            .into_iter()
+            .fold(self, |declarations, (name, docs, value)| {
+                declarations.constant(
+                    name,
+                    &(docs.to_owned() + value.unit()),
+                    value.ty(),
+                    &value.value(),
+                )
+            })
     }
 
     /// The file, once every referenced type is declared in it. Drops the docs' Rust
@@ -272,8 +346,10 @@ fn generate() -> String {
         .add::<Confirmation>()
         .closed::<Amr>()
         .closed::<Acr>()
+        .constants(claims::typescript())
         // metadata
         .add::<ServerMetadata>()
+        .constants(metadata::typescript())
         // step_up
         .add::<StepUpRequirement>()
         // jwt
@@ -303,6 +379,8 @@ fn generate() -> String {
         .add::<SdkError>()
         .closed::<ErrorCategory>()
         .closed::<ErrorReason>()
+        // constants
+        .constants(constants::typescript())
         .finish()
 }
 

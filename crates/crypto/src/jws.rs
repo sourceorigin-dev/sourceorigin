@@ -25,14 +25,11 @@ use aws_lc_rs::{
     signature::{ParsedPublicKey, RSA_PKCS1_2048_8192_SHA256, RsaPublicKeyComponents},
 };
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
+use sourceorigin_common::protocol::constants::{
+    MAX_MODULUS_BITS, MAX_TOKEN_BYTES, MIN_MODULUS_BITS,
+};
 use thiserror::Error;
 
-/// Longest compact token read, in bytes: decoding is bounded before it starts.
-const MAX_TOKEN_BYTES: usize = 16 * 1024;
-/// Shortest RSA modulus a key may have, in bits (RFC 7518 §3.3).
-const MIN_MODULUS_BITS: usize = 2048;
-/// Longest RSA modulus a key may have, in bits, as aws-lc verifies.
-const MAX_MODULUS_BITS: usize = 8192;
 /// The only RSA exponent a key may have, big-endian: 65537. Cloudflare Workers imports
 /// only 3, 17 and 65537, so a wider rule would let SDKs disagree on a key.
 const EXPONENT: [u8; 3] = [1, 0, 1];

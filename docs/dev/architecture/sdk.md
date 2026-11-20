@@ -45,6 +45,14 @@ ts-rs, vocabularies as unions of their spellings, each closed one with the list 
 its spellings its decoders check values against, and `just test` fails while it is
 stale (`just sdk-types` rewrites it).
 
+Both SDKs also take their limits, lifetimes and names from one place,
+`sourceorigin_common::protocol::constants`: the clock leeway, the key cache's
+intervals, the HTTP and token size limits, the RSA key sizes, and the login
+cookies' prefix, sizes, lifetimes and sealing `info` strings. Each constant
+declared with `sdk_constants!`, there or beside its wire type, is written into
+`protocol.ts` too, durations in milliseconds, so the TypeScript SDK reads the same
+values.
+
 ## Configuration
 
 An SDK is configured with an issuer URL. Everything else comes from discovery at

@@ -5,20 +5,19 @@
  */
 import * as json from './json.ts';
 import {
-  ACR,
-  AMR,
   type AccessTokenClaims,
+  ACR,
   type Actor,
+  AMR,
   type Audience,
+  BACKCHANNEL_LOGOUT_EVENT,
   type IdTokenClaims,
   type LogoutEvents,
   type LogoutTokenClaims,
+  MAX_IDENTIFIER_BYTES,
   type UserInfo
 } from './protocol.ts';
 import { Scopes } from './scope.ts';
-
-/** The `events` member every logout token carries (OIDC Back-Channel Logout 1.0 §2.4). */
-export const BACKCHANNEL_LOGOUT_EVENT = 'http://schemas.openid.net/event/backchannel-logout';
 
 /** A canonical lower-case UUIDv7, as account, session and token IDs are. */
 export const uuid = json.matching(
@@ -26,8 +25,8 @@ export const uuid = json.matching(
   'a UUIDv7'
 );
 
-/** A registered client's ID: 1 to 64 ASCII letters, digits, `.`, `_` or `-`. */
-export const CLIENT_ID = /^[A-Za-z0-9._-]{1,64}$/;
+/** A registered client's ID: 1 to `MAX_IDENTIFIER_BYTES` ASCII letters, digits, `.`, `_` or `-`. */
+export const CLIENT_ID = new RegExp(`^[A-Za-z0-9._-]{1,${String(MAX_IDENTIFIER_BYTES)}}$`);
 const clientId = json.matching(CLIENT_ID, 'a client ID');
 
 /** `aud`: one string or an array (RFC 7519 §4.1.3). */
