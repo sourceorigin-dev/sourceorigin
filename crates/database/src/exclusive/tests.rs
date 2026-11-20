@@ -10,9 +10,7 @@ use std::time::Duration;
 #[tokio::test]
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn locks_exclude_other_sessions_until_their_connection_ends() {
-    let database = Database {
-        pool: Database::test_pool().await,
-    };
+    let database = Database::test().await;
     let lock = || database.try_exclusive(LockKey::LockTest);
     let holder = lock().await.expect("lock").expect("a free lock");
     assert!(lock().await.expect("lock").is_none(), "the lock is held");
@@ -42,9 +40,7 @@ async fn locks_exclude_other_sessions_until_their_connection_ends() {
 #[tokio::test]
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn locked_transactions_read_committed_data() {
-    let database = Database {
-        pool: Database::test_pool().await,
-    };
+    let database = Database::test().await;
     let mut holder = database
         .try_exclusive(LockKey::TransactionTest)
         .await

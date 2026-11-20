@@ -284,9 +284,7 @@ fn runtime_roles_need_plain_names() {
 #[tokio::test]
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn runtime_role_has_only_row_privileges() {
-    let owner = Database {
-        pool: Database::test_pool().await,
-    };
+    let owner = Database::test().await;
     let name = format!("sourceorigin_auth_{}", uuid::Uuid::now_v7().simple());
     let config = config_for(&name);
     let role = RuntimeRole::new(&config, "runtime password").expect("role");
@@ -404,9 +402,7 @@ fn config_for(user: &str) -> DatabaseConfig {
 #[tokio::test]
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn provisioning_resets_what_it_does_not_grant() {
-    let owner = Database {
-        pool: Database::test_pool().await,
-    };
+    let owner = Database::test().await;
     let name = format!("sourceorigin_auth_{}", uuid::Uuid::now_v7().simple());
     let role = RuntimeRole::new(&config_for(&name), "password").expect("role");
     owner.provision(&role).await.expect("create");
@@ -449,9 +445,7 @@ async fn provisioning_resets_what_it_does_not_grant() {
 #[tokio::test]
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn provisioning_refuses_roles_that_could_do_more() {
-    let owner = Database {
-        pool: Database::test_pool().await,
-    };
+    let owner = Database::test().await;
     let owner_name = sqlx::query_scalar::<_, String>("SELECT current_user::text")
         .fetch_one(&owner.pool)
         .await

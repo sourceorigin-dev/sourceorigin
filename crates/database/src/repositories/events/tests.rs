@@ -1,23 +1,12 @@
 //! Recording and personal data.
 use super::*;
-use crate::{Database, DatabaseTransaction};
+use crate::{Database, DatabaseTransaction, UserRepository};
 use sourceorigin_common::{
     Provider,
     clients::RelatedOrigin,
     events::{RecordedOrigin, RevocationReason},
 };
 use sqlx::PgPool;
-
-/// Inserts an active account to be the subject of recorded events.
-async fn insert_user(pool: &PgPool) -> UserId {
-    let user = UserId::new();
-    sqlx::query("INSERT INTO users(id,display_name) VALUES($1,'Event test')")
-        .bind(user.as_uuid())
-        .execute(pool)
-        .await
-        .expect("user");
-    user
-}
 
 /// A context with request personal data, acting as `user`.
 fn context(user: UserId) -> EventContext {
@@ -68,7 +57,7 @@ fn personal_data_restores_only_erased_values() {
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn personal_data_is_stored_apart_and_erases() {
     let pool = Database::test_pool().await;
-    let user = insert_user(&pool).await;
+    let user = UserRepository::from_pool(&pool).insert_named("event").await;
     let subject = format!("subject-{user}");
     let linked = || DomainEvent::IdentityLinked {
         provider: Provider::GitHub,
@@ -143,7 +132,7 @@ async fn personal_data_is_stored_apart_and_erases() {
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn versions_are_per_event() {
     let pool = Database::test_pool().await;
-    let user = insert_user(&pool).await;
+    let user = UserRepository::from_pool(&pool).insert_named("event").await;
     let revoked = |reason| DomainEvent::SessionRevoked {
         session_id: SessionId::new(),
         reason,
@@ -190,7 +179,7 @@ async fn versions_are_per_event() {
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn related_origins_are_personal_but_older_events_still_read() {
     let pool = Database::test_pool().await;
-    let user = insert_user(&pool).await;
+    let user = UserRepository::from_pool(&pool).insert_named("event").await;
     let client_id: ClientId = format!("origins_{user}").parse().expect("client ID");
     let origin: RelatedOrigin = format!("https://{}.example", user.as_uuid().simple())
         .parse()
@@ -258,7 +247,7 @@ async fn related_origins_are_personal_but_older_events_still_read() {
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn events_a_newer_release_wrote_read_as_unknown() {
     let pool = Database::test_pool().await;
-    let user = insert_user(&pool).await;
+    let user = UserRepository::from_pool(&pool).insert_named("event").await;
     let mut events = EventRepository::from_pool(&pool);
     let data = serde_json::json!({"client_id": "deleted"});
     for (kind, version) in [

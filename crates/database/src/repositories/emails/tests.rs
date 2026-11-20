@@ -1,8 +1,8 @@
 //! Focused persistence and security contract tests.
 use super::InsertUnverifiedEmail;
-use crate::{Database, InsertUser};
+use crate::{Database, UserRepository};
 use chrono::{Duration, Utc};
-use sourceorigin_common::{EmailId, Handle, UserId};
+use sourceorigin_common::{EmailId, UserId};
 /// Verified email ownership follows active account status and verification changes.
 #[expect(
     clippy::too_many_lines,
@@ -13,14 +13,11 @@ use sourceorigin_common::{EmailId, Handle, UserId};
 async fn verified_email_updates_preserve_and_release_ownership() {
     let pool = Database::test_pool().await;
     let mut tx = pool.begin().await.expect("transaction");
-    let users = [UserId::new(), UserId::new()];
-    for user in users {
-        sqlx::query("INSERT INTO users(id,display_name) VALUES($1,'Email test')")
-            .bind(user.as_uuid())
-            .execute(&mut *tx)
-            .await
-            .expect("user");
-    }
+    let mut accounts = UserRepository::from_connection(&mut tx);
+    let users = [
+        accounts.insert_named("email").await,
+        accounts.insert_named("email").await,
+    ];
     let email = uuid::Uuid::now_v7();
     let address = format!("{email}@example.test");
     sqlx::query(
@@ -130,20 +127,8 @@ async fn verified_email_updates_preserve_and_release_ownership() {
 #[tokio::test]
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn cleanup_deletes_unverified_addresses_with_expired_links() {
-    let database = Database {
-        pool: Database::test_pool().await,
-    };
-    let user_id = UserId::new();
-    database
-        .users()
-        .insert(&InsertUser {
-            id: user_id,
-            handle: Handle::parse(&format!("cleanup-{}", &user_id.to_string()[24..]))
-                .expect("handle"),
-            display_name: "Cleanup test".into(),
-        })
-        .await
-        .expect("user");
+    let database = Database::test().await;
+    let user_id = database.users().insert_named("cleanup").await;
     let [expired, pending] = [EmailId::new(), EmailId::new()];
     for (id, expires_at) in [
         (expired, Utc::now() - Duration::seconds(1)),

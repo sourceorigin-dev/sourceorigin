@@ -7,15 +7,11 @@
 )]
 
 use chrono::{DateTime, Duration, Utc};
-use sourceorigin_common::{
-    AuthenticationMethod, Handle, PasskeyId, RecoveryId, SessionId, UserId,
-    events::{Browser, Platform, UserAgentFamily},
-};
+use sourceorigin_common::{AuthenticationMethod, PasskeyId, RecoveryId, SessionId, UserId};
 use sourceorigin_repository::{
-    Database, DatabaseConfig, InsertPasskey, InsertRecovery, InsertSession, InsertUser,
-    RecoveryState, StoredRecovery,
+    Database, DatabaseConfig, InsertPasskey, InsertRecovery, InsertSession, RecoveryState,
+    StoredRecovery,
 };
-use std::net::IpAddr;
 
 /// How long a probation lasts in these tests.
 const PROBATION: Duration = Duration::days(15);
@@ -79,20 +75,6 @@ impl Owner {
         .await
         .expect("settle");
     }
-}
-
-/// Creates an account.
-async fn account(db: &Database) -> UserId {
-    let user = UserId::new();
-    db.users()
-        .insert(&InsertUser {
-            id: user,
-            handle: Handle::parse(&format!("recover-{}", &user.to_string()[24..])).expect("handle"),
-            display_name: "Recovery test".into(),
-        })
-        .await
-        .expect("user");
-    user
 }
 
 /// A role like the runtime role, but without `account_recoveries`: it may use
@@ -195,25 +177,17 @@ async fn session(
     passkey: Option<PasskeyId>,
     confirmed: bool,
 ) -> SessionId {
-    let (id, now) = (SessionId::new(), Utc::now());
+    let session = InsertSession::lasting(user, Duration::minutes(5));
     db.sessions()
         .insert(&InsertSession {
-            id,
-            user_id: user,
             authentication_methods: vec![AuthenticationMethod::Passkey],
-            authenticated_at: now,
-            expires_at: now + Duration::minutes(5),
-            user_agent_family: UserAgentFamily {
-                browser: Browser::Firefox,
-                platform: Platform::Linux,
-            },
-            ip: IpAddr::from([192, 0, 2, 1]),
-            passkey_confirmed_at: confirmed.then_some(now),
+            passkey_confirmed_at: confirmed.then_some(session.authenticated_at),
             passkey_id: passkey,
+            ..session
         })
         .await
-        .expect("session");
-    id
+        .expect("session")
+        .id
 }
 
 /// When session `id` was confirmed with a passkey, if it was.
@@ -300,7 +274,7 @@ fn a_recovery_state_follows_its_link_and_probation() {
 async fn a_link_that_expires_while_finishing_does_not_complete() {
     let owner = Owner::new().await;
     let db = &owner.db;
-    let user = account(db).await;
+    let user = db.users().insert_named("recover").await;
     let id = start(db, user, Duration::milliseconds(500)).await;
 
     let mut tx = db.begin().await.expect("transaction");
@@ -324,7 +298,7 @@ async fn a_link_that_expires_while_finishing_does_not_complete() {
 async fn one_open_recovery_per_account() {
     let owner = Owner::new().await;
     let db = &owner.db;
-    let user = account(db).await;
+    let user = db.users().insert_named("recover").await;
     let first = start(db, user, Duration::hours(1)).await;
     owner.expire(first).await;
     let digest = [7; 64];
@@ -353,7 +327,7 @@ async fn a_probation_passkey_never_confirms_a_session() {
     let owner = Owner::new().await;
     let limited = Limited::new(&owner).await;
     let db = &limited.db;
-    let user = account(&owner.db).await;
+    let user = owner.db.users().insert_named("recover").await;
     let older = passkey(&owner.db, user).await;
     let (recovery, recovered) = probation(&owner.db, user).await;
 
@@ -381,7 +355,7 @@ async fn a_probation_passkey_never_confirms_a_session() {
     let settled = session(db, user, Some(recovered), true).await;
     assert!(confirmed_at(db, settled).await.is_some(), "once settled");
 
-    let other = account(&owner.db).await;
+    let other = owner.db.users().insert_named("recover").await;
     let (recovery, recovered) = probation(&owner.db, other).await;
     owner.db.recoveries().undo(recovery).await.expect("undo");
     let undone = session(db, other, Some(recovered), true).await;
@@ -398,7 +372,10 @@ async fn no_grant_while_a_recovery_can_be_undone() {
     let owner = Owner::new().await;
     let limited = Limited::new(&owner).await;
     let db = &limited.db;
-    let (open, used) = (account(&owner.db).await, account(&owner.db).await);
+    let (open, used) = (
+        owner.db.users().insert_named("recover").await,
+        owner.db.users().insert_named("recover").await,
+    );
     let link = start(&owner.db, open, Duration::hours(1)).await;
     let (recovery, _) = probation(&owner.db, used).await;
     for user in [open, used] {
@@ -425,7 +402,7 @@ async fn only_the_recoverys_own_passkey_is_revoked_mid_recovery() {
     let limited = Limited::new(&owner).await;
     let db = &limited.db;
 
-    let open = account(&owner.db).await;
+    let open = owner.db.users().insert_named("recover").await;
     let older = passkey(&owner.db, open).await;
     let link = start(&owner.db, open, Duration::hours(1)).await;
     assert!(
@@ -435,7 +412,7 @@ async fn only_the_recoverys_own_passkey_is_revoked_mid_recovery() {
     owner.expire(link).await;
     assert!(db.passkeys().revoke(older, open).await.expect("revoke"));
 
-    let used = account(&owner.db).await;
+    let used = owner.db.users().insert_named("recover").await;
     let older = passkey(&owner.db, used).await;
     let (recovery, recovered) = probation(&owner.db, used).await;
     assert!(
@@ -451,7 +428,7 @@ async fn only_the_recoverys_own_passkey_is_revoked_mid_recovery() {
     owner.settle(recovery).await;
     assert!(db.passkeys().revoke(older, used).await.expect("settled"));
 
-    let undone = account(&owner.db).await;
+    let undone = owner.db.users().insert_named("recover").await;
     let older = passkey(&owner.db, undone).await;
     let (recovery, _) = probation(&owner.db, undone).await;
     owner.db.recoveries().undo(recovery).await.expect("undo");

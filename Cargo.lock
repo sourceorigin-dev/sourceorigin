@@ -3132,6 +3132,7 @@ dependencies = [
  "serde_json",
  "sourceorigin-common",
  "sourceorigin-crypto",
+ "sourceorigin-repository",
  "sourceorigin-telemetry",
  "sqlx",
  "thiserror 2.0.18",

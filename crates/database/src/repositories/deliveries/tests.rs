@@ -2,9 +2,12 @@
 //!
 //! Tests share one database, so each claims from a channel of its own.
 use super::*;
-use crate::{Database, EventRepository, InsertUser, SessionScope, StoredEvent, UserRepository};
+use crate::{
+    Database, EventRepository, InsertSession, InsertUser, SessionRepository, SessionScope,
+    StoredEvent, UserRepository,
+};
 use sourceorigin_common::{
-    SessionId,
+    AuthenticationMethod,
     events::{Actor, EventContext, RequestOrigin, RevocationReason},
 };
 use sqlx::PgPool;
@@ -15,44 +18,19 @@ const LEASE: Duration = Duration::from_mins(1);
 /// A maximum age no test outlives.
 const MAX_AGE: Duration = Duration::from_hours(1);
 
-/// Declares channels whose deliveries tests insert themselves, each with its
-/// stored name and payload type.
-macro_rules! test_channels {
-    ($($(#[doc = $doc:literal])* $name:ident = $value:literal: $payload:ty;)*) => {$(
-        $(#[doc = $doc])*
-        struct $name;
-
-        impl Channel for $name {
-            const NAME: &'static str = $value;
-            type Recipient = String;
-            type Payload = $payload;
-
-            /// Causes nothing: tests insert deliveries directly.
-            fn deliveries(
-                _: &DomainEvent,
-                _: Option<UserId>,
-                _: &[Notified],
-                _: &mut DatabaseTransaction<'_>,
-            ) -> impl Future<Output = Result<Vec<NewDelivery<Self>>, DatabaseError>> + Send {
-                std::future::ready(Ok(vec![]))
-            }
-        }
-    )*};
-}
-
-test_channels! {
+crate::test_channels! {
     /// Claimed by many workers at once.
-    Concurrent = "test_concurrent": u32;
+    Concurrent = "test_concurrent": String => u32;
     /// Claimed again once its lease expires.
-    Leased = "test_leased": u32;
+    Leased = "test_leased": String => u32;
     /// Retried and cancelled by an operator.
-    Operated = "test_operated": u32;
+    Operated = "test_operated": String => u32;
     /// Counted for the backlog gauges.
-    Backlogged = "test_backlogged": u32;
+    Backlogged = "test_backlogged": String => u32;
     /// A channel as the previous release declares it during a deploy.
-    OldRelease = "test_versions": OldMessage;
+    OldRelease = "test_versions": String => OldMessage;
     /// The same channel as the next release declares it.
-    NewRelease = "test_versions": NewMessage;
+    NewRelease = "test_versions": String => NewMessage;
 }
 
 /// [`OldRelease`]'s messages.
@@ -478,21 +456,17 @@ async fn an_older_release_leaves_a_delivery_it_cannot_decode_to_a_newer_one() {
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn revoking_a_session_queues_a_logout_token_for_each_client_to_tell() {
     let pool = Database::test_pool().await;
-    let account = InsertUser::named("logout");
-    UserRepository::from_pool(&pool)
-        .insert(&account)
+    let user = UserRepository::from_pool(&pool)
+        .insert_named("logout")
+        .await;
+    let session = SessionRepository::from_pool(&pool)
+        .insert(&InsertSession {
+            authentication_methods: vec![AuthenticationMethod::Passkey],
+            ..InsertSession::lasting(user, chrono::Duration::hours(1))
+        })
         .await
-        .expect("user");
-    let (user, session) = (account.id, SessionId::new());
-    sqlx::query(
-        "INSERT INTO sessions(id,user_id,authentication_methods,authenticated_at,expires_at,last_seen_at)
-        VALUES($1,$2,'[\"passkey\"]',now(),now()+interval '1 hour',now())",
-    )
-    .bind(session.as_uuid())
-    .bind(user.as_uuid())
-    .execute(&pool)
-    .await
-    .expect("session");
+        .expect("session")
+        .id;
     // Told; without a URI; and with a URI but no tokens from the session.
     let told = format!("told-{user}");
     let told_uri = "https://told.example/backchannel-logout";

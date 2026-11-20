@@ -1,16 +1,5 @@
 //! Retention of the records an account no longer uses.
-use crate::{Database, InsertUser, UserRepository};
-use sourceorigin_common::UserId;
-use sqlx::PgPool;
-
-/// Inserts an active account whose handle starts with `prefix`.
-async fn insert_user(pool: &PgPool, prefix: &str) -> UserId {
-    UserRepository::from_pool(pool)
-        .insert(&InsertUser::named(prefix))
-        .await
-        .expect("user")
-        .id
-}
+use crate::{Database, UserRepository};
 
 /// Revoked passkeys, unlinked identities and ended recoveries go 90 days after
 /// they end, even a link cancelled after it expired, known browsers 400 days
@@ -26,8 +15,12 @@ async fn insert_user(pool: &PgPool, prefix: &str) -> UserId {
 )]
 async fn ended_records_go_after_their_retention() {
     let pool = Database::test_pool().await;
-    let user = insert_user(&pool, "retained").await;
-    let purged = insert_user(&pool, "purged").await;
+    let user = UserRepository::from_pool(&pool)
+        .insert_named("retained")
+        .await;
+    let purged = UserRepository::from_pool(&pool)
+        .insert_named("purged")
+        .await;
     // Test-generated IDs only, so formatting them into the SQL is safe. Each pair
     // is past its limit, then just within it, labelled 'old' and 'new'.
     sqlx::raw_sql(&format!(

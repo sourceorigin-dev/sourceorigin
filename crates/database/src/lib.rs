@@ -2,13 +2,17 @@
 //!
 //! Applications receive typed repositories and never a pool, executor, row, or
 //! `SQLx` error. Repositories expose only the operations used by the service, plus
-//! read-only helpers behind the `test-util` feature for other crates' tests.
+//! read-only helpers and fixtures behind the `test-util` feature for other
+//! crates' tests.
 /// Validated `PostgreSQL` transport and bounded connection pools.
 mod connection;
 /// Typed persistence and connection failures.
 mod error;
 /// Advisory locks for jobs that run on one replica at a time.
 mod exclusive;
+/// What database tests start from.
+#[cfg(any(test, feature = "test-util"))]
+mod fixtures;
 /// What every table holds about the people behind accounts.
 mod inventory;
 /// Typed repository families with private SQL execution.

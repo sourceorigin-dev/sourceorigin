@@ -390,16 +390,10 @@ impl Database {
 
 #[cfg(test)]
 impl Database {
-    /// Connects to `TEST_DATABASE_URL` and applies the schema. In-crate database
-    /// tests get the raw pool so they can insert fixtures with plain SQL.
+    /// [`Self::test`]'s pool. In-crate database tests get the raw pool so they
+    /// can insert fixtures with plain SQL.
     pub(crate) async fn test_pool() -> PgPool {
-        let url = std::env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL");
-        let pool = PgPool::connect(&url).await.expect("connect");
-        Self { pool: pool.clone() }
-            .run_migrations()
-            .await
-            .expect("migrate");
-        pool
+        Self::test().await.pool
     }
 
     /// The server process of `connection`, to watch its lock waits with
