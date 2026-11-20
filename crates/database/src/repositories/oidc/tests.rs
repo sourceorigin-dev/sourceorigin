@@ -227,12 +227,7 @@ async fn public_client_origins_follow_registrations() {
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn purging_an_owner_needs_its_live_clients_deleted() {
     let pool = Database::test_pool().await;
-    let account = InsertUser::named("owner");
-    UserRepository::from_pool(&pool)
-        .insert(&account)
-        .await
-        .expect("user");
-    let owner = account.id;
+    let owner = UserRepository::from_pool(&pool).insert_named("owner").await;
     let site = origin();
     let mut client = registration(ClientKind::Public, &site);
     client.post_logout_uris =

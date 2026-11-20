@@ -251,10 +251,11 @@ sealing back.
 
 ## Tests
 
-Tests that use `TEST_DATABASE_URL` are explicitly
-marked ignored by the ordinary unit test runner; other crates' tests read stored state
-through helpers behind the `test-util` feature. `just db test` runs them in a
-throwaway PostgreSQL cluster, or against an explicit, disposable `TEST_DATABASE_URL`.
+Tests that use `TEST_DATABASE_URL` are explicitly marked ignored by the ordinary
+unit test runner. Other crates' tests read stored state through helpers, and start
+from the crate's fixtures, behind the `test-util` feature. `just db test` runs
+them in a throwaway PostgreSQL cluster, or against an explicit, disposable
+`TEST_DATABASE_URL`.
 
 ## Time limits
 

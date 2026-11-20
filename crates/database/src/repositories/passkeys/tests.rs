@@ -53,12 +53,9 @@ async fn handle_lookup_hides_disabled_accounts_and_revoked_passkeys() {
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn accounts_keep_at_most_100_passkeys() {
     let pool = Database::test_pool().await;
-    let account = InsertUser::named("passkeys");
-    let user = account.id;
-    UserRepository::from_pool(&pool)
-        .insert(&account)
-        .await
-        .expect("user");
+    let user = UserRepository::from_pool(&pool)
+        .insert_named("passkeys")
+        .await;
     sqlx::query(
         "INSERT INTO passkey_credentials (id, credential_id, user_id, credential, friendly_name)
         SELECT uuidv7(), uuid_send(uuidv7()), $1, '{}', 'Passkey test'

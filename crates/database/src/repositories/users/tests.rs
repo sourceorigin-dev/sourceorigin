@@ -7,40 +7,9 @@ use crate::repositories::{
     users::InsertUser,
 };
 use chrono::Utc;
-use sourceorigin_common::{
-    Handle, SessionId, UserId,
-    events::{Browser, Platform, UserAgentFamily},
-};
-use sqlx::PgPool;
+use sourceorigin_common::{Handle, UserId};
 use std::{net::IpAddr, time::Duration};
 
-/// Inserts an active account for one lock scenario.
-async fn insert_user(pool: &PgPool) -> UserId {
-    UserRepository::from_pool(pool)
-        .insert(&InsertUser::named("lock"))
-        .await
-        .expect("user")
-        .id
-}
-
-/// A session valid from now until tomorrow.
-fn session_for(user: UserId) -> InsertSession {
-    let now = Utc::now();
-    InsertSession {
-        id: SessionId::new(),
-        user_id: user,
-        authentication_methods: Vec::new(),
-        authenticated_at: now,
-        expires_at: now + chrono::Duration::days(1),
-        user_agent_family: UserAgentFamily {
-            browser: Browser::Firefox,
-            platform: Platform::Linux,
-        },
-        ip: IpAddr::from([192, 0, 2, 1]),
-        passkey_confirmed_at: None,
-        passkey_id: None,
-    }
-}
 /// Inserts a passkey row, which references the account through a foreign key.
 async fn insert_reference(connection: &mut sqlx::PgConnection, user: UserId) {
     sqlx::query(
@@ -60,7 +29,7 @@ async fn insert_reference(connection: &mut sqlx::PgConnection, user: UserId) {
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn account_locks_allow_foreign_key_checks() {
     let pool = Database::test_pool().await;
-    let user = insert_user(&pool).await;
+    let user = UserRepository::from_pool(&pool).insert_named("lock").await;
     let mut account = pool.begin().await.expect("account transaction");
     UserRepository::from_connection(&mut account)
         .find_active_by_id_for_update(user)
@@ -84,13 +53,14 @@ async fn account_locks_allow_foreign_key_checks() {
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn account_locks_do_not_wait_on_foreign_key_checks() {
     let pool = Database::test_pool().await;
-    let user = insert_user(&pool).await;
+    let user = UserRepository::from_pool(&pool).insert_named("lock").await;
     let mut reference = pool.begin().await.expect("reference transaction");
     insert_reference(&mut reference, user).await;
     let mut account = pool.begin().await.expect("account transaction");
     tokio::time::timeout(
         Duration::from_secs(2),
-        SessionRepository::from_connection(&mut account).insert(&session_for(user)),
+        SessionRepository::from_connection(&mut account)
+            .insert(&InsertSession::lasting(user, chrono::Duration::days(1))),
     )
     .await
     .expect("session creation must not wait on foreign-key checks")
@@ -118,9 +88,9 @@ async fn account_locks_do_not_wait_on_foreign_key_checks() {
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn locked_session_lookup_waits_for_concurrent_logout() {
     let pool = Database::test_pool().await;
-    let user = insert_user(&pool).await;
+    let user = UserRepository::from_pool(&pool).insert_named("lock").await;
     let session = SessionRepository::from_pool(&pool)
-        .insert(&session_for(user))
+        .insert(&InsertSession::lasting(user, chrono::Duration::days(1)))
         .await
         .expect("session")
         .id;
@@ -152,9 +122,12 @@ async fn locked_session_lookup_waits_for_concurrent_logout() {
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn touch_records_activity_at_most_once_per_interval() {
     let pool = Database::test_pool().await;
-    let user = insert_user(&pool).await;
+    let user = UserRepository::from_pool(&pool).insert_named("lock").await;
     let mut sessions = SessionRepository::from_pool(&pool);
-    let session = sessions.insert(&session_for(user)).await.expect("session");
+    let session = sessions
+        .insert(&InsertSession::lasting(user, chrono::Duration::days(1)))
+        .await
+        .expect("session");
     let elsewhere = IpAddr::from([198, 51, 100, 9]);
     let pool = &pool;
     let last_seen = |id| async move {

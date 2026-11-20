@@ -1,23 +1,14 @@
 //! Scheduling, restore tokens and the purge.
 use super::*;
-use crate::{Database, DatabaseTransaction, EventRepository, InsertUser, RestoreToken};
+use crate::{Database, DatabaseTransaction, EventRepository, RestoreToken, UserRepository};
 use chrono::Duration;
 use sourceorigin_common::{
     AccountStatus, PasskeyId, Personal, Provider, SessionId, TokenId,
     events::{Actor, Browser, DomainEvent, EventContext, Platform, RequestOrigin, UserAgentFamily},
 };
 use sourceorigin_common::{AuthenticationMethod, events::SignInFailure};
-use sqlx::{Acquire, PgPool};
+use sqlx::Acquire;
 use std::net::IpAddr;
-
-/// Inserts an active account whose handle is `prefix` and part of its ID.
-async fn insert_user(pool: &PgPool, prefix: &str) -> UserId {
-    crate::UserRepository::from_pool(pool)
-        .insert(&InsertUser::named(prefix))
-        .await
-        .expect("user")
-        .id
-}
 
 /// A restore token is found while unexpired and its passkey active, and a newer
 /// one replaces it. Cancelling the deletion ends both the schedule and the token.
@@ -25,7 +16,9 @@ async fn insert_user(pool: &PgPool, prefix: &str) -> UserId {
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn restore_tokens_expire_and_end_with_the_deletion() {
     let pool = Database::test_pool().await;
-    let user = insert_user(&pool, "restore").await;
+    let user = UserRepository::from_pool(&pool)
+        .insert_named("restore")
+        .await;
     let mut deletions = AccountDeletionRepository::from_pool(&pool);
     let purge_after = Utc::now() + Duration::days(30);
     let scheduled = deletions
@@ -139,8 +132,12 @@ async fn restore_tokens_expire_and_end_with_the_deletion() {
 )]
 async fn purge_leaves_nothing_that_references_or_identifies_the_account() {
     let pool = Database::test_pool().await;
-    let user = insert_user(&pool, "purged").await;
-    let bystander = insert_user(&pool, "bystander").await;
+    let user = UserRepository::from_pool(&pool)
+        .insert_named("purged")
+        .await;
+    let bystander = UserRepository::from_pool(&pool)
+        .insert_named("bystander")
+        .await;
     let client = format!("purge-{user}");
     let (session, code, family) = (SessionId::new(), TokenId::new(), TokenId::new());
     // Announcements to the account alone, to it and the bystander, and to everyone.
@@ -397,7 +394,9 @@ async fn purge_leaves_nothing_that_references_or_identifies_the_account() {
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn personal_data_stored_during_a_purge_is_erased() {
     let pool = Database::test_pool().await;
-    let user = insert_user(&pool, "racing").await;
+    let user = UserRepository::from_pool(&pool)
+        .insert_named("racing")
+        .await;
     let failed = EventContext {
         actor: Actor::Anonymous,
         origin: RequestOrigin {
@@ -453,7 +452,9 @@ async fn an_alert_raised_during_a_purge_leaves_no_email() {
         events::JobName,
     };
     let pool = Database::test_pool().await;
-    let user = insert_user(&pool, "alerted").await;
+    let user = UserRepository::from_pool(&pool)
+        .insert_named("alerted")
+        .await;
     // Test-generated IDs only, so formatting them into the SQL is safe.
     sqlx::raw_sql(&format!(
         "INSERT INTO user_emails (id, user_id, normalized_email, verified_at, is_primary)
@@ -510,8 +511,10 @@ async fn an_alert_raised_during_a_purge_leaves_no_email() {
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn failed_purges_back_off_behind_other_accounts() {
     let pool = Database::test_pool().await;
-    let failing = insert_user(&pool, "failing").await;
-    let other = insert_user(&pool, "other").await;
+    let failing = UserRepository::from_pool(&pool)
+        .insert_named("failing")
+        .await;
+    let other = UserRepository::from_pool(&pool).insert_named("other").await;
     let mut deletions = AccountDeletionRepository::from_pool(&pool);
     // Other tests' accounts may be due too, so only these two are compared.
     let order = async |deletions: &mut AccountDeletionRepository<'_>| {

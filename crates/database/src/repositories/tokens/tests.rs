@@ -5,8 +5,10 @@ use super::{
     InsertRefreshFamily, InsertRefreshToken, RefreshOutcome, RefreshRedemption,
     RefreshRedemptionError, RefreshSuccessor,
 };
-use crate::repositories::{OidcRepository, SessionRepository, TokenRepository};
-use crate::{CodeRedemptionError, DatabaseTransaction, SessionAuthentication, SessionScope};
+use crate::repositories::{OidcRepository, SessionRepository, TokenRepository, UserRepository};
+use crate::{
+    CodeRedemptionError, DatabaseTransaction, InsertSession, SessionAuthentication, SessionScope,
+};
 use chrono::{Duration, Utc};
 use sourceorigin_common::{
     ClientId, SessionId, TokenId, UserId,
@@ -81,28 +83,20 @@ struct Grant {
 impl Grant {
     /// Commits a fresh account, session and code issued to `client`.
     async fn new(pool: &PgPool, client: &ClientId) -> Self {
+        let mut tx = pool.begin().await.expect("transaction");
+        let user = UserRepository::from_connection(&mut tx)
+            .insert_named("lock")
+            .await;
         let grant = Self {
-            user: UserId::new(),
-            session: SessionId::new(),
+            user,
+            session: SessionRepository::from_connection(&mut tx)
+                .insert(&InsertSession::lasting(user, Duration::hours(1)))
+                .await
+                .expect("session")
+                .id,
             code: TokenId::new(),
             code_digest: TokenId::new().as_uuid().as_bytes().repeat(2),
         };
-        let mut tx = pool.begin().await.expect("transaction");
-        sqlx::query("INSERT INTO users(id,display_name) VALUES($1,'Lock test')")
-            .bind(grant.user.as_uuid())
-            .execute(&mut *tx)
-            .await
-            .expect("user");
-        sqlx::query(
-            "INSERT INTO sessions (
-                id, user_id, authentication_methods, authenticated_at, expires_at, last_seen_at
-            ) VALUES ($1, $2, '[]', now(), now() + interval '1 hour', now())",
-        )
-        .bind(grant.session.as_uuid())
-        .bind(grant.user.as_uuid())
-        .execute(&mut *tx)
-        .await
-        .expect("session");
         sqlx::query(
             "INSERT INTO authorization_codes (
                 id, secret_digest, client_id, user_id, session_id, redirect_uri,

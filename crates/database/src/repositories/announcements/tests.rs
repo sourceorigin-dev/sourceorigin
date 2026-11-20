@@ -3,8 +3,8 @@
 
 use super::*;
 use crate::{
-    Database, DatabaseTransaction, EmailRepository, InsertUser, InsertVerifiedEmail,
-    NotificationRepository, UserRepository,
+    Database, DatabaseTransaction, EmailRepository, InsertVerifiedEmail, NotificationRepository,
+    UserRepository,
 };
 use chrono::Utc;
 use sourceorigin_common::{
@@ -42,10 +42,8 @@ async fn received(
 /// Creates an account, with `address` as its primary verified one if given.
 async fn account(pool: &PgPool, address: Option<&str>) -> UserId {
     let user = UserRepository::from_pool(pool)
-        .insert(&InsertUser::named("announce"))
-        .await
-        .expect("user")
-        .id;
+        .insert_named("announce")
+        .await;
     if let Some(address) = address {
         EmailRepository::from_pool(pool)
             .insert_verified(&InsertVerifiedEmail {

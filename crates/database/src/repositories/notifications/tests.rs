@@ -1,7 +1,7 @@
 //! Notifications commit with their event, page without gaps, read and unread,
 //! and stay their owner's.
 use super::*;
-use crate::{Database, DatabaseTransaction, InsertUser};
+use crate::{Database, DatabaseTransaction};
 use sourceorigin_common::{
     Personal, SessionId,
     events::{Actor, DomainEvent, EventContext, RequestOrigin},
@@ -11,12 +11,9 @@ use std::collections::HashSet;
 
 /// A new account, with the database its tests use.
 async fn account(name: &str) -> (Database, UserId) {
-    let database = Database {
-        pool: Database::test_pool().await,
-    };
-    let account = InsertUser::named(name);
-    database.users().insert(&account).await.expect("user");
-    (database, account.id)
+    let database = Database::test().await;
+    let user = database.users().insert_named(name).await;
+    (database, user)
 }
 
 /// `actor` causing an event.

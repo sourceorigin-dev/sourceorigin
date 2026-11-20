@@ -10,9 +10,7 @@ use sourceorigin_common::{AccountStatus, PictureId};
 #[tokio::test]
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn a_picture_serves_only_while_current_and_active() {
-    let database = Database {
-        pool: Database::test_pool().await,
-    };
+    let database = Database::test().await;
     let account = InsertUser::named("picture");
     database.users().insert(&account).await.expect("user");
     let user = async || {

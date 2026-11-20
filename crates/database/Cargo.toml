@@ -25,10 +25,12 @@ uuid.workspace = true
 [dev-dependencies]
 # The schema's skeleton test compares `handle_skeleton` with `Handle::skeleton`.
 sourceorigin-common = { workspace = true, features = ["similarity"] }
+# The integration tests under `tests/` start from the fixtures.
+sourceorigin-repository = { workspace = true, features = ["test-util"] }
 
 [features]
-# Helpers that let other crates' tests observe stored state, and move a
-# recovery's clock.
+# Helpers that let other crates' tests observe stored state and move a
+# recovery's clock, and the fixtures tests start from.
 test-util = []
 
 [lints]

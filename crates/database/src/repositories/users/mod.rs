@@ -54,29 +54,6 @@ pub struct InsertUser {
     pub display_name: String,
 }
 
-#[cfg(any(test, feature = "test-util"))]
-impl InsertUser {
-    /// An account whose handle is `prefix` and a random suffix, for tests.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `prefix` cannot start a handle.
-    #[must_use]
-    #[expect(
-        clippy::expect_used,
-        reason = "test-only constructor; documented under `# Panics`"
-    )]
-    pub fn named(prefix: &str) -> Self {
-        let id = UserId::new();
-        Self {
-            id,
-            handle: Handle::parse(&format!("{prefix}-{}", &id.to_string()[24..]))
-                .expect("a handle prefix"),
-            display_name: format!("{prefix} test"),
-        }
-    }
-}
-
 impl UserRepository<'_> {
     /// Creates an active account holding `input.handle`, in one statement.
     ///

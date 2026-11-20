@@ -32,9 +32,7 @@ async fn the_schema_computes_the_rust_skeleton() {
 #[tokio::test]
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn concurrent_renames_to_one_handle_let_one_win() {
-    let database = Database {
-        pool: Database::test_pool().await,
-    };
+    let database = Database::test().await;
     let accounts = [InsertUser::named("race"), InsertUser::named("race")];
     for account in &accounts {
         database.users().insert(account).await.expect("user");
@@ -74,9 +72,7 @@ async fn concurrent_renames_to_one_handle_let_one_win() {
 #[tokio::test]
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn a_purged_accounts_handle_stays_taken_until_released() {
-    let database = Database {
-        pool: Database::test_pool().await,
-    };
+    let database = Database::test().await;
     let account = InsertUser::named("purged");
     database.users().insert(&account).await.expect("user");
     let release = async || {
@@ -128,9 +124,7 @@ async fn a_purged_accounts_handle_stays_taken_until_released() {
 #[tokio::test]
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn swapping_handles_is_refused_without_a_deadlock() {
-    let database = Database {
-        pool: Database::test_pool().await,
-    };
+    let database = Database::test().await;
     let accounts = [InsertUser::named("swap"), InsertUser::named("swap")];
     for account in &accounts {
         database.users().insert(account).await.expect("user");
