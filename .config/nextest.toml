@@ -3,12 +3,18 @@
 [profile.default]
 slow-timeout = { period = "60s", terminate-after = 5 }
 
-# Tests that change the signing keys hold their lock, which is one for the whole
-# database, for their whole transaction. A test waiting for it waits under the
-# statement timeout, which on a busy machine cancels the last of several waiting
-# ones. So they run one at a time, as the lock would make them anyway.
+# The tests share one database, and with it every advisory lock, even in a schema
+# of their own. Tests that hold one of those locks for most of their run wait for
+# it under a timeout, the statement timeout or their own, which on a busy machine
+# runs out for the last of several waiting ones. So each lock's tests run one at
+# a time, as the lock would make them anyway.
 [test-groups]
+# The signing key lock, which the key change tests hold for their whole transaction.
 signing-keys = { max-threads = 1 }
+# The audit chain lock, which the audit tests take to seal, and the audit
+# verification lock, which its verifier tests also take and expect to be free.
+# They contend over the chain lock either way, so they share one group.
+audit = { max-threads = 1 }
 
 [[profile.default.overrides]]
 filter = '''
@@ -20,3 +26,7 @@ filter = '''
 | (package(sourceorigin-repository) & test(/^repositories::signing_keys::tests::/))
 '''
 test-group = "signing-keys"
+
+[[profile.default.overrides]]
+filter = 'package(auth-service) & test(/^audit::tests::/)'
+test-group = "audit"

@@ -82,11 +82,12 @@ A new database test connects through its crate's fixture:
 `apps/auth-service/src/tests.rs`.
 
 The tests share one database, so they share its advisory locks too, even in a
-schema of their own. A test that holds the signing key lock for its whole
-transaction, as the key rotation tests do, belongs in the `signing-keys` test
-group in `.config/nextest.toml`. The group runs them one at a time. Otherwise
-they queue for the lock under the 15-second statement timeout, and on a busy
-machine the last one is cancelled.
+schema of their own. A test that holds a database-wide lock belongs in that
+lock's test group in `.config/nextest.toml`: `signing-keys` for the signing key
+lock, `audit` for the audit chain and verification locks. Each group runs its
+tests one at a time. Otherwise they queue for the lock under a timeout, the
+15-second statement timeout or the test's own, and on a busy machine the last
+one fails.
 
 ### SDK test vectors
 
