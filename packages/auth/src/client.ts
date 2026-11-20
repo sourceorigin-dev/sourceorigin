@@ -3,7 +3,7 @@
  * then refresh, revocation, `UserInfo` and logout.
  */
 import * as base64 from './base64.ts';
-import { asciiLowercase, stepUpRequirement } from './challenge.ts';
+import { asciiLowercase, stepUpParameters, stepUpRequirement } from './challenge.ts';
 import { CLIENT_ID, scope, userInfo } from './claims.ts';
 import { AuthError } from './error.ts';
 import type { Reply } from './http.ts';
@@ -140,17 +140,6 @@ function formEncoded(value: string): string {
 }
 
 /**
- * Signs users in with one issuer as one client, from {@link Issuer.client}:
- *
- * ```ts
- * const client = issuer.client({ clientId: 'notes-web', clientSecret, redirectUri });
- * // 1. Redirect the browser to `url`; keep `pending` server-side under its state.
- * const { url, pending } = await client.authorize({ scopes: ['profile'] });
- * // 2. On the callback, take the pending login back, once, and complete it.
- * const tokens = await client.complete(pending, new URL(request.url).searchParams);
- * ```
- */
-/**
  * An RP-initiated logout request ({@link Client.logout}): the fields the browser posts
  * to auth's end-session endpoint, as a form, so the ID token naming the sign-in never
  * appears in a URL, a log or a `Referer`.
@@ -193,6 +182,17 @@ export class LogoutRequest {
   }
 }
 
+/**
+ * Signs users in with one issuer as one client, from {@link Issuer.client}:
+ *
+ * ```ts
+ * const client = issuer.client({ clientId: 'notes-web', clientSecret, redirectUri });
+ * // 1. Redirect the browser to `url`; keep `pending` server-side under its state.
+ * const { url, pending } = await client.authorize({ scopes: ['profile'] });
+ * // 2. On the callback, take the pending login back, once, and complete it.
+ * const tokens = await client.complete(pending, new URL(request.url).searchParams);
+ * ```
+ */
 export class Client {
   /** The issuer it signs in with. */
   readonly issuer: Issuer;
@@ -260,8 +260,7 @@ export class Client {
       code_challenge_method: 'S256'
     };
     if (request.prompt !== undefined) parameters.prompt = request.prompt;
-    if (pending.stepUp.acr_values !== undefined) parameters.acr_values = pending.stepUp.acr_values;
-    if (pending.stepUp.max_age !== undefined) parameters.max_age = String(pending.stepUp.max_age);
+    for (const [name, value] of stepUpParameters(pending.stepUp)) parameters[name] = value;
     if (request.idTokenHint !== undefined) parameters.id_token_hint = request.idTokenHint.token;
     const url = new URL(this.issuer.metadata.authorization_endpoint);
     const endpoint = this.issuer.metadata.pushed_authorization_request_endpoint;
@@ -472,7 +471,7 @@ export class Client {
     const tokens: Tokens = {
       accessToken: response.access_token,
       expiresAt: this.issuer.clock() + response.expires_in * 1000,
-      scopes: Scopes.parse(response.scope) ?? Scopes.checked([])
+      scopes: Scopes.fromWire(response.scope)
     };
     if (response.id_token !== undefined) {
       tokens.idToken = await this.issuer.tokens.idToken(

@@ -10,6 +10,7 @@ import {
   type Actor,
   AMR,
   type Audience,
+  type Confirmation,
   BACKCHANNEL_LOGOUT_EVENT,
   type IdTokenClaims,
   type LogoutEvents,
@@ -39,6 +40,9 @@ export const scope = json.refine('a scope list', (value) => Scopes.parse(value)?
 /** `act` (RFC 8693 §4.1), nested for delegation chains. */
 const actor: json.Decoder<Actor> = (value, path) =>
   json.object({ sub: json.string, act: json.optional(actor) })(value, path);
+
+/** `cnf` (RFC 7800), naming the key a token is bound to. */
+const confirmation: json.Decoder<Confirmation> = json.object({ jkt: json.optional(json.string) });
 
 /** How the session behind a token authenticated. An empty `amr` is left out, as Rust writes it. */
 const authentication = {
@@ -72,7 +76,7 @@ export const accessTokenClaims: json.Decoder<AccessTokenClaims> = json.object({
   exp: json.seconds,
   nbf: json.optional(json.seconds),
   act: json.optional(actor),
-  cnf: json.optional(json.object({ jkt: json.optional(json.string) })),
+  cnf: json.optional(confirmation),
   ...authentication,
   ...profile
 });

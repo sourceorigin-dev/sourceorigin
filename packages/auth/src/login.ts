@@ -12,10 +12,10 @@
  * access token's lifetime even while auth is unreachable.
  */
 import * as base64 from './base64.ts';
-import { readAcrValues, readMaxAge } from './challenge.ts';
+import { readAcrValues, readMaxAge, stepUpParameters } from './challenge.ts';
 import type { Client } from './client.ts';
 import { AuthError } from './error.ts';
-import { Http } from './http.ts';
+import { Http, TIMED_OUT } from './http.ts';
 import {
   COOKIE_PREFIX,
   DEFAULT_SESSION_LIFETIME,
@@ -40,9 +40,6 @@ import { AuthenticatedToken, type LogoutToken } from './token.ts';
 const MAX_LOGOUT_REQUEST = 64 * 1024;
 /** Methods that must not change anything, so any origin may send them with the session cookie. */
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS', 'TRACE']);
-
-/** What {@link Promise.race} resolves to when a deadline passes first. */
-const TIMED_OUT: unique symbol = Symbol('timed out');
 
 /** How {@link Login} signs users in and keeps their sessions. */
 export type LoginOptions = {
@@ -345,8 +342,7 @@ export class Login {
     const returnTo = Login.#returnTo(Login.#page(request));
     if (returnTo !== undefined) query.append('return_to', returnTo);
     if (stepUp !== undefined) {
-      if (stepUp.acr_values !== undefined) query.append('acr_values', stepUp.acr_values);
-      if (stepUp.max_age !== undefined) query.append('max_age', String(stepUp.max_age));
+      for (const [name, value] of stepUpParameters(stepUp)) query.append(name, value);
       query.append('step_up', 'true');
     }
     return Login.#redirect(`${this.#mount}/login?${query.toString()}`);
@@ -481,6 +477,11 @@ export class Login {
     request: Request,
     cookies: Map<string, string>
   ): Promise<SignedIn | 'unavailable' | null> {
+    /** Ends the session: the response clears its cookie, and nobody is signed in. */
+    const end = () => {
+      cookies.set(this.#sessionCookie, Login.#clearCookie(this.#sessionCookie));
+      return null;
+    };
     // The `GET` a step-up login returns to is its retry, and uses up the marker.
     // Another tab loading the same page within the minute would use it instead.
     const marker = Login.#cookie(request, this.#stepUpCookie);
@@ -491,17 +492,11 @@ export class Login {
     if (retry) cookies.set(this.#stepUpCookie, Login.#clearCookie(this.#stepUpCookie));
     const opened = await this.openSession(request);
     if (opened === 'absent') return null;
-    if (opened === 'ended') {
-      cookies.set(this.#sessionCookie, Login.#clearCookie(this.#sessionCookie));
-      return null;
-    }
+    if (opened === 'ended') return end();
     let login = opened;
     if (login.refreshToken !== undefined && login.expiresAt <= this.now() + REFRESH_MARGIN) {
       const refreshed = await this.#refresh(login);
-      if (refreshed === 'ended') {
-        cookies.set(this.#sessionCookie, Login.#clearCookie(this.#sessionCookie));
-        return null;
-      }
+      if (refreshed === 'ended') return end();
       if (refreshed === 'kept') {
         if (login.expiresAt <= this.now()) return 'unavailable';
       } else {
@@ -517,10 +512,7 @@ export class Login {
       }
     }
     // The session may have reached its end while the refresh ran.
-    if (login.endsAt <= this.now()) {
-      cookies.set(this.#sessionCookie, Login.#clearCookie(this.#sessionCookie));
-      return null;
-    }
+    if (login.endsAt <= this.now()) return end();
     return SignedIn.from(this, login, request, retry);
   }
 
@@ -534,10 +526,7 @@ export class Login {
     if (refreshToken === undefined) return 'kept';
     let tokens;
     try {
-      tokens = await Login.#within(
-        REFRESH_DEADLINE,
-        this.client.refresh(refreshToken, login.claims)
-      );
+      tokens = await Http.within(REFRESH_DEADLINE, this.client.refresh(refreshToken, login.claims));
     } catch (error) {
       if (!(error instanceof AuthError)) throw error;
       // Auth refused the refresh token: the grant is over.
@@ -558,28 +547,6 @@ export class Login {
   }
 
   /**
-   * `promise`'s result, or {@link TIMED_OUT} once `milliseconds` pass first. The
-   * operation itself goes on, and its late result or failure is ignored.
-   */
-  static async #within<T>(
-    milliseconds: number,
-    promise: Promise<T>
-  ): Promise<T | typeof TIMED_OUT> {
-    promise.catch(() => undefined);
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const deadline = new Promise<typeof TIMED_OUT>((resolve) => {
-      timer = setTimeout(() => {
-        resolve(TIMED_OUT);
-      }, milliseconds);
-    });
-    try {
-      return await Promise.race([promise, deadline]);
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-
-  /**
    * Revokes the grant of `login`, a sign-in the callback refuses after redeeming its
    * code, so it does not live on at auth unused. A failure is logged by
    * {@link Login.#revoke} and changes nothing: the refusal stands either way.
@@ -596,7 +563,7 @@ export class Login {
   async #revoke(refreshToken: string): Promise<boolean> {
     let revoked;
     try {
-      revoked = await Login.#within(REVOCATION_DEADLINE, this.client.revoke(refreshToken));
+      revoked = await Http.within(REVOCATION_DEADLINE, this.client.revoke(refreshToken));
     } catch (error) {
       if (!(error instanceof AuthError)) throw error;
       console.warn('@sourceorigin/auth: a refresh token could not be revoked', error);

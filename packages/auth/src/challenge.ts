@@ -88,6 +88,17 @@ export function stepUpRequirement(source: StepUpRequirement): StepUpRequirement 
 }
 
 /**
+ * The authorization request parameters asking for `requirement`: its `acr_values` and
+ * `max_age`, those it names.
+ */
+export function stepUpParameters(requirement: StepUpRequirement): [string, string][] {
+  const parameters: [string, string][] = [];
+  if (requirement.acr_values !== undefined) parameters.push(['acr_values', requirement.acr_values]);
+  if (requirement.max_age !== undefined) parameters.push(['max_age', String(requirement.max_age)]);
+  return parameters;
+}
+
+/**
  * Finds the Bearer challenge in a `WWW-Authenticate` value, following the RFC 9110
  * §11 grammar: parameters in any order with token or quoted values, and other
  * challenges in the same header, including `token68` ones. Returns `undefined` when

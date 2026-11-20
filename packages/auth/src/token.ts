@@ -160,7 +160,7 @@ export class AccessToken<
     super(claims, context);
     this.extra = extra;
     this.subject = subject;
-    this.scopes = Scopes.parse(claims.scope) ?? Scopes.checked([]);
+    this.scopes = Scopes.fromWire(claims.scope);
   }
 
   /**
