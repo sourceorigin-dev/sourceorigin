@@ -89,7 +89,7 @@ impl AuthorizationParameters {
         self.max_age()?;
         let interaction = self.interaction()?;
         let lifetime = if pushed {
-            Duration::seconds(PUSHED_REQUEST_SECONDS)
+            Duration::seconds(PUSHED_REQUEST_SECONDS.into())
         } else {
             Duration::minutes(AUTHORIZATION_REQUEST_MINUTES)
         };

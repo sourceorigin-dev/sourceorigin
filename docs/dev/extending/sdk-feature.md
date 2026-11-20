@@ -87,7 +87,18 @@ pub fn picture(&self) -> Option<&str> {
 
 `sourceorigin_auth::protocol` re-exports the shared modules by name, in
 `crates/auth-sdk/src/lib.rs`: that list is the SDK's contract, so a new
-protocol module joins it.
+protocol module joins it. `constants` stays out: its limits are how the SDKs
+behave, not part of the wire format.
+
+A limit, lifetime or name both SDKs apply goes in `sdk_constants!` in
+`crates/common/src/protocol/constants.rs`, or beside its wire type. The Rust SDK
+imports it from there, and `just sdk-types` writes it into `protocol.ts`,
+durations in milliseconds. A constant of a type that does not implement
+`Literal` in `crates/common/src/protocol/typescript.rs` yet needs it there: an
+integer or a duration joins the `number!` or `milliseconds!` list, anything
+else gets its own `impl`, as `&str` has. A module that starts declaring
+constants also joins `generate()` in the same file, with
+`.constants(<module>::typescript())`.
 
 ## 5. Add it to the TypeScript SDK
 
@@ -98,8 +109,10 @@ In `packages/auth/src`, mirror the Rust SDK:
    `picture: json.optional(json.string)`.
 2. A new value of a closed vocabulary needs nothing more: `just sdk-types`
    writes it into the vocabulary's list in `protocol.ts`, which the decoders
-   read. A new closed vocabulary gets its list's name in the `closed!` call in
-   `crates/common/src/protocol/typescript.rs`.
+   read. A new closed vocabulary takes two lines in
+   `crates/common/src/protocol/typescript.rs`: its list's name in the `closed!`
+   call, and `.closed::<T>()` in `generate()`, which writes the list beside the
+   union.
 3. Expose it under the Rust SDK's name, as the `picture` getter of `SignedIn`
    does in `login.ts`.
 

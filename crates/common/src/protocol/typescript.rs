@@ -1,6 +1,7 @@
 //! Writes `packages/auth/src/protocol.ts`, the TypeScript SDK's declarations of these
-//! wire types, with ts-rs. Without `UPDATE_SDK_TYPES=1` it only compares, so
-//! `just test` fails while the committed file is stale; `just sdk-types` rewrites it.
+//! wire types and of the constants `sdk_constants!` declares, with ts-rs. Without
+//! `UPDATE_SDK_TYPES=1` it only compares, so `just test` fails while the committed
+//! file is stale; `just sdk-types` rewrites it.
 //!
 //! The structs derive `TS` under `cfg(test)`, so ts-rs stays a dev-dependency. Types
 //! that serialize by hand implement it here, from the same values serde writes:
@@ -22,7 +23,8 @@ use super::{
     metadata::ServerMetadata,
     oauth::{
         ClientAuthMethod, CodeChallengeMethod, ErrorCode, ErrorDescription, ErrorResponse,
-        GrantType, Prompt, ResponseMode, ResponseType, Scope, Scopes, SubjectType,
+        GrantType, Prompt, PushedAuthorization, ResponseMode, ResponseType, Scope, Scopes,
+        SubjectType, TokenResponse,
     },
     sdk::{ErrorCategory, ErrorReason, SdkError},
     step_up::StepUpRequirement,
@@ -35,7 +37,8 @@ use ts_rs::{Config, TS};
 /// Opens the generated file.
 const HEADER: &str = "\
 // Generated from sourceorigin_common::protocol by `just sdk-types`. Do not edit.
-// The wire types auth and every SDK share; docs/dev/architecture/sdk.md describes them.
+// The wire types and constants auth and every SDK share; docs/dev/architecture/sdk.md
+// describes them.
 ";
 
 /// Implements `TS` for a type declared in the generated file.
@@ -195,6 +198,8 @@ macro_rules! milliseconds {
 number!(u8, usize);
 milliseconds!(TimeDelta => num_milliseconds, Duration => as_millis);
 
+/// Writes strings as their own literal type, with Rust's escapes, so a string
+/// constant must need none, as `union`'s spellings do.
 impl Literal for &str {
     fn ty(&self) -> Option<&'static str> {
         None
@@ -269,7 +274,7 @@ impl Declarations {
         self.text.push_str("\n/**\n");
         for line in docs.lines() {
             self.text.push_str(" * ");
-            self.text.push_str(line.trim());
+            self.text.push_str(line.strip_prefix(' ').unwrap_or(line));
             self.text.push('\n');
         }
         let ty = ty.map(|ty| format!(": {ty}")).unwrap_or_default();
@@ -372,6 +377,8 @@ fn generate() -> String {
         .closed::<Scope>()
         .add::<ErrorCode>()
         .add::<ErrorResponse>()
+        .add::<TokenResponse>()
+        .add::<PushedAuthorization>()
         // challenge
         .add::<BearerChallenge>()
         .add::<BearerError>()

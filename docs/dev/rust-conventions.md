@@ -4,20 +4,20 @@ Keep implementations simple. Follow neighbouring modules and share repeated logi
 
 ## Crates
 
-- `sourceorigin-common` (`crates/common`): the one home for shared types, depending on
-  no other workspace crate. IDs, handles, account status, authentication methods,
-  providers, `Personal<T>`, error-chain formatting, `str_enum!`, the client
-  registration types (`clients`), and under `protocol` the wire types shared with
-  the SDKs: token claims, metadata, JWK sets, OAuth/OIDC vocabulary and errors,
-  bearer challenges, step-up requirements, SDK error codes and the constants both
-  SDKs apply, the bodies of auth's
-  settings API, and the same-origin rule for browser requests. The rest are
-  features: `admin` (the views of administration, which the admin dashboard
-  shows, the CLI prints as JSON and the database crate decodes into),
-  `client-spans` (`SendTraced`, client spans around `reqwest` requests, for auth
-  and the SDK), `config` (environment variables, validated origins, secret
-  references), `email` (address normalization), `events` (domain events) and
-  `sqlx` (column decoding, enabled only by the database crate).
+- `sourceorigin-common` (`crates/common`): the one home for shared types,
+  depending on no other workspace crate. IDs, handles, account status,
+  authentication methods, providers, `Personal<T>`, error-chain formatting,
+  `str_enum!`, the client registration types (`clients`), and under `protocol` the
+  wire types shared with the SDKs: token claims, metadata, JWK sets, OAuth/OIDC
+  vocabulary and errors, bearer challenges, step-up requirements, SDK error codes
+  and the constants both SDKs apply, the bodies of auth's settings API, and the
+  same-origin rule for browser requests. The rest are features: `admin` (the views
+  of administration, which the admin dashboard shows, the CLI prints as JSON and
+  the database crate decodes into), `client-spans` (`SendTraced`, client spans
+  around `reqwest` requests, for auth and the SDK), `config` (environment
+  variables, validated origins, secret references), `email` (address
+  normalization), `events` (domain events) and `sqlx` (column decoding, enabled
+  only by the database crate).
 - `sourceorigin-crypto` (`crates/crypto`): random secrets, digests, HMAC, constant-time
   comparison, PKCE, RS256 signing, key sets, AES-256-GCM sealing of keys at rest,
   Ed25519 signed notes, for audit checkpoints, and SCRAM-SHA-256 verifiers of
