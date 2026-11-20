@@ -192,10 +192,12 @@ The `token-digest-key` secret, `AUTH_TOKEN_DIGEST_KEY`, appears outside the
 environment: in a backup, a log, or on a compromised host.
 
 Auth stores refresh tokens, authorization codes and pending logins as HMAC
-digests under this key, and email verification, recovery and unsubscribe links
-derive from it. With the key and the ID of an address, a recovery or an account,
-someone can rebuild the link auth sent for it. An unsubscribe link only turns
-that account's announcements' email off, but it never expires.
+digests under this key, and the links of its emails derive from it: email
+verification, recovery, invitation, unsubscribe and sign-out links. With the key
+and the ID of an address, a recovery, an invitation, an account or a
+notification, someone can rebuild the link auth sent for it. An unsubscribe link
+only turns that account's announcements' email off, but it never expires. A
+sign-out link only signs its account out everywhere.
 
 ### What to do
 
@@ -228,20 +230,26 @@ For a leaked key, replace it at once instead:
      which locks the account holder out if the passkey was theirs. Ask the
      holder, through a channel support already trusts, whether they used it,
      and undo it only if they didn't.
+4. Revoke, with `auth-service invite revoke`, the invitations created before
+   the new key was deployed, which `auth-service invite list` lists, and invite
+   again: each invitation's link works until the invitation expires, 7 days by
+   default and up to a year, and **Resend** rebuilds it under the old key, which
+   no longer works.
 
 Links already sent are checked against the digest stored when they were made,
-so they keep working until they expire, within 24 hours. That includes the
-links that confirm an email address: for that day, someone with the old key
-could confirm an address an account added but hasn't confirmed yet.
-Unsubscribe links are checked by deriving them again, so those built from the
-old key stop working once the new key replaces it.
+so verification and recovery links keep working until they expire, within 24
+hours. For that day, someone with the old key could confirm an address an
+account added but hasn't confirmed yet.
+Unsubscribe and sign-out links are checked by deriving them again, so those
+built from the old key stop working once the new key replaces it.
 
 ### Check that it's over
 
 - `auth-service keys digest-usage` counts new digests under `current`, and the
   old ones as `unknown` until cleanup deletes them.
-- 24 hours have passed since the deployment, so every link derived from the
-  old key has expired.
+- 24 hours have passed since the deployment, so every verification and
+  recovery link derived from the old key has expired, and `invite list` shows
+  no open invitation created before it.
 
 ## A leaked database password
 
@@ -382,7 +390,8 @@ while the command line may.
    auth-service audit verify
    ```
 
-A change made at the terminal records its operator's `$USER` and host name. One
+A change made at the terminal records its operator's name (`--operator`,
+`AUTH_OPERATOR` or `$USER`) and host name. One
 that nobody made points at a compromised host: treat the secrets on it as
 leaked, starting with the runbooks above.
 
@@ -453,8 +462,9 @@ tailnet, PostgreSQL, DNS, the tunnel, Grafana and Resend (see
 
 ### How you notice
 
-- Users don't receive verification, recovery or notice emails.
-- On the Auth overview dashboard's **Deliveries** row, the `email` channel's
+- Users don't receive verification, recovery, notice, invitation or
+  announcement emails.
+- On the Auth overview dashboard's **Deliveries** row, a mail channel's
   **Pending deliveries** grow, its **Oldest pending delivery** gets older, and
   **Delivery attempts** show retries or failures.
 
@@ -467,12 +477,14 @@ tailnet, PostgreSQL, DNS, the tunnel, Grafana and Resend (see
    auth-service deliveries list --channel email --status failed
    ```
 
-   Each delivery's last error is the SMTP reply code.
+   Run them again with `--channel invitation` and `--channel announcement`,
+   which send invitations and announcements. Each delivery's last error is the
+   SMTP reply code.
 2. Fix the cause the code points at:
    - **`535`, `530` or `534`**: Resend rejected the key. Store a working one, as
      [rotate a Resend key](email.md#rotate-a-resend-key) describes. Rejected
-     logins retry for 24 hours, so mail queued meanwhile goes out once auth runs
-     with the new key.
+     logins retry for 24 hours, or 72 for invitations and announcements, so mail
+     queued meanwhile goes out once auth runs with the new key.
    - **Another `5xx`**: Resend refused the message for good, and the delivery
      failed. Check the sending domain's status and its
      [DNS records](email.md#dns-records) in Resend's dashboard.
@@ -484,7 +496,7 @@ tailnet, PostgreSQL, DNS, the tunnel, Grafana and Resend (see
    auth-service deliveries retry <id> --reason "Mail back up"
    ```
 
-   A retry makes the delivery due now, and gives it another 24 hours. On the
+   A retry makes the delivery due now, and gives it another 24 hours, or 72. On the
    dashboard's **Deliveries** page, select **Retry**.
 
 Mail that arrives but lands in spam points at the

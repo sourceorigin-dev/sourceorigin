@@ -10,13 +10,15 @@ Keep implementations simple. Follow neighbouring modules and share repeated logi
   registration types (`clients`), and under `protocol` the wire types shared with
   the SDKs: token claims, metadata, JWK sets, OAuth/OIDC vocabulary and errors,
   bearer challenges, step-up requirements, SDK error codes, the bodies of auth's
-  settings API, and the same-origin rule for browser requests. The rest are
-  features: `admin` (the views of administration, which the admin dashboard
+  settings API, the same-origin rule for browser requests, and the browser
+  isolation headers every response of auth and sourceorigin.dev carries
+  (`isolation`). The rest are features: `admin` (the views of administration, which the admin dashboard
   shows, the CLI prints as JSON and the database crate decodes into),
   `client-spans` (`SendTraced`, client spans around `reqwest` requests, for auth
   and the SDK), `config` (environment variables, validated origins, secret
-  references), `email` (address normalization), `events` (domain events) and
-  `sqlx` (column decoding, enabled only by the database crate).
+  references), `email` (address normalization), `events` (domain events),
+  `similarity` (look-alike detection for handles and client names) and `sqlx`
+  (column decoding, enabled only by the database crate).
 - `sourceorigin-crypto` (`crates/crypto`): random secrets, digests, HMAC, constant-time
   comparison, PKCE, RS256 signing, key sets, AES-256-GCM sealing of keys at rest,
   Ed25519 signed notes, for audit checkpoints, and SCRAM-SHA-256 verifiers of
@@ -24,9 +26,9 @@ Keep implementations simple. Follow neighbouring modules and share repeated logi
 - `sourceorigin-auth` (`crates/auth-sdk`): the public Rust SDK, following
   [sdk.md](architecture/sdk.md): token validation, typed scopes, login and the JWKS cache auth
   also uses for Google; its `axum` feature adds extractors, a bearer layer and
-  login routes over an application's own session backend. It depends only on
-  `sourceorigin-common`, with `client-spans` alone, among the workspace crates, since
-  it is published.
+  login routes over an application's own session backend. Among the workspace
+  crates it depends only on `sourceorigin-common`, with `client-spans` alone, and
+  `sourceorigin-crypto`, since it is published.
 - `sourceorigin-repository` (`crates/database`): the only SQLx consumer; PostgreSQL
   connections, migrations, typed repositories, transactions and storage
   vocabulary.
@@ -90,10 +92,11 @@ safe underlying sources. Parse configuration into validated types such as `Origi
 at startup; downstream code uses those values without revalidation.
 OIDC clients are not configuration: they live in the database (see below).
 
-`AuthConfig` combines `PasskeyConfig`, `FederationConfig` and `OidcConfig`, each with
+`AuthConfig` combines one section per application, such as `PasskeyConfig`,
+`FederationConfig`, `OidcConfig`, `EmailConfig` and `AuditConfig`, each with
 `from_environment`. Use `Config` and `ConfigError` suffixes for feature settings.
 `SecretReference` resolves `env://` and `file://` references into redacted bytes;
-`utf8` borrows their text. Load persistent keys and provider secrets before serving.
+`SecretBytes::text` reads their text, without one trailing line ending. Load persistent keys and provider secrets before serving.
 
 ## Applications and routes
 
@@ -230,10 +233,10 @@ disabled and says it waits for the passkey, and the form's last error hides. A
 which a `data-dismisses` button with that key stores as it hides the element;
 without local storage, it shows on every page. A hint renders hidden, so it never
 flashes once dismissed, and the recovery question renders shown, so it asks without
-scripts too. A `data-copy` button copies
-a value, and a `data-replace-url` element makes a page that shows a secret reload by
-`GET`. The script is plain JavaScript, embedded as written: `tsc` checks its JSDoc
-types, and ESLint lints it as it does the browser tests.
+scripts too. A `data-replace-url` element makes a page that shows a secret reload
+by `GET`, and the copy script (`assets/copy.js`) makes a `data-copy` button copy a
+value. The scripts are plain JavaScript, embedded as written: `tsc` checks their
+JSDoc types, and ESLint lints them as it does the browser tests.
 
 Administrative operations are methods of `AdminService` (`src/admin/service`);
 the admin dashboard's pages (`src/web/admin`) and the CLI's commands (`src/cli`)

@@ -13,8 +13,8 @@ ending (`\n` or `\r\n`), as a file ends when a shell or an editor writes it. The
 same value therefore gives the same secret through `env://` and `file://`.
 Anything else, such as a second newline or spaces, is part of the secret. The
 token digest keys are the one exception: their raw bytes are the key, trailing
-newline included, as they always were, since reading them another way would
-change every stored digest. Auth zeroizes every secret it holds when it is done
+newline included, since reading them another way would change every stored
+digest. Auth zeroizes every secret it holds when it is done
 with it. The database and SMTP passwords are the exception once handed over: SQLx
 and lettre keep their own copies as plain strings.
 
