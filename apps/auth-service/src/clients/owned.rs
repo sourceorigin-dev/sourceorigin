@@ -406,6 +406,24 @@ impl AccountService {
             .await?)
     }
 
+    /// Runs `change` on the client registry in one transaction, attributed to
+    /// `owner`, once they confirmed with a passkey under the account lock, and
+    /// commits it. The registry records each change's event itself.
+    async fn change_clients<T, E>(
+        &self,
+        owner: &Owner,
+        change: impl AsyncFnOnce(&mut ClientRegistry<'_, '_>) -> Result<T, E>,
+    ) -> Result<T, AccountError>
+    where
+        AccountError: From<E>,
+    {
+        let mut tx = self.database.begin().await?;
+        owner.lock_confirmed(&mut tx).await?;
+        let value = change(&mut ClientRegistry::new(&mut tx, owner.context())).await?;
+        tx.commit().await?;
+        Ok(value)
+    }
+
     /// Registers a client the owner manages, with an ID auth generates, once they
     /// confirmed with a passkey, and returns it with a confidential client's
     /// secret, which nothing shows again. Invalid settings are refused before the
@@ -416,22 +434,18 @@ impl AccountService {
         owner: &Owner,
         new: NewClient,
     ) -> Result<(OwnedClientView, Option<ClientSecret>), AccountError> {
-        let random = Secret::generate()
-            .map_err(ClientRegistryError::from)
-            .map_err(OwnedClientError::from)?;
+        let random = Secret::generate().map_err(ClientRegistryError::from)?;
         let registration = new
             .settings
             .registration(ClientId::generated(random.as_bytes()), new.kind)
             .map_err(OwnedClientError::from)?;
-        let mut tx = self.database.begin().await?;
-        owner.lock_confirmed(&mut tx).await?;
-        let secret = ClientRegistry::new(&mut tx, owner.context())
-            .create(ClientOwner::Account(owner.user()), &registration, None)
-            .await
-            .map_err(OwnedClientError::from)?;
-        let client = Self::read_client(&mut tx, &registration.id).await?;
-        tx.commit().await?;
-        Ok((client, secret))
+        self.change_clients(owner, async |clients| {
+            let owned_by = ClientOwner::Account(owner.user());
+            let secret = clients.create(owned_by, &registration, None).await?;
+            let client = Self::read_client(clients.tx, &registration.id).await?;
+            Ok::<_, AccountError>((client, secret))
+        })
+        .await
     }
 
     /// Changes the given settings of an owner's client, once they confirmed with
@@ -444,17 +458,16 @@ impl AccountService {
         owned: &OwnedClient,
         patch: ClientPatch,
     ) -> Result<OwnedClientView, AccountError> {
-        let OwnedClient { owner, client } = owned;
-        let mut tx = self.database.begin().await?;
-        owner.lock_confirmed(&mut tx).await?;
-        ClientRegistry::new(&mut tx, owner.context())
-            .update(&client.id, |current| {
-                patch.apply(current).map_err(OwnedClientError::from)
-            })
-            .await?;
-        let client = Self::read_client(&mut tx, &client.id).await?;
-        tx.commit().await?;
-        Ok(client)
+        let id = &owned.client.id;
+        self.change_clients(&owned.owner, async |clients| {
+            clients
+                .update(id, |current| {
+                    patch.apply(current).map_err(OwnedClientError::from)
+                })
+                .await?;
+            Self::read_client(clients.tx, id).await
+        })
+        .await
     }
 
     /// Enables or disables an owner's client, once they confirmed with a passkey.
@@ -466,14 +479,10 @@ impl AccountService {
         owned: &OwnedClient,
         enabled: bool,
     ) -> Result<(), AccountError> {
-        let OwnedClient { owner, client } = owned;
-        let mut tx = self.database.begin().await?;
-        owner.lock_confirmed(&mut tx).await?;
-        ClientRegistry::new(&mut tx, owner.context())
-            .set_enabled(&client.id, enabled)
-            .await
-            .map_err(OwnedClientError::from)?;
-        Ok(tx.commit().await?)
+        self.change_clients(&owned.owner, async |clients| {
+            clients.set_enabled(&owned.client.id, enabled).await
+        })
+        .await
     }
 
     /// Gives an owner's confidential client a new secret, once they
@@ -484,28 +493,19 @@ impl AccountService {
         owned: &OwnedClient,
         grace: GracePeriod,
     ) -> Result<ClientSecret, AccountError> {
-        let OwnedClient { owner, client } = owned;
-        let mut tx = self.database.begin().await?;
-        owner.lock_confirmed(&mut tx).await?;
-        let secret = ClientRegistry::new(&mut tx, owner.context())
-            .rotate_secret(&client.id, grace)
-            .await
-            .map_err(OwnedClientError::from)?;
-        tx.commit().await?;
-        Ok(secret)
+        self.change_clients(&owned.owner, async |clients| {
+            clients.rotate_secret(&owned.client.id, grace).await
+        })
+        .await
     }
 
     /// Deletes an owner's client for good, once they confirmed with a
     /// passkey: it stops working at once, and its ID is never used again.
     pub(crate) async fn delete_client(&self, owned: &OwnedClient) -> Result<(), AccountError> {
-        let OwnedClient { owner, client } = owned;
-        let mut tx = self.database.begin().await?;
-        owner.lock_confirmed(&mut tx).await?;
-        ClientRegistry::new(&mut tx, owner.context())
-            .delete(&client.id)
-            .await
-            .map_err(OwnedClientError::from)?;
-        Ok(tx.commit().await?)
+        self.change_clients(&owned.owner, async |clients| {
+            clients.delete(&owned.client.id).await
+        })
+        .await
     }
 
     /// Reads back client `id` as the transaction changed it.
@@ -519,6 +519,14 @@ impl AccountService {
             .await?
             .map(OwnedClientView::from)
             .ok_or(OwnedClientError::NotFound)?)
+    }
+}
+
+impl From<ClientRegistryError> for AccountError {
+    /// A registry failure of one of the owner's clients, as [`OwnedClientError`]
+    /// reports it.
+    fn from(error: ClientRegistryError) -> Self {
+        OwnedClientError::from(error).into()
     }
 }
 
