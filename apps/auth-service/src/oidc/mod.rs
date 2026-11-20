@@ -58,7 +58,7 @@ use std::sync::Arc;
 use url::Url;
 
 /// Lifetime of signed access and ID tokens; kept short because they cannot be revoked.
-pub(crate) const ACCESS_TOKEN_SECONDS: i64 = 300;
+pub(crate) const ACCESS_TOKEN_SECONDS: u32 = 300;
 /// Maximum byte length of `state` and `nonce`.
 const MAX_STATE_BYTES: usize = 512;
 /// Maximum length of the base64 part of an HTTP Basic header.
@@ -70,7 +70,7 @@ const MAX_SCOPES: usize = 16;
 /// How long a pending authorization waits for login and consent.
 const AUTHORIZATION_REQUEST_MINUTES: i64 = 10;
 /// How long a pushed request waits for the browser to bring its `request_uri`.
-const PUSHED_REQUEST_SECONDS: i64 = 60;
+const PUSHED_REQUEST_SECONDS: u32 = 60;
 /// How long an authorization code stays redeemable.
 const AUTHORIZATION_CODE_MINUTES: i64 = 2;
 /// Developer documentation advertised in the metadata.

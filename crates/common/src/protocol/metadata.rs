@@ -16,8 +16,10 @@ use url::Url;
 
 /// Path of the RFC 8414 document. The issuer is an origin, so no path is inserted.
 pub const OAUTH_AUTHORIZATION_SERVER_PATH: &str = "/.well-known/oauth-authorization-server";
-/// Path of the OIDC Discovery document.
-pub const OPENID_CONFIGURATION_PATH: &str = "/.well-known/openid-configuration";
+super::sdk_constants! {
+    /// Path of the OIDC Discovery document.
+    pub const OPENID_CONFIGURATION_PATH: &str = "/.well-known/openid-configuration";
+}
 
 /// The metadata Origin Auth publishes. Every field it sends is required, except the
 /// PKCE methods, so a client parsing it learns of a missing capability at once. Lists

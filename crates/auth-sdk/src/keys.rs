@@ -8,6 +8,10 @@ use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use chrono::{DateTime, TimeDelta, Utc};
 use serde::Deserialize;
 use sourceorigin_common::protocol::{
+    constants::{
+        DEFAULT_KEYS_LIFETIME, KEYS_STALE_AFTER, MAX_KEYS_LIFETIME, MEDIA_TYPE_PREFIX,
+        MIN_KEY_FETCH_INTERVAL,
+    },
     jwt::{Algorithm, Jwk, JwkSet, TokenType},
     sdk::{ErrorCategory, ErrorReason, SdkError},
 };
@@ -19,20 +23,6 @@ use std::{
 };
 use thiserror::Error;
 use url::Url;
-
-/// Shortest time between two key fetches, whatever triggers them. Bounds how often
-/// unknown key IDs or an outage can make the cache call the issuer.
-const MIN_FETCH_INTERVAL: TimeDelta = TimeDelta::seconds(30);
-/// How long keys keep verifying once they stop being fresh, while every refresh
-/// fails. Stale keys may still trust a revoked key, so they get the same bound
-/// auth gives its own: its `STALE_AFTER` (`apps/auth-service/src/keys/mod.rs`).
-const STALE_AFTER: TimeDelta = TimeDelta::minutes(15);
-/// How long fetched keys stay fresh when the response sets no `max-age`.
-const DEFAULT_LIFETIME: TimeDelta = TimeDelta::hours(1);
-/// Longest time fetched keys stay fresh, whatever `max-age` says.
-const MAX_LIFETIME: TimeDelta = TimeDelta::hours(24);
-/// `typ` media types may carry this prefix (RFC 7515 §4.1.9).
-const MEDIA_TYPE_PREFIX: &str = "application/";
 
 /// The protected header of a compact JWS.
 #[derive(Clone, Debug, Deserialize)]
@@ -349,11 +339,11 @@ impl CachedKeys {
     }
 
     /// The key named `kid`, if the keys hold it and may still verify at `now`: until
-    /// [`STALE_AFTER`] past their freshness, or always for a fixed set.
+    /// [`KEYS_STALE_AFTER`] past their freshness, or always for a fixed set.
     fn usable(&self, kid: &str, now: DateTime<Utc>) -> Option<&Key> {
         self.keys.find(kid).filter(|_| {
             self.fresh_until
-                .is_none_or(|until| now < until + STALE_AFTER)
+                .is_none_or(|until| now < until + KEYS_STALE_AFTER)
         })
     }
 }
@@ -540,7 +530,7 @@ impl KeyCache {
             let due = self.0.source.is_some()
                 && cached
                     .fetched_at
-                    .is_none_or(|at| now.signed_duration_since(at) >= MIN_FETCH_INTERVAL);
+                    .is_none_or(|at| now.signed_duration_since(at) >= MIN_KEY_FETCH_INTERVAL);
             if due {
                 // Counted as failed until it succeeds, so a fetch whose caller is
                 // cancelled mid-request still reports keys as unavailable.
@@ -585,13 +575,13 @@ impl KeyCache {
         // A `max-age` too large to represent is longer than the cap anyway.
         let lifetime = reply
             .max_age
-            .map_or(DEFAULT_LIFETIME, |seconds| {
+            .map_or(DEFAULT_KEYS_LIFETIME, |seconds| {
                 i64::try_from(seconds)
                     .ok()
                     .and_then(TimeDelta::try_seconds)
-                    .unwrap_or(MAX_LIFETIME)
+                    .unwrap_or(MAX_KEYS_LIFETIME)
             })
-            .clamp(MIN_FETCH_INTERVAL, MAX_LIFETIME);
+            .clamp(MIN_KEY_FETCH_INTERVAL, MAX_KEYS_LIFETIME);
         Ok((KeySet::parse(&reply.body)?, lifetime))
     }
 }

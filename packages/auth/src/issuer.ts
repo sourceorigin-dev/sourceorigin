@@ -11,18 +11,16 @@ import {
   CLIENT_AUTH_METHODS,
   CODE_CHALLENGE_METHODS,
   GRANT_TYPES,
+  OPENID_CONFIGURATION_PATH,
   RESPONSE_MODES,
   RESPONSE_TYPES,
   SCOPES,
-  SUBJECT_TYPES,
-  type ServerMetadata
+  type ServerMetadata,
+  SUBJECT_TYPES
 } from './protocol.ts';
 import { Resource, type ResourceConfig } from './resource.ts';
 import type { Clock } from './time.ts';
 import { TokenValidator } from './token.ts';
-
-/** Where an issuer publishes its metadata (OIDC Discovery 1.0 §4.1). */
-const OPENID_CONFIGURATION_PATH = '/.well-known/openid-configuration';
 
 const serverMetadata: json.Decoder<ServerMetadata> = json.object({
   issuer: json.string,

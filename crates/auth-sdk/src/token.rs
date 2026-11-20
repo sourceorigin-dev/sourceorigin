@@ -1,7 +1,7 @@
 //! Validated tokens, the checks they pass, and why a token is rejected.
 
-use crate::{Issuer, KeyError, LEEWAY, keys::Jws, scope::ScopeSet};
-use chrono::{DateTime, TimeDelta, Utc};
+use crate::{Issuer, KeyError, keys::Jws, scope::ScopeSet};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use sourceorigin_common::{
     ClientId, SessionId, TokenId, UserId,
@@ -11,6 +11,7 @@ use sourceorigin_common::{
             AccessTokenClaims, Acr, Actor, Amr, Audience, Confirmation, IdTokenClaims,
             LogoutTokenClaims, ProfileClaims,
         },
+        constants::{LEEWAY, MAX_LOGOUT_LIFETIME},
         jwt::{Algorithm, Claim, TokenType},
         oauth::Scopes,
         sdk::{ErrorCategory, ErrorReason, SdkError},
@@ -621,10 +622,6 @@ impl IdToken {
         TokenError::account(&self.claims.sub)
     }
 }
-
-/// Longest a logout token may be valid: auth signs each delivery attempt for two
-/// minutes, so a longer-lived token was not made for one attempt.
-const MAX_LOGOUT_LIFETIME: TimeDelta = TimeDelta::minutes(10);
 
 /// Which sessions a back-channel logout ends.
 #[derive(Clone, Debug, PartialEq, Eq)]

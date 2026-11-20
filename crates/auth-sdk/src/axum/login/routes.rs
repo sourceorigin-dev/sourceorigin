@@ -1,8 +1,6 @@
 //! The routes' handlers: starting a login, completing it, and both logouts.
 
-use super::{
-    Login, MAX_PENDING_COOKIE_BYTES, PENDING_LIFETIME, ReturnTo, STEP_UP_RETURN, SessionCookie,
-};
+use super::{Login, ReturnTo, SessionCookie};
 use crate::{
     Acr, AuthorizeRequest, CallbackParams, LoginError, RefreshToken, StepUpRequirement, TokenError,
     axum::{StoredLogin, seal::SealError, session::PendingAuthorization},
@@ -15,12 +13,13 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
 };
 use serde::Deserialize;
-use sourceorigin_common::ErrorChain;
-use std::{sync::Arc, time::Duration};
-
-/// Longest a session's revocation may hold up the sign-in or logout ending it,
-/// whatever the HTTP client's own timeout.
-const REVOCATION_DEADLINE: Duration = Duration::from_secs(5);
+use sourceorigin_common::{
+    ErrorChain,
+    protocol::constants::{
+        MAX_PENDING_COOKIE_BYTES, PENDING_LOGIN_LIFETIME, REVOCATION_DEADLINE, STEP_UP_RETRY,
+    },
+};
+use std::sync::Arc;
 
 /// The query of `GET /login`.
 #[derive(Deserialize)]
@@ -96,7 +95,7 @@ impl Login {
             return_to,
             step_up: query.step_up,
             subject,
-            expires_at: login.now() + PENDING_LIFETIME,
+            expires_at: login.now() + PENDING_LOGIN_LIFETIME,
         };
         // A `return_to` too long for the cookie returns home instead, or to the root
         // if home is too long too.
@@ -119,7 +118,7 @@ impl Login {
         let mut response = Redirect::to(url.as_str()).into_response();
         response.headers_mut().append(
             header::SET_COOKIE,
-            Self::set_cookie(&name, &sealed, PENDING_LIFETIME),
+            Self::set_cookie(&name, &sealed, PENDING_LOGIN_LIFETIME),
         );
         response
     }
@@ -261,7 +260,7 @@ impl Login {
             Self::set_cookie(
                 &self.cookies.step_up,
                 &Self::step_up_marker(pending.return_to.as_str()),
-                STEP_UP_RETURN,
+                STEP_UP_RETRY,
             )
         } else {
             Self::clear_cookie(&self.cookies.step_up)

@@ -283,8 +283,10 @@ pub struct IdTokenClaims {
     pub profile: ProfileClaims,
 }
 
-/// The `events` member every logout token carries (OIDC Back-Channel Logout 1.0 §2.4).
-pub const BACKCHANNEL_LOGOUT_EVENT: &str = "http://schemas.openid.net/event/backchannel-logout";
+super::sdk_constants! {
+    /// The `events` member every logout token carries (OIDC Back-Channel Logout 1.0 §2.4).
+    pub const BACKCHANNEL_LOGOUT_EVENT: &str = "http://schemas.openid.net/event/backchannel-logout";
+}
 
 /// A logout token's `events` claim, which must name [`BACKCHANNEL_LOGOUT_EVENT`].
 /// Every member's value must be a JSON object (RFC 8417 §2.2); their contents are

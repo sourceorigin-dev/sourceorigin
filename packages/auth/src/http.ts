@@ -5,11 +5,7 @@
 import { asciiLowercase } from './challenge.ts';
 import { AuthError } from './error.ts';
 import { DecodeError, parse } from './json.ts';
-
-/** Most bytes read from any response. Metadata, key sets and token responses are a few kilobytes. */
-const MAX_BODY_BYTES = 256 * 1024;
-/** How long a request may take, from sending it to its last body byte. */
-const TIMEOUT_MS = 10_000;
+import { MAX_RESPONSE_BYTES, REQUEST_DEADLINE } from './protocol.ts';
 
 /** The `fetch` the SDK sends requests with; inject one to proxy or mock them. */
 export type Fetch = (input: string, init: RequestInit) => Promise<Response>;
@@ -152,10 +148,10 @@ export class Http {
         reject(
           new AuthError(
             { code: 'network', url },
-            `request to ${url} took longer than ${String(TIMEOUT_MS / 1000)} seconds`
+            `request to ${url} took longer than ${String(REQUEST_DEADLINE / 1000)} seconds`
           )
         );
-      }, TIMEOUT_MS);
+      }, REQUEST_DEADLINE);
     });
     try {
       return await Promise.race([this.#exchange(url, init, controller.signal), deadline]);
@@ -198,14 +194,14 @@ export class Http {
     }
     let body: Uint8Array | undefined;
     try {
-      body = await Http.readBody(response.body, MAX_BODY_BYTES, signal);
+      body = await Http.readBody(response.body, MAX_RESPONSE_BYTES, signal);
     } catch (error) {
       throw failed(error);
     }
     if (body === undefined) {
       throw new AuthError(
         { code: 'network' },
-        `${url} sent more than ${String(MAX_BODY_BYTES)} bytes`
+        `${url} sent more than ${String(MAX_RESPONSE_BYTES)} bytes`
       );
     }
     return new Reply(url, response, body);

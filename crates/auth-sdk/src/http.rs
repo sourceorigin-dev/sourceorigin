@@ -6,17 +6,12 @@ use reqwest::{
     RequestBuilder, StatusCode,
     header::{self, HeaderMap},
 };
-use sourceorigin_common::SendTraced;
-use std::time::Duration;
+use sourceorigin_common::{
+    SendTraced,
+    protocol::constants::{MAX_RESPONSE_BYTES, REQUEST_DEADLINE},
+};
 use thiserror::Error;
 use url::Url;
-
-/// Most bytes read from any response. Metadata, key sets and token responses are a
-/// few kilobytes.
-const MAX_BODY_BYTES: usize = 256 * 1024;
-/// Longest a request may take, from connecting to its last body byte, whatever the
-/// client's own timeout.
-const DEADLINE: Duration = Duration::from_secs(10);
 
 /// Auth could not be reached, or answered outside its protocol.
 #[derive(Debug, Error)]
@@ -34,7 +29,7 @@ pub enum NetworkError {
         source: reqwest::Error,
     },
     /// The request did not finish within the SDK's 10-second deadline.
-    #[error("request to {url} took longer than {} seconds", DEADLINE.as_secs())]
+    #[error("request to {url} took longer than {} seconds", REQUEST_DEADLINE.as_secs())]
     TimedOut {
         /// Where the request went.
         url: Url,
@@ -60,7 +55,7 @@ pub enum NetworkError {
         status: u16,
     },
     /// The response body exceeds the SDK's limit.
-    #[error("{url} sent more than {MAX_BODY_BYTES} bytes")]
+    #[error("{url} sent more than {MAX_RESPONSE_BYTES} bytes")]
     TooLarge {
         /// Where the request went.
         url: Url,
@@ -73,7 +68,7 @@ pub(crate) struct Reply {
     pub(crate) status: StatusCode,
     /// How long `Cache-Control` lets the body be kept, in seconds, when it says.
     pub(crate) max_age: Option<u64>,
-    /// The body, at most [`MAX_BODY_BYTES`].
+    /// The body, at most [`MAX_RESPONSE_BYTES`].
     pub(crate) body: Vec<u8>,
 }
 
@@ -207,7 +202,7 @@ impl Http {
                 request.header(header::AUTHORIZATION, format!("Basic {credentials}"))
             }
         };
-        tokio::time::timeout(DEADLINE, Self::read(url, request))
+        tokio::time::timeout(REQUEST_DEADLINE, Self::read(url, request))
             .await
             .map_err(|source| NetworkError::TimedOut {
                 url: url.clone(),
@@ -233,7 +228,7 @@ impl Http {
         let max_age = Reply::max_age(response.headers());
         let mut body = Vec::new();
         while let Some(chunk) = response.chunk().await.map_err(failed)? {
-            if body.len() + chunk.len() > MAX_BODY_BYTES {
+            if body.len() + chunk.len() > MAX_RESPONSE_BYTES {
                 return Err(NetworkError::TooLarge { url: url.clone() });
             }
             body.extend_from_slice(&chunk);

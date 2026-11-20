@@ -5,31 +5,22 @@ import { AuthError } from './error.ts';
 import { type Fetch, Http, type Reply } from './http.ts';
 import * as json from './json.ts';
 import {
-  ALGORITHMS,
   type Algorithm,
+  ALGORITHMS,
+  DEFAULT_KEYS_LIFETIME,
   type Jwk,
   KEY_TYPES,
   KEY_USES,
+  KEYS_STALE_AFTER,
+  MAX_KEYS_LIFETIME,
+  MAX_MODULUS_BITS,
+  MAX_TOKEN_BYTES,
+  MEDIA_TYPE_PREFIX,
+  MIN_KEY_FETCH_INTERVAL,
+  MIN_MODULUS_BITS,
   type TokenType
 } from './protocol.ts';
 import type { Clock } from './time.ts';
-
-/** Most bytes accepted for a compact token, checked before decoding it. */
-const MAX_TOKEN_BYTES = 16 * 1024;
-/** Shortest time between two key fetches, whatever triggers them, in milliseconds. */
-const MIN_FETCH_INTERVAL = 30_000;
-/**
- * How long keys keep verifying once they stop being fresh, while every refresh fails,
- * in milliseconds. Stale keys may still trust a revoked key, so they get the same
- * bound auth gives its own: its `STALE_AFTER` (`apps/auth-service/src/keys/mod.rs`).
- */
-const STALE_AFTER = 15 * 60_000;
-/** How long fetched keys stay fresh when the response sets no `max-age`. */
-const DEFAULT_LIFETIME = 60 * 60_000;
-/** Longest time fetched keys stay fresh, whatever `max-age` says. */
-const MAX_LIFETIME = 24 * 60 * 60_000;
-/** `typ` media types may carry this prefix (RFC 7515 §4.1.9). */
-const MEDIA_TYPE_PREFIX = 'application/';
 
 /** The protected header of a compact JWS. */
 export type JwsHeader = {
@@ -175,8 +166,6 @@ const jwk: json.Decoder<Jwk> = json.object({
 
 const jwkSet = json.object({ keys: json.array((value) => value) });
 
-/** Shortest and longest RSA modulus a key may have, in bits (RFC 7518 §3.3). */
-const MODULUS_BITS = { min: 2048, max: 8192 };
 /**
  * The only RSA exponent a key may have, 65537 in base64url: Cloudflare Workers
  * imports only 3, 17 and 65537, so a wider rule would let runtimes disagree on a key.
@@ -213,7 +202,7 @@ class SigningKey {
     const [modulus, exponent] = [significant(n), significant(e)];
     this.#n = base64.encode(modulus);
     const bits = modulus.length === 0 ? 0 : modulus.length * 8 - Math.clz32(modulus[0] ?? 0) + 24;
-    if (bits < MODULUS_BITS.min || bits > MODULUS_BITS.max) {
+    if (bits < MIN_MODULUS_BITS || bits > MAX_MODULUS_BITS) {
       this.defect = `its RSA modulus is ${String(bits)} bits, outside 2048 to 8192`;
     } else if (base64.encode(exponent) !== EXPONENT) {
       this.defect = 'its RSA exponent is not 65537';
@@ -452,10 +441,10 @@ export class KeyCache {
 
   /**
    * The key named `kid`, if the cached keys hold it and may still verify at `now`:
-   * until `STALE_AFTER` past their freshness, or always for a fixed set.
+   * until `KEYS_STALE_AFTER` past their freshness, or always for a fixed set.
    */
   #usable(kid: string, now: number): SigningKey | undefined {
-    const usable = this.#freshUntil === undefined || now < this.#freshUntil + STALE_AFTER;
+    const usable = this.#freshUntil === undefined || now < this.#freshUntil + KEYS_STALE_AFTER;
     return usable ? this.#keys.find(kid) : undefined;
   }
 
@@ -474,7 +463,7 @@ export class KeyCache {
     const now = this.#clock();
     if (
       source !== undefined &&
-      (this.#fetchedAt === undefined || now - this.#fetchedAt >= MIN_FETCH_INTERVAL)
+      (this.#fetchedAt === undefined || now - this.#fetchedAt >= MIN_KEY_FETCH_INTERVAL)
     ) {
       // Counted as failed until it succeeds.
       this.#fetchedAt = now;
@@ -506,9 +495,10 @@ export class KeyCache {
     try {
       const reply = (await source.http.get(source.url)).ok();
       const keys = KeySet.read(reply);
-      const lifetime = reply.maxAge === undefined ? DEFAULT_LIFETIME : reply.maxAge * 1000;
+      const lifetime = reply.maxAge === undefined ? DEFAULT_KEYS_LIFETIME : reply.maxAge * 1000;
       this.#keys = keys;
-      this.#freshUntil = now + Math.min(Math.max(lifetime, MIN_FETCH_INTERVAL), MAX_LIFETIME);
+      this.#freshUntil =
+        now + Math.min(Math.max(lifetime, MIN_KEY_FETCH_INTERVAL), MAX_KEYS_LIFETIME);
       this.#failed = false;
     } catch (error) {
       // Stale keys that hold `kid` are better than failing every request while the

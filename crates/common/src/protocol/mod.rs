@@ -39,12 +39,30 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
+/// Declares constants every SDK shares, which the `typescript` tests also write into
+/// the TypeScript SDK's declarations. Each module that declares some lists them in
+/// `typescript::generate`.
+macro_rules! sdk_constants {
+    ($($(#[doc = $doc:literal])+ pub const $name:ident: $type:ty = $value:expr;)+) => {
+        $($(#[doc = $doc])+ pub const $name: $type = $value;)+
+
+        /// Each constant's name, docs and value, for the TypeScript SDK's declarations.
+        #[cfg(test)]
+        pub(super) fn typescript() -> Vec<(&'static str, &'static str, &'static dyn super::typescript::Literal)> {
+            vec![$((stringify!($name), concat!($($doc, "\n"),+), &$name)),+]
+        }
+    };
+}
+use sdk_constants;
+
 /// Bodies shared by auth's account settings and the admin dashboard.
 pub mod api;
 /// `WWW-Authenticate: Bearer` challenges sent by resource servers.
 pub mod challenge;
 /// Access token, ID token and `UserInfo` claims, and the `acr` and `amr` values they report.
 pub mod claims;
+/// The limits, lifetimes and names every SDK applies the same way.
+pub mod constants;
 /// The browser isolation headers of every response.
 pub mod isolation;
 /// JWT claim and JOSE field vocabulary shared by token issuers and verifiers.

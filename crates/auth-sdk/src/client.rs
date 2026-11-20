@@ -15,7 +15,8 @@ use sourceorigin_common::{
         claims::{IdTokenClaims, LogoutTokenClaims, UserInfo},
         jwt::TokenType,
         oauth::{
-            CodeChallengeMethod, ErrorResponse, GrantType, Prompt, ResponseType, Scope, Scopes,
+            CodeChallengeMethod, ErrorResponse, GrantType, Prompt, PushedAuthorization,
+            ResponseType, Scope, Scopes, TokenResponse,
         },
         sdk::{ErrorCategory, ErrorReason, SdkError},
         step_up::StepUpRequirement,
@@ -561,31 +562,6 @@ impl fmt::Debug for CallbackParams {
             .field("error_description", &self.error_description)
             .finish_non_exhaustive()
     }
-}
-
-/// The token endpoint's success response.
-#[derive(Deserialize)]
-struct TokenResponse {
-    /// The access token.
-    access_token: String,
-    /// Must be `Bearer`.
-    token_type: String,
-    /// Access token lifetime, in seconds.
-    expires_in: u32,
-    /// Granted scopes.
-    scope: Scopes,
-    /// ID token, with `openid`.
-    id_token: Option<String>,
-    /// Refresh token, with `offline_access`.
-    refresh_token: Option<String>,
-}
-
-/// The pushed authorization endpoint's success response (RFC 9126 §2.2). Its
-/// `expires_in` is not needed: the browser is redirected at once.
-#[derive(Deserialize)]
-struct PushedAuthorization {
-    /// What the browser brings to the authorization endpoint, with `client_id`.
-    request_uri: String,
 }
 
 /// What the client shares across clones.
