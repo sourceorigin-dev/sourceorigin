@@ -16,45 +16,30 @@ import { readAcrValues, readMaxAge } from './challenge.ts';
 import type { Client } from './client.ts';
 import { AuthError } from './error.ts';
 import { Http } from './http.ts';
-import type { IdTokenClaims, StepUpRequirement } from './protocol.ts';
+import {
+  COOKIE_PREFIX,
+  DEFAULT_SESSION_LIFETIME,
+  type IdTokenClaims,
+  MAX_COOKIE_BYTES,
+  MAX_PENDING_COOKIE_BYTES,
+  MAX_RETURN_TO_BYTES,
+  PENDING_LOGIN_LIFETIME,
+  PENDING_LOGIN_SLOTS,
+  REFRESH_DEADLINE,
+  REFRESH_MARGIN,
+  REVOCATION_DEADLINE,
+  STEP_UP_RETRY,
+  type StepUpRequirement
+} from './protocol.ts';
 import { Scopes } from './scope.ts';
 import type { CookieKey } from './seal.ts';
 import { type PendingAuthorization, StoredLogin, pendingAuthorization } from './session.ts';
-import { REFRESH_MARGIN, STEP_UP_RETRY } from './time.ts';
 import { AuthenticatedToken, type LogoutToken } from './token.ts';
 
-/** How long a login may take at auth. */
-const PENDING_LIFETIME = 10 * 60_000;
-/** Default session lifetime. */
-const DEFAULT_SESSION_LIFETIME = 12 * 60 * 60_000;
-/** Longest a refresh may take, auth's response and its ID token check included. */
-const REFRESH_DEADLINE = 20_000;
-/**
- * Longest a session's revocation may hold up the sign-in or logout ending it,
- * whatever the injected `fetch` does with its own timeout.
- */
-const REVOCATION_DEADLINE = 5_000;
 /** Longest back-channel logout request read: a logout token is at most 16 KiB. */
 const MAX_LOGOUT_REQUEST = 64 * 1024;
 /** Methods that must not change anything, so any origin may send them with the session cookie. */
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS', 'TRACE']);
-/** Most bytes in a `return_to` path. */
-const MAX_RETURN_TO_BYTES = 2048;
-/** Most bytes in a cookie's name, `=` and value: browsers drop larger cookies. */
-const MAX_COOKIE_BYTES = 4096;
-/**
- * Cookie slots for logins in progress: each login waits in the slot its `state`
- * hashes to, replacing any login there. Responses to logins started at once cannot
- * see each other's cookies, so only fixed slots bound how many a browser keeps.
- */
-const PENDING_SLOTS = 3;
-/**
- * Most bytes in one pending login cookie's name and value, so all slots together take
- * at most 3000 bytes. Common proxies refuse a `Cookie` header over 8 KiB, which they
- * share with the session, up to 4 KiB, and the app's own cookies. A login whose
- * `return_to` would outgrow it returns to the home page instead.
- */
-const MAX_PENDING_COOKIE_BYTES = 1000;
 
 /** What {@link Promise.race} resolves to when a deadline passes first. */
 const TIMED_OUT: unique symbol = Symbol('timed out');
@@ -233,7 +218,7 @@ export class Login {
     // Client IDs are letters, digits, `.`, `_` and `-`, all valid in a cookie name,
     // and each app sharing a host keeps its own cookies. `__Host-` makes browsers
     // require `Secure`, `Path=/` and no `Domain`, so no other host can set or read them.
-    const prefix = `__Host-sourceorigin-${client.config.clientId}`;
+    const prefix = `${COOKIE_PREFIX}${client.config.clientId}`;
     this.#sessionCookie = `${prefix}-session`;
     this.#stepUpCookie = `${prefix}-step-up`;
     this.#pendingCookie = `${prefix}-login-`;
@@ -630,7 +615,7 @@ export class Login {
    */
   async #pendingName(state: string): Promise<string> {
     const [first = 0] = await Login.#sha256(state);
-    return `${this.#pendingCookie}${String(first % PENDING_SLOTS)}`;
+    return `${this.#pendingCookie}${String(first % PENDING_LOGIN_SLOTS)}`;
   }
 
   /** `pending`, sealed for the cookie `name`. */
@@ -682,7 +667,7 @@ export class Login {
       returnTo,
       stepUp: stepUpLogin,
       ...(session instanceof StoredLogin ? { subject: session.claims.sub } : {}),
-      expiresAt: this.now() + PENDING_LIFETIME
+      expiresAt: this.now() + PENDING_LOGIN_LIFETIME
     };
     // A `return_to` too long for the cookie returns home instead, or to the root if
     // home is too long too.
@@ -695,7 +680,9 @@ export class Login {
       pending.returnTo = fallback;
       sealed = await this.#sealPending(pending, name);
     }
-    return Login.#redirect(authorization.url, [Login.#setCookie(name, sealed, PENDING_LIFETIME)]);
+    return Login.#redirect(authorization.url, [
+      Login.#setCookie(name, sealed, PENDING_LOGIN_LIFETIME)
+    ]);
   }
 
   /**

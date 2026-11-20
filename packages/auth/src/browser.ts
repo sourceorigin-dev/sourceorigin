@@ -26,9 +26,8 @@ import type { Issuer } from './issuer.ts';
 import * as json from './json.ts';
 import { type PasskeyAuthorization, PasskeyCeremony, PasskeyError } from './passkey.ts';
 import { type Platform, platform } from './platform.ts';
-import type { IdTokenClaims } from './protocol.ts';
+import { type IdTokenClaims, REFRESH_MARGIN, STEP_UP_RETRY } from './protocol.ts';
 import type { Scopes } from './scope.ts';
-import { REFRESH_MARGIN, STEP_UP_RETRY } from './time.ts';
 import type { IdToken } from './token.ts';
 
 export {

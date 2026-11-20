@@ -25,30 +25,19 @@ use axum::{
 use chrono::{DateTime, TimeDelta, Utc};
 use layer::RequestSession;
 use serde::{Deserialize, Serialize};
-use sourceorigin_common::{ErrorChain, protocol::same_origin::BrowserRequest};
+use sourceorigin_common::{
+    ErrorChain,
+    protocol::{
+        constants::{
+            COOKIE_PREFIX, DEFAULT_SESSION_LIFETIME, MAX_COOKIE_BYTES, MAX_RETURN_TO_BYTES,
+            PENDING_LOGIN_SLOTS,
+        },
+        same_origin::BrowserRequest,
+    },
+};
 use sourceorigin_crypto::Digest;
 use std::{fmt, future::Future, str::FromStr, sync::Arc};
 use url::Url;
-
-/// How long the browser has to follow the redirect back after a step-up login.
-const STEP_UP_RETURN: TimeDelta = TimeDelta::minutes(1);
-/// How long a login may take at auth.
-const PENDING_LIFETIME: TimeDelta = TimeDelta::minutes(10);
-/// Default session lifetime.
-const DEFAULT_SESSION_LIFETIME: TimeDelta = TimeDelta::hours(12);
-/// Most bytes in a `return_to` path.
-const MAX_RETURN_TO_BYTES: usize = 2048;
-/// Most bytes in a cookie's name, `=` and value: browsers drop larger cookies.
-const MAX_COOKIE_BYTES: usize = 4096;
-/// Cookie slots for logins in progress: each login waits in the slot its `state`
-/// hashes to, replacing any login there. Responses to logins started at once cannot
-/// see each other's cookies, so only fixed slots bound how many a browser keeps.
-const PENDING_SLOTS: u8 = 3;
-/// Most bytes in one pending login cookie's name and value, so all slots together
-/// take at most 3000 bytes. Common proxies refuse a `Cookie` header over 8 KiB, which
-/// they share with the session, up to 4 KiB, and the app's own cookies. A login
-/// whose `return_to` would outgrow it returns to the home page instead.
-const MAX_PENDING_COOKIE_BYTES: usize = 1000;
 
 /// The names of the login routes' cookies. Each carries the client ID, so apps
 /// sharing a host keep their own. `__Host-` makes browsers require `Secure`,
@@ -68,7 +57,7 @@ impl CookieNames {
     /// The names for `client`, whose IDs are letters, digits, `.`, `_` and `-`, all
     /// valid in a cookie name.
     fn new(client: &ClientId) -> Self {
-        let prefix = format!("__Host-sourceorigin-{client}");
+        let prefix = format!("{COOKIE_PREFIX}{client}");
         Self {
             session: format!("{prefix}-session"),
             step_up: format!("{prefix}-step-up"),
@@ -79,7 +68,7 @@ impl CookieNames {
     /// The name of the cookie holding the login started with `state`: its slot, by
     /// the first byte of the `state`'s SHA-256.
     fn pending(&self, state: &str) -> String {
-        let slot = Digest::sha256(state.as_bytes()).as_bytes()[0] % PENDING_SLOTS;
+        let slot = Digest::sha256(state.as_bytes()).as_bytes()[0] % PENDING_LOGIN_SLOTS;
         format!("{}{slot}", self.pending)
     }
 }

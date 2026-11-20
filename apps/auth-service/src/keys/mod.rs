@@ -41,7 +41,7 @@ const PRE_PUBLICATION: TimeDelta = TimeDelta::hours(24);
 /// How long a `retiring` key stays published: the longest token lifetime, plus
 /// the JWKS cache lifetime for verifiers that fetched keys just before it stopped.
 const RETIRING_WINDOW: TimeDelta =
-    TimeDelta::seconds(ACCESS_TOKEN_SECONDS + PublicDocument::MAX_AGE_SECONDS);
+    TimeDelta::seconds(ACCESS_TOKEN_SECONDS as i64 + PublicDocument::MAX_AGE_SECONDS);
 /// How long a retired key verifies `id_token_hint`s: the longest session.
 const RETIRED_WINDOW: TimeDelta = TimeDelta::days(SESSION_LIFETIME_DAYS as i64);
 /// How often every replica advances rotation and reloads its key set: also the

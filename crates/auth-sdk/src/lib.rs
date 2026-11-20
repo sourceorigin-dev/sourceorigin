@@ -164,11 +164,7 @@ pub use protocol::{
     step_up::StepUpRequirement,
 };
 
-use chrono::{DateTime, TimeDelta, Utc};
-
-/// Clock skew tolerated on `exp`, `nbf`, `iat` and `auth_time`. Auth tolerates the
-/// same on `iat` alone, and none on `exp` or `max_age`.
-const LEEWAY: TimeDelta = TimeDelta::seconds(30);
+use chrono::{DateTime, Utc};
 
 /// The time source for every expiry and cache check. Inject one with
 /// [`IssuerBuilder::clock`] to pin time in tests.

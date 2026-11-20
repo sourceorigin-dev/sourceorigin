@@ -22,15 +22,16 @@
 use crate::{
     UserId,
     net::PublicAddress,
-    protocol::oauth::{ClientAuthMethod, Scope, Scopes},
+    protocol::{
+        constants::MAX_IDENTIFIER_BYTES,
+        oauth::{ClientAuthMethod, Scope, Scopes},
+    },
 };
 use serde::{Deserialize, Serialize};
 use std::{fmt, net::IpAddr, ops::Deref, str::FromStr};
 use thiserror::Error;
 use url::{Host, Url};
 
-/// Longest client ID and scope, in bytes.
-const MAX_IDENTIFIER_LENGTH: usize = 64;
 /// Longest display name, in characters.
 const MAX_DISPLAY_NAME_CHARS: usize = 80;
 /// Brands only operators may name a client after, since an account's client with
@@ -96,7 +97,7 @@ impl FromStr for ClientId {
     type Err = InvalidClientId;
     /// Accepts `[A-Za-z0-9._-]{1,64}`.
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        let valid = (1..=MAX_IDENTIFIER_LENGTH).contains(&value.len())
+        let valid = (1..=MAX_IDENTIFIER_BYTES).contains(&value.len())
             && value
                 .bytes()
                 .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'));
@@ -610,7 +611,7 @@ impl FromStr for ScopeName {
     type Err = InvalidScopeName;
     /// Accepts scope tokens of at most 64 characters.
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        if value.len() > MAX_IDENTIFIER_LENGTH || !Scopes::is_token(value) {
+        if value.len() > MAX_IDENTIFIER_BYTES || !Scopes::is_token(value) {
             return Err(InvalidScopeName(value.to_owned()));
         }
         Ok(Self(value.to_owned()))

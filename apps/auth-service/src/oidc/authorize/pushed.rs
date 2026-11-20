@@ -15,7 +15,7 @@ use axum::{
     http::{HeaderMap, StatusCode},
 };
 use chrono::{Duration, Utc};
-use serde::Serialize;
+use sourceorigin_common::protocol::oauth::PushedAuthorization;
 use sourceorigin_repository::{OidcRepository, StoredAuthorizationRequest};
 use url::Url;
 
@@ -25,15 +25,6 @@ const UNKNOWN_REQUEST_URI: &str =
 /// Prefix of a pushed request's `request_uri` (RFC 9126 §2.2), followed by the
 /// pushed request's [`OpaqueToken`].
 const REQUEST_URI_PREFIX: &str = "urn:ietf:params:oauth:request_uri:";
-
-/// The pushed authorization endpoint's answer (RFC 9126 §2.2).
-#[derive(Serialize)]
-pub(in crate::oidc) struct PushedAuthorization {
-    /// What the browser brings to the authorization endpoint, with `client_id`.
-    request_uri: String,
-    /// Seconds until `request_uri` expires.
-    expires_in: i64,
-}
 
 impl OidcApplication {
     /// Stores a request pushed by an authenticated client (RFC 9126 §2), validated
@@ -65,7 +56,7 @@ impl OidcApplication {
             StatusCode::CREATED,
             Json(PushedAuthorization {
                 request_uri: format!("{REQUEST_URI_PREFIX}{token}"),
-                expires_in: PUSHED_REQUEST_SECONDS,
+                expires_in: Some(PUSHED_REQUEST_SECONDS),
             }),
         ))
     }
