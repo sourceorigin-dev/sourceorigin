@@ -683,10 +683,8 @@ pub(crate) trait RegisteredClaims: DeserializeOwned {
     fn audience(&self) -> &Audience;
     /// `exp`.
     fn expires_at(&self) -> DateTime<Utc>;
-    /// `nbf`, if the token type has one.
-    fn not_before(&self) -> Option<DateTime<Utc>> {
-        None
-    }
+    /// `nbf`, if any.
+    fn not_before(&self) -> Option<DateTime<Utc>>;
     /// `iat`.
     fn issued_at(&self) -> DateTime<Utc>;
 
@@ -730,11 +728,18 @@ pub(crate) trait RegisteredClaims: DeserializeOwned {
 }
 
 /// Implements [`RegisteredClaims`] for claims types whose registered claims are their
-/// `iss`, `aud`, `exp` and `iat` fields, and `nbf` when the type has one.
+/// `iss`, `aud`, `exp` and `iat` fields. Each names its `nbf` field, or `none` for a
+/// type without one, so no type can leave the not-before check out by omission.
 macro_rules! registered_claims {
+    (@not_before $claims:ident, none) => {
+        None
+    };
+    (@not_before $claims:ident, $nbf:ident) => {
+        $claims.$nbf
+    };
     ($(
         impl $([$($generics:tt)*])? for $claims:ty {
-            exclusive_audience: $exclusive:literal $(, not_before: $nbf:ident)?
+            exclusive_audience: $exclusive:literal, not_before: $nbf:ident
         }
     )+) => {$(
         impl$(<$($generics)*>)? RegisteredClaims for $claims {
@@ -749,9 +754,9 @@ macro_rules! registered_claims {
             fn expires_at(&self) -> DateTime<Utc> {
                 self.exp
             }
-            $(fn not_before(&self) -> Option<DateTime<Utc>> {
-                self.$nbf
-            })?
+            fn not_before(&self) -> Option<DateTime<Utc>> {
+                registered_claims!(@not_before self, $nbf)
+            }
             fn issued_at(&self) -> DateTime<Utc> {
                 self.iat
             }
@@ -768,7 +773,7 @@ registered_claims! {
     }
     // `LogoutTokenClaims` has no `nbf`.
     impl for LogoutTokenClaims {
-        exclusive_audience: true
+        exclusive_audience: true, not_before: none
     }
 }
 
