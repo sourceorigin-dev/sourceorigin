@@ -216,7 +216,7 @@ impl HistoryRow<'_> {
             HistoryEntry::NotificationPreferenceChanged(preference) => preference.change(),
             HistoryEntry::DeletionScheduled { purge_after } => format!(
                 "Account deletion scheduled for {}",
-                purge_after.format("%-d %b %Y")
+                Precision::Day.write(*purge_after)
             ),
             HistoryEntry::AccountRestored => "Account restored".to_owned(),
             HistoryEntry::CompromiseReported { .. } => {
@@ -578,5 +578,39 @@ impl<'a> Undo<'a> {
                 })
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! What history entries say.
+    use super::*;
+    use chrono::TimeZone;
+
+    /// A scheduled deletion writes its date as every other date is written:
+    /// day-first, in UTC.
+    #[test]
+    fn a_scheduled_deletion_says_its_date_in_utc() {
+        let purge_after = Utc
+            .with_ymd_and_hms(2026, 12, 3, 9, 30, 0)
+            .single()
+            .expect("a moment");
+        let scheduled = HistoryEntry::DeletionScheduled { purge_after };
+        let row = HistoryRow {
+            id: EventId::new(),
+            occurred_at: Utc::now(),
+            entry: &scheduled,
+            actor: HistoryActor::Account,
+            reportable: false,
+            reason: None,
+            client: None,
+            ip: None,
+            device: None,
+            erased: false,
+        };
+        assert_eq!(
+            row.describe(&Holdings::default()),
+            "Account deletion scheduled for 3 Dec 2026 UTC"
+        );
     }
 }
