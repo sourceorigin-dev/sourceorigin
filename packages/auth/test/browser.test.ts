@@ -658,6 +658,16 @@ describe('a session', () => {
     assert.equal(await session.accessToken(), `at_${String(NOW + 580)}`);
   });
 
+  test('keeps its refresh token when a refresh returns none', async () => {
+    const { auth, session } = await signedIn();
+    auth.refresh = false;
+    auth.clock.seconds += 290;
+    await session.accessToken();
+    auth.clock.seconds += 300;
+    assert.equal(await session.accessToken(), `at_${String(NOW + 590)}`);
+    assert.equal(auth.fetch.sent(TOKEN_URL)?.form.refresh_token, `prt_${String(NOW)}`);
+  });
+
   test('logs out through auth by posting its request, revoking its refresh token', async () => {
     const { auth, page, session } = await signedIn();
     await leaving(session.logout(`${APP}/`), page);
