@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n                    s.id AS \"id: SessionId\", s.user_id AS \"user_id: UserId\",\n                    s.authentication_methods AS \"authentication_methods: JsonArray<AuthenticationMethod>\",\n                    s.authenticated_at, s.expires_at, s.last_seen_at, s.revoked_at,\n                    s.passkey_confirmed_at,\n                    s.user_agent_family AS \"user_agent_family: UserAgentFamily\",\n                    s.last_seen_ip AS \"last_seen_ip: IpAddr\"\n                FROM sessions s\n                JOIN users u ON u.id = s.user_id\n                WHERE s.id = $1\n                AND s.revoked_at IS NULL\n                AND s.expires_at > now()\n                AND u.status = 'active'\n                FOR NO KEY UPDATE OF s",
+  "query": "WITH active_user AS (\n                    SELECT id\n                    FROM users\n                    WHERE id = $2\n                    AND status = 'active'\n                    FOR NO KEY UPDATE\n                )\n                INSERT INTO sessions AS s (\n                    id, user_id, authentication_methods, authenticated_at, expires_at,\n                    last_seen_at, user_agent_family, passkey_confirmed_at, created_ip,\n                    last_seen_ip, passkey_id\n                )\n                SELECT $1, id, $3, $4, $5, $4, $6, $7, $8, $8, $9\n                FROM active_user\n                RETURNING s.id AS \"id: SessionId\", s.user_id AS \"user_id: UserId\",\n            s.authentication_methods AS \"authentication_methods: JsonArray<AuthenticationMethod>\",\n            s.authenticated_at, s.expires_at, s.last_seen_at, s.revoked_at,\n            s.passkey_confirmed_at, s.user_agent_family AS \"user_agent_family: UserAgentFamily\",\n            s.last_seen_ip AS \"last_seen_ip: IpAddr\" ",
   "describe": {
     "columns": [
       {
@@ -56,6 +56,14 @@
     ],
     "parameters": {
       "Left": [
+        "Uuid",
+        "Uuid",
+        "Jsonb",
+        "Timestamptz",
+        "Timestamptz",
+        "Text",
+        "Timestamptz",
+        "Inet",
         "Uuid"
       ]
     },
@@ -72,5 +80,5 @@
       true
     ]
   },
-  "hash": "78baeb5b5e6ff133afbb8a3cd88b74088fe3833d7eb54dd0c94e6ffa3601a79d"
+  "hash": "4efba444f61631353988fe08d567c03a008437778e2edef70b8ac365bea600fa"
 }
