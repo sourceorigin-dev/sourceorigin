@@ -667,6 +667,52 @@ error: ErrorCode,
 error_description?: string, };
 
 /**
+ * The token endpoint's success response (RFC 6749 §5.1), omitting the tokens the
+ * grant did not issue. It holds credentials, so it has no `Debug`.
+ */
+export type TokenResponse = {
+/**
+ * Short-lived signed bearer token for the resource audience.
+ */
+access_token: string,
+/**
+ * The access token's HTTP authentication scheme: auth sends `Bearer`, which
+ * clients compare without regard to case.
+ */
+token_type: string,
+/**
+ * Access token lifetime, in seconds.
+ */
+expires_in: number,
+/**
+ * Granted scopes.
+ */
+scope: string,
+/**
+ * Signed client-bound identity token, with the `openid` scope.
+ */
+id_token?: string,
+/**
+ * Opaque refresh token: the first of a grant refresh policy permits, or the
+ * replacement of a rotated one. A client that keeps its token gets none.
+ */
+refresh_token?: string, };
+
+/**
+ * The pushed authorization endpoint's success response (RFC 9126 §2.2).
+ */
+export type PushedAuthorization = {
+/**
+ * What the browser brings to the authorization endpoint, with `client_id`.
+ */
+request_uri: string,
+/**
+ * Seconds until `request_uri` expires. Auth always sends it; clients redirect
+ * the browser at once, so they read a response without it too.
+ */
+expires_in?: number, };
+
+/**
  * One `Bearer` challenge. Without `error` it means no token was sent (RFC 6750 §3.1).
  */
 export type BearerChallenge = {

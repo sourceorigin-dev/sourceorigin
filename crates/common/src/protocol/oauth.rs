@@ -464,6 +464,41 @@ pub struct ErrorResponse {
     pub error_description: Option<ErrorDescription>,
 }
 
+/// The token endpoint's success response (RFC 6749 §5.1), omitting the tokens the
+/// grant did not issue. It holds credentials, so it has no `Debug`.
+#[derive(Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(optional_fields))]
+pub struct TokenResponse {
+    /// Short-lived signed bearer token for the resource audience.
+    pub access_token: String,
+    /// The access token's HTTP authentication scheme: auth sends `Bearer`, which
+    /// clients compare without regard to case.
+    pub token_type: String,
+    /// Access token lifetime, in seconds.
+    pub expires_in: u32,
+    /// Granted scopes.
+    pub scope: Scopes,
+    /// Signed client-bound identity token, with the `openid` scope.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id_token: Option<String>,
+    /// Opaque refresh token: the first of a grant refresh policy permits, or the
+    /// replacement of a rotated one. A client that keeps its token gets none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub refresh_token: Option<String>,
+}
+
+/// The pushed authorization endpoint's success response (RFC 9126 §2.2).
+#[derive(Debug, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(optional_fields))]
+pub struct PushedAuthorization {
+    /// What the browser brings to the authorization endpoint, with `client_id`.
+    pub request_uri: String,
+    /// Seconds until `request_uri` expires. Auth always sends it; clients redirect
+    /// the browser at once, so they read a response without it too.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_in: Option<u32>,
+}
+
 #[cfg(test)]
 mod tests {
     //! Scope list syntax.

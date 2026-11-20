@@ -32,8 +32,9 @@ its contract:
 - `step_up::StepUpRequirement`, what an operation needs from the user's
   authentication.
 - `jwt`: `typ` values, claim names, and `Jwk` and `JwkSet`.
-- `oauth`: grant, response and scope vocabulary, `Scopes`, `ErrorCode` and
-  `ErrorResponse`.
+- `oauth`: grant, response and scope vocabulary, `Scopes`, `ErrorCode`,
+  `ErrorResponse`, and the token and pushed authorization endpoints' answers,
+  `TokenResponse` and `PushedAuthorization`.
 - `challenge::BearerChallenge`, the `WWW-Authenticate` value.
 - `sdk`: the error codes below.
 

@@ -22,7 +22,8 @@ use super::{
     metadata::ServerMetadata,
     oauth::{
         ClientAuthMethod, CodeChallengeMethod, ErrorCode, ErrorDescription, ErrorResponse,
-        GrantType, Prompt, ResponseMode, ResponseType, Scope, Scopes, SubjectType,
+        GrantType, Prompt, PushedAuthorization, ResponseMode, ResponseType, Scope, Scopes,
+        SubjectType, TokenResponse,
     },
     sdk::{ErrorCategory, ErrorReason, SdkError},
     step_up::StepUpRequirement,
@@ -372,6 +373,8 @@ fn generate() -> String {
         .closed::<Scope>()
         .add::<ErrorCode>()
         .add::<ErrorResponse>()
+        .add::<TokenResponse>()
+        .add::<PushedAuthorization>()
         // challenge
         .add::<BearerChallenge>()
         .add::<BearerError>()

@@ -14,7 +14,7 @@ use axum::{
     http::{HeaderMap, HeaderName, StatusCode, header},
 };
 use chrono::{DateTime, Duration, Utc};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use sourceorigin_common::{
     ClientId, SessionId, TokenId, UserId,
     events::{CodeRedemptionFailure, DomainEvent, EventContext, GrantRevocation},
@@ -24,7 +24,7 @@ use sourceorigin_common::{
             AccessTokenClaims, Audience, AuthenticationClaims, IdTokenClaims, ProfileClaims,
             UserInfo,
         },
-        oauth,
+        oauth::{self, TokenResponse},
     },
 };
 use sourceorigin_repository::{
@@ -116,34 +116,14 @@ impl TokenForm {
     }
 }
 
-/// Existing OAuth token JSON, omitting tokens not issued by the grant.
-#[derive(Serialize)]
-pub(super) struct TokenResponse {
-    /// Short-lived signed bearer token for the resource audience.
-    access_token: String,
-    /// HTTP authentication scheme for the issued access token.
-    token_type: AuthScheme,
-    /// Access token lifetime in seconds.
-    expires_in: i64,
-    /// Space-separated scopes requested or granted.
-    scope: oauth::Scopes,
-    /// Signed client-bound identity token, present only for openid grants.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    id_token: Option<String>,
-    /// Opaque refresh token: the first of a grant refresh policy permits, or the
-    /// replacement of a rotated one. A client that keeps its token gets none.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    refresh_token: Option<String>,
-}
-
-impl TokenResponse {
-    /// Counts each token issued by `grant`, once its transaction committed, by
-    /// the response field it is sent in.
-    fn count(&self, grant: GrantType) {
+impl OidcApplication {
+    /// Counts each token `grant` issued in `tokens`, once its transaction committed,
+    /// by the response field it is sent in.
+    fn count_issued(grant: GrantType, tokens: &TokenResponse) {
         let issued = [
             ("access_token", true),
-            ("id_token", self.id_token.is_some()),
-            ("refresh_token", self.refresh_token.is_some()),
+            ("id_token", tokens.id_token.is_some()),
+            ("refresh_token", tokens.refresh_token.is_some()),
         ];
         for (token, _) in issued.into_iter().filter(|(_, issued)| *issued) {
             TOKENS_ISSUED.add(1, &[("grant_type", grant.as_str()), ("token_type", token)]);
@@ -191,7 +171,7 @@ impl TokenGrant<'_> {
             authentication,
         } = self;
         let issued_at = Utc::now();
-        let expires_at = issued_at + Duration::seconds(ACCESS_TOKEN_SECONDS);
+        let expires_at = issued_at + Duration::seconds(ACCESS_TOKEN_SECONDS.into());
         let authentication = AuthenticationClaims {
             sid: Some(*session),
             auth_time: Some(authentication.auth_time),
@@ -249,7 +229,7 @@ impl TokenGrant<'_> {
         };
         Ok(TokenResponse {
             access_token,
-            token_type: AuthScheme::Bearer,
+            token_type: AuthScheme::Bearer.as_str().to_owned(),
             expires_in: ACCESS_TOKEN_SECONDS,
             scope: scopes.wire().clone(),
             id_token,
@@ -292,7 +272,7 @@ impl OidcApplication {
             GrantType::AuthorizationCode => app.exchange_code(form, &client.id, &context).await,
             GrantType::RefreshToken => app.refresh(form, &client, &context).await,
         }?;
-        tokens.count(grant);
+        Self::count_issued(grant, &tokens);
         // After the grant committed, outside its transaction: concurrent refreshes
         // of one client each hold their family and share-lock the client, so the
         // hourly write, which needs the client exclusively, would deadlock them if

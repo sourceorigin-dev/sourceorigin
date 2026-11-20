@@ -14,7 +14,9 @@ import {
   type ErrorResponse,
   type IdTokenClaims,
   type Prompt,
+  type PushedAuthorization,
   type StepUpRequirement,
+  type TokenResponse,
   type UserInfo
 } from './protocol.ts';
 import { Scopes } from './scope.ts';
@@ -118,7 +120,7 @@ const errorResponse: json.Decoder<ErrorResponse> = json.object({
   )
 });
 
-const tokenResponse = json.object({
+const tokenResponse: json.Decoder<TokenResponse> = json.object({
   access_token: json.string,
   token_type: json.string,
   expires_in: json.integer(0, 0xffff_ffff),
@@ -127,7 +129,10 @@ const tokenResponse = json.object({
   refresh_token: json.optional(json.string)
 });
 
-const pushedAuthorization = json.object({ request_uri: json.matching(/^\S+$/, 'a request URI') });
+// `expires_in` is not needed: the browser is redirected at once.
+const pushedAuthorization: json.Decoder<PushedAuthorization> = json.object({
+  request_uri: json.matching(/^\S+$/, 'a request URI')
+});
 
 /** Form-encodes a value, as RFC 6749 §2.3.1 asks for Basic credentials. */
 function formEncoded(value: string): string {
