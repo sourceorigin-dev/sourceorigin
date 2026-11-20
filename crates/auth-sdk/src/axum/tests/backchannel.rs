@@ -121,3 +121,34 @@ async fn backchannel_logout_hands_tokens_to_the_handler() {
     }
     assert_eq!(received.lock().expect("received").len(), 3, "never handled");
 }
+
+/// The route reads at most 64 KiB, like the TypeScript SDK: a larger form is
+/// refused as invalid without reaching the handler, even around a valid token.
+#[tokio::test]
+async fn backchannel_logout_refuses_large_requests() {
+    let endpoint = TokenEndpoint::start(Duration::ZERO).await;
+    let handled = Arc::new(Mutex::new(0));
+    let app = login_app_with(&endpoint.issuer(&clock()), |routes| {
+        let handled = handled.clone();
+        routes.on_backchannel_logout(move |_: crate::LogoutToken| {
+            *handled.lock().expect("handled") += 1;
+            async { Ok::<_, Down>(()) }
+        })
+    });
+    let token = logout(Some(USER), None);
+    let response = post_logout(
+        &app,
+        format!("logout_token={token}&pad={}", "x".repeat(1 << 20)),
+    )
+    .await;
+    assert_eq!(
+        status(&response),
+        (StatusCode::BAD_REQUEST, Some("no-store"))
+    );
+    assert_eq!(text(response).await, r#"{"error":"invalid_request"}"#);
+    assert_eq!(*handled.lock().expect("handled"), 0, "never handled");
+
+    let response = post_logout(&app, format!("logout_token={token}&pad=x")).await;
+    assert_eq!(status(&response), (StatusCode::OK, Some("no-store")));
+    assert_eq!(*handled.lock().expect("handled"), 1);
+}

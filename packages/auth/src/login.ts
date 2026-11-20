@@ -21,6 +21,7 @@ import {
   DEFAULT_SESSION_LIFETIME,
   type IdTokenClaims,
   MAX_COOKIE_BYTES,
+  MAX_LOGOUT_REQUEST_BYTES,
   MAX_PENDING_COOKIE_BYTES,
   MAX_RETURN_TO_BYTES,
   PENDING_LOGIN_LIFETIME,
@@ -36,8 +37,6 @@ import type { CookieKey } from './seal.ts';
 import { type PendingAuthorization, StoredLogin, pendingAuthorization } from './session.ts';
 import { AuthenticatedToken, type LogoutToken } from './token.ts';
 
-/** Longest back-channel logout request read: a logout token is at most 16 KiB. */
-const MAX_LOGOUT_REQUEST = 64 * 1024;
 /** Methods that must not change anything, so any origin may send them with the session cookie. */
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS', 'TRACE']);
 
@@ -794,7 +793,7 @@ export class Login {
     const invalid = () => Response.json({ error: 'invalid_request' }, { status: 400 });
     const type = request.headers.get('content-type') ?? '';
     if (!/^application\/x-www-form-urlencoded\s*(;|$)/i.test(type)) return invalid();
-    const body = await Http.readBody(request.body, MAX_LOGOUT_REQUEST);
+    const body = await Http.readBody(request.body, MAX_LOGOUT_REQUEST_BYTES);
     if (body === undefined) return invalid();
     const form = new URLSearchParams(new TextDecoder().decode(body));
     const [token, ...others] = form.getAll('logout_token');

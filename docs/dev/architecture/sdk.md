@@ -418,10 +418,11 @@ names where every replica sees it, so the app refuses those sessions itself: tho
 with the token's `sid` (auth's session ID), or without one, every session of its
 `sub` (the user) signed in before the token's `iat`. A record can go a session
 lifetime after its token. Auth delivers again until it gets a 200, so a handler
-must be idempotent and return only once its record is durable. The route answers
+must be idempotent and return only once its record is durable. The route reads
+at most 64 KiB of the request, since a logout token is at most 16 KiB. It answers
 200 once the handler succeeds, 400 with `{"error":"invalid_request"}` for an invalid
-token, 503 when signing keys cannot be fetched and 500 when the handler fails, so
-auth retries. Every answer has `Cache-Control: no-store`.
+token or a larger request, 503 when signing keys cannot be fetched and 500 when the
+handler fails, so auth retries. Every answer has `Cache-Control: no-store`.
 
 ## Step-up
 
