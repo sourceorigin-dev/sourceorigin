@@ -46,6 +46,7 @@ Each file is one case:
 | `tokens/` | `issuer`, `jwks`, `kind` (`access`, `id` or `logout`), `audience` (the resource, or the client for ID and logout tokens), `token`; ID tokens add `nonce` and `max_age` (`null` when not sent) | the token's claims |
 | `challenges/` | `challenge` (format cases) or `header` (parse cases) | `status` and `header`, or `challenge` |
 | `callbacks/` | `issuer`, `authorization_response_iss_parameter_supported`, the expected `state`, and the callback's query `parameters` | `code` |
+| `same-origin/` | `redirect_uri`, the client's, and the request's `sec_fetch_site` and `origin` headers (`null` when not sent) | whether the request comes from the app's own pages |
 | `sessions/` | `cookie_key` (standard base64), `client_id`, and the `cookie` header the browser sends | the session the cookie holds, in the cookie's JSON, or `null` for none |
 | `cookie-keys/` | `cookie_key`, the text the app configures | the key's 32 bytes in hex |
 

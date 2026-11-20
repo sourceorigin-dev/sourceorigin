@@ -1,0 +1,11 @@
+{
+  "description": "Sec-Fetch-Site: cross-site is refused, whatever Origin says",
+  "input": {
+    "origin": "https://client.example.com",
+    "redirect_uri": "https://client.example.com/callback",
+    "sec_fetch_site": "cross-site"
+  },
+  "expected": {
+    "ok": false
+  }
+}

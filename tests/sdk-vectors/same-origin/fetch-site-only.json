@@ -1,0 +1,11 @@
+{
+  "description": "Sec-Fetch-Site: same-origin is enough without Origin",
+  "input": {
+    "origin": null,
+    "redirect_uri": "https://client.example.com/callback",
+    "sec_fetch_site": "same-origin"
+  },
+  "expected": {
+    "ok": true
+  }
+}

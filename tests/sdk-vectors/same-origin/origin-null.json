@@ -1,0 +1,11 @@
+{
+  "description": "without Sec-Fetch-Site, Origin: null is refused",
+  "input": {
+    "origin": "null",
+    "redirect_uri": "https://client.example.com/callback",
+    "sec_fetch_site": null
+  },
+  "expected": {
+    "ok": false
+  }
+}

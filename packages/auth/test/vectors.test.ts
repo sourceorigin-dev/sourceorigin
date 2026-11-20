@@ -23,7 +23,8 @@ import {
   REDIRECT_URI,
   TOKEN_URL,
   cases,
-  outcome
+  outcome,
+  vector
 } from './vectors.ts';
 
 describe('discovery vectors', () => {
@@ -162,6 +163,29 @@ describe('callback vectors', () => {
         assert.deepEqual({ ok: { code: sent.form.code } }, vector.expected);
         assert.deepEqual(result, { error: { code: 'oauth' } });
       }
+    });
+  }
+});
+
+describe('same-origin vectors', () => {
+  const cookieKey = CookieKey.parse(String(vector('sessions', 'valid').input.cookie_key));
+  for (const vector of cases('same-origin')) {
+    test(vector.name, async () => {
+      const issuer = await Issuer.discover(ISSUER, { fetch: FakeFetch.issuer().fetch });
+      const client = issuer.client({
+        clientId: 'notes-web',
+        clientSecret: 'secret',
+        redirectUri: String(vector.input.redirect_uri)
+      });
+      const login = new Login(client, { cookieKey });
+      const { sec_fetch_site: site, origin } = vector.input;
+      const headers = new Headers();
+      if (typeof site === 'string') headers.set('sec-fetch-site', site);
+      if (typeof origin === 'string') headers.set('origin', origin);
+      // Without a cookie, the app's own pages read no session; any other page is refused.
+      const request = new Request('https://client.example.com/notes', { method: 'POST', headers });
+      const session = await login.session(request);
+      assert.deepEqual({ ok: !(session instanceof Response) }, vector.expected);
     });
   }
 });

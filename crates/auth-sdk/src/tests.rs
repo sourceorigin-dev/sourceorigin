@@ -10,7 +10,8 @@ use ::axum::{
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use serde_json::Value;
 use sourceorigin_common::protocol::{
-    challenge::BearerChallenge, claims::AccessTokenClaims, jwt::TokenType, metadata::ServerMetadata,
+    challenge::BearerChallenge, claims::AccessTokenClaims, jwt::TokenType,
+    metadata::ServerMetadata, same_origin::BrowserRequest,
 };
 use std::{
     fs,
@@ -307,6 +308,22 @@ fn callback_vectors() {
                 .map(|code| serde_json::json!({ "code": code }))
                 .map_err(|error| error.code()),
         );
+    }
+}
+
+/// The CSRF check of logout and of reading a session, against the client's redirect
+/// URI's origin, as [`crate::axum`]'s login routes ask it.
+#[test]
+fn same_origin_vectors() {
+    for case in Case::all("same-origin") {
+        let site = Url::parse(case.text("redirect_uri"))
+            .expect("redirect URI")
+            .origin();
+        let request = BrowserRequest {
+            fetch_site: case.input("sec_fetch_site").as_str(),
+            origin: case.input("origin").as_str(),
+        };
+        case.assert(Ok::<_, SdkError>(request.is_same_origin(&site)));
     }
 }
 

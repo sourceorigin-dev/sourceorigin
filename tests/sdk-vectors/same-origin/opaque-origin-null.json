@@ -1,0 +1,11 @@
+{
+  "description": "an opaque redirect URI's origin serializes as null but matches nothing",
+  "input": {
+    "origin": "null",
+    "redirect_uri": "com.example.notes:/callback",
+    "sec_fetch_site": null
+  },
+  "expected": {
+    "ok": false
+  }
+}

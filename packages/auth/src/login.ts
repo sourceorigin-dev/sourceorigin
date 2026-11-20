@@ -794,13 +794,15 @@ export class Login {
   /**
    * Whether a browser request comes from this app's own pages, whose origin is the
    * redirect URI's: `Sec-Fetch-Site: same-origin` when the browser sends it, and
-   * otherwise an `Origin` equal to the app's, which `null` never is. Logout and
-   * {@link Login.session} both ask it.
+   * otherwise an `Origin` equal to the app's. `null` never matches, not even the
+   * opaque origin of a redirect URI such as `com.example.app:/callback`, which
+   * serializes as `null` too. Logout and {@link Login.session} both ask it.
    */
   #sameOrigin(request: Request): boolean {
     const site = request.headers.get('sec-fetch-site');
     if (site !== null) return site === 'same-origin';
-    return request.headers.get('origin') === new URL(this.client.config.redirectUri).origin;
+    const origin = new URL(this.client.config.redirectUri).origin;
+    return origin !== 'null' && request.headers.get('origin') === origin;
   }
 
   /**
