@@ -12,7 +12,9 @@ fmt-check:
 lint:
     @pnpm lint
 
-# The TypeScript SDK's unit tests, every shared vector included, with line, branch and function coverage of its sources.
+# The TypeScript SDK's unit tests, every shared vector included, with line, branch
+# and function coverage of its sources.
+[doc("The TypeScript SDK's unit tests and shared vectors, with coverage of its sources.")]
 test:
     @pnpm test
 
@@ -25,7 +27,8 @@ smoke:
     @pnpm --filter @sourceorigin/auth exec node test/smoke/workerd.js
 
 # Builds the TypeScript SDK first, as browser-client.spec.ts serves the built package.
-# Run the browser suite against a running auth service; see tests/browser/README.md.
+# Requires a running auth service; see tests/browser/README.md.
+[doc("Run the browser suite against a running auth service; see tests/browser/README.md.")]
 [positional-arguments]
 test-browser *ARGS:
     @pnpm --filter @sourceorigin/auth build
