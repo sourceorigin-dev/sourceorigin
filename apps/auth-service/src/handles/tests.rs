@@ -1,8 +1,9 @@
-//! Database-backed rename scenarios of the owner.
+//! The rename scenarios of the owner, against the database, and what a refusal says.
 
 use super::*;
-use crate::security::SessionError;
+use crate::security::{ApiError, SessionError};
 use crate::tests::{Browser, Replicas};
+use chrono::TimeZone;
 use sourceorigin_common::AuthenticationMethod;
 
 /// A rename needs a passkey confirmation. A new account may change its handle at
@@ -86,4 +87,19 @@ async fn the_first_rename_is_free_and_later_ones_wait_out_the_cooldown() {
         account.rename_handle(&owner, &renamed).await,
         Err(AccountError::Handle(HandlesError::Cooldown { .. }))
     ));
+}
+
+/// A cooldown refusal writes its date as every other date is written: day-first,
+/// in UTC. The account API and the profile page both say this message.
+#[test]
+fn a_cooldown_refusal_says_its_date_day_first_in_utc() {
+    let retry_after = Utc
+        .with_ymd_and_hms(2026, 12, 3, 9, 30, 0)
+        .single()
+        .expect("a moment");
+    let error = ApiError::from(HandlesError::Cooldown { retry_after });
+    assert_eq!(
+        error.public().1,
+        "Your handle changed less than 30 days ago. You can change it again on 3 Dec 2026 UTC."
+    );
 }
