@@ -1,11 +1,8 @@
 //! Account search, one account's page, and the changes made to an account.
 
-use super::{AdminApplication as App, ReasonForm, Refused, invitations, lists, settings};
+use super::{AdminApplication as App, ReasonForm, Refusal, Refused, invitations, lists, settings};
 use crate::{
-    AdminError, Letter, Reason,
-    account::{AccountError, Subject},
-    admin::SignedInAdmin,
-    deliveries::EmailSender,
+    AdminError, Letter, Reason, account::Subject, admin::SignedInAdmin, deliveries::EmailSender,
     routes,
 };
 use sourceorigin_common::{
@@ -364,7 +361,7 @@ impl AccountChange {
         admin: &SignedInAdmin,
         id: UserId,
         reason: Reason,
-    ) -> Result<(), AccountError> {
+    ) -> Result<(), Refusal> {
         let (service, operator) = (&app.service, &admin.operator);
         match self {
             Self::Disable => service.disable_user(operator, id, reason).await?,
