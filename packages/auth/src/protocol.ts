@@ -668,7 +668,7 @@ error_description?: string, };
 
 /**
  * The token endpoint's success response (RFC 6749 §5.1), omitting the tokens the
- * grant did not issue. It holds credentials, so it has no `Debug`.
+ * grant did not issue.
  */
 export type TokenResponse = {
 /**
@@ -708,7 +708,7 @@ export type PushedAuthorization = {
 request_uri: string,
 /**
  * Seconds until `request_uri` expires. Auth always sends it; clients redirect
- * the browser at once, so they read a response without it too.
+ * the browser at once, so they ignore it.
  */
 expires_in?: number, };
 

@@ -465,7 +465,8 @@ pub struct ErrorResponse {
 }
 
 /// The token endpoint's success response (RFC 6749 §5.1), omitting the tokens the
-/// grant did not issue. It holds credentials, so it has no `Debug`.
+/// grant did not issue.
+// It holds credentials, so it has no `Debug`.
 #[derive(Serialize, Deserialize)]
 #[cfg_attr(test, derive(ts_rs::TS), ts(optional_fields))]
 pub struct TokenResponse {
@@ -494,8 +495,8 @@ pub struct PushedAuthorization {
     /// What the browser brings to the authorization endpoint, with `client_id`.
     pub request_uri: String,
     /// Seconds until `request_uri` expires. Auth always sends it; clients redirect
-    /// the browser at once, so they read a response without it too.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// the browser at once, so they ignore it.
+    #[serde(skip_deserializing, skip_serializing_if = "Option::is_none")]
     pub expires_in: Option<u32>,
 }
 
