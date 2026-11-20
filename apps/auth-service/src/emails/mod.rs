@@ -238,10 +238,10 @@ impl EmailApplication {
         Ok(())
     }
 
-    /// Records the verification of `user_id`'s address `email_id` as
-    /// `context`'s, and, if it became the `primary` one, being the account's
-    /// first, that too: what a verification link and an address that joins
-    /// verified both record.
+    /// Records `EmailVerified` for `user_id`'s address `email_id` as
+    /// `context`'s, then `PrimaryEmailChanged` with no previous address if it
+    /// became the `primary` one, the account having had none. Shared by
+    /// `verify_email` and `Added::verified`.
     async fn record_verified(
         tx: &mut DatabaseTransaction<'_>,
         context: &EventContext,

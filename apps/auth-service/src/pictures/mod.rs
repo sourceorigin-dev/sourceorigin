@@ -156,7 +156,7 @@ impl AccountService {
         let jpeg = Jpeg::encode(turn, upload, crop).await?;
         let mut tx = self.database.begin().await?;
         owner.lock(&mut tx).await?;
-        let picture = Self::store(&mut tx, &owner.context(), owner.user(), &jpeg).await?;
+        let picture = Self::store_picture(&mut tx, &owner.context(), owner.user(), &jpeg).await?;
         tx.commit().await?;
         Ok(picture.into())
     }
@@ -195,14 +195,14 @@ impl AccountService {
         {
             return Ok(());
         }
-        Self::store(&mut tx, context, user, &jpeg).await?;
+        Self::store_picture(&mut tx, context, user, &jpeg).await?;
         Ok(tx.commit().await?)
     }
 
     /// Makes `jpeg` the picture of `user`, whom `tx` locked, under a new ID, and
     /// records the change as `context`'s: the step setting and importing a
     /// picture share.
-    async fn store(
+    async fn store_picture(
         tx: &mut DatabaseTransaction<'_>,
         context: &EventContext,
         user: UserId,
