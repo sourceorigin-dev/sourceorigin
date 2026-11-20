@@ -1352,7 +1352,7 @@ auth-service account <USER> name set [OPTIONS] --reason <REASON> <NAME>
 
 Arguments:
 
-- `<NAME>`: The new name: at most 80 characters, not blank.
+- `<NAME>`: The new name: 1 to 80 characters, without control characters.
 
 Options:
 

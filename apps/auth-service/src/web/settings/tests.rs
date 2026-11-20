@@ -316,7 +316,10 @@ async fn the_display_name_changes_without_a_confirmation() {
         .await;
     assert_eq!(refused.status(), StatusCode::BAD_REQUEST);
     let page = html(refused).await;
-    assert!(page.contains("Choose a display name"), "{page}");
+    assert!(
+        page.contains("Choose a display name of 1 to 80 characters, without control characters."),
+        "{page}"
+    );
     assert!(page.contains(&format!(r#"value="{long}""#)), "{page}");
 
     let changed = browser
