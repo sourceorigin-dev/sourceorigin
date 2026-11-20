@@ -2,7 +2,7 @@
 
 use super::*;
 use crate::config::TokenDigestKey;
-use crate::security::{BrowserCookie, RequestContext, Session};
+use crate::security::RequestContext;
 use crate::tests::{
     AUTH_ORIGIN, Browser, Replicas, TlsListener, location, parameter, until_blocked,
     verified_address,
@@ -129,12 +129,9 @@ impl Flow {
     }
     /// Signs the scenario's browser in again with `method`, as a new session.
     async fn sign_in_again(&mut self, method: AuthenticationMethod) {
-        let mut tx = self.app.database.begin().await.expect("transaction");
-        let session = Session::create(&mut tx, RequestContext::TEST, self.user_id, method.into())
+        self.cookie = Browser::sign_in_with(&self.app.database, self.user_id, method)
             .await
-            .expect("session");
-        tx.commit().await.expect("commit");
-        self.cookie = format!("{}={}", BrowserCookie::Session.as_str(), session.encoded());
+            .cookie;
     }
     /// Disables the scenario's account, without ending its sessions or grants.
     async fn disable(&self) {

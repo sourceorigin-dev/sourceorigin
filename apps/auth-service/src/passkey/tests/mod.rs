@@ -80,17 +80,12 @@ impl Fixture {
         let oidc = OidcApplication::new(database.clone(), &config.oidc, keys).expect("OIDC app");
         let app = PasskeyApplication::new(database, &config.passkey, &config.email, None, oidc)
             .expect("passkey app");
-        let user_id = UserId::new();
-        let username = format!("key-{}", &TokenId::new().to_string()[24..]);
-        app.database
-            .users()
-            .insert(&InsertUser {
-                id: user_id,
-                handle: Handle::parse(&username).expect("handle"),
-                display_name: "Test user".into(),
-            })
-            .await
-            .expect("user");
+        let account = InsertUser {
+            display_name: "Test user".into(),
+            ..InsertUser::named("key")
+        };
+        app.database.users().insert(&account).await.expect("user");
+        let (user_id, username) = (account.id, account.handle.to_string());
         let (key_id, key) =
             Self::seed_passkey(&app, &origin, user_id, &username, "Original key").await;
         Self {
@@ -294,6 +289,16 @@ impl Fixture {
             .find_active_by_browser_secret(secret.digest().as_bytes())
             .await
             .expect("session lookup")
+    }
+    /// Signs another browser in to the seeded account with a provider, which
+    /// leaves its session unconfirmed.
+    pub(crate) async fn social_sign_in(&self) -> Browser {
+        Browser::sign_in_with(
+            &self.app.database,
+            self.user_id,
+            AuthenticationMethod::Federation,
+        )
+        .await
     }
     /// Lists the events recorded about the seeded account, newest first.
     pub(crate) async fn events(&self) -> Vec<DomainEvent> {

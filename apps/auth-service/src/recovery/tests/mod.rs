@@ -7,7 +7,7 @@ use crate::{
     AdminError, AdminService,
     admin::tests::{Harness, cli, operator},
     passkey::tests::{Fixture, SoftKey},
-    security::{BrowserCookie, Credential, Session},
+    security::{BrowserCookie, Credential},
     tests::{
         Browser, reason, recovery_links, recovery_reason, recovery_token, refresh_grant, register,
         registration, verified_address,
@@ -244,12 +244,15 @@ impl Scenario {
     /// Signs a browser in with `passkey`, which confirms its session, and returns
     /// its session cookie.
     async fn signed_in_with(&self, passkey: PasskeyId) -> String {
-        let mut tx = self.database().begin().await.expect("transaction");
         let credential = Credential::Passkey(passkey);
-        let secret = Session::create(&mut tx, RequestContext::TEST, self.user(), credential).await;
-        tx.commit().await.expect("commit");
-        let secret = secret.expect("session").encoded();
-        format!("{}={secret}", BrowserCookie::Session.as_str())
+        Browser::sign_in_by(
+            self.database(),
+            RequestContext::TEST,
+            self.user(),
+            credential,
+        )
+        .await
+        .cookie
     }
 
     /// The live session of the browser holding `cookie`, if any.

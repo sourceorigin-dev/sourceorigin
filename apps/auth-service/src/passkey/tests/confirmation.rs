@@ -50,26 +50,11 @@ async fn ceremonies_require_browser_binding_and_confirmation_belongs_to_one_sess
         .start("/account/passkeys/enroll/start", &signed_in, json!({}))
         .await;
     // Another session of the same account, from social sign-in, is not confirmed.
-    let mut tx = fixture.app.database.begin().await.expect("transaction");
-    let secret = security::Session::create(
-        &mut tx,
-        security::RequestContext::TEST,
-        fixture.user_id,
-        AuthenticationMethod::Federation.into(),
-    )
-    .await
-    .expect("social session");
-    tx.commit().await.expect("commit");
-    let social = format!("{}={}", BrowserCookie::Session.as_str(), secret.encoded());
-    let session_id = fixture
-        .app
-        .database
-        .sessions()
-        .find_active_by_browser_secret(secret.digest().as_bytes())
-        .await
-        .expect("lookup")
-        .expect("session")
-        .id;
+    let Browser {
+        session_id,
+        cookie: social,
+        ..
+    } = fixture.social_sign_in().await;
     let path = format!("/account/passkeys/{}", fixture.key_id);
     for (path, method) in [
         ("/account/passkeys/enroll/start", Method::POST),
@@ -186,16 +171,7 @@ async fn ceremonies_require_browser_binding_and_confirmation_belongs_to_one_sess
         .await
         .expect("restore confirmation");
     // Removal revokes both other sessions, the passkey sign-in and this one.
-    let mut tx = fixture.app.database.begin().await.expect("transaction");
-    security::Session::create(
-        &mut tx,
-        security::RequestContext::TEST,
-        fixture.user_id,
-        AuthenticationMethod::Federation.into(),
-    )
-    .await
-    .expect("third session");
-    tx.commit().await.expect("commit");
+    fixture.social_sign_in().await;
     let response = fixture
         .request(&path, Method::DELETE, &social, json!({}))
         .await;

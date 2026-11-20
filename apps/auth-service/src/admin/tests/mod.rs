@@ -71,17 +71,12 @@ impl Harness {
 
     /// Creates an account with the handle `handle`, without a session.
     async fn named(&self, handle: &str) -> UserId {
-        let user_id = UserId::new();
-        self.database
-            .users()
-            .insert(&InsertUser {
-                id: user_id,
-                handle: Handle::parse(handle).expect("handle"),
-                display_name: "Admin test".into(),
-            })
-            .await
-            .expect("user");
-        user_id
+        let account = InsertUser {
+            handle: Handle::parse(handle).expect("handle"),
+            ..InsertUser::named("admin")
+        };
+        self.database.users().insert(&account).await.expect("user");
+        account.id
     }
 
     /// Creates an account signed in with a passkey.
@@ -91,8 +86,7 @@ impl Harness {
 
     /// Creates an account signed in by `method`.
     pub(crate) async fn signed_in(&self, method: AuthenticationMethod) -> Account {
-        let suffix = TokenId::new().to_string();
-        let user_id = self.named(&format!("admin-{}", &suffix[24..])).await;
+        let user_id = self.database.users().insert_named("admin").await;
         let browser = Browser::sign_in_with(&self.database, user_id, method).await;
         Account {
             user_id,

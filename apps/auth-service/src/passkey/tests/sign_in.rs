@@ -108,17 +108,7 @@ async fn a_forged_assertion_doesnt_tell_which_handle_an_account_has() {
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn passkey_sign_in_confirms_the_browsers_session() {
     let mut fixture = Fixture::new().await;
-    let mut tx = fixture.app.database.begin().await.expect("transaction");
-    let secret = security::Session::create(
-        &mut tx,
-        security::RequestContext::TEST,
-        fixture.user_id,
-        AuthenticationMethod::Federation.into(),
-    )
-    .await
-    .expect("social session");
-    tx.commit().await.expect("commit");
-    let social = format!("{}={}", BrowserCookie::Session.as_str(), secret.encoded());
+    let social = fixture.social_sign_in().await.cookie;
     let before = fixture.session(&social).await.expect("social session");
     assert_eq!(
         SessionAuthentication::from(&before).acr,
@@ -148,18 +138,7 @@ async fn passkey_sign_in_confirms_the_browsers_session() {
         Some(fixture.key_id),
         "confirmed by it"
     );
-    let mut tx = fixture.app.database.begin().await.expect("transaction");
-    let other = security::Session::create(
-        &mut tx,
-        security::RequestContext::TEST,
-        fixture.user_id,
-        AuthenticationMethod::Federation.into(),
-    )
-    .await
-    .expect("another social session");
-    tx.commit().await.expect("commit");
-    let other = format!("{}={}", BrowserCookie::Session.as_str(), other.encoded());
-    let other = fixture.session(&other).await.expect("social session").id;
+    let other = fixture.social_sign_in().await.session_id;
     assert_eq!(passkey(other).await, None, "a social sign-in names none");
     let fresh = fixture.login().await;
     let fresh = fixture.session(&fresh).await.expect("new session").id;
