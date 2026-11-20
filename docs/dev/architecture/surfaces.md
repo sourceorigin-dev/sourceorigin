@@ -181,8 +181,8 @@ being misread:
   status, such as `400`, not `200`.
 
 An account's page acts only on that account: revoking a session another
-account holds is not found, from the dashboard and from `session revoke`, which
-names the account too.
+account holds is not found, from the dashboard and from
+`account <user> sessions revoke`, which names the account too.
 
 Lists page by number, with their totals, as the CLI's `--page` does.
 

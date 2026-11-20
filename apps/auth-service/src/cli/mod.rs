@@ -36,8 +36,6 @@ mod output;
 mod reference;
 /// Serving the public and admin listeners.
 mod serve;
-/// Ending sessions.
-mod session;
 /// Finding, showing, disabling and reactivating accounts.
 mod user;
 
@@ -60,7 +58,6 @@ use handle::HandleCommand;
 use invite::InviteCommand;
 use keys::KeysCommand;
 use output::Output;
-use session::SessionCommand;
 use sourceorigin_common::ErrorChain;
 use sourceorigin_repository::Database;
 use sourceorigin_telemetry::{Export, Telemetry};
@@ -116,9 +113,6 @@ enum Administration {
     /// Search, show, disable, reactivate and recover accounts.
     #[command(subcommand)]
     User(UserCommand),
-    /// End an account's sessions.
-    #[command(subcommand)]
-    Session(SessionCommand),
     /// Create, list, resend and revoke signup invitations.
     #[command(subcommand)]
     Invite(InviteCommand),
@@ -229,10 +223,6 @@ impl Administration {
                 } => Op::PurgeUser,
                 UserCommand::Restore { .. } => Op::RestoreUser,
             },
-            Self::Session(command) => match command {
-                SessionCommand::Revoke { .. } => Op::RevokeSession,
-                SessionCommand::RevokeAll { .. } => Op::RevokeUserSessions,
-            },
             Self::Invite(command) => match command {
                 InviteCommand::Create { .. } => Op::CreateInvitation,
                 InviteCommand::List => Op::ListInvitations,
@@ -304,7 +294,6 @@ impl Administration {
     async fn dispatch(self, console: &Console) -> Result<(), CliError> {
         match self {
             Self::User(command) => command.run(console).await,
-            Self::Session(command) => command.run(console).await,
             Self::Invite(command) => command.run(console).await,
             Self::Client(command) => command.run(console).await,
             Self::Audit(command) => command.run(console).await,

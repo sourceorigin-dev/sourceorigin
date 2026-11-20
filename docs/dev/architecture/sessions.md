@@ -171,10 +171,8 @@ can skip the event. Its callers:
 - RP-initiated logout, which also ends the inline session of the app's own
   passkey sign-in that its `id_token_hint` names (`src/oidc/logout.rs`).
 - `Session::end_all`, for an account disabled, scheduled for deletion, purged or
-  recovered, for the sign-out link of a notification's email
-  (`src/notifications`), and for `AdminService::revoke_user_sessions`, which the
-  dashboard and `auth-service session revoke-all` run: every session, with every
-  refresh grant of the account.
+  recovered, and for the sign-out link of a notification's email
+  (`src/notifications`): every session, with every refresh grant of the account.
 
 Signing out (`AccountService::sign_out`) ends the browser's session and clears
 its cookie. RP-initiated logout signs out the same way, recording the client

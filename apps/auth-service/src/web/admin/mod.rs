@@ -383,6 +383,8 @@ impl AdminApplication {
             .route(settings::history)
             .route(settings::notifications)
             .route(settings::display_name)
+            .route(users::revoke_sessions)
+            .route(users::revoke_session)
             // `ListAlerts` lists the alerts that cleared on a page of their own.
             .route(alerts::previous);
         let pages = AdminOperation::ALL
@@ -448,8 +450,6 @@ impl AdminApplication {
             | Op::UndoRecovery
             | Op::ScheduleDeletion
             | Op::RestoreUser
-            | Op::RevokeUserSessions
-            | Op::RevokeSession
             | Op::MessageUser
             | Op::RenameHandle
             | Op::RevokeAdministrator
@@ -518,8 +518,6 @@ impl AdminApplication {
             Op::EnableUser => &users::enable,
             Op::ScheduleDeletion => &users::delete,
             Op::RestoreUser => &users::restore,
-            Op::RevokeUserSessions => &users::revoke_sessions,
-            Op::RevokeSession => &users::revoke_session,
             Op::MessageUser => &users::message,
             Op::RenameHandle => &settings::handle,
             Op::RecoverAccount => &users::recover,

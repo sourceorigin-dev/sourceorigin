@@ -31,9 +31,6 @@ pub enum AdminError {
     /// No account has this ID or handle, or no active one this verified email.
     #[error("no account has this ID, handle or verified email")]
     UserNotFound,
-    /// No active session has this ID.
-    #[error("no active session has this ID")]
-    SessionNotFound,
     /// No unredeemed, unrevoked invitation has this ID.
     #[error("no unredeemed, unrevoked invitation has this ID")]
     InvitationNotFound,
@@ -233,7 +230,6 @@ impl AdminError {
             Self::StepUpRequired(_) => "step_up_required",
             Self::InvalidHandoff => "invalid_handoff",
             Self::UserNotFound => "user_not_found",
-            Self::SessionNotFound => "session_not_found",
             Self::InvitationNotFound => "invitation_not_found",
             Self::ClientNotFound => "client_not_found",
             Self::DeliveryNotFound { .. } => "delivery_not_found",
@@ -329,7 +325,6 @@ impl From<AdminError> for ApiError {
             | AdminError::OwnRights
             | AdminError::LastAdministrator => Self::forbidden(message),
             AdminError::UserNotFound
-            | AdminError::SessionNotFound
             | AdminError::InvitationNotFound
             | AdminError::ClientNotFound
             | AdminError::DeliveryNotFound { .. }

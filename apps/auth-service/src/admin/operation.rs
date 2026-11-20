@@ -28,10 +28,6 @@ operations! {
         RestoreUser,
         /// Delete an account at once, without a grace period.
         PurgeUser,
-        /// End every session of an account.
-        RevokeUserSessions,
-        /// End one session.
-        RevokeSession,
         /// Send one account a message: it lands in the account's inbox, and is
         /// emailed to its primary verified address.
         MessageUser,

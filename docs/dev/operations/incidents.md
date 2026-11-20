@@ -365,7 +365,7 @@ while the command line may.
 2. End its sessions, which ends its dashboard session with them:
 
    ```sh
-   auth-service session revoke-all <handle> --reason "Account compromised"
+   auth-service account <handle> sessions revoke-all --reason "Account compromised"
    ```
 
 3. If the account's passkey may be in someone else's hands, not just a session,

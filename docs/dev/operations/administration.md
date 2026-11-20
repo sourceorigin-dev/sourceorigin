@@ -276,8 +276,8 @@ themselves, from the link in the recovery's emails.
 ## End sessions
 
 ```sh
-auth-service session revoke alice <session-id> --reason "Phone stolen"  # one of its sessions, as `user show` lists them
-auth-service session revoke-all alice --reason "Phone stolen"           # every session of the account
+auth-service account alice sessions revoke <session-id> --reason "Phone stolen"  # one of its sessions, as `user show` lists them
+auth-service account alice sessions revoke-all --reason "Phone stolen"           # every session of the account
 ```
 
 Each also ends the refresh tokens of the apps signed in through the session. A
@@ -548,7 +548,7 @@ Each alert says what to look at. Auth raises these:
     events.
 - Commands that change a lot describe the change and ask for confirmation:
   `user disable`, `user delete`, `user recover`, `user undo-recovery`,
-  `session revoke-all`, `admin revoke`, `client disable`, `client suspend`,
+  `admin revoke`, `client disable`, `client suspend`,
   `client delete`, `client rotate-secret --grace 0`, `keys revoke`, `keys rotate
   --now`, `keys rewrap`, `handle release`, `audit prune`, `announcement send`, and `account …
   message`, `passkeys revoke`,
