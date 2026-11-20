@@ -77,16 +77,16 @@ impl Harness {
         reply(self.send(browser, method, path, body).await).await
     }
 
-    /// Adds `address` to `account`, returning the status and body.
-    async fn add(&self, account: &Browser, address: &str) -> (StatusCode, Value) {
+    /// Adds `address` to `browser`'s account, returning the status and body.
+    async fn add(&self, browser: &Browser, address: &str) -> (StatusCode, Value) {
         let body = json!({ "email": address });
-        self.call(account, Method::POST, routes::emails::LIST, Some(body))
+        self.call(browser, Method::POST, routes::emails::LIST, Some(body))
             .await
     }
 
-    /// Adds `address` to `account` and returns its ID.
-    async fn added(&self, account: &Browser, address: &str) -> EmailId {
-        let (status, body) = self.add(account, address).await;
+    /// Adds `address` to `browser`'s account and returns its ID.
+    async fn added(&self, browser: &Browser, address: &str) -> EmailId {
+        let (status, body) = self.add(browser, address).await;
         assert_eq!(status, StatusCode::CREATED, "{body}");
         body["id"].as_str().expect("id").parse().expect("email ID")
     }
@@ -109,30 +109,30 @@ impl Harness {
         .await
     }
 
-    /// Makes `id` the primary address of `account`.
-    async fn make_primary(&self, account: &Browser, id: EmailId) -> (StatusCode, Value) {
+    /// Makes `id` the primary address of `browser`'s account.
+    async fn make_primary(&self, browser: &Browser, id: EmailId) -> (StatusCode, Value) {
         let path = routes::emails::PRIMARY.replace("{id}", &id.to_string());
-        self.call(account, Method::POST, &path, None).await
+        self.call(browser, Method::POST, &path, None).await
     }
 
-    /// Removes `id` from `account`.
-    async fn remove(&self, account: &Browser, id: EmailId) -> (StatusCode, Value) {
+    /// Removes `id` from `browser`'s account.
+    async fn remove(&self, browser: &Browser, id: EmailId) -> (StatusCode, Value) {
         let path = routes::emails::ITEM.replace("{id}", &id.to_string());
-        self.call(account, Method::DELETE, &path, None).await
+        self.call(browser, Method::DELETE, &path, None).await
     }
 
-    /// `account`'s addresses, as it lists them.
-    async fn list(&self, account: &Browser) -> Vec<Value> {
+    /// The addresses of `browser`'s account, as it lists them.
+    async fn list(&self, browser: &Browser) -> Vec<Value> {
         let (status, body) = self
-            .call(account, Method::GET, routes::emails::LIST, None)
+            .call(browser, Method::GET, routes::emails::LIST, None)
             .await;
         assert_eq!(status, StatusCode::OK, "{body}");
         body.as_array().expect("addresses").clone()
     }
 
-    /// The email deliveries queued for `account`.
-    async fn deliveries(&self, account: &Browser) -> Vec<DeliverySummary> {
-        let destination = format!("account {}", account.user_id);
+    /// The email deliveries queued for `browser`'s account.
+    async fn deliveries(&self, browser: &Browser) -> Vec<DeliverySummary> {
+        let destination = format!("account {}", browser.user_id);
         self.database
             .deliveries()
             .list(None, Some("email"), 1000)

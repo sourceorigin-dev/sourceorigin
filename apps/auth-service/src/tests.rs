@@ -219,7 +219,8 @@ impl Replicas {
 /// The request budget the test configuration allows, as production does.
 pub(crate) const REQUESTS_PER_MINUTE: i32 = 120;
 
-/// Largest response body [`Browser::call`] and the page tests read.
+/// Largest response body the tests read, through [`Browser::call`], [`html`],
+/// [`json`] and [`reply`].
 pub(crate) const MAX_RESPONSE_BYTES: usize = 256 * 1024;
 /// What a form on one of auth's pages sends: they have `Referrer-Policy: no-referrer`,
 /// so the browser sends `Origin: null`.

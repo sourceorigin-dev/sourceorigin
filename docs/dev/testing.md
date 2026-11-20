@@ -80,13 +80,15 @@ throw away, never one that holds real accounts. A TCP URL must include
 A new database test starts from the fixtures in `crates/database/src/fixtures.rs`.
 `Database::test()` connects with the limits every connection of the service has.
 `insert_named` creates an account, `InsertSession::lasting` describes a session,
-and `test_channels!` declares channels whose deliveries a test inserts itself.
+`known_history` lists an account's events, and `test_channels!` declares channels
+whose deliveries a test inserts itself.
 Another crate's tests get them through the `test-util` feature. A test in
 `crates/database` that inserts rows with plain SQL connects through
-`Database::test_pool()` instead, and auth-service's tests use `Replicas` and
-`Browser` in `apps/auth-service/src/tests.rs`. A test that needs a migrated
-schema no other test shares, such as the audit chain's verification tests, gets
-one from `Database::isolated`.
+`Database::test_pool()` instead, and auth-service's tests use `Replicas`,
+`Browser`, and the `html`, `json` and `reply` readers in
+`apps/auth-service/src/tests.rs`. A test that needs a migrated schema no other
+test shares, such as the audit chain's verification tests, gets one from
+`Database::isolated`.
 
 ### SDK test vectors
 
