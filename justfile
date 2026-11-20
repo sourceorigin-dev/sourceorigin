@@ -60,7 +60,7 @@ fmt-check: rust::fmt-check web::fmt-check
 # Warnings fail both linters, like `-D warnings`.
 lint: rust::lint web::lint
 
-check: rust::check web::check
+check: rust::check rust::features web::check
 
 # Unused Rust dependencies, and unused web files, exports and dependencies.
 unused: rust::unused web::unused

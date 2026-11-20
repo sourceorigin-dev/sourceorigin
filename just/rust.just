@@ -3,6 +3,19 @@ set working-directory := '..'
 check:
     @cargo check --locked --workspace --all-targets
 
+# The workspace unifies features, so a published crate's feature that needs
+# another it doesn't enable still builds there. Checking each crate with no
+# features, then each feature alone, builds them as a dependent might.
+features:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for manifest in crates/{common,crypto,auth-sdk}/Cargo.toml; do
+        cargo check --locked --manifest-path "$manifest" --no-default-features
+        for feature in $(sed -n '/^\[features\]/,/^\[/s/^\([a-z0-9_-]*\) = .*/\1/p' "$manifest"); do
+            cargo check --locked --manifest-path "$manifest" --no-default-features --features "$feature"
+        done
+    done
+
 fmt:
     @cargo fmt --all
 

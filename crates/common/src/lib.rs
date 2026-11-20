@@ -52,6 +52,10 @@ pub mod protocol;
 /// Look-alike detection for handles, client names and the names reserved from them.
 #[cfg(feature = "similarity")]
 pub mod similarity;
+/// The browser and platform of a `User-Agent` header, which `admin` and `events`
+/// re-export. `events` enables `admin`.
+#[cfg(feature = "admin")]
+mod user_agent;
 
 use serde::{Deserialize, Serialize};
 use std::{error::Error as StdError, fmt, str::FromStr};
