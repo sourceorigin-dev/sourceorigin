@@ -1,14 +1,22 @@
 set working-directory := '..'
 
-# `--slot NAME` keeps several previews of one branch.
+# `--slot NAME` keeps several previews of one branch. The branch is read before
+# deploying, so switching branch during the deploy doesn't change the preview
+# it waits for.
 # Deploy this worktree, uncommitted changes included, to its preview; print its URLs.
 preview *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    branch=$(git branch --show-current)
     piquelctl --timeout 30m preview deploy sourceorigin --local {{ args }}
-    piquelctl --timeout 10m preview wait sourceorigin "$(git branch --show-current)" {{ args }} --ready routes
+    piquelctl --timeout 10m preview wait sourceorigin "$branch" {{ args }} --ready routes
 
 # Delete this worktree's preview with its database.
 preview-delete *args:
-    piquelctl --timeout 5m preview delete sourceorigin "$(git branch --show-current)" {{ args }} --yes
+    #!/usr/bin/env bash
+    set -euo pipefail
+    branch=$(git branch --show-current)
+    piquelctl --timeout 5m preview delete sourceorigin "$branch" {{ args }} --yes
 
 # Each telemetry config is checked by the image infra/telemetry.toml runs it
 # with, so by the version that will read it. Needs piquelctl and Docker.
