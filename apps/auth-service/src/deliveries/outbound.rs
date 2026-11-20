@@ -172,7 +172,6 @@ impl OutboundClient {
     /// Classifies a request that got no response. A refused address is found in
     /// the error's sources, where the resolver's error ends up.
     fn transport_error(error: &reqwest::Error) -> DeliveryError {
-        let retryable = DeliveryError::retryable;
         let mut source: Option<&(dyn StdError + 'static)> = Some(error);
         while let Some(current) = source {
             if let Some(refused) = current.downcast_ref::<ResolutionError>() {
@@ -180,17 +179,17 @@ impl OutboundClient {
                     ResolutionError::Forbidden(_) => {
                         DeliveryError::Permanent(Failure::ForbiddenDestination)
                     }
-                    ResolutionError::Lookup(_) => retryable(Failure::Resolution),
+                    ResolutionError::Lookup(_) => DeliveryError::retryable(Failure::Resolution),
                 };
             }
             source = current.source();
         }
         if error.is_timeout() {
-            retryable(Failure::Timeout)
+            DeliveryError::retryable(Failure::Timeout)
         } else if error.is_builder() {
             DeliveryError::Permanent(Failure::InvalidDestination)
         } else {
-            retryable(Failure::Connection)
+            DeliveryError::retryable(Failure::Connection)
         }
     }
 

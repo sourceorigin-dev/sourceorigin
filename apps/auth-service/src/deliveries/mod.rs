@@ -162,8 +162,8 @@ pub(crate) enum Failure {
 }
 
 impl DeliveryError {
-    /// A failure another attempt may get past, at the retry policy's pace, since
-    /// the receiver asked for no wait.
+    /// A failure another attempt may get past, at the retry policy's own pace:
+    /// nothing, such as a receiver's `Retry-After`, asked for a particular wait.
     pub(crate) const fn retryable(failure: Failure) -> Self {
         Self::Retryable {
             failure,
