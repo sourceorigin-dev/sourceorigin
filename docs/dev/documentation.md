@@ -145,7 +145,8 @@ does what its guide does, then saves each page with `shoot` from
 
 The dashboard's spec, `admin.spec.ts`, runs first, in a project of its own
 (`docs-admin` in `playwright.config.ts`), so the overview counts only the
-administrator it signs up, whatever the other specs add.
+administrator it signs up, whatever the other specs add. It runs whatever spec
+you name, as Playwright always runs a project's dependencies.
 
 An image is rewritten only when its page looks different, so a run that changes
 nothing leaves `docs/images` untouched. The browser suite never runs these

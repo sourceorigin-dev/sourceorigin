@@ -36,7 +36,8 @@ reference:
 # Each run deploys this checkout to a fresh preview of its own, the `docs` slot,
 # takes the screenshots there, and deletes it: a new database every run keeps the
 # pages the same. Only images whose page changed are rewritten. ARGS go on to
-# Playwright, such as a spec's name. See docs/dev/documentation.md.
+# Playwright, such as a spec's name; the dashboard's spec always runs first.
+# See docs/dev/documentation.md.
 # Retake the documentation's screenshots in docs/images.
 screenshots *args:
     #!/usr/bin/env bash
