@@ -417,19 +417,15 @@ mod tests {
     /// no target.
     #[test]
     fn selection_takes_the_first_known_value() {
-        assert_eq!(
-            Acr::select("urn:sourceorigin:acr:social phr"),
-            Some(Acr::Social)
-        );
-        assert_eq!(
-            Acr::select("phr urn:sourceorigin:acr:social"),
-            Some(Acr::PhishingResistant)
-        );
-        assert_eq!(
-            Acr::select("urn:example:gold  phr"),
-            Some(Acr::PhishingResistant)
-        );
-        assert_eq!(Acr::select("urn:example:gold 2"), None);
-        assert_eq!(Acr::select(""), None);
+        let phr = Some(Acr::PhishingResistant);
+        for (values, selected) in [
+            ("urn:sourceorigin:acr:social phr", Some(Acr::Social)),
+            ("phr urn:sourceorigin:acr:social", phr),
+            ("urn:example:gold  phr", phr),
+            ("urn:example:gold 2", None),
+            ("", None),
+        ] {
+            assert_eq!(Acr::select(values), selected, "{values:?}");
+        }
     }
 }
