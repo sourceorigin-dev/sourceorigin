@@ -11,7 +11,8 @@
 #   rust-lint -> Clippy, rustdoc with warnings denied, and the doc tests
 #   package -> the SDKs packaged as `just publish` publishes them, each crate
 #             built from its package, without uploading anything
-#   msrv   -> the published crates built with their oldest supported Rust
+#   msrv   -> the published crates built with their oldest supported Rust, with
+#             all their features, none, and each one alone
 #   e2e    -> the browser suite over HTTPS against the real binary and PostgreSQL,
 #             with the admin dashboard on its own listener and host, sourceorigin.dev's
 #             web server on its own host, Mailpit receiving auth's email, and
@@ -219,8 +220,10 @@ jobs:
           msrv=$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml)
           rustup toolchain install "$msrv" --profile minimal
           echo "RUSTUP_TOOLCHAIN=$msrv" >> "$GITHUB_ENV"
+      - *install-just
       - *rust-cache
       - run: cargo check --locked --all-features --package sourceorigin-common --package sourceorigin-crypto --package sourceorigin-auth
+      - run: just rust features
 
   rust:
     name: rust

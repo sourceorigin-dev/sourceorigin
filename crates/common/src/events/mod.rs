@@ -15,9 +15,8 @@ mod payload;
 #[cfg(test)]
 mod tests;
 
-pub use context::{
-    Actor, Browser, EventContext, JobName, Platform, RequestOrigin, UserAgentFamily,
-};
+pub use crate::user_agent::{Browser, Platform, UserAgentFamily};
+pub use context::{Actor, EventContext, JobName, RequestOrigin};
 pub use history::{FollowUp, HistoryActor, HistoryEntry};
 pub use payload::{
     CodeRedemptionFailure, GrantRevocation, InlineSignIn, RecordedOrigin, RecoveryRevocation,

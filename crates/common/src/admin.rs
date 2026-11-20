@@ -3,14 +3,16 @@
 //! database crate decodes some straight into them.
 //!
 //! Bodies the account settings also return come from [`crate::protocol::api`]
-//! and are re-exported here.
+//! and are re-exported here, as is the
+//! [`UserAgentFamily`](crate::admin::UserAgentFamily) the session and device
+//! views show, which events record too.
 
 pub use crate::protocol::api::{Identity, Passkey};
+pub use crate::user_agent::{Browser, Platform, UserAgentFamily};
 use crate::{
     AccountStatus, AnnouncementId, AuthenticationMethod, ClientId, DeliveryId, EventId, Handle,
     PictureId, SessionId, TokenId, TraceId, UserId,
     clients::RelatedOrigin,
-    events::UserAgentFamily,
     form::Checkbox,
     protocol::{jwt::KeyId, oauth::ClientAuthMethod},
 };
@@ -723,10 +725,8 @@ pub enum DraftIntent {
 }
 
 /// The result of verifying the audit chain, as `auth-service audit verify` prints
-/// it and the audit log records it, as [`DomainEvent::AuditChainVerified`], for
+/// it and the audit log records it, as `DomainEvent::AuditChainVerified`, for
 /// the dashboard's audit page to show. Verification stops at the first problem.
-///
-/// [`DomainEvent::AuditChainVerified`]: crate::events::DomainEvent::AuditChainVerified
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AuditVerification {
     /// The first position that does not match, or `None` if the chain is intact.

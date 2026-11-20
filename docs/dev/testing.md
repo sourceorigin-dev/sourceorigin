@@ -159,6 +159,7 @@ expressions included.
 | Clippy and ESLint with warnings denied, and `publint` and `attw` on the built TypeScript SDK | `just lint` (`just rust lint` / `just web lint`) |
 | Unused Rust dependencies (cargo-machete), and unused web files, exports and dependencies (knip) | `just unused` (`just rust unused` / `just web unused`) |
 | Type-check Rust, and TypeScript with the pages' scripts | `just check` (`just rust check` / `just web check`) |
+| Type-check each published crate with no features, then with each feature alone, as a dependent might enable it | `just rust features` (part of `just check`) |
 | Rust unit tests, or one package's | `just test` / `just test -p auth-service` |
 | Rust docs with warnings denied, and the doc tests | `just doc` / `just doc-test` |
 | TypeScript SDK tests with coverage, and the runtime smoke test | `just web test` / `just web smoke` |
@@ -185,7 +186,7 @@ CI runs the same recipes, in these jobs:
 | `rust` | `just coverage` against a PostgreSQL 18 service, then `just db prepare-check` |
 | `rust-lint` | `just rust lint`, `just doc` and `just doc-test` |
 | `package` | `just publish --dry-run`: see [releasing](releasing.md#what-gets-published) |
-| `msrv` | `cargo check` of the published crates with their oldest supported Rust, the workspace's `rust-version` |
+| `msrv` | `cargo check` of the published crates with all their features, then `just rust features`, with their oldest supported Rust, the workspace's `rust-version` |
 | `e2e` | The browser suite, against the debug binary behind Caddy, with Mailpit receiving auth's email and sourceorigin.dev's web server on its own host |
 | `docker` | Builds the auth, web and docs images, the first two from the layers `main` cached last |
 | `infra` | `just infra check`, with the latest piquelctl |
