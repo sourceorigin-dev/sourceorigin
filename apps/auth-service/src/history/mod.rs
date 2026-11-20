@@ -196,7 +196,8 @@ impl HistoryItem {
 pub(crate) struct Activity {
     /// How many times apps exchanged a code for tokens: sign-ins through apps.
     pub(crate) app_sign_ins: u64,
-    /// How many security events were recorded: sign-ins, failures and changes.
+    /// How many security events were recorded: the events the security history
+    /// shows, counted by [`DomainEvent::HISTORY_KINDS`].
     pub(crate) security_events: u64,
 }
 
@@ -204,44 +205,6 @@ impl Activity {
     /// The kind of event counted as a sign-in through an app, by the tag
     /// [`DomainEvent`] stores it under.
     const APP_SIGN_INS: [&'static str; 1] = ["grant_issued"];
-    /// The kinds counted as security events: every kind the security history
-    /// shows, as [`DomainEvent::history_entry`] decides, so the count and the
-    /// feed agree, as far as a count by kind can: a refresh grant's revocation
-    /// is left out, since the history shows only a replay's, and a session's
-    /// expiry is counted, since the history hides only that reason.
-    const SECURITY: [&'static str; 31] = [
-        "account_created",
-        "signed_in",
-        "session_revoked",
-        "passkey_added",
-        "passkey_renamed",
-        "passkey_removed",
-        "identity_linked",
-        "identity_unlinked",
-        "email_added",
-        "email_verified",
-        "primary_email_changed",
-        "email_removed",
-        "consent_granted",
-        "consent_revoked",
-        "code_replayed",
-        "account_disabled",
-        "account_enabled",
-        "administrator_granted",
-        "administrator_revoked",
-        "dashboard_signed_in",
-        "dashboard_signed_out",
-        "handle_changed",
-        "display_name_changed",
-        "recovery_started",
-        "recovery_completed",
-        "recovery_undone",
-        "account_exported",
-        "signed_out_everywhere",
-        "account_deletion_scheduled",
-        "account_restored",
-        "compromise_reported",
-    ];
 }
 
 impl AccountService {
@@ -264,7 +227,11 @@ impl AccountService {
                 .count_since(Some(viewer.user()), &kinds(&Activity::APP_SIGN_INS), since)
                 .await?,
             security_events: events
-                .count_since(Some(viewer.user()), &kinds(&Activity::SECURITY), since)
+                .count_since(
+                    Some(viewer.user()),
+                    &kinds(&DomainEvent::HISTORY_KINDS),
+                    since,
+                )
                 .await?,
         })
     }

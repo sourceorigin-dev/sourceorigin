@@ -10,6 +10,48 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 impl DomainEvent {
+    /// The kinds whose events show in the security history, by the tag each is
+    /// stored under, for counting the history by kind: as far as a count by kind
+    /// can, it counts what [`Self::history_entry`] shows. A grant's revocation is
+    /// left out, since the history shows only a refresh replay's, and a session's
+    /// revocation is in, since the history hides only an expiry.
+    pub const HISTORY_KINDS: [&'static str; 34] = [
+        "account_created",
+        "signed_in",
+        "session_revoked",
+        "passkey_added",
+        "passkey_renamed",
+        "passkey_removed",
+        "identity_linked",
+        "identity_unlinked",
+        "email_added",
+        "email_verified",
+        "primary_email_changed",
+        "email_removed",
+        "consent_granted",
+        "consent_revoked",
+        "code_replayed",
+        "account_disabled",
+        "account_enabled",
+        "administrator_granted",
+        "administrator_revoked",
+        "dashboard_signed_in",
+        "dashboard_signed_out",
+        "handle_changed",
+        "display_name_changed",
+        "picture_changed",
+        "picture_removed",
+        "recovery_started",
+        "recovery_completed",
+        "recovery_undone",
+        "account_exported",
+        "signed_out_everywhere",
+        "notification_preference_changed",
+        "account_deletion_scheduled",
+        "account_restored",
+        "compromise_reported",
+    ];
+
     /// The entry this event shows in its subject's own security history, or `None`
     /// for what only auth needs: ceremonies, rejected attempts, token bookkeeping
     /// and invitations. Every variant is named, so a new one cannot be added
