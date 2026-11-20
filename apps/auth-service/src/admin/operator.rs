@@ -21,7 +21,8 @@ const OPERATOR: Variable = Variable::new("AUTH_OPERATOR");
 /// The operating system user, who runs commands when neither `--operator` nor
 /// `AUTH_OPERATOR` says who does.
 const OS_USER: Variable = Variable::new("USER");
-/// The machine's host name, for systems without `/proc`.
+/// The machine's host name, for systems without `/proc` or where its host name
+/// is blank.
 const HOST_NAME: Variable = Variable::new("HOSTNAME");
 /// Where Linux exposes the host name.
 const HOST_NAME_FILE: &str = "/proc/sys/kernel/hostname";
@@ -127,8 +128,8 @@ impl Operator {
 
     /// The host's name: `file`'s, the host name file's contents if it could be
     /// read, else `fallback`'s, which runs only when `file` names none, so an
-    /// invalid `HOSTNAME` fails only the commands that need it; `unknown` when
-    /// neither names one. Whitespace around a name is no part of it.
+    /// invalid `HOSTNAME` fails a command only when the host name file names no
+    /// host; `unknown` when neither names one. Whitespace around a name is no part of it.
     fn host_name(
         file: Option<String>,
         fallback: impl FnOnce() -> Result<Option<String>, ConfigurationError>,
