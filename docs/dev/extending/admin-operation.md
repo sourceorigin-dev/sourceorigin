@@ -219,7 +219,7 @@ inbox and by email. Support's changes usually tell them: see
    (`apps/auth-service/src/cli/tests.rs`).
    `every_operation_has_its_command` parses it and checks that it names the
    operation.
-4. Test the dashboard page in `apps/auth-service/src/web/admin/tests.rs`, and in
+4. Test the dashboard page in `apps/auth-service/src/web/admin/tests/`, and in
    a browser in `tests/browser/admin.spec.ts`, if it does more than the pages
    tested already.
 

@@ -198,7 +198,7 @@ apart by its actor: see [adding a notification](notification.md).
    (`apps/auth-service/src/cli/tests.rs`), which
    `every_operation_has_its_command` parses.
 4. Test the settings page and the dashboard page, in
-   `apps/auth-service/src/web/settings/tests.rs` and `web/admin/tests.rs`.
+   `apps/auth-service/src/web/settings/tests.rs` and `web/admin/tests/accounts.rs`.
 5. If the export grew, add the new field to
    `serializes_every_section_in_its_documented_shape`
    (`deletion/export/tests.rs`), which builds an export and checks each

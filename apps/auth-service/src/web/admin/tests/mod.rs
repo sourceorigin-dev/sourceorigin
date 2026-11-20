@@ -1,6 +1,5 @@
-//! The admin dashboard through auth's two listeners, as a browser uses them:
-//! signing in by auth's handoff page, the dashboard's own confirmation, and the
-//! admin listener's security layer.
+//! The admin dashboard through auth's two listeners, as a browser uses them: the
+//! shared harness and fixtures here, and one file per flow.
 
 use super::{AdminApplication, Attention, AttentionCache};
 use crate::{
