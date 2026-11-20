@@ -1,11 +1,10 @@
 //! `/settings`: the account at a glance.
 
 use crate::{
-    account::{AccountError, Owner},
     routes::page::settings,
     web::{
         Failure, WebApplication,
-        account::{AccountPage, Applied, NoChange, Reader},
+        account::{AccountPage, Reader, no_change},
     },
 };
 use chrono::{Duration, Utc};
@@ -34,21 +33,8 @@ impl AccountPage for Overview {
     const SECTION: Section = Section::Account;
     const PATH: &'static str = settings::HOME;
     const TITLE: &'static str = Self::TAB.label();
-    type Change = NoChange;
     type Row = ();
-
-    fn reopened(change: &NoChange) {
-        match *change {}
-    }
-
-    fn apply(
-        _: &WebApplication,
-        _: &Cx,
-        _: Owner,
-        change: NoChange,
-    ) -> impl Future<Output = Result<Applied<()>, AccountError>> + Send {
-        std::future::ready(change.absurd())
-    }
+    no_change!();
 
     async fn render(
         web: &WebApplication,
