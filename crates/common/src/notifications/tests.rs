@@ -21,15 +21,26 @@ fn admin() -> Actor {
     }
 }
 
-/// Support renaming an account or one of its passkeys, or removing its picture,
-/// tells its owner; the owner doing so does not.
-#[test]
-fn only_support_renames_notify() {
-    let cli = Actor::Cli {
+/// An operator, through the CLI.
+fn cli() -> Actor {
+    Actor::Cli {
         os_user: "root".to_owned(),
         host: "host".to_owned(),
-    };
+    }
+}
+
+/// Support changing an account's handle or display name, renaming one of its
+/// passkeys, or removing its picture, tells its owner; the owner doing so does not.
+#[test]
+fn only_support_renames_notify() {
     for (event, notification) in [
+        (
+            DomainEvent::HandleChanged {
+                old: Personal::Value("ada".to_owned()),
+                new: Personal::Value("ada-l".parse().expect("handle")),
+            },
+            Notification::HandleChanged,
+        ),
         (
             DomainEvent::DisplayNameChanged {
                 old: Personal::Value("Ada".to_owned()),
@@ -46,8 +57,8 @@ fn only_support_renames_notify() {
         (DomainEvent::PictureRemoved {}, Notification::PictureRemoved),
     ] {
         assert_eq!(event.notification(&owner()), None, "{event:?}");
-        for support in [admin(), cli.clone()] {
-            let expected = Some(notification.clone());
+        let expected = Some(notification);
+        for support in [admin(), cli()] {
             assert_eq!(event.notification(&support), expected, "{event:?}");
         }
     }
