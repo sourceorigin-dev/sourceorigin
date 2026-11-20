@@ -144,7 +144,7 @@ pub(super) struct RegistrationFinish {
     pub(super) ceremony_id: TokenId,
     /// Authenticator's registration response, never logged.
     pub(super) credential: RegisterPublicKeyCredential,
-    /// Credential label; omission receives the default friendly name.
+    /// Credential label, trimmed; omission receives the default friendly name.
     #[serde(default = "RegistrationFinish::default_name")]
     pub(super) friendly_name: String,
 }
@@ -178,7 +178,7 @@ pub(crate) struct AuthenticationFinish {
 /// New label for an existing credential.
 #[derive(Deserialize)]
 pub(crate) struct Rename {
-    /// Label validated before the rename transaction.
+    /// Label, trimmed and validated before the rename transaction.
     pub(crate) friendly_name: String,
 }
 
