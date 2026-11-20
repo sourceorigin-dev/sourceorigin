@@ -170,11 +170,12 @@ records `AnnouncementSent`, whose fan-out creates one delivery per recipient
 with a primary verified address, leaving out, unless the announcement is
 essential, those who turned announcements' email off
 ([email preferences](notifications.md#email-preferences)). Each address gets
-it once, for the account that holds it. That is the account that owns it, an
-active one or one being deleted. Disabling an account releases its addresses,
-so disabled accounts may share one that nobody owns: then the one that verified
-it most recently holds it, the lowest account ID breaking a tie. These emails
-go out here, never on the `email` channel, and link the inbox. Each names its list in
+it at most once, for the account that holds it. That is the account that owns
+it, an active one or one being deleted. Disabling an account releases its
+addresses, so disabled accounts may share one that nobody owns: then the one
+that verified it most recently, as any verified address, primary or not, holds
+it, the lowest account ID breaking a tie. These emails go out here, never on
+the `email` channel, and link the inbox. Each names its list in
 a `List-Id` header (RFC 2919), `<announcements.<sender's domain>>`, so mail
 clients can sort and filter announcements, and one that is not essential also
 carries the recipient's one-click unsubscribe link, in its body and its
