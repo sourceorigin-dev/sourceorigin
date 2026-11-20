@@ -81,6 +81,18 @@ pub struct StoredExternalIdentity {
     pub linked_email: Option<String>,
 }
 
+/// A [`query_record!`] returning [`StoredExternalIdentity`]s, read as `i`.
+macro_rules! identities {
+    ($($query:tt)*) => {
+        query_record!(
+            StoredExternalIdentity,
+            r#"i.id AS "id: TokenId", i.user_id AS "user_id: UserId",
+            i.provider_name AS "provider: Provider", i.issuer, i.subject, i.linked_email"#,
+            $($query)*
+        )
+    };
+}
+
 impl From<StoredExternalIdentity> for Identity {
     /// Shows the provider and linked email, not the provider's subject.
     fn from(identity: StoredExternalIdentity) -> Self {
@@ -125,6 +137,20 @@ pub struct PendingFederation {
     pub link_session_id: Option<SessionId>,
     /// When the evidence stops being accepted.
     pub expires_at: DateTime<Utc>,
+}
+
+/// A [`query_record!`] returning [`PendingFederation`]s, read as `p`.
+macro_rules! pending_federation {
+    ($($query:tt)*) => {
+        query_record!(
+            PendingFederation,
+            r#"p.id AS "id: TokenId", p.browser_digest, p.provider_name AS "provider: Provider",
+            p.issuer, p.subject, p.email, p.email_authoritative, p.display_name, p.return_to,
+            p.link_user_id AS "link_user_id: UserId",
+            p.link_session_id AS "link_session_id: SessionId", p.expires_at, p.picture_url"#,
+            $($query)*
+        )
+    };
 }
 
 impl FederationRepository<'_> {
@@ -209,15 +235,12 @@ impl FederationRepository<'_> {
         run!(
             self,
             fetch_optional,
-            sqlx::query_as!(
-                StoredExternalIdentity,
-                r#"SELECT
-                    id AS "id: TokenId", user_id AS "user_id: UserId",
-                    provider_name AS "provider: Provider", issuer, subject, linked_email
-                FROM external_login_identities
-                WHERE issuer = $1
-                AND subject = $2
-                AND revoked_at IS NULL"#,
+            identities!(
+                "SELECT",
+                "FROM external_login_identities i
+                WHERE i.issuer = $1
+                AND i.subject = $2
+                AND i.revoked_at IS NULL",
                 issuer,
                 subject,
             )
@@ -238,14 +261,12 @@ impl FederationRepository<'_> {
         run!(
             self,
             fetch_one,
-            sqlx::query_as!(
-                StoredExternalIdentity,
-                r#"INSERT INTO external_login_identities (
+            identities!(
+                "INSERT INTO external_login_identities AS i (
                     id, user_id, provider_name, issuer, subject, linked_email
                 ) VALUES ($1, $2, $3, $4, $5, $6)
-                RETURNING
-                    id AS "id: TokenId", user_id AS "user_id: UserId",
-                    provider_name AS "provider: Provider", issuer, subject, linked_email"#,
+                RETURNING",
+                "",
                 input.id.as_uuid(),
                 input.user_id.as_uuid(),
                 input.provider.as_str(),
@@ -288,15 +309,12 @@ impl FederationRepository<'_> {
         run!(
             self,
             fetch_all,
-            sqlx::query_as!(
-                StoredExternalIdentity,
-                r#"SELECT
-                    id AS "id: TokenId", user_id AS "user_id: UserId",
-                    provider_name AS "provider: Provider", issuer, subject, linked_email
-                FROM external_login_identities
-                WHERE user_id = $1
-                AND revoked_at IS NULL
-                ORDER BY linked_at"#,
+            identities!(
+                "SELECT",
+                "FROM external_login_identities i
+                WHERE i.user_id = $1
+                AND i.revoked_at IS NULL
+                ORDER BY i.linked_at",
                 user_id.as_uuid(),
             )
         )
@@ -374,17 +392,12 @@ impl FederationRepository<'_> {
         run!(
             self,
             fetch_optional,
-            sqlx::query_as!(
-                PendingFederation,
-                r#"SELECT
-                    id AS "id: TokenId", browser_digest, provider_name AS "provider: Provider",
-                    issuer, subject, email, email_authoritative, display_name, return_to,
-                    link_user_id AS "link_user_id: UserId",
-                    link_session_id AS "link_session_id: SessionId", expires_at, picture_url
-                FROM pending_federation
-                WHERE browser_digest = $1
-                AND consumed_at IS NULL
-                AND expires_at > now()"#,
+            pending_federation!(
+                "SELECT",
+                "FROM pending_federation p
+                WHERE p.browser_digest = $1
+                AND p.consumed_at IS NULL
+                AND p.expires_at > now()",
                 digest,
             )
         )
@@ -405,19 +418,15 @@ impl FederationRepository<'_> {
         run!(
             self,
             fetch_one,
-            sqlx::query_as!(
-                PendingFederation,
-                r#"UPDATE pending_federation
+            pending_federation!(
+                "UPDATE pending_federation p
                 SET consumed_at = now()
-                WHERE id = $1
-                AND browser_digest = $2
-                AND consumed_at IS NULL
-                AND expires_at > now()
-                RETURNING
-                    id AS "id: TokenId", browser_digest, provider_name AS "provider: Provider",
-                    issuer, subject, email, email_authoritative, display_name, return_to,
-                    link_user_id AS "link_user_id: UserId",
-                    link_session_id AS "link_session_id: SessionId", expires_at, picture_url"#,
+                WHERE p.id = $1
+                AND p.browser_digest = $2
+                AND p.consumed_at IS NULL
+                AND p.expires_at > now()
+                RETURNING",
+                "",
                 id.as_uuid(),
                 digest,
             )

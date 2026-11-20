@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE authorization_requests r\n                SET consumed_at = now()\n                FROM oidc_clients c\n                WHERE r.id = $1\n                AND r.secret_digest = ANY($2)\n                AND r.consumed_at IS NULL\n                AND r.expires_at > now()\n                AND (NOT r.pushed OR r.claimed_at IS NOT NULL)\n                AND c.id = r.client_id\n                RETURNING\n                    r.id AS \"id: TokenId\", r.pushed, r.client_id AS \"client_id: ClientId\",\n                    c.display_name AS client_display_name,\n                    r.redirect_uri, r.client_state, r.nonce, r.pkce_challenge,\n                    r.scopes AS \"scopes: JsonArray<String>\", r.audience,\n                    r.interaction AS \"interaction: Interaction\", r.max_age,\n                    r.hinted_user_id AS \"hinted_user_id: UserId\",\n                    r.target_acr AS \"target_acr: Acr\",\n                    COALESCE(r.claimed_at, r.created_at) AS \"started_at!\"\n                ",
+  "query": "SELECT r.id AS \"id: TokenId\", r.pushed, r.client_id AS \"client_id: ClientId\",\n            c.display_name AS client_display_name,\n            r.redirect_uri, r.client_state, r.nonce, r.pkce_challenge,\n            r.scopes AS \"scopes: JsonArray<String>\", r.audience,\n            r.interaction AS \"interaction: Interaction\", r.max_age,\n            r.hinted_user_id AS \"hinted_user_id: UserId\",\n            r.target_acr AS \"target_acr: Acr\",\n            COALESCE(r.claimed_at, r.created_at) AS \"started_at!\" FROM authorization_requests r\n                JOIN oidc_clients c ON c.id = r.client_id\n                WHERE r.id = $1\n                AND r.secret_digest = ANY($2)\n                AND r.consumed_at IS NULL\n                AND r.expires_at > now()\n                AND (NOT r.pushed OR r.claimed_at IS NOT NULL)",
   "describe": {
     "columns": [
       {
@@ -103,5 +103,5 @@
       null
     ]
   },
-  "hash": "42ac9c52f8c14b06434dccc3564591b2c73a8adbaf5bc25db5fe0afa34995bf6"
+  "hash": "11d5fced1a1e09da24c4dc3a17aaf4e7a354f818b55ac4736abbcf38d316e1e0"
 }

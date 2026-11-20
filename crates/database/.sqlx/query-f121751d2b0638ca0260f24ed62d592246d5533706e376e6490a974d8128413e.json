@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n                    id AS \"id: TokenId\", user_id AS \"user_id: UserId\",\n                    provider_name AS \"provider: Provider\", issuer, subject, linked_email\n                FROM external_login_identities\n                WHERE user_id = $1\n                AND revoked_at IS NULL\n                ORDER BY linked_at",
+  "query": "INSERT INTO external_login_identities AS i (\n                    id, user_id, provider_name, issuer, subject, linked_email\n                ) VALUES ($1, $2, $3, $4, $5, $6)\n                RETURNING i.id AS \"id: TokenId\", i.user_id AS \"user_id: UserId\",\n            i.provider_name AS \"provider: Provider\", i.issuer, i.subject, i.linked_email ",
   "describe": {
     "columns": [
       {
@@ -36,7 +36,12 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text"
       ]
     },
     "nullable": [
@@ -48,5 +53,5 @@
       true
     ]
   },
-  "hash": "45f2880912e433a879e18041044c9cbeefccb0c8ef1db51b7929489514ca8fab"
+  "hash": "f121751d2b0638ca0260f24ed62d592246d5533706e376e6490a974d8128413e"
 }

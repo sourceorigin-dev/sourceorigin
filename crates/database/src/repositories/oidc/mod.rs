@@ -76,28 +76,22 @@ pub struct InsertAuthorizationRequest {
     pub expires_at: DateTime<Utc>,
 }
 
-/// A checked `sqlx::query_as!` returning [`StoredAuthorizationRequest`]s, whose
-/// columns are written only here: `$head` reads requests as `r`, with their client
-/// as `c`, and ends where the columns go, after `SELECT` or `RETURNING`; `$tail`
-/// follows them. A pushed request started when the browser claimed it, any other
-/// when it was created.
+/// A [`query_record!`] returning [`StoredAuthorizationRequest`]s, read as `r`,
+/// with their client as `c`. A pushed request started when the browser claimed
+/// it, any other when it was created.
 macro_rules! authorization_requests {
-    ($head:literal, $tail:literal $(, $arg:expr)* $(,)?) => {
-        sqlx::query_as!(
+    ($($query:tt)*) => {
+        query_record!(
             StoredAuthorizationRequest,
-            $head
-                + r#"
-                    r.id AS "id: TokenId", r.pushed, r.client_id AS "client_id: ClientId",
-                    c.display_name AS client_display_name,
-                    r.redirect_uri, r.client_state, r.nonce, r.pkce_challenge,
-                    r.scopes AS "scopes: JsonArray<String>", r.audience,
-                    r.interaction AS "interaction: Interaction", r.max_age,
-                    r.hinted_user_id AS "hinted_user_id: UserId",
-                    r.target_acr AS "target_acr: Acr",
-                    COALESCE(r.claimed_at, r.created_at) AS "started_at!"
-                "#
-                + $tail
-            $(, $arg)*
+            r#"r.id AS "id: TokenId", r.pushed, r.client_id AS "client_id: ClientId",
+            c.display_name AS client_display_name,
+            r.redirect_uri, r.client_state, r.nonce, r.pkce_challenge,
+            r.scopes AS "scopes: JsonArray<String>", r.audience,
+            r.interaction AS "interaction: Interaction", r.max_age,
+            r.hinted_user_id AS "hinted_user_id: UserId",
+            r.target_acr AS "target_acr: Acr",
+            COALESCE(r.claimed_at, r.created_at) AS "started_at!""#,
+            $($query)*
         )
     };
 }
@@ -197,6 +191,21 @@ pub struct ConsumedAuthorizationCode {
     pub audience: String,
     /// How the session had authenticated when the code was issued.
     pub authentication: SessionAuthentication,
+}
+
+/// A [`query_record!`] returning [`ConsumedAuthorizationCode`]s, read as `c`.
+macro_rules! authorization_codes {
+    ($($query:tt)*) => {
+        query_record!(
+            ConsumedAuthorizationCode,
+            r#"c.id AS "id: TokenId", c.client_id AS "client_id: ClientId",
+            c.user_id AS "user_id: UserId",
+            c.session_id AS "session_id: SessionId", c.redirect_uri, c.pkce_challenge,
+            c.nonce, c.scopes AS "scopes: JsonArray<String>", c.audience,
+            c.authentication AS "authentication: SessionAuthentication""#,
+            $($query)*
+        )
+    };
 }
 
 /// Why [`OidcRepository::consume_code`] could not redeem a code.
@@ -461,9 +470,8 @@ impl OidcRepository<'_> {
         let code = run!(
             self,
             fetch_optional,
-            sqlx::query_as!(
-                ConsumedAuthorizationCode,
-                r#"UPDATE authorization_codes c
+            authorization_codes!(
+                "UPDATE authorization_codes c
                 SET consumed_at = now()
                 FROM sessions s, users u
                 WHERE c.id = $1
@@ -475,12 +483,8 @@ impl OidcRepository<'_> {
                 AND s.expires_at > now()
                 AND u.id = c.user_id
                 AND u.status = 'active'
-                RETURNING
-                    c.id AS "id: TokenId", c.client_id AS "client_id: ClientId",
-                    c.user_id AS "user_id: UserId",
-                    c.session_id AS "session_id: SessionId", c.redirect_uri, c.pkce_challenge,
-                    c.nonce, c.scopes AS "scopes: JsonArray<String>", c.audience,
-                    c.authentication AS "authentication: SessionAuthentication""#,
+                RETURNING",
+                "",
                 id.as_uuid(),
                 digests,
             )
@@ -515,20 +519,14 @@ impl OidcRepository<'_> {
         run!(
             self,
             fetch_optional,
-            sqlx::query_as!(
-                ConsumedAuthorizationCode,
-                r#"SELECT
-                    id AS "id: TokenId", client_id AS "client_id: ClientId",
-                    user_id AS "user_id: UserId",
-                    session_id AS "session_id: SessionId", redirect_uri, pkce_challenge,
-                    nonce, scopes AS "scopes: JsonArray<String>", audience,
-                    authentication AS "authentication: SessionAuthentication"
-                FROM authorization_codes
-                WHERE id = $1
-                AND secret_digest = ANY($2)
-                AND consumed_at IS NULL
-                AND expires_at > now()
-                FOR UPDATE"#,
+            authorization_codes!(
+                "SELECT",
+                "FROM authorization_codes c
+                WHERE c.id = $1
+                AND c.secret_digest = ANY($2)
+                AND c.consumed_at IS NULL
+                AND c.expires_at > now()
+                FOR UPDATE",
                 id.as_uuid(),
                 digests,
             )

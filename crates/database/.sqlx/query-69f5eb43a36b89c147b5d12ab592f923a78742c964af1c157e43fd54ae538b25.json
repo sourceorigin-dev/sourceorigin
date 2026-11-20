@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT handle AS \"handle: Handle\", user_id AS \"user_id: UserId\", claimed_at,\n                    released_at\n                FROM handles\n                WHERE skeleton = handle_skeleton($1)",
+  "query": "SELECT h.handle AS \"handle: Handle\", h.user_id AS \"user_id: UserId\", h.claimed_at,\n            h.released_at FROM handles h\n                WHERE h.skeleton = handle_skeleton($1)",
   "describe": {
     "columns": [
       {
@@ -36,5 +36,5 @@
       true
     ]
   },
-  "hash": "3e512086505d382bd8648ef23d7da81b3e23a22257d1579fdc87332761f831c4"
+  "hash": "69f5eb43a36b89c147b5d12ab592f923a78742c964af1c157e43fd54ae538b25"
 }

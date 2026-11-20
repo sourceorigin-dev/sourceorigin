@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT handle AS \"handle: Handle\", user_id AS \"user_id: UserId\", claimed_at,\n                    released_at\n                FROM handles\n                WHERE released_at IS NOT NULL OR user_id IS NULL\n                ORDER BY handle",
+  "query": "DELETE FROM handles h\n                WHERE h.handle = $1 AND (h.released_at IS NOT NULL OR h.user_id IS NULL)\n                RETURNING h.handle AS \"handle: Handle\", h.user_id AS \"user_id: UserId\", h.claimed_at,\n            h.released_at ",
   "describe": {
     "columns": [
       {
@@ -25,7 +25,9 @@
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Text"
+      ]
     },
     "nullable": [
       false,
@@ -34,5 +36,5 @@
       true
     ]
   },
-  "hash": "a075ed917b6fd11bbffd0c8024a5f826996c0365af53b5310bfff1076f80064e"
+  "hash": "bd8359fb1c277765a6cb27ca961454df0f7b3642403956a022ebe4b600044b6f"
 }

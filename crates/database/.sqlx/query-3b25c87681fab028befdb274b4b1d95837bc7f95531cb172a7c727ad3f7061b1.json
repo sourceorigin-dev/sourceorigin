@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n                    id AS \"id: RecoveryId\", user_id AS \"user_id: UserId\", started_at,\n                    expires_at, completed_at, passkey_id AS \"passkey_id: PasskeyId\",\n                    settles_at, cancelled_at, undone_at, clock_timestamp() AS \"read_at!\"\n                FROM account_recoveries\n                WHERE secret_digest = $1\n                AND completed_at IS NULL AND cancelled_at IS NULL\n                AND expires_at > clock_timestamp()",
+  "query": "SELECT r.id AS \"id: RecoveryId\", r.user_id AS \"user_id: UserId\", r.started_at,\n            r.expires_at, r.completed_at, r.passkey_id AS \"passkey_id: PasskeyId\",\n            r.settles_at, r.cancelled_at, r.undone_at, clock_timestamp() AS \"read_at!\" FROM account_recoveries r\n                WHERE r.user_id = $1 AND r.cancelled_at IS NULL AND r.undone_at IS NULL\n                ORDER BY r.started_at DESC, r.id DESC\n                LIMIT 1",
   "describe": {
     "columns": [
       {
@@ -56,7 +56,7 @@
     ],
     "parameters": {
       "Left": [
-        "Bytea"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -72,5 +72,5 @@
       null
     ]
   },
-  "hash": "6b58fab41a2bf7d3d1281525af008cc5ca965ab2c67545e7908706ea7fdca171"
+  "hash": "3b25c87681fab028befdb274b4b1d95837bc7f95531cb172a7c727ad3f7061b1"
 }

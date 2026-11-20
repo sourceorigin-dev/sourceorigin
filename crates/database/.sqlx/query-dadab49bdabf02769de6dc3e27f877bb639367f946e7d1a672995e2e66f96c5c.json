@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO passkey_credentials (\n                    id, credential_id, user_id, credential, friendly_name\n                ) VALUES ($1, $2, $3, $4, $5)\n                RETURNING\n                    id AS \"id: PasskeyId\", credential_id, user_id AS \"user_id: UserId\", credential,\n                    friendly_name, created_at, last_used_at, revoked_at",
+  "query": "SELECT p.id AS \"id: PasskeyId\", p.credential_id, p.user_id AS \"user_id: UserId\",\n            p.credential, p.friendly_name, p.created_at, p.last_used_at, p.revoked_at FROM passkey_credentials p\n                JOIN users u ON u.id = p.user_id\n                JOIN handles h ON h.user_id = u.id AND h.released_at IS NULL\n                WHERE h.handle = $1\n                AND u.status IN ('active', 'deleting')\n                AND p.revoked_at IS NULL\n                ORDER BY p.created_at",
   "describe": {
     "columns": [
       {
@@ -46,10 +46,6 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Bytea",
-        "Uuid",
-        "Jsonb",
         "Text"
       ]
     },
@@ -64,5 +60,5 @@
       true
     ]
   },
-  "hash": "be55b5f4507a982545a8226b5ef4a660d4f6516828d8ca7f403aeeedc54f4767"
+  "hash": "dadab49bdabf02769de6dc3e27f877bb639367f946e7d1a672995e2e66f96c5c"
 }

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n                    id AS \"id: TokenId\", browser_digest, provider_name AS \"provider: Provider\",\n                    issuer, subject, email, email_authoritative, display_name, return_to,\n                    link_user_id AS \"link_user_id: UserId\",\n                    link_session_id AS \"link_session_id: SessionId\", expires_at, picture_url\n                FROM pending_federation\n                WHERE browser_digest = $1\n                AND consumed_at IS NULL\n                AND expires_at > now()",
+  "query": "SELECT p.id AS \"id: TokenId\", p.browser_digest, p.provider_name AS \"provider: Provider\",\n            p.issuer, p.subject, p.email, p.email_authoritative, p.display_name, p.return_to,\n            p.link_user_id AS \"link_user_id: UserId\",\n            p.link_session_id AS \"link_session_id: SessionId\", p.expires_at, p.picture_url FROM pending_federation p\n                WHERE p.browser_digest = $1\n                AND p.consumed_at IS NULL\n                AND p.expires_at > now()",
   "describe": {
     "columns": [
       {
@@ -90,5 +90,5 @@
       true
     ]
   },
-  "hash": "7c37a266f00feccc1fbb749ee97e4dcf0dfb3b75716474f27475b03c7fa8649d"
+  "hash": "c4f8f9e0376c20e9741c9d9faab24887f8d4b79ebbb7f296049d2339955f7a02"
 }
