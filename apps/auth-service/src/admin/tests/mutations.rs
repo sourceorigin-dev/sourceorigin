@@ -1,6 +1,11 @@
 //! How a change waits on locks and rechecks its caller after waiting.
+//!
+//! Each scenario holds a lock while a mutation waits for it, and every mutation
+//! first takes the administrators lock, so each runs in a schema of its own: no
+//! other test's change queues behind the lock it holds, or holds one it waits for.
 
 use super::*;
+use crate::security::CONFIRMATION_MAX_AGE;
 
 /// A mutation checks its caller's confirmation after its last write: one admitted
 /// just inside the window, that then waited for a logout holding the target's
@@ -8,20 +13,27 @@ use super::*;
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn mutations_recheck_the_confirmation_after_waiting() {
-    let harness = Harness::new().await;
+    let harness = Harness::isolated().await;
     let admin = harness.admin().await;
     let user = harness.account().await;
-    let auth_time = Utc::now() - Duration::seconds(298);
     let mut logout = harness.database.begin().await.expect("transaction");
     user.sign_out(&mut logout).await;
     let service = harness.service();
     let reason = reason("Spam");
+    // The confirmation ends two seconds from now, and the logout ends just after
+    // it, so the mutation waits about two seconds, well within the lock wait limit.
+    let window = Duration::seconds(CONFIRMATION_MAX_AGE.into());
+    let auth_time = Utc::now() - window + Duration::seconds(2);
     let operator = operator(admin, auth_time);
     let (result, ()) = tokio::join!(
         service.disable_user(&operator, user.user_id, reason),
         async {
             until_blocked(&mut logout, 1).await;
-            let expired = auth_time + Duration::seconds(301) - Utc::now();
+            assert!(
+                operator.confirmation_left() > Duration::zero(),
+                "the mutation waits while its caller is still confirmed"
+            );
+            let expired = auth_time + window + Duration::milliseconds(10) - Utc::now();
             tokio::time::sleep(expired.to_std().unwrap_or_default()).await;
             logout.commit().await.expect("logout");
         }
@@ -46,7 +58,7 @@ async fn mutations_recheck_the_confirmation_after_waiting() {
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn waiting_mutations_hold_no_caller_locks() {
-    let harness = Harness::new().await;
+    let harness = Harness::isolated().await;
     let admin = harness.admin().await;
     let user = harness.account().await;
     let mut switch = harness.database.begin().await.expect("transaction");
@@ -78,7 +90,7 @@ async fn waiting_mutations_hold_no_caller_locks() {
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn mutations_never_wait_for_the_callers_session() {
-    let harness = Harness::new().await;
+    let harness = Harness::isolated().await;
     let admin = harness.admin().await;
     let user = harness.account().await;
     let mut linking = harness.database.begin().await.expect("transaction");
