@@ -1664,22 +1664,9 @@ async fn a_client_named_new_has_its_overview() {
     assert!(registration.contains(r#"name="id""#), "{registration}");
 }
 
-/// A delivery no worker sends, which the dashboard's tests list, cancel and retry.
-struct Unsent;
-
-impl Channel for Unsent {
-    const NAME: &'static str = "test_dashboard_unsent";
-    type Recipient = ();
-    type Payload = ();
-
-    fn deliveries(
-        _: &DomainEvent,
-        _: Option<UserId>,
-        _: &[sourceorigin_repository::Notified],
-        _: &mut DatabaseTransaction<'_>,
-    ) -> impl Future<Output = Result<Vec<NewDelivery<Self>>, DatabaseError>> + Send {
-        std::future::ready(Ok(vec![]))
-    }
+sourceorigin_repository::test_channels! {
+    /// A delivery no worker sends, which the dashboard's tests list, cancel and retry.
+    Unsent = "test_dashboard_unsent": () => ();
 }
 
 impl Harness {

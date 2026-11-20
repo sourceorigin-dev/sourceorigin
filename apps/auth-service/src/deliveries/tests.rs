@@ -236,40 +236,16 @@ async fn responses_are_classified_by_status_alone() {
     assert_eq!(long, Ok(64 * 1024));
 }
 
-/// Declares channels for worker tests, whose deliveries are inserted directly.
-/// Tests run at once on one database, so each worker test has its own channel.
-macro_rules! worker_channels {
-    ($($(#[doc = $doc:literal])* $name:ident = $value:literal;)*) => {$(
-        $(#[doc = $doc])*
-        struct $name;
-
-        impl Channel for $name {
-            const NAME: &'static str = $value;
-            /// How [`Recorder`] answers the delivery.
-            type Recipient = Behavior;
-            type Payload = ();
-
-            fn deliveries(
-                _: &DomainEvent,
-                _: Option<UserId>,
-                _: &[sourceorigin_repository::Notified],
-                _: &mut DatabaseTransaction<'_>,
-            ) -> impl Future<Output = Result<Vec<NewDelivery<Self>>, DatabaseError>> + Send {
-                std::future::ready(Ok(vec![]))
-            }
-        }
-    )*};
-}
-
-worker_channels! {
+// Worker tests' channels, each recipient saying how [`Recorder`] answers it.
+sourceorigin_repository::test_channels! {
     /// Retryable and permanent failures.
-    Failing = "test_worker";
+    Failing = "test_worker": Behavior => ();
     /// An operator retry after a permanent failure.
-    Resent = "test_worker_resent";
+    Resent = "test_worker_resent": Behavior => ();
     /// What an attempt and an idle worker export.
-    Traced = "test_worker_traced";
+    Traced = "test_worker_traced": Behavior => ();
     /// A replica killed, or stalled, while it sends.
-    Killed = "test_worker_killed";
+    Killed = "test_worker_killed": Behavior => ();
 }
 
 /// How [`Recorder`] answers a delivery.
