@@ -2,10 +2,9 @@
  * `WWW-Authenticate: Bearer` challenges (RFC 6750 §3, RFC 9470 §3, RFC 9728 §5.1),
  * written by resource servers and read back by clients, exactly as the Rust SDK does.
  */
-import type { Acr, BearerChallenge, StepUpRequirement } from './protocol.ts';
+import { ACR, type Acr, type BearerChallenge, type StepUpRequirement } from './protocol.ts';
 import { includes } from './json.ts';
 import { Scopes } from './scope.ts';
-import { ACR } from './vocabulary.ts';
 
 /** The authentication scheme of every challenge here. */
 const SCHEME = 'bearer';

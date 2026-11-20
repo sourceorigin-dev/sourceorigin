@@ -4,9 +4,15 @@ import { asciiLowercase } from './challenge.ts';
 import { AuthError } from './error.ts';
 import { type Fetch, Http, type Reply } from './http.ts';
 import * as json from './json.ts';
-import type { Algorithm, Jwk, TokenType } from './protocol.ts';
+import {
+  ALGORITHMS,
+  type Algorithm,
+  type Jwk,
+  KEY_TYPES,
+  KEY_USES,
+  type TokenType
+} from './protocol.ts';
 import type { Clock } from './time.ts';
-import { ALGORITHMS, KEY_TYPES, KEY_USES } from './vocabulary.ts';
 
 /** Most bytes accepted for a compact token, checked before decoding it. */
 const MAX_TOKEN_BYTES = 16 * 1024;

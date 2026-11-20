@@ -4,7 +4,9 @@
 //!
 //! The structs derive `TS` under `cfg(test)`, so ts-rs stays a dev-dependency. Types
 //! that serialize by hand implement it here, from the same values serde writes:
-//! vocabularies as unions of their spellings, validated strings as `string`.
+//! vocabularies as unions of their spellings, validated strings as `string`. Each
+//! closed vocabulary also gets the list of its spellings, which decoders check
+//! values against.
 
 use super::{
     challenge::{BearerChallenge, BearerError},
@@ -54,10 +56,25 @@ macro_rules! declared {
     };
 }
 
-/// Declares closed vocabularies as the union of their spellings.
+/// A closed vocabulary, declared with the list of its spellings.
+trait Closed: TS {
+    /// The list's name.
+    const LIST: &'static str;
+    /// Every spelling, in declaration order.
+    fn spellings() -> impl Iterator<Item = &'static str>;
+}
+
+/// Declares closed vocabularies as the union of their spellings, each with the
+/// name of its list.
 macro_rules! closed {
-    ($($name:ident),+ $(,)?) => {$(
-        declared!($name, union($name::ALL.iter().map(|value| value.as_str())));
+    ($($name:ident as $list:ident),+ $(,)?) => {$(
+        declared!($name, union($name::spellings()));
+        impl Closed for $name {
+            const LIST: &'static str = stringify!($list);
+            fn spellings() -> impl Iterator<Item = &'static str> {
+                $name::ALL.iter().map(|value| value.as_str())
+            }
+        }
     )+};
 }
 
@@ -93,23 +110,23 @@ macro_rules! builtin {
 }
 
 closed!(
-    Amr,
-    Acr,
-    TokenType,
-    Claim,
-    Algorithm,
-    KeyType,
-    KeyUse,
-    GrantType,
-    ResponseType,
-    ResponseMode,
-    ClientAuthMethod,
-    SubjectType,
-    CodeChallengeMethod,
-    Prompt,
-    Scope,
-    ErrorCategory,
-    ErrorReason,
+    Amr as AMR,
+    Acr as ACR,
+    TokenType as TOKEN_TYPES,
+    Claim as CLAIMS,
+    Algorithm as ALGORITHMS,
+    KeyType as KEY_TYPES,
+    KeyUse as KEY_USES,
+    GrantType as GRANT_TYPES,
+    ResponseType as RESPONSE_TYPES,
+    ResponseMode as RESPONSE_MODES,
+    ClientAuthMethod as CLIENT_AUTH_METHODS,
+    SubjectType as SUBJECT_TYPES,
+    CodeChallengeMethod as CODE_CHALLENGE_METHODS,
+    Prompt as PROMPTS,
+    Scope as SCOPES,
+    ErrorCategory as ERROR_CATEGORIES,
+    ErrorReason as ERROR_REASONS,
 );
 open!(ErrorCode, BearerError, KeyOperation);
 builtin!(
@@ -175,6 +192,33 @@ impl Declarations {
         self
     }
 
+    /// Appends a closed vocabulary's declaration and the list of its spellings.
+    fn closed<T: Closed + 'static>(self) -> Self {
+        let declarations = self.add::<T>();
+        let name = T::ident(&declarations.cfg);
+        let spellings: Vec<_> = T::spellings().map(|value| format!("{value:?}")).collect();
+        declarations.constant(
+            T::LIST,
+            &format!("Every `{name}` this version knows."),
+            &format!("readonly {name}[]"),
+            &format!("[{}]", spellings.join(", ")),
+        )
+    }
+
+    /// Appends a constant of type `ty`, with its docs.
+    fn constant(mut self, name: &str, docs: &str, ty: &str, value: &str) -> Self {
+        self.text.push_str("\n/**\n");
+        for line in docs.lines() {
+            self.text.push_str(" * ");
+            self.text.push_str(line.trim());
+            self.text.push('\n');
+        }
+        for part in [" */\nexport const ", name, ": ", ty, " = ", value, ";\n"] {
+            self.text.push_str(part);
+        }
+        self
+    }
+
     /// The file, once every referenced type is declared in it. Drops the docs' Rust
     /// examples, the colon that introduced a final one and rustdoc's link brackets,
     /// and ts-rs's trailing spaces.
@@ -226,30 +270,30 @@ fn generate() -> String {
         .add::<Audience>()
         .add::<Actor>()
         .add::<Confirmation>()
-        .add::<Amr>()
-        .add::<Acr>()
+        .closed::<Amr>()
+        .closed::<Acr>()
         // metadata
         .add::<ServerMetadata>()
         // step_up
         .add::<StepUpRequirement>()
         // jwt
-        .add::<TokenType>()
-        .add::<Claim>()
-        .add::<Algorithm>()
+        .closed::<TokenType>()
+        .closed::<Claim>()
+        .closed::<Algorithm>()
         .add::<JwkSet>()
         .add::<Jwk>()
-        .add::<KeyType>()
-        .add::<KeyUse>()
+        .closed::<KeyType>()
+        .closed::<KeyUse>()
         .add::<KeyOperation>()
         // oauth
-        .add::<GrantType>()
-        .add::<ResponseType>()
-        .add::<ResponseMode>()
-        .add::<ClientAuthMethod>()
-        .add::<SubjectType>()
-        .add::<CodeChallengeMethod>()
-        .add::<Prompt>()
-        .add::<Scope>()
+        .closed::<GrantType>()
+        .closed::<ResponseType>()
+        .closed::<ResponseMode>()
+        .closed::<ClientAuthMethod>()
+        .closed::<SubjectType>()
+        .closed::<CodeChallengeMethod>()
+        .closed::<Prompt>()
+        .closed::<Scope>()
         .add::<ErrorCode>()
         .add::<ErrorResponse>()
         // challenge
@@ -257,8 +301,8 @@ fn generate() -> String {
         .add::<BearerError>()
         // sdk
         .add::<SdkError>()
-        .add::<ErrorCategory>()
-        .add::<ErrorReason>()
+        .closed::<ErrorCategory>()
+        .closed::<ErrorReason>()
         .finish()
 }
 
