@@ -17,6 +17,28 @@
 // docs.rs labels feature-gated items with the features they need.
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
+/// Implements the conversions a text type's `#[serde(try_from = "String", into =
+/// "String")]` names: it reads owned text through its `FromStr`, and writes what its
+/// `Display` writes. Defined before the modules, so every one of them can use it.
+macro_rules! text_conversions {
+    ($name:ty) => {
+        impl TryFrom<String> for $name {
+            type Error = <$name as ::std::str::FromStr>::Err;
+            /// Parses owned text, as serde reads it.
+            fn try_from(value: String) -> Result<Self, Self::Error> {
+                value.parse()
+            }
+        }
+
+        impl From<$name> for String {
+            /// The text it displays as, as serde writes it.
+            fn from(value: $name) -> Self {
+                value.to_string()
+            }
+        }
+    };
+}
+
 /// The views of administration: what the admin dashboard shows and the CLI prints.
 #[cfg(feature = "admin")]
 pub mod admin;
@@ -379,19 +401,7 @@ macro_rules! uuid_id {
                 Ok(Self(parsed))
             }
         }
-        impl TryFrom<String> for $name {
-            type Error = InvalidValue;
-            /// Parses the canonical identifier from owned text.
-            fn try_from(value: String) -> Result<Self, Self::Error> {
-                value.parse()
-            }
-        }
-        impl From<$name> for String {
-            /// Encodes the identifier using its canonical lower-case UUID representation.
-            fn from(value: $name) -> Self {
-                value.to_string()
-            }
-        }
+        text_conversions!($name);
         #[cfg(feature = "sqlx")]
         impl sqlx::Type<sqlx::Postgres> for $name {
             /// Stored as `UUID`.
@@ -494,20 +504,7 @@ impl FromStr for TraceId {
     }
 }
 
-impl TryFrom<String> for TraceId {
-    type Error = InvalidValue;
-    /// Parses the hex form from owned text.
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        value.parse()
-    }
-}
-
-impl From<TraceId> for String {
-    /// Encodes the hex form.
-    fn from(value: TraceId) -> Self {
-        value.to_string()
-    }
-}
+text_conversions!(TraceId);
 
 __str_enum_sqlx!(TraceId);
 

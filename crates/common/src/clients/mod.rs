@@ -108,20 +108,7 @@ impl FromStr for ClientId {
     }
 }
 
-impl TryFrom<String> for ClientId {
-    type Error = InvalidClientId;
-    /// Validates owned text, as serde reads it.
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        value.parse()
-    }
-}
-
-impl From<ClientId> for String {
-    /// The identifier as sent on the wire.
-    fn from(value: ClientId) -> Self {
-        value.0
-    }
-}
+text_conversions!(ClientId);
 
 impl fmt::Display for ClientId {
     /// Writes the identifier unchanged.
@@ -564,20 +551,7 @@ impl FromStr for RelatedOrigin {
     }
 }
 
-impl TryFrom<String> for RelatedOrigin {
-    type Error = InvalidRelatedOrigin;
-    /// Validates owned text, as serde reads it.
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        value.parse()
-    }
-}
-
-impl From<RelatedOrigin> for String {
-    /// The origin as browsers send it.
-    fn from(value: RelatedOrigin) -> Self {
-        value.as_str().to_owned()
-    }
-}
+text_conversions!(RelatedOrigin);
 
 crate::__str_enum_sqlx!(RelatedOrigin);
 
