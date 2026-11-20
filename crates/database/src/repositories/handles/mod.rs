@@ -195,18 +195,16 @@ impl HandleRepository<'_> {
     ///
     /// Returns [`DatabaseError`] if the query fails.
     pub async fn reserve(&mut self, handle: &Handle, reason: &str) -> Result<bool, DatabaseError> {
-        Ok(run!(
+        run!(
             self,
-            execute,
+            changed_one,
             sqlx::query!(
                 "INSERT INTO reserved_handles (handle, reason) VALUES ($1, $2)
                 ON CONFLICT DO NOTHING",
                 handle.as_str(),
                 reason,
             )
-        )?
-        .rows_affected()
-            == 1)
+        )
     }
 
     /// Removes the reservation of `handle`, and returns whether there was one.
@@ -215,16 +213,14 @@ impl HandleRepository<'_> {
     ///
     /// Returns [`DatabaseError`] if the query fails.
     pub async fn unreserve(&mut self, handle: &Handle) -> Result<bool, DatabaseError> {
-        Ok(run!(
+        run!(
             self,
-            execute,
+            changed_one,
             sqlx::query!(
                 "DELETE FROM reserved_handles WHERE handle = $1",
                 handle.as_str(),
             )
-        )?
-        .rows_affected()
-            == 1)
+        )
     }
 
     /// Deletes a released handle, or the last one of a purged account, so anyone may
@@ -269,9 +265,9 @@ impl HandleRepository<'_> {
     /// Makes `handle` the account's current handle: a new row, or the account's own
     /// released one. Returns `false` if another account holds or held it.
     async fn claim(&mut self, user_id: UserId, handle: &Handle) -> Result<bool, DatabaseError> {
-        Ok(run!(
+        run!(
             self,
-            execute,
+            changed_one,
             sqlx::query!(
                 "INSERT INTO handles (handle, user_id) VALUES ($1, $2)
                 ON CONFLICT (handle) DO UPDATE SET released_at = NULL
@@ -279,9 +275,7 @@ impl HandleRepository<'_> {
                 handle.as_str(),
                 user_id.as_uuid(),
             )
-        )?
-        .rows_affected()
-            == 1)
+        )
     }
 }
 

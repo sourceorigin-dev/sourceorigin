@@ -82,16 +82,14 @@ impl AccountDeletionRepository<'_> {
     ///
     /// Returns [`DatabaseError`] if the query fails.
     pub async fn cancel(&mut self, user_id: UserId) -> Result<bool, DatabaseError> {
-        Ok(run!(
+        run!(
             self,
-            execute,
+            changed_one,
             sqlx::query!(
                 "DELETE FROM account_deletions WHERE user_id = $1",
                 user_id.as_uuid(),
             )
-        )?
-        .rows_affected()
-            == 1)
+        )
     }
 
     /// Lists up to `limit` accounts that are due: past their grace period, and
@@ -346,11 +344,9 @@ impl AccountDeletionRepository<'_> {
         )?;
         let purged = run!(
             self,
-            execute,
+            changed_one,
             sqlx::query!("DELETE FROM users WHERE id = $1", id)
-        )?
-        .rows_affected()
-            == 1;
+        )?;
         // Its emails copy its addresses, and its announcements' would find no
         // recipient left to send to; its other channels' deliveries hold no
         // personal data. An announcement being sent, or an alert notifying the

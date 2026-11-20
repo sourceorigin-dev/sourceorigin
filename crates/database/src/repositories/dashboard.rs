@@ -216,9 +216,9 @@ impl DashboardRepository<'_> {
         session_id: SessionId,
         confirmed_at: DateTime<Utc>,
     ) -> Result<bool, DatabaseError> {
-        Ok(run!(
+        run!(
             self,
-            execute,
+            changed_one,
             sqlx::query!(
                 "UPDATE dashboard_sessions SET confirmed_at = $3
                 WHERE secret_digest = $1 AND session_id = $2",
@@ -226,9 +226,7 @@ impl DashboardRepository<'_> {
                 session_id.as_uuid(),
                 confirmed_at,
             )
-        )?
-        .rows_affected()
-            == 1)
+        )
     }
 
     /// Uses the dashboard session with this cookie digest, if it is still in use:

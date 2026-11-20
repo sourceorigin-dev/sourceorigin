@@ -152,16 +152,14 @@ impl AnnouncementRepository<'_> {
     ///
     /// Returns [`DatabaseError`] if the query fails.
     pub async fn discard(&mut self, id: AnnouncementId) -> Result<bool, DatabaseError> {
-        Ok(run!(
+        run!(
             self,
-            execute,
+            changed_one,
             sqlx::query!(
                 "DELETE FROM announcements WHERE id = $1 AND sent_at IS NULL",
                 id.as_uuid(),
             )
-        )?
-        .rows_affected()
-            == 1)
+        )
     }
 
     /// Marks the draft `id` sent, if it is still at `revision`, the one its

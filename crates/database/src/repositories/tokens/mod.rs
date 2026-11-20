@@ -467,16 +467,14 @@ impl TokenRepository<'_> {
             return Err(RefreshRedemptionError::Policy { user_id, family_id });
         }
         if outcome == RefreshOutcome::Rotated
-            && run!(
+            && !run!(
                 self,
-                execute,
+                changed_one,
                 sqlx::query!(
                     "UPDATE refresh_tokens SET consumed_at=now() WHERE id=$1 AND consumed_at IS NULL",
                     id.as_uuid(),
                 )
             )?
-            .rows_affected()
-                != 1
         {
             return Err(RefreshRedemptionError::Invalid);
         }

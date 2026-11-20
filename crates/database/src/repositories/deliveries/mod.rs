@@ -422,9 +422,9 @@ impl DeliveryRepository<'_> {
         outcome: &DeliveryOutcome,
     ) -> Result<(), DatabaseError> {
         let (status, next_attempt_at, error) = outcome.columns();
-        let recorded = run!(
+        run!(
             self,
-            execute,
+            required,
             sqlx::query!(
                 "UPDATE deliveries
                 SET status = $3,
@@ -440,11 +440,7 @@ impl DeliveryRepository<'_> {
                 next_attempt_at,
                 error,
             )
-        )?;
-        if recorded.rows_affected() == 0 {
-            return Err(DatabaseError::NotFound);
-        }
-        Ok(())
+        )
     }
 
     /// Lists up to `limit` deliveries, newest first, optionally only those with

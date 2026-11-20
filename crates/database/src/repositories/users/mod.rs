@@ -335,9 +335,9 @@ impl UserRepository<'_> {
         id: UserId,
         status: AccountStatus,
     ) -> Result<bool, DatabaseError> {
-        Ok(run!(
+        run!(
             self,
-            execute,
+            changed_one,
             sqlx::query!(
                 "UPDATE users
                 SET status = $2, updated_at = now()
@@ -346,9 +346,7 @@ impl UserRepository<'_> {
                 id.as_uuid(),
                 status.as_str(),
             )
-        )?
-        .rows_affected()
-            == 1)
+        )
     }
 
     /// Counts every account, whatever its status.

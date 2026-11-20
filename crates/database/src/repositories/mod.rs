@@ -179,10 +179,22 @@ impl KindProbe {
 /// `run!(self, fetch_optional, sqlx::query_as!(StoredUser, "...", id.as_uuid()))`.
 ///
 /// `$method` is the `sqlx` executor method: `execute`, `fetch_one` (a missing row
-/// becomes [`DatabaseError::NotFound`](crate::DatabaseError::NotFound)), `fetch_optional` or `fetch_all`. A macro
+/// becomes [`DatabaseError::NotFound`](crate::DatabaseError::NotFound)), `fetch_optional` or `fetch_all`. Two
+/// more `execute` a statement and report what it changed: `changed_one` returns
+/// whether it changed exactly one row, and `required` returns `()`, or
+/// [`DatabaseError::NotFound`](crate::DatabaseError::NotFound) if it changed none. A macro
 /// rather than a method because `&PgPool` and `&mut PgConnection` are different
 /// executor types.
 macro_rules! run {
+    ($self:expr, changed_one, $query:expr) => {
+        run!($self, execute, $query).map(|done| done.rows_affected() == 1)
+    };
+    ($self:expr, required, $query:expr) => {
+        run!($self, execute, $query).and_then(|done| match done.rows_affected() {
+            0 => Err(crate::DatabaseError::NotFound),
+            _ => Ok(()),
+        })
+    };
     ($self:expr, $method:ident, $query:expr) => {{
         let query = $query;
         let span = RepositoryExecutor::span(sqlx::Execute::sql(&query));

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE signing_keys SET state = 'retiring', deactivated_at = $2\n                WHERE id = $1 AND state = 'active'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "562e37482bcbd41a7165d467495f4a7c1fd625ecd8b69b1990455b3b10057a09"
+}

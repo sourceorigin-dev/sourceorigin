@@ -102,7 +102,7 @@ impl NotificationRepository<'_> {
         let id = NotificationId::new();
         let inserted = run!(
             self,
-            execute,
+            changed_one,
             sqlx::query!(
                 "INSERT INTO notifications (id, user_id, event_id, payload)
                 SELECT $1, $2, $3, $4 WHERE EXISTS (SELECT 1 FROM users WHERE id = $2)",
@@ -111,9 +111,8 @@ impl NotificationRepository<'_> {
                 event_id.map(EventId::as_uuid),
                 payload,
             )
-        )?
-        .rows_affected();
-        Ok((inserted == 1).then_some(id))
+        )?;
+        Ok(inserted.then_some(id))
     }
 
     /// Up to `limit` of `user_id`'s notifications, newest first, older than
@@ -210,9 +209,9 @@ impl NotificationRepository<'_> {
         id: NotificationId,
         read: bool,
     ) -> Result<bool, DatabaseError> {
-        Ok(run!(
+        run!(
             self,
-            execute,
+            changed_one,
             sqlx::query!(
                 "UPDATE notifications
                 SET read_at = CASE WHEN $3 THEN coalesce(read_at, now()) END
@@ -221,9 +220,7 @@ impl NotificationRepository<'_> {
                 id.as_uuid(),
                 read,
             )
-        )?
-        .rows_affected()
-            == 1)
+        )
     }
 
     /// Whether `user_id` receives each category's email, its default, on, where
