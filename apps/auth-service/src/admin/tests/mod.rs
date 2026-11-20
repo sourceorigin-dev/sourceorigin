@@ -71,12 +71,14 @@ impl Harness {
 
     /// Creates an account with the handle `handle`, without a session.
     async fn named(&self, handle: &str) -> UserId {
+        let user_id = UserId::new();
         let account = InsertUser {
+            id: user_id,
             handle: Handle::parse(handle).expect("handle"),
-            ..InsertUser::named("admin")
+            display_name: "Admin test".into(),
         };
         self.database.users().insert(&account).await.expect("user");
-        account.id
+        user_id
     }
 
     /// Creates an account signed in with a passkey.

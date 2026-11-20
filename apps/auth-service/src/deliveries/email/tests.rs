@@ -51,6 +51,12 @@ impl Mailer for Arc<Outbox> {
     }
 }
 
+/// The handle `user_id`'s account holds.
+async fn stored_handle(database: &Database, user_id: UserId) -> Handle {
+    let account = database.users().find_by_id(user_id).await.expect("read");
+    account.expect("account").handle
+}
+
 /// Starts recovering `user_id` with a token from `links`, and returns the
 /// recovery and its token.
 async fn recover(
@@ -180,10 +186,7 @@ async fn retries_resend_the_same_message_to_the_current_address() {
     else {
         panic!("a verification message has a link");
     };
-    assert_eq!(
-        handle.as_str(),
-        format!("mail-{}", &user_id.to_string()[24..])
-    );
+    assert_eq!(handle, stored_handle(&database, user_id).await);
     assert_eq!(
         link,
         format!(
@@ -328,10 +331,7 @@ async fn a_recovery_link_is_sent_while_it_works() {
         panic!("a recovery's link has a recipient");
     };
     assert_eq!(to, address);
-    assert_eq!(
-        handle.as_str(),
-        format!("mail-{}", &user_id.to_string()[24..])
-    );
+    assert_eq!(handle, stored_handle(&database, user_id).await);
     assert_eq!(
         url,
         before.url(&token).as_str(),

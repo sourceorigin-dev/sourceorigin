@@ -202,11 +202,7 @@ impl Replicas {
 
     /// Connects a new pool to the migrated test database.
     pub(crate) async fn database() -> Database {
-        let database = Database::connect(Self::database_config(5))
-            .await
-            .expect("database");
-        database.run_migrations().await.expect("migrations");
-        database
+        Database::test().await
     }
 
     /// A pool of up to `connections` to the test database, such as a fixture
