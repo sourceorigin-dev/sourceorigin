@@ -145,9 +145,12 @@ or sent.
 
 Ending a session early has one path: `DatabaseTransaction::revoke_sessions`. It
 revokes the account's sessions in a `SessionScope` (one, every other one, or all),
-revokes the refresh families issued from them, and records one `SessionRevoked`
-per session with its `RevocationReason`. The repository method underneath is
-private to the database crate, so no revocation can skip the event. Its callers:
+revokes the refresh families issued from every session in the scope, and records
+one `SessionRevoked` per session it revoked, with its `RevocationReason`. An
+expired session's families no longer refresh, but they are revoked too, so its
+grants read as ended in the account's export and are deleted a day later. The
+repository method underneath is private to the database crate, so no revocation
+can skip the event. Its callers:
 
 - `Session::revoke`, attributed to the request's own session: signing out, and
   the account switch of a sign-in.
@@ -161,8 +164,8 @@ private to the database crate, so no revocation can skip the event. Its callers:
   owner's (`src/history`). Undoing a recovery (`src/recovery`) ends every session.
 - `Session::end_all`, for an account disabled, scheduled for deletion, purged or
   recovered, and for `AdminService::revoke_user_sessions`, which the dashboard
-  and `auth-service session revoke-all` run: every session, then every
-  refresh grant of the account, those of sessions that already expired included.
+  and `auth-service session revoke-all` run: every session, with every refresh
+  grant of the account.
 
 Signing out (`AccountService::sign_out`) ends the browser's session and clears
 its cookie. RP-initiated logout signs out the same way, recording the client
