@@ -91,6 +91,8 @@ export class Resource<S extends string = never, X = undefined> {
     const joined = values.length > 1 && values.some((value) => /^bearer(?: |$)/i.test(value));
     const space = header.indexOf(' ');
     const scheme = space === -1 ? header : header.slice(0, space);
+    // Any other scheme is no token; a joined Bearer header, or Bearer without a
+    // token, is malformed.
     if (!joined && asciiLowercase(scheme) !== 'bearer') {
       const scope = scopes.length === 0 ? undefined : Scopes.checked(scopes).toString();
       throw new AuthError(

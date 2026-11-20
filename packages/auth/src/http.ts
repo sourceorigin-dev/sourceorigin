@@ -7,7 +7,10 @@ import { AuthError } from './error.ts';
 import { DecodeError, parse } from './json.ts';
 import { MAX_RESPONSE_BYTES, REQUEST_DEADLINE } from './protocol.ts';
 
-/** What {@link Http.within} resolves to when its deadline passes first. */
+/**
+ * What {@link Http.within} resolves to when its deadline passes first.
+ * @internal
+ */
 export const TIMED_OUT: unique symbol = Symbol('timed out');
 
 /** The `fetch` the SDK sends requests with; inject one to proxy or mock them. */
