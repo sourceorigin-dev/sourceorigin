@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH locked AS (\n                    SELECT id FROM refresh_token_families\n                    WHERE user_id = $1\n                    AND revoked_at IS NULL\n                    AND ($2::uuid IS NULL OR session_id = $2)\n                    AND ($3::uuid IS NULL OR session_id <> $3)\n                    ORDER BY id\n                    FOR UPDATE\n                )\n                UPDATE refresh_token_families f\n                SET revoked_at = now()\n                FROM locked\n                WHERE f.id = locked.id AND f.revoked_at IS NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a70498affad360a2792560b14c5df0043361d78c73d83e16af1b7af2deedee55"
+}

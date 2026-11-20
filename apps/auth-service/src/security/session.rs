@@ -240,7 +240,7 @@ impl Session {
     }
 
     /// Ends every session of the account, recording each revocation as `context`
-    /// says, which tells their clients, then revokes every refresh grant, those of
+    /// says, which tells their clients, with every refresh grant, those of
     /// sessions that already expired included. Callers hold the account lock.
     pub(crate) async fn end_all(
         tx: &mut DatabaseTransaction<'_>,
@@ -250,7 +250,6 @@ impl Session {
     ) -> Result<(), DatabaseError> {
         tx.revoke_sessions(context, user_id, SessionScope::All, &reason)
             .await?;
-        tx.tokens().revoke_for_user(user_id, None).await?;
         Ok(())
     }
 

@@ -335,9 +335,11 @@ impl SessionRepository<'_> {
     }
 
     /// Revokes the active `scope` sessions of `user_id`, with the refresh token
-    /// families issued from them, and returns the IDs of the sessions it revoked.
-    /// Sessions of other accounts are never touched, whatever the scope names, and
-    /// expired ones are already over: no refresh family of theirs rotates. Only
+    /// families issued from every `scope` session, and returns the IDs of the
+    /// sessions it revoked. Sessions and families of other accounts are never
+    /// touched, whatever the scope names. Expired sessions are already over, so
+    /// they are not revoked again, but their families are, though none of them
+    /// refreshes, so every scope's grants read as ended. Only
     /// [`DatabaseTransaction::revoke_sessions`] calls it outside tests, so every
     /// revocation is recorded.
     ///
@@ -372,22 +374,26 @@ impl SessionRepository<'_> {
                 except.map(SessionId::as_uuid),
             )
         )?;
-        let ids: Vec<_> = revoked.iter().copied().map(SessionId::as_uuid).collect();
         run!(
             self,
             execute,
             sqlx::query!(
                 "WITH locked AS (
                     SELECT id FROM refresh_token_families
-                    WHERE session_id = ANY($1)
+                    WHERE user_id = $1
+                    AND revoked_at IS NULL
+                    AND ($2::uuid IS NULL OR session_id = $2)
+                    AND ($3::uuid IS NULL OR session_id <> $3)
                     ORDER BY id
                     FOR UPDATE
                 )
                 UPDATE refresh_token_families f
-                SET revoked_at = COALESCE(f.revoked_at, now())
+                SET revoked_at = now()
                 FROM locked
-                WHERE f.id = locked.id",
-                &ids,
+                WHERE f.id = locked.id AND f.revoked_at IS NULL",
+                user_id.as_uuid(),
+                only.map(SessionId::as_uuid),
+                except.map(SessionId::as_uuid),
             )
         )?;
         Ok(revoked)
@@ -715,7 +721,7 @@ impl SessionRepository<'_> {
 
 impl DatabaseTransaction<'_> {
     /// Ends the `scope` sessions of `user_id` early, with the refresh token families
-    /// issued from them, and records one [`DomainEvent::SessionRevoked`] each, caused
+    /// issued from them, those of expired ones included, and records one [`DomainEvent::SessionRevoked`] each, caused
     /// as `context` says. Recording the event queues the logout tokens of the
     /// session's clients, so this is the only way sessions end early: none can end
     /// without its clients being told. Returns the revoked sessions.

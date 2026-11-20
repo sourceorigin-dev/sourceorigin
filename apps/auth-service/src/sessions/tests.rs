@@ -5,15 +5,20 @@ use super::*;
 use crate::{
     account::AccountApplication,
     routes,
-    tests::{Browser, Replicas},
+    tests::{Browser, Replicas, refresh_grant, register, registration},
 };
 use axum::{
     Router,
     http::{Method, StatusCode},
 };
+use chrono::Duration;
 use serde_json::{Value, json};
-use sourceorigin_common::events::{Actor, DomainEvent, RevocationReason};
-use sourceorigin_repository::Database;
+use sourceorigin_common::{
+    TokenId,
+    clients::ClientKind,
+    events::{Actor, DomainEvent, RevocationReason},
+};
+use sourceorigin_repository::{Database, InsertSession};
 
 /// The session routes over the test database.
 struct Harness {
@@ -177,4 +182,69 @@ async fn signing_out_others_keeps_the_current_session() {
         [(json!(laptop.session_id), true)]
     );
     assert!(harness.active(stranger.session_id).await);
+}
+
+/// Signing out everywhere else also ends the refresh grants of the account's
+/// sessions that already expired, which outlive them, and keeps the grants of the
+/// caller's own session.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL"]
+async fn signing_out_others_ends_the_grants_of_expired_sessions() {
+    let harness = Harness::new().await;
+    let laptop = Browser::new_account(&harness.database).await;
+    let hour_ago = Utc::now() - Duration::hours(1);
+    let expired = harness
+        .database
+        .sessions()
+        .insert(&InsertSession {
+            id: SessionId::new(),
+            user_id: laptop.user_id,
+            authentication_methods: vec![AuthenticationMethod::Passkey],
+            authenticated_at: hour_ago - Duration::hours(1),
+            expires_at: hour_ago,
+            user_agent_family: RequestContext::TEST.user_agent_family,
+            ip: RequestContext::TEST.client_ip,
+            passkey_confirmed_at: None,
+            passkey_id: None,
+        })
+        .await
+        .expect("expired session");
+    let client = registration(ClientKind::Public, "https://client.example");
+    register(&harness.database, &client).await.expect("client");
+    let (kept, ended) = (TokenId::new(), TokenId::new());
+    for (session, family) in [(laptop.session_id, kept), (expired.id, ended)] {
+        refresh_grant(
+            &harness.database,
+            laptop.user_id,
+            session,
+            &client.id,
+            family,
+        )
+        .await;
+    }
+
+    let (status, body) = laptop
+        .call(
+            &harness.router,
+            Method::POST,
+            routes::sessions::REVOKE_OTHERS,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let grants = harness
+        .database
+        .tokens()
+        .list_for_user(laptop.user_id)
+        .await
+        .expect("grants");
+    let revoked = |family| {
+        grants
+            .iter()
+            .find(|grant| grant.id == family)
+            .expect("grant")
+            .revoked_at
+            .is_some()
+    };
+    assert!(revoked(ended), "the expired session's grant ends");
+    assert!(!revoked(kept), "the caller's own grant keeps working");
 }
