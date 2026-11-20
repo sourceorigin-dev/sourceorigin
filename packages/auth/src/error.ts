@@ -62,7 +62,7 @@ export type AuthErrorDetail =
     }
   | { code: Extract<ErrorCategory, 'oauth'>; response: ErrorResponse }
   /**
-   * `url` is the request that could not be sent, or whose answer was a redirect, a
+   * `url` is the request that could not be sent or read, or whose answer was a redirect, a
    * status a document endpoint does not answer, or a body over the limit. Errors
    * about a body's contents, or about signing keys not fetched recently, have none.
    */
