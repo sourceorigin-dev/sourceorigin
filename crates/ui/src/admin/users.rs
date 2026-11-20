@@ -7,7 +7,8 @@ use crate::{
     email::{Mail, email_preview},
     icons::Icon,
     layout::{
-        AvatarSize, Destination, Group, Pager, Who, avatar, page_head, pager, private_address,
+        AvatarSize, Destination, Group, Pager, Who, alert_notice, avatar, page_head, pager,
+        private_address,
     },
 };
 use sourceorigin_common::{
@@ -398,9 +399,7 @@ pub async fn message_page<'a>(
     let confirming = change.confirming(named.as_deref());
     Ok(view! {
         page_head(title: change.title(), lead: format!("To @{handle}. {}", change.description()))
-        if let Some(refusal) = refusal {
-            <p class="notice error" role="alert">(refusal)</p>
-        }
+        alert_notice(message: refusal)
         <section class="card">
             <form class="stack" method="post" data-submit-once="" data-unconfirmed="" data-confirming=(confirming.as_str())>
                 match preview {

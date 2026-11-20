@@ -809,7 +809,7 @@ async fn failures_are_said_above_the_page() {
     ] {
         let failed = format!("{LOGIN}?error={error}&return_to=%2Fsettings%2Fsessions");
         let page = html(browser.visit(&replicas.a, &failed).await).await;
-        let alert = format!(r#"<p class="notice error" role="alert">{message}</p>"#);
+        let alert = format!(r#"<span class="text">{message}</span></p>"#);
         assert!(page.contains(&alert), "{page}");
         assert!(!page.contains(&format!("error={error}")), "{page}");
         assert_eq!(

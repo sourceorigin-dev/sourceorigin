@@ -96,11 +96,13 @@ function wire(document) {
   const dialog = document.getElementById('passkey-confirmation');
   const button = dialog?.querySelector('button[data-passkey-confirm]');
   const alert = dialog?.querySelector('[data-passkey-error]');
+  const alertText = alert?.querySelector('.text');
   const confirming = dialog?.querySelector('[data-confirming]');
   if (
     !dialog ||
     !(button instanceof HTMLButtonElement) ||
     !(alert instanceof HTMLElement) ||
+    !(alertText instanceof HTMLElement) ||
     !(confirming instanceof HTMLElement)
   )
     return;
@@ -209,7 +211,7 @@ function wire(document) {
           return;
         }
         busy(false);
-        alert.textContent =
+        alertText.textContent =
           cause instanceof DOMException
             ? 'The passkey request was cancelled or unavailable. Try again or use another device.'
             : cause instanceof Error

@@ -386,8 +386,8 @@ class Passkeys {
  * passkeys are known to work here; its `data-unavailable` note says why, and hides
  * once it is enabled.
  * While a passkey form's ceremony runs, the form is busy: its button is disabled and
- * says so, and its `data-passkey-error` element, which says why the last one failed,
- * hides.
+ * says so, and its `data-passkey-error` notice, which says in its `.text` why the
+ * last one failed, hides.
  * @param {Document} document
  * @returns {void}
  */
@@ -421,6 +421,7 @@ function wire(document) {
   const run = (form, ceremony) => {
     if (form.dataset.busy) return;
     const alert = /** @type {HTMLElement | null} */ (form.querySelector('[data-passkey-error]'));
+    const text = alert?.querySelector('.text');
     const button = form.querySelector('button');
     const label = button?.textContent ?? '';
     /** @param {boolean} waiting */
@@ -441,8 +442,8 @@ function wire(document) {
       },
       (/** @type {unknown} */ cause) => {
         busy(false);
-        if (!alert) return;
-        alert.textContent = Passkeys.message(cause);
+        if (!alert || !text) return;
+        text.textContent = Passkeys.message(cause);
         alert.hidden = false;
       }
     );

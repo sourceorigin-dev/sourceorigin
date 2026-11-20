@@ -153,11 +153,24 @@ pub(crate) async fn page_messages<'a>(messages: Messages<'a>) -> Result<impl Vie
     })
 }
 
-/// Why a change failed, as `message` says it.
+/// Why a change failed, as `message` says it, or nothing without one. A
+/// `passkey` notice is instead the placeholder a page's passkey script says a
+/// failed ceremony in: hidden until then, when the script writes why into its
+/// `.text` and shows it.
 #[component]
-pub(crate) async fn alert_notice<'a>(message: &'a str) -> Result<impl View> {
+pub(crate) async fn alert_notice<'a>(
+    #[into]
+    #[default]
+    message: Option<&'a str>,
+    #[default] passkey: bool,
+) -> Result<impl View> {
     Ok(view! {
-        <p class="notice error" role="alert">icon(kind: Icon::Warning)<span class="text">(message)</span></p>
+        if message.is_some() || passkey {
+            <p class="notice error" role="alert" data-passkey-error=(passkey) hidden=(passkey)>
+                icon(kind: Icon::Warning)
+                <span class="text">(message.unwrap_or_default())</span>
+            </p>
+        }
     })
 }
 
@@ -200,9 +213,7 @@ pub(crate) async fn dialog<'a>(
                     </button>
                 }
             </header>
-            if let Some(alert) = alert.filter(|_| shown) {
-                alert_notice(message: alert)
-            }
+            alert_notice(message: alert.filter(|_| shown))
             (child)
         </div>
     })

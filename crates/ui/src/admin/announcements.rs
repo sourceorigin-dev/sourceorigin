@@ -6,7 +6,7 @@ use crate::icons::{Icon, icon};
 use crate::{
     clients::choice,
     email::{Mail, email_preview},
-    layout::page_head,
+    layout::{alert_notice, page_head},
 };
 use sourceorigin_common::admin::{
     Announcement, AnnouncementAudience, AnnouncementDetail, DraftAnnouncement, User,
@@ -248,9 +248,7 @@ pub async fn announcement_form<'a>(
     let sending = Change::SendAnnouncement.confirming(subject);
     Ok(view! {
         page_head(title: change.title(), lead: change.description().to_owned())
-        if let Some(refusal) = refusal {
-            <p class="notice error" role="alert">(refusal)</p>
-        }
+        alert_notice(message: refusal)
         <section class="card">
             <form class="stack" method="post" data-submit-once="" data-unconfirmed="" data-confirming=(sending.as_str())>
                 <label>

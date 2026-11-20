@@ -173,9 +173,7 @@ pub async fn profile_settings<'a>(
                 lead: "What apps you sign in to with Origin Auth see of you.".to_owned(),
             )
         }
-        if let Some(alert) = alert.filter(|_| shown.is_none()) {
-            alert_notice(message: alert)
-        }
+        alert_notice(message: alert.filter(|_| shown.is_none()))
         <section class="card profile" aria-labelledby="profile-name">
             <div class="identity">
                 avatar(who: who, size: AvatarSize::Large)

@@ -1,7 +1,7 @@
 //! The audit chain's state and its checkpoints.
 
 use super::moment;
-use crate::layout::page_head;
+use crate::layout::{alert_notice, page_head};
 use sourceorigin_common::admin::{AuditPage, ChainPoint, Pruning, VerificationKeys};
 use topcoat::{
     Result,
@@ -38,9 +38,7 @@ pub async fn audit_page<'a>(
                    Run auth-service audit verify from a trusted build for the authoritative check."
                 .to_owned(),
         )
-        if let Some(refusal) = refusal {
-            <p class="notice error" role="alert">(refusal)</p>
-        }
+        alert_notice(message: refusal)
         chain_card(page: page, uncommitted: uncommitted)
         <section class="card">
             <header><h2>"Checkpoints"</h2></header>
@@ -115,6 +113,13 @@ async fn chain_card<'a>(page: &'a AuditPage, uncommitted: bool) -> Result<impl V
         (Some(_), Some(_)) => ("danger", "Broken at last check"),
         (Some(_), None) => ("ok", "Intact at last check"),
     };
+    let broken = broken.map(|broken| {
+        format!(
+            "The last check found the chain broken at position {}: {}. \
+             The change may also be a removal or insertion just before it.",
+            broken.position, broken.problem
+        )
+    });
     Ok(view! {
         <section class="card">
             <header>
@@ -122,12 +127,7 @@ async fn chain_card<'a>(page: &'a AuditPage, uncommitted: bool) -> Result<impl V
                 <span class=(class!("badge", badge))>(status)</span>
             </header>
             <div class="body">
-                if let Some(broken) = broken {
-                    <p class="notice error" role="alert">
-                        (format!("The last check found the chain broken at position {}: {}.", broken.position, broken.problem))
-                        " The change may also be a removal or insertion just before it."
-                    </p>
-                }
+                alert_notice(message: broken.as_deref())
                 if uncommitted {
                     <p class="notice warning">
                         "No audit key is committed for this environment, so checkpoints are checked \

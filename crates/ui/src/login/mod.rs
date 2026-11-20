@@ -11,6 +11,7 @@ use crate::{
         Ceremony, Checkbox, Fields, Precision, Query, change_form, handle_input, new_passkey, open,
         passkey_form, time,
     },
+    layout::alert_notice,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -405,9 +406,7 @@ pub async fn sign_in<'a>(
         if let Some(account) = step.signed_in() {
             <p class="help">(format!("Signed in as @{}.", account.handle))</p>
         }
-        if let Some(alert) = alert {
-            <p class="notice error" role="alert">(alert)</p>
-        }
+        alert_notice(message: alert)
         <div class="stack">
             step_forms(step: step, action: &action, page: page, query: query)
         </div>

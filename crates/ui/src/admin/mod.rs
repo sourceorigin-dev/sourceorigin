@@ -66,7 +66,7 @@ use crate::{
     icons::{Icon, icon},
     layout::{
         Crumb, Destination, Health, Label, NavGroup, NavItem, Policies, Preferences, Search,
-        SearchPage, Searchable, Shell, Shortcut, Spot, Who, page_head, shell,
+        SearchPage, Searchable, Shell, Shortcut, Spot, Who, alert_notice, page_head, shell,
     },
     settings::{Tab as SettingsTab, settings_tabs},
 };
@@ -443,7 +443,7 @@ pub async fn dashboard_frame<'a>(
                 // What the change is, and what it acts on, which the dashboard's
                 // script writes from the link or form that opened the dialog.
                 <p data-confirming="" data-default=(confirmation.target.map(Target::text)) hidden=""><strong></strong></p>
-                <p class="notice error" role="alert" data-passkey-error="" hidden=""></p>
+                alert_notice(passkey: true)
                 <div class="row actions">
                     <button type="button" data-passkey-confirm="" autofocus="">"Confirm with a passkey"</button>
                     <button type="button" class="secondary" popovertarget="passkey-confirmation" popovertargetaction="hide">"Cancel"</button>
@@ -931,9 +931,7 @@ pub async fn dashboard_change<'a>(
     let confirming = change.confirming(named.as_deref());
     Ok(view! {
         page_head(title: change.title(), lead: change.description().to_owned())
-        if let Some(refusal) = refusal {
-            <p class="notice error" role="alert">(refusal)</p>
-        }
+        alert_notice(message: refusal)
         <section class="card">
             <form class="stack" method="post" data-submit-once="" data-unconfirmed=(!change.confirms()) data-confirming=(confirming.as_str())>
                 (child)
@@ -1067,9 +1065,7 @@ pub async fn account_settings<'a>(
             lead: account.and_then(|account| account.id).map(str::to_owned),
         )
         settings_tabs(tabs: tabs, current: current)
-        if let Some(refusal) = refusal {
-            <p class="notice error" role="alert">(refusal)</p>
-        }
+        alert_notice(message: refusal)
         (child)
     })
 }
@@ -1170,9 +1166,7 @@ pub async fn handoff_proof<'a>(
             <h1>"Confirm it's you"</h1>
             <p class="lead">"The admin dashboard needs your passkey to sign you in or make a change. It counts for the dashboard only."</p>
         </div>
-        if let Some(alert) = alert {
-            <p class="notice error" role="alert">(alert)</p>
-        }
+        alert_notice(message: alert)
         <form
             class="stack"
             method="post"
@@ -1182,9 +1176,52 @@ pub async fn handoff_proof<'a>(
             <input type="hidden" name="state" value=(query.state.as_str())>
             <input type="hidden" name="return_to" value=(query.return_to.as_str())>
             <input type="hidden" name="assertion" value="">
-            <p class="notice error" role="alert" data-passkey-error="" hidden=""></p>
+            alert_notice(passkey: true)
             <p class="help" data-unavailable="">"Confirming needs a browser that supports passkeys, with scripts allowed."</p>
             <button disabled="">"Confirm with a passkey"</button>
         </form>
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{HandoffQuery, handoff_proof};
+    use topcoat::{
+        context::Cx,
+        view::{ViewExt, view},
+    };
+
+    /// A refused proof, and the placeholder the passkey script says a failed
+    /// ceremony in, are error notices with their warning icon and text.
+    #[tokio::test]
+    async fn the_handoff_says_errors_with_their_icon() {
+        let query = HandoffQuery {
+            state: "state".to_owned(),
+            return_to: "/".to_owned(),
+        };
+        let cx = Cx::default();
+        let page = view! { cx =>
+            handoff_proof(action: "/proof", proof: "/ceremony", query: &query, alert: "The passkey was refused.")
+        }
+        .single()
+        .await
+        .expect("the handoff")
+        .render(&cx);
+        let notices = page
+            .split(r#"<p class="notice error""#)
+            .skip(1)
+            .collect::<Vec<_>>();
+        assert_eq!(notices.len(), 2, "{page}");
+        for notice in notices
+            .into_iter()
+            .filter_map(|notice| notice.split("</p>").next())
+        {
+            assert!(notice.contains(r#"<svg class="icon""#), "{page}");
+            assert!(notice.contains(r#"<span class="text">"#), "{page}");
+        }
+        assert!(
+            page.contains(r#"<span class="text">The passkey was refused.</span>"#),
+            "{page}"
+        );
+    }
 }
