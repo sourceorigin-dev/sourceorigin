@@ -384,6 +384,22 @@ fn invitations_created_before_their_id_still_decode() {
     ));
 }
 
+/// Adding an account from the search lists it once, however its handle was
+/// typed: handles match ignoring case, as `Handle::parse` lowercases them.
+#[cfg(feature = "admin")]
+#[test]
+fn announcements_list_an_account_once_whatever_its_case() {
+    let mut draft = admin::DraftAnnouncement {
+        accounts: " @Ada \n".into(),
+        add: Some("ada".into()),
+        ..admin::DraftAnnouncement::default()
+    };
+    assert!(draft.lists("ada"));
+    draft.add_chosen();
+    assert_eq!(draft.accounts, " @Ada \n");
+    assert_eq!(draft.audience, admin::AnnouncementAudience::Accounts);
+}
+
 /// An announcement's text splits into paragraphs at blank lines, even ones of
 /// spaces, and keeps each paragraph's lines, without their trailing spaces.
 #[cfg(feature = "admin")]
