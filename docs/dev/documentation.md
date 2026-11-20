@@ -143,6 +143,10 @@ does what its guide does, then saves each page with `shoot` from
   replaces what changes from run to run: handles, the preview's hosts, IDs,
   dates, addresses and trace IDs.
 
+The dashboard's spec, `admin.spec.ts`, runs first, in a project of its own
+(`docs-admin` in `playwright.config.ts`), so the overview counts only the
+administrator it signs up, whatever the other specs add.
+
 An image is rewritten only when its page looks different, so a run that changes
 nothing leaves `docs/images` untouched. The browser suite never runs these
 specs, and neither does CI.
