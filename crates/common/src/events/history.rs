@@ -13,8 +13,9 @@ impl DomainEvent {
     /// The kinds whose events show in the security history, by the tag each is
     /// stored under, for counting the history by kind: as far as a count by kind
     /// can, it counts what [`Self::history_entry`] shows. A grant's revocation is
-    /// left out, since the history shows only a refresh replay's, and a session's
-    /// revocation is in, since the history hides only an expiry.
+    /// left out, since the history shows only a refresh replay's, and every
+    /// session's revocation is counted, its expiry included, though the history
+    /// hides that one.
     pub const HISTORY_KINDS: [&'static str; 34] = [
         "account_created",
         "signed_in",
