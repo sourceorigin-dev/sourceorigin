@@ -683,8 +683,10 @@ pub(crate) trait RegisteredClaims: DeserializeOwned {
     fn audience(&self) -> &Audience;
     /// `exp`.
     fn expires_at(&self) -> DateTime<Utc>;
-    /// `nbf`, if any.
-    fn not_before(&self) -> Option<DateTime<Utc>>;
+    /// `nbf`, if the token type has one.
+    fn not_before(&self) -> Option<DateTime<Utc>> {
+        None
+    }
     /// `iat`.
     fn issued_at(&self) -> DateTime<Utc>;
 
@@ -727,63 +729,46 @@ pub(crate) trait RegisteredClaims: DeserializeOwned {
     }
 }
 
-impl<X: DeserializeOwned> RegisteredClaims for AccessTokenClaims<X> {
-    const EXCLUSIVE_AUDIENCE: bool = false;
+/// Implements [`RegisteredClaims`] for claims types whose registered claims are their
+/// `iss`, `aud`, `exp` and `iat` fields, and `nbf` when the type has one.
+macro_rules! registered_claims {
+    ($(
+        impl $([$($generics:tt)*])? for $claims:ty {
+            exclusive_audience: $exclusive:literal $(, not_before: $nbf:ident)?
+        }
+    )+) => {$(
+        impl$(<$($generics)*>)? RegisteredClaims for $claims {
+            const EXCLUSIVE_AUDIENCE: bool = $exclusive;
 
-    fn issuer(&self) -> &str {
-        &self.iss
-    }
-    fn audience(&self) -> &Audience {
-        &self.aud
-    }
-    fn expires_at(&self) -> DateTime<Utc> {
-        self.exp
-    }
-    fn not_before(&self) -> Option<DateTime<Utc>> {
-        self.nbf
-    }
-    fn issued_at(&self) -> DateTime<Utc> {
-        self.iat
-    }
+            fn issuer(&self) -> &str {
+                &self.iss
+            }
+            fn audience(&self) -> &Audience {
+                &self.aud
+            }
+            fn expires_at(&self) -> DateTime<Utc> {
+                self.exp
+            }
+            $(fn not_before(&self) -> Option<DateTime<Utc>> {
+                self.$nbf
+            })?
+            fn issued_at(&self) -> DateTime<Utc> {
+                self.iat
+            }
+        }
+    )+};
 }
 
-impl RegisteredClaims for IdTokenClaims {
-    const EXCLUSIVE_AUDIENCE: bool = true;
-
-    fn issuer(&self) -> &str {
-        &self.iss
+registered_claims! {
+    impl [X: DeserializeOwned] for AccessTokenClaims<X> {
+        exclusive_audience: false, not_before: nbf
     }
-    fn audience(&self) -> &Audience {
-        &self.aud
+    impl for IdTokenClaims {
+        exclusive_audience: true, not_before: nbf
     }
-    fn expires_at(&self) -> DateTime<Utc> {
-        self.exp
-    }
-    fn not_before(&self) -> Option<DateTime<Utc>> {
-        self.nbf
-    }
-    fn issued_at(&self) -> DateTime<Utc> {
-        self.iat
-    }
-}
-
-impl RegisteredClaims for LogoutTokenClaims {
-    const EXCLUSIVE_AUDIENCE: bool = true;
-
-    fn issuer(&self) -> &str {
-        &self.iss
-    }
-    fn audience(&self) -> &Audience {
-        &self.aud
-    }
-    fn expires_at(&self) -> DateTime<Utc> {
-        self.exp
-    }
-    fn not_before(&self) -> Option<DateTime<Utc>> {
-        None
-    }
-    fn issued_at(&self) -> DateTime<Utc> {
-        self.iat
+    // `LogoutTokenClaims` has no `nbf`.
+    impl for LogoutTokenClaims {
+        exclusive_audience: true
     }
 }
 
@@ -846,10 +831,7 @@ impl Issuer {
                 .check(None, auth_time, self.now() - LEEWAY)
                 .is_err()
             {
-                return Err(TokenError::AuthenticationTooOld {
-                    auth_time: claims.authentication.auth_time,
-                    max_age,
-                });
+                return Err(TokenError::AuthenticationTooOld { auth_time, max_age });
             }
         }
         Ok(IdToken {
