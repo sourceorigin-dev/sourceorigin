@@ -102,7 +102,7 @@ pub(super) async fn reserve(cx: &Cx, form: Option<Form<Reservation>>) -> Result<
     let service = &App::of(cx).service;
     let back = href!(check).resolve(cx);
     let refused = App::submit(cx, form, back.clone(), |input: Reservation| async move {
-        let handle = Handle::parse(input.handle.trim()).map_err(HandlesError::from)?;
+        let handle = Handle::parse(&input.handle).map_err(HandlesError::from)?;
         let reason = Reason::parse(input.reason)?;
         service
             .reserve_handle(&admin.operator, handle, reason)

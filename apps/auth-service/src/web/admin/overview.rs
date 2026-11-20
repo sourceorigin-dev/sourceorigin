@@ -20,12 +20,7 @@ pub(super) async fn overview(cx: &Cx) -> Result<Response> {
     let generation = App::attention_generation(cx);
     let overview = service.overview(&admin.operator).await?;
     App::remember_attention(cx, generation, &overview);
-    let administrators: Vec<_> = service
-        .list_administrators(&admin.operator)
-        .await?
-        .into_iter()
-        .map(|administrator| administrator.user_id)
-        .collect();
+    let administrators = App::administrator_ids(cx, admin).await?;
     let events_page = href!(lists::events).resolve(cx);
     let failures = EventSearch {
         kind: Some(Kinds::FAILED.to_owned()),
