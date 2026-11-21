@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n                    u.id AS \"id: UserId\", h.handle AS \"handle: Handle\", u.handle_changed_at,\n                    u.display_name, u.profile_version AS \"profile_version: Unsigned\",\n                    u.status AS \"status: AccountStatus\", u.created_at, u.updated_at,\n                    p.id AS \"picture?: PictureId\"\n                FROM users u\n                JOIN handles h ON h.user_id = u.id AND h.released_at IS NULL\n                LEFT JOIN profile_pictures p ON p.user_id = u.id AND u.status = 'active'\n                WHERE h.handle = $1",
+  "query": "SELECT u.id AS \"id: UserId\", h.handle AS \"handle: Handle\", u.handle_changed_at,\n            u.display_name, u.profile_version AS \"profile_version: Unsigned\",\n            u.status AS \"status: AccountStatus\", u.created_at, u.updated_at,\n            p.id AS \"picture?: PictureId\" FROM users u\n            JOIN handles h ON h.user_id = u.id AND h.released_at IS NULL\n            LEFT JOIN profile_pictures p ON p.user_id = u.id AND u.status = 'active' WHERE h.handle = $1\n                AND u.status = 'active'",
   "describe": {
     "columns": [
       {
@@ -66,5 +66,5 @@
       false
     ]
   },
-  "hash": "c431dfbd0401cf05210ec6e110250c6f8481e4ef448b87dbb823c11ad6b09a91"
+  "hash": "a5908a643b881efaa99998545cfcd46093a5ad43ab785e716b656d4c3bcd4e18"
 }

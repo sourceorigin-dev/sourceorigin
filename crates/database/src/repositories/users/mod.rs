@@ -30,6 +30,43 @@ pub struct StoredUser {
     pub updated_at: DateTime<Utc>,
 }
 
+/// A [`query_record!`] over accounts `u`, with their current handle `h` and, while
+/// active, picture `p`: it returns [`StoredUser`]s, or with `admin` first the
+/// [`User`]s administrators see. `$rest` follows the joins, e.g.
+/// `users!("WHERE u.id = $1", id)`.
+macro_rules! users {
+    (admin $($query:tt)*) => {
+        users!(
+            @ User,
+            r#"u.id AS "id: UserId", h.handle AS "handle: Handle", u.display_name,
+            u.status AS "status: AccountStatus", p.id AS "picture?: PictureId", u.created_at"#,
+            $($query)*
+        )
+    };
+    (@ $record:ident, $columns:literal, $rest:literal $(, $arg:expr)* $(,)?) => {
+        query_record!(
+            $record,
+            $columns,
+            "SELECT",
+            "FROM users u
+            JOIN handles h ON h.user_id = u.id AND h.released_at IS NULL
+            LEFT JOIN profile_pictures p ON p.user_id = u.id AND u.status = 'active' "
+                + $rest
+            $(, $arg)*
+        )
+    };
+    ($($query:tt)*) => {
+        users!(
+            @ StoredUser,
+            r#"u.id AS "id: UserId", h.handle AS "handle: Handle", u.handle_changed_at,
+            u.display_name, u.profile_version AS "profile_version: Unsigned",
+            u.status AS "status: AccountStatus", u.created_at, u.updated_at,
+            p.id AS "picture?: PictureId""#,
+            $($query)*
+        )
+    };
+}
+
 impl From<StoredUser> for User {
     fn from(user: StoredUser) -> Self {
         Self {
@@ -97,19 +134,7 @@ impl UserRepository<'_> {
         run!(
             self,
             fetch_optional,
-            sqlx::query_as!(
-                StoredUser,
-                r#"SELECT
-                    u.id AS "id: UserId", h.handle AS "handle: Handle", u.handle_changed_at,
-                    u.display_name, u.profile_version AS "profile_version: Unsigned",
-                    u.status AS "status: AccountStatus", u.created_at, u.updated_at,
-                    p.id AS "picture?: PictureId"
-                FROM users u
-                JOIN handles h ON h.user_id = u.id AND h.released_at IS NULL
-                LEFT JOIN profile_pictures p ON p.user_id = u.id AND u.status = 'active'
-                WHERE u.id = $1"#,
-                id.as_uuid(),
-            )
+            users!("WHERE u.id = $1", id.as_uuid())
         )
     }
 
@@ -167,18 +192,9 @@ impl UserRepository<'_> {
         run!(
             self,
             fetch_optional,
-            sqlx::query_as!(
-                StoredUser,
-                r#"SELECT
-                    u.id AS "id: UserId", h.handle AS "handle: Handle", u.handle_changed_at,
-                    u.display_name, u.profile_version AS "profile_version: Unsigned",
-                    u.status AS "status: AccountStatus", u.created_at, u.updated_at,
-                    p.id AS "picture?: PictureId"
-                FROM users u
-                JOIN handles h ON h.user_id = u.id AND h.released_at IS NULL
-                LEFT JOIN profile_pictures p ON p.user_id = u.id AND u.status = 'active'
-                WHERE h.handle = $1
-                AND u.status = 'active'"#,
+            users!(
+                "WHERE h.handle = $1
+                AND u.status = 'active'",
                 handle.as_str(),
             )
         )
@@ -209,19 +225,7 @@ impl UserRepository<'_> {
         run!(
             self,
             fetch_optional,
-            sqlx::query_as!(
-                StoredUser,
-                r#"SELECT
-                    u.id AS "id: UserId", h.handle AS "handle: Handle", u.handle_changed_at,
-                    u.display_name, u.profile_version AS "profile_version: Unsigned",
-                    u.status AS "status: AccountStatus", u.created_at, u.updated_at,
-                    p.id AS "picture?: PictureId"
-                FROM users u
-                JOIN handles h ON h.user_id = u.id AND h.released_at IS NULL
-                LEFT JOIN profile_pictures p ON p.user_id = u.id AND u.status = 'active'
-                WHERE h.handle = $1"#,
-                handle.as_str(),
-            )
+            users!("WHERE h.handle = $1", handle.as_str())
         )
     }
 
@@ -349,16 +353,9 @@ impl UserRepository<'_> {
         run!(
             self,
             fetch_all,
-            sqlx::query_as!(
-                User,
-                r#"SELECT
-                    u.id AS "id: UserId", h.handle AS "handle: Handle", u.display_name,
-                    u.status AS "status: AccountStatus", p.id AS "picture?: PictureId", u.created_at
-                FROM users u
-                JOIN handles h ON h.user_id = u.id AND h.released_at IS NULL
-                LEFT JOIN profile_pictures p ON p.user_id = u.id AND u.status = 'active'
-                ORDER BY u.created_at DESC, u.id DESC
-                LIMIT $1"#,
+            users!(
+                admin "ORDER BY u.created_at DESC, u.id DESC
+                LIMIT $1",
                 i64::from(limit),
             )
         )
@@ -416,15 +413,8 @@ impl UserRepository<'_> {
         run!(
             self,
             fetch_all,
-            sqlx::query_as!(
-                User,
-                r#"SELECT
-                    u.id AS "id: UserId", h.handle AS "handle: Handle", u.display_name,
-                    u.status AS "status: AccountStatus", p.id AS "picture?: PictureId", u.created_at
-                FROM users u
-                JOIN handles h ON h.user_id = u.id AND h.released_at IS NULL
-                LEFT JOIN profile_pictures p ON p.user_id = u.id AND u.status = 'active'
-                WHERE (
+            users!(
+                admin "WHERE (
                     $1 = ''
                     OR u.id::text = lower($1)
                     OR h.handle ILIKE ('%' || $2 || '%')
@@ -449,7 +439,7 @@ impl UserRepository<'_> {
                         ELSE 4
                     END,
                     h.handle, u.id
-                LIMIT $3 OFFSET $4"#,
+                LIMIT $3 OFFSET $4",
                 query,
                 pattern,
                 i64::from(limit),
