@@ -39,6 +39,18 @@ pub struct StoredReservation {
     pub reserved_at: DateTime<Utc>,
 }
 
+/// A [`query_record!`] returning [`StoredHandle`]s, read as `h`.
+macro_rules! handles {
+    ($($query:tt)*) => {
+        query_record!(
+            StoredHandle,
+            r#"h.handle AS "handle: Handle", h.user_id AS "user_id: UserId", h.claimed_at,
+            h.released_at"#,
+            $($query)*
+        )
+    };
+}
+
 impl From<StoredHandle> for ReleasedHandle {
     /// Keeps who held it and when they stopped.
     fn from(row: StoredHandle) -> Self {
@@ -72,12 +84,10 @@ impl HandleRepository<'_> {
         run!(
             self,
             fetch_optional,
-            sqlx::query_as!(
-                StoredHandle,
-                r#"SELECT handle AS "handle: Handle", user_id AS "user_id: UserId", claimed_at,
-                    released_at
-                FROM handles
-                WHERE skeleton = handle_skeleton($1)"#,
+            handles!(
+                "SELECT",
+                "FROM handles h
+                WHERE h.skeleton = handle_skeleton($1)",
                 handle.as_str(),
             )
         )
@@ -93,13 +103,11 @@ impl HandleRepository<'_> {
         run!(
             self,
             fetch_all,
-            sqlx::query_as!(
-                StoredHandle,
-                r#"SELECT handle AS "handle: Handle", user_id AS "user_id: UserId", claimed_at,
-                    released_at
-                FROM handles
-                WHERE user_id = $1
-                ORDER BY released_at IS NOT NULL, claimed_at DESC"#,
+            handles!(
+                "SELECT",
+                "FROM handles h
+                WHERE h.user_id = $1
+                ORDER BY h.released_at IS NOT NULL, h.claimed_at DESC",
                 user_id.as_uuid(),
             )
         )
@@ -114,13 +122,11 @@ impl HandleRepository<'_> {
         run!(
             self,
             fetch_all,
-            sqlx::query_as!(
-                StoredHandle,
-                r#"SELECT handle AS "handle: Handle", user_id AS "user_id: UserId", claimed_at,
-                    released_at
-                FROM handles
-                WHERE released_at IS NULL
-                ORDER BY handle"#,
+            handles!(
+                "SELECT",
+                "FROM handles h
+                WHERE h.released_at IS NULL
+                ORDER BY h.handle",
             )
         )
     }
@@ -136,13 +142,11 @@ impl HandleRepository<'_> {
         run!(
             self,
             fetch_all,
-            sqlx::query_as!(
-                StoredHandle,
-                r#"SELECT handle AS "handle: Handle", user_id AS "user_id: UserId", claimed_at,
-                    released_at
-                FROM handles
-                WHERE released_at IS NOT NULL OR user_id IS NULL
-                ORDER BY handle"#,
+            handles!(
+                "SELECT",
+                "FROM handles h
+                WHERE h.released_at IS NOT NULL OR h.user_id IS NULL
+                ORDER BY h.handle",
             )
         )
     }
@@ -237,12 +241,11 @@ impl HandleRepository<'_> {
         run!(
             self,
             fetch_optional,
-            sqlx::query_as!(
-                StoredHandle,
-                r#"DELETE FROM handles
-                WHERE handle = $1 AND (released_at IS NOT NULL OR user_id IS NULL)
-                RETURNING handle AS "handle: Handle", user_id AS "user_id: UserId", claimed_at,
-                    released_at"#,
+            handles!(
+                "DELETE FROM handles h
+                WHERE h.handle = $1 AND (h.released_at IS NOT NULL OR h.user_id IS NULL)
+                RETURNING",
+                "",
                 handle.as_str(),
             )
         )

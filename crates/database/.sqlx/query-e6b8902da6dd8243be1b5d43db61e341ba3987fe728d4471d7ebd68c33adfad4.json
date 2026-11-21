@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n                    id AS \"id: EmailId\", user_id AS \"user_id: UserId\", normalized_email,\n                    verified_at, is_primary\n                FROM user_emails\n                WHERE user_id = $1 AND id = $2",
+  "query": "SELECT e.id AS \"id: EmailId\", e.user_id AS \"user_id: UserId\", e.normalized_email,\n            e.verified_at, e.is_primary FROM user_emails e\n                WHERE e.user_id = $1 AND e.id = $2",
   "describe": {
     "columns": [
       {
@@ -43,5 +43,5 @@
       false
     ]
   },
-  "hash": "62401bba8e8a55f5e790d99ede0751d588e78a39fea5ab362b631b1f4a138563"
+  "hash": "e6b8902da6dd8243be1b5d43db61e341ba3987fe728d4471d7ebd68c33adfad4"
 }

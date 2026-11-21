@@ -63,6 +63,18 @@ pub struct PendingVerification {
     pub address: String,
 }
 
+/// A [`query_record!`] returning [`StoredEmail`]s, read as `e`.
+macro_rules! emails {
+    ($($query:tt)*) => {
+        query_record!(
+            StoredEmail,
+            r#"e.id AS "id: EmailId", e.user_id AS "user_id: UserId", e.normalized_email,
+            e.verified_at, e.is_primary"#,
+            $($query)*
+        )
+    };
+}
+
 impl From<StoredEmail> for Email {
     /// The address as the admin dashboard shows it.
     fn from(email: StoredEmail) -> Self {
@@ -88,13 +100,11 @@ impl EmailRepository<'_> {
         run!(
             self,
             fetch_one,
-            sqlx::query_as!(
-                StoredEmail,
-                r#"INSERT INTO user_emails (id, user_id, normalized_email, verified_at, is_primary)
+            emails!(
+                "INSERT INTO user_emails AS e (id, user_id, normalized_email, verified_at, is_primary)
                 VALUES ($1, $2, $3, $4, $5)
-                RETURNING
-                    id AS "id: EmailId", user_id AS "user_id: UserId", normalized_email,
-                    verified_at, is_primary"#,
+                RETURNING",
+                "",
                 input.id.as_uuid(),
                 input.user_id.as_uuid(),
                 input.normalized_email,
@@ -146,14 +156,11 @@ impl EmailRepository<'_> {
         run!(
             self,
             fetch_all,
-            sqlx::query_as!(
-                StoredEmail,
-                r#"SELECT
-                    id AS "id: EmailId", user_id AS "user_id: UserId", normalized_email,
-                    verified_at, is_primary
-                FROM user_emails
-                WHERE user_id = $1
-                ORDER BY is_primary DESC, created_at, id"#,
+            emails!(
+                "SELECT",
+                "FROM user_emails e
+                WHERE e.user_id = $1
+                ORDER BY e.is_primary DESC, e.created_at, e.id",
                 user_id.as_uuid(),
             )
         )
@@ -172,13 +179,10 @@ impl EmailRepository<'_> {
         run!(
             self,
             fetch_optional,
-            sqlx::query_as!(
-                StoredEmail,
-                r#"SELECT
-                    id AS "id: EmailId", user_id AS "user_id: UserId", normalized_email,
-                    verified_at, is_primary
-                FROM user_emails
-                WHERE user_id = $1 AND id = $2"#,
+            emails!(
+                "SELECT",
+                "FROM user_emails e
+                WHERE e.user_id = $1 AND e.id = $2",
                 user_id.as_uuid(),
                 id.as_uuid(),
             )
@@ -353,12 +357,9 @@ impl EmailRepository<'_> {
         run!(
             self,
             fetch_optional,
-            sqlx::query_as!(
-                StoredEmail,
-                r#"SELECT
-                    e.id AS "id: EmailId", e.user_id AS "user_id: UserId", e.normalized_email,
-                    e.verified_at, e.is_primary
-                FROM active_verified_email_ownership o
+            emails!(
+                "SELECT",
+                "FROM active_verified_email_ownership o
                 JOIN users u ON u.id = o.user_id
                     AND u.status = 'active'
                 JOIN user_emails e ON e.user_id = o.user_id
@@ -366,7 +367,7 @@ impl EmailRepository<'_> {
                     AND e.verified_at IS NOT NULL
                 WHERE o.normalized_email = $1
                 ORDER BY e.is_primary DESC, e.created_at
-                LIMIT 1"#,
+                LIMIT 1",
                 normalized,
             )
         )

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT handle AS \"handle: Handle\", user_id AS \"user_id: UserId\", claimed_at,\n                    released_at\n                FROM handles\n                WHERE user_id = $1\n                ORDER BY released_at IS NOT NULL, claimed_at DESC",
+  "query": "SELECT h.handle AS \"handle: Handle\", h.user_id AS \"user_id: UserId\", h.claimed_at,\n            h.released_at FROM handles h\n                WHERE h.released_at IS NULL\n                ORDER BY h.handle",
   "describe": {
     "columns": [
       {
@@ -25,9 +25,7 @@
       }
     ],
     "parameters": {
-      "Left": [
-        "Uuid"
-      ]
+      "Left": []
     },
     "nullable": [
       false,
@@ -36,5 +34,5 @@
       true
     ]
   },
-  "hash": "16e5bf87e7bf93896dde33745d8ce5ddc1740eb755fd4e8b060a03ecdee6f8cd"
+  "hash": "898942d0035111964e7bdf95259a28fe3fbf926bb4a7a361a4106ad39100e65b"
 }

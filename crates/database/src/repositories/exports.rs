@@ -2,7 +2,7 @@
 //! included, where the other repositories read only what is in use. The export
 //! reads the rest through them.
 
-use super::{ExportRepository, JsonArray, RepositoryExecutor};
+use super::{ExportRepository, JsonArray, RepositoryExecutor, passkeys::passkeys};
 use crate::{DatabaseError, StoredPasskey};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
@@ -106,14 +106,11 @@ impl ExportRepository<'_> {
         run!(
             self,
             fetch_all,
-            sqlx::query_as!(
-                StoredPasskey,
-                r#"SELECT
-                    id AS "id: PasskeyId", credential_id, user_id AS "user_id: UserId", credential,
-                    friendly_name, created_at, last_used_at, revoked_at
-                FROM passkey_credentials
-                WHERE user_id = $1
-                ORDER BY created_at, id"#,
+            passkeys!(
+                "SELECT",
+                "FROM passkey_credentials p
+                WHERE p.user_id = $1
+                ORDER BY p.created_at, p.id",
                 user_id.as_uuid(),
             )
         )

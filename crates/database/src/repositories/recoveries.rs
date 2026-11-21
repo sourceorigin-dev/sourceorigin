@@ -45,6 +45,20 @@ pub struct StoredRecovery {
     pub read_at: DateTime<Utc>,
 }
 
+/// A [`query_record!`] returning [`StoredRecovery`]s, read as `r`, with the
+/// clock when they were read.
+macro_rules! recoveries {
+    ($($query:tt)*) => {
+        query_record!(
+            StoredRecovery,
+            r#"r.id AS "id: RecoveryId", r.user_id AS "user_id: UserId", r.started_at,
+            r.expires_at, r.completed_at, r.passkey_id AS "passkey_id: PasskeyId",
+            r.settles_at, r.cancelled_at, r.undone_at, clock_timestamp() AS "read_at!""#,
+            $($query)*
+        )
+    };
+}
+
 /// Where a recovery stands. [`StoredRecovery::state`] is the only place auth
 /// computes it; the migration's `undoable_recovery` is the one SQL copy, which
 /// the database's backstops use.
@@ -215,16 +229,12 @@ impl RecoveryRepository<'_> {
         run!(
             self,
             fetch_optional,
-            sqlx::query_as!(
-                StoredRecovery,
-                r#"SELECT
-                    id AS "id: RecoveryId", user_id AS "user_id: UserId", started_at,
-                    expires_at, completed_at, passkey_id AS "passkey_id: PasskeyId",
-                    settles_at, cancelled_at, undone_at, clock_timestamp() AS "read_at!"
-                FROM account_recoveries
-                WHERE secret_digest = $1
-                AND completed_at IS NULL AND cancelled_at IS NULL
-                AND expires_at > clock_timestamp()"#,
+            recoveries!(
+                "SELECT",
+                "FROM account_recoveries r
+                WHERE r.secret_digest = $1
+                AND r.completed_at IS NULL AND r.cancelled_at IS NULL
+                AND r.expires_at > clock_timestamp()",
                 digest,
             )
         )
@@ -277,16 +287,12 @@ impl RecoveryRepository<'_> {
         run!(
             self,
             fetch_optional,
-            sqlx::query_as!(
-                StoredRecovery,
-                r#"SELECT
-                    id AS "id: RecoveryId", user_id AS "user_id: UserId", started_at,
-                    expires_at, completed_at, passkey_id AS "passkey_id: PasskeyId",
-                    settles_at, cancelled_at, undone_at, clock_timestamp() AS "read_at!"
-                FROM account_recoveries
-                WHERE user_id = $1 AND cancelled_at IS NULL AND undone_at IS NULL
-                ORDER BY started_at DESC, id DESC
-                LIMIT 1"#,
+            recoveries!(
+                "SELECT",
+                "FROM account_recoveries r
+                WHERE r.user_id = $1 AND r.cancelled_at IS NULL AND r.undone_at IS NULL
+                ORDER BY r.started_at DESC, r.id DESC
+                LIMIT 1",
                 user_id.as_uuid(),
             )
         )
@@ -304,14 +310,10 @@ impl RecoveryRepository<'_> {
         run!(
             self,
             fetch_optional,
-            sqlx::query_as!(
-                StoredRecovery,
-                r#"SELECT
-                    id AS "id: RecoveryId", user_id AS "user_id: UserId", started_at,
-                    expires_at, completed_at, passkey_id AS "passkey_id: PasskeyId",
-                    settles_at, cancelled_at, undone_at, clock_timestamp() AS "read_at!"
-                FROM account_recoveries
-                WHERE passkey_id = $1"#,
+            recoveries!(
+                "SELECT",
+                "FROM account_recoveries r
+                WHERE r.passkey_id = $1",
                 passkey_id.as_uuid(),
             )
         )
@@ -326,14 +328,10 @@ impl RecoveryRepository<'_> {
         run!(
             self,
             fetch_optional,
-            sqlx::query_as!(
-                StoredRecovery,
-                r#"SELECT
-                    id AS "id: RecoveryId", user_id AS "user_id: UserId", started_at,
-                    expires_at, completed_at, passkey_id AS "passkey_id: PasskeyId",
-                    settles_at, cancelled_at, undone_at, clock_timestamp() AS "read_at!"
-                FROM account_recoveries
-                WHERE id = $1"#,
+            recoveries!(
+                "SELECT",
+                "FROM account_recoveries r
+                WHERE r.id = $1",
                 id.as_uuid()
             )
         )
