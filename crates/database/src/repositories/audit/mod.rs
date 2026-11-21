@@ -180,30 +180,6 @@ impl From<SealedRow> for ChainedEvent {
     }
 }
 
-/// A checkpoint as stored.
-struct CheckpointRow {
-    /// The head's position.
-    position: Unsigned,
-    /// The chain hash at that position.
-    head: Bytes32,
-    /// When it was signed.
-    created_at: DateTime<Utc>,
-    /// The signed note.
-    note: String,
-}
-
-impl From<CheckpointRow> for Checkpoint {
-    /// Unwraps the decoded columns.
-    fn from(row: CheckpointRow) -> Self {
-        Self {
-            position: row.position.into(),
-            head: row.head.into(),
-            created_at: row.created_at,
-            note: row.note,
-        }
-    }
-}
-
 impl AuditRepository<'_> {
     /// Returns up to `limit` unsealed events in the order to seal them, to be
     /// sealed in [`EventContent::NEWEST_FORMAT`]: the safe order of `in_safe_order!`. No
@@ -293,10 +269,11 @@ impl AuditRepository<'_> {
     ///
     /// Returns [`DatabaseError`] if the query fails.
     pub async fn head(&mut self) -> Result<Option<ChainLink>, DatabaseError> {
-        Ok(run!(
+        run!(
             self,
             fetch_optional,
-            sqlx::query!(
+            sqlx::query_as!(
+                ChainLink,
                 r#"SELECT position AS "position!: Unsigned", hash AS "hash!: Bytes32"
                 FROM (
                     (SELECT chain_position AS position, chain_hash AS hash
@@ -311,11 +288,7 @@ impl AuditRepository<'_> {
                 ORDER BY position DESC
                 LIMIT 1"#
             )
-        )?
-        .map(|row| ChainLink {
-            position: row.position.into(),
-            hash: row.hash.into(),
-        }))
+        )
     }
 
     /// Gives each event its position, chain hash and format.
@@ -427,11 +400,11 @@ impl AuditRepository<'_> {
         before: Option<u64>,
         limit: u32,
     ) -> Result<Vec<Checkpoint>, DatabaseError> {
-        Ok(run!(
+        run!(
             self,
             fetch_all,
             sqlx::query_as!(
-                CheckpointRow,
+                Checkpoint,
                 r#"SELECT position AS "position: Unsigned", head AS "head: Bytes32", created_at, note
                 FROM audit_checkpoints
                 WHERE $1::bigint IS NULL OR position < $1
@@ -440,10 +413,7 @@ impl AuditRepository<'_> {
                 before.map(Unsigned::bind).transpose()?,
                 i64::from(limit),
             )
-        )?
-        .into_iter()
-        .map(Checkpoint::from)
-        .collect())
+        )
     }
 
     /// Returns up to `limit` checkpoints after position `after`, oldest first.
@@ -456,11 +426,11 @@ impl AuditRepository<'_> {
         after: u64,
         limit: u32,
     ) -> Result<Vec<Checkpoint>, DatabaseError> {
-        Ok(run!(
+        run!(
             self,
             fetch_all,
             sqlx::query_as!(
-                CheckpointRow,
+                Checkpoint,
                 r#"SELECT position AS "position: Unsigned", head AS "head: Bytes32", created_at, note
                 FROM audit_checkpoints
                 WHERE position > $1
@@ -469,10 +439,7 @@ impl AuditRepository<'_> {
                 Unsigned::bind(after)?,
                 i64::from(limit),
             )
-        )?
-        .into_iter()
-        .map(Checkpoint::from)
-        .collect())
+        )
     }
 
     /// The checkpoint the chain was last pruned through, if it ever was.
@@ -481,17 +448,16 @@ impl AuditRepository<'_> {
     ///
     /// Returns [`DatabaseError`] if the query fails.
     pub async fn anchor(&mut self) -> Result<Option<Checkpoint>, DatabaseError> {
-        Ok(run!(
+        run!(
             self,
             fetch_optional,
             sqlx::query_as!(
-                CheckpointRow,
+                Checkpoint,
                 r#"SELECT c.position AS "position: Unsigned", c.head AS "head: Bytes32",
                     c.created_at, c.note
                 FROM audit_anchor a JOIN audit_checkpoints c USING (position)"#
             )
-        )?
-        .map(Checkpoint::from))
+        )
     }
 
     /// Makes this transaction see one snapshot of the whole database, read only, so
