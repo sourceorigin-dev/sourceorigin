@@ -21,7 +21,8 @@ const OPERATOR: Variable = Variable::new("AUTH_OPERATOR");
 /// The operating system user, who runs commands when neither `--operator` nor
 /// `AUTH_OPERATOR` says who does.
 const OS_USER: Variable = Variable::new("USER");
-/// The machine's host name, for systems without `/proc`.
+/// The machine's host name, for systems without `/proc` or where its host name
+/// is blank.
 const HOST_NAME: Variable = Variable::new("HOSTNAME");
 /// Where Linux exposes the host name.
 const HOST_NAME_FILE: &str = "/proc/sys/kernel/hostname";
@@ -118,14 +119,27 @@ impl Operator {
     /// `name` running a command at this terminal, on this host, or `unknown` where
     /// its name cannot be read.
     pub(crate) fn terminal(name: OperatorName) -> Result<Self, ConfigurationError> {
-        let host = std::fs::read_to_string(HOST_NAME_FILE)
-            .ok()
-            .map(|host| host.trim().to_owned())
-            .or(HOST_NAME.optional()?)
-            .filter(|host| !host.is_empty());
+        let file = std::fs::read_to_string(HOST_NAME_FILE).ok();
         Ok(Self::Cli {
             name,
-            host: host.unwrap_or_else(|| UNKNOWN.to_owned()),
+            host: Self::host_name(file, || HOST_NAME.optional())?,
+        })
+    }
+
+    /// The host's name: `file`'s, the host name file's contents if it could be
+    /// read, else `fallback`'s, which runs only when `file` names none, so an
+    /// invalid `HOSTNAME` fails a command only when the host name file names no
+    /// host; `unknown` when neither names one. Whitespace around a name is no part of it.
+    fn host_name(
+        file: Option<String>,
+        fallback: impl FnOnce() -> Result<Option<String>, ConfigurationError>,
+    ) -> Result<String, ConfigurationError> {
+        let named = |host: String| Some(host.trim().to_owned()).filter(|host| !host.is_empty());
+        Ok(match file.and_then(named) {
+            Some(host) => host,
+            None => fallback()?
+                .and_then(named)
+                .unwrap_or_else(|| UNKNOWN.to_owned()),
         })
     }
 
@@ -344,5 +358,32 @@ impl AdminSession {
         requirement
             .check(Some(&signed_in), self.confirmed_at, Utc::now())
             .map_err(AdminError::StepUpRequired)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ConfigurationError, HOST_NAME, Operator, UNKNOWN};
+
+    /// The host for a host name file of `file` and a `HOSTNAME` that reads as `env`.
+    fn host(
+        file: Option<&str>,
+        env: Result<Option<&str>, ConfigurationError>,
+    ) -> Result<String, ConfigurationError> {
+        Operator::host_name(file.map(str::to_owned), || {
+            env.map(|v| v.map(str::to_owned))
+        })
+    }
+
+    /// The file's name wins without reading `HOSTNAME`, which may then be invalid;
+    /// without one, `HOSTNAME` names the host, and fails when invalid.
+    #[test]
+    fn host_name_reads_hostname_only_without_a_name_in_the_file() {
+        let invalid = || Err(HOST_NAME.invalid("must contain UTF-8 text"));
+        assert_eq!(host(Some("box\n"), invalid()).expect("the file's"), "box");
+        assert_eq!(host(Some(" \n"), Ok(Some("env"))).expect("HOSTNAME"), "env");
+        assert_eq!(host(None, Ok(Some("env"))).expect("HOSTNAME"), "env");
+        assert_eq!(host(Some(""), Ok(None)).expect("no name"), UNKNOWN);
+        assert!(host(None, invalid()).is_err());
     }
 }
