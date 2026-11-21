@@ -1,12 +1,12 @@
 //! The keys signing tokens.
 
-use super::{Action, Change, confirm, dashboard_change, moment};
+use super::{Action, Badge, Change, badge, confirm, dashboard_change, data_table, moment};
 use crate::{clients::choice, layout::page_head};
 use chrono::{DateTime, Utc};
 use sourceorigin_common::admin::{SigningKey, SigningKeyState};
 use topcoat::{
     Result,
-    view::{View, class, component, view},
+    view::{View, component, view},
 };
 
 /// A signing key, and the change revoking it.
@@ -18,13 +18,13 @@ pub struct SigningKeyRow<'a> {
     pub revoke: Action,
 }
 
-/// A key's state, as a badge's tone and label.
-const fn state_badge(state: SigningKeyState) -> (&'static str, &'static str) {
+/// A key's state, as a badge.
+const fn state_badge(state: SigningKeyState) -> Badge {
     match state {
-        SigningKeyState::Next => ("", "Waiting"),
-        SigningKeyState::Active => ("ok", "Signing"),
-        SigningKeyState::Retiring => ("neutral", "Retiring"),
-        SigningKeyState::Retired => ("neutral", "Retired"),
+        SigningKeyState::Next => Badge::new("", "Waiting"),
+        SigningKeyState::Active => Badge::new("ok", "Signing"),
+        SigningKeyState::Retiring => Badge::new("neutral", "Retiring"),
+        SigningKeyState::Retired => Badge::new("neutral", "Retired"),
     }
 }
 
@@ -46,42 +46,25 @@ pub async fn signing_key_list<'a>(
             },
         )
         <section class="card">
-            if rows.is_empty() {
-                <p class="empty">"No signing key yet: auth generates one when it starts."</p>
-            } else {
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>"key"</th>
-                                <th>"state"</th>
-                                <th>"created"</th>
-                                <th>"signed from"</th>
-                                <th>"signed until"</th>
-                                <th>"retired"</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            for row in rows {
-                                let key = row.key;
-                                let (tone, label) = state_badge(key.state);
-                                <tr>
-                                    <td><code>(key.id.as_str())</code> " " <small class="muted">(key.key_type.as_str())</small></td>
-                                    <td><span class=(class!("badge", tone))>(label)</span></td>
-                                    <td>moment(at: key.created_at)</td>
-                                    <td>when(at: key.activated_at)</td>
-                                    <td>when(at: key.deactivated_at)</td>
-                                    <td>when(at: key.retired_at)</td>
-                                    <td class="right">
-                                        confirm(action: &row.revoke, change: Change::RevokeSigningKey, subject: key.id.as_str())
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            }
+            data_table(
+                headings: &["key", "state", "created", "signed from", "signed until", "retired", ""],
+                empty: "No signing key yet: auth generates one when it starts.",
+                filled: !rows.is_empty(),
+                for row in rows {
+                    let key = row.key;
+                    <tr>
+                        <td><code>(key.id.as_str())</code> " " <small class="muted">(key.key_type.as_str())</small></td>
+                        <td>badge(shown: state_badge(key.state))</td>
+                        <td>moment(at: key.created_at)</td>
+                        <td>when(at: key.activated_at)</td>
+                        <td>when(at: key.deactivated_at)</td>
+                        <td>when(at: key.retired_at)</td>
+                        <td class="right">
+                            confirm(action: &row.revoke, change: Change::RevokeSigningKey, subject: key.id.as_str())
+                        </td>
+                    </tr>
+                }
+            )
         </section>
     })
 }
