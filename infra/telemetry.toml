@@ -1,7 +1,8 @@
 #:schema https://raw.githubusercontent.com/sourceorigin-dev/piqueld/main/docs/application-manifest.schema.json
-# Telemetry of SourceOrigin on piqueld: an OpenTelemetry Collector receiving auth's
-# and the admin dashboard's traces, metrics and logs, Prometheus, Tempo and Loki
-# storing them, and Grafana showing them. One environment serves both sourceorigin
+# Telemetry of SourceOrigin on piqueld: an OpenTelemetry Collector receiving the
+# traces, metrics and logs of auth, with the admin dashboard it serves, and of
+# sourceorigin.dev's web server, Prometheus, Tempo and Loki storing them, and
+# Grafana showing them. One environment serves both sourceorigin
 # environments, which `deployment.environment.name` tells apart. See
 # docs/dev/operations/telemetry.md.
 #
