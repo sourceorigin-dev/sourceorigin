@@ -2,7 +2,7 @@
 //! accounts.
 
 use super::{
-    CliError, Confirm, Console,
+    CliError, Confirm, Console, WhyOwnerSees,
     output::{Cell, Joined, Single, Style, Time, report},
 };
 use crate::{
@@ -40,10 +40,9 @@ pub(super) enum UserCommand {
     Disable {
         /// The account: its handle, ID or verified email.
         user: UserRef,
-        /// Why, recorded with the change and shown to the owner in their history:
-        /// 1 to 500 characters.
-        #[arg(long)]
-        reason: Reason,
+        /// Why.
+        #[command(flatten)]
+        why: WhyOwnerSees,
         /// Confirmation.
         #[command(flatten)]
         confirm: Confirm,
@@ -52,10 +51,9 @@ pub(super) enum UserCommand {
     Enable {
         /// The account: its handle, ID or verified email.
         user: UserRef,
-        /// Why, recorded with the change and shown to the owner in their history:
-        /// 1 to 500 characters.
-        #[arg(long)]
-        reason: Reason,
+        /// Why.
+        #[command(flatten)]
+        why: WhyOwnerSees,
     },
     /// Recover an account whose owner lost every passkey.
     ///
@@ -98,10 +96,9 @@ pub(super) enum UserCommand {
     Delete {
         /// The account: its handle, ID or verified email.
         user: UserRef,
-        /// Why, recorded with the change and shown to the owner in their history:
-        /// 1 to 500 characters.
-        #[arg(long)]
-        reason: Reason,
+        /// Why.
+        #[command(flatten)]
+        why: WhyOwnerSees,
         /// Purge the account now, in any status, without a grace period. This
         /// cannot be undone.
         #[arg(long)]
@@ -131,10 +128,9 @@ pub(super) enum UserCommand {
     Restore {
         /// The account: its handle, ID or verified email.
         user: UserRef,
-        /// Why, recorded with the change and shown to the owner in their history:
-        /// 1 to 500 characters.
-        #[arg(long)]
-        reason: Reason,
+        /// Why.
+        #[command(flatten)]
+        why: WhyOwnerSees,
     },
 }
 
@@ -155,19 +151,15 @@ impl UserCommand {
                 let id = console.user(&user).await?;
                 out.emit(&service.view_user(operator, id).await?)?;
             }
-            Self::Disable {
-                user,
-                reason,
-                confirm,
-            } => {
+            Self::Disable { user, why, confirm } => {
                 let id = console.user(&user).await?;
                 confirm.ask(out, &format!("Disable {user} ({id}) and end its sessions"))?;
-                service.disable_user(operator, id, reason).await?;
+                service.disable_user(operator, id, why.reason).await?;
                 out.info(format_args!("Disabled {user} and ended its sessions."))?;
             }
-            Self::Enable { user, reason } => {
+            Self::Enable { user, why } => {
                 let id = console.user(&user).await?;
-                service.enable_user(operator, id, reason).await?;
+                service.enable_user(operator, id, why.reason).await?;
                 out.info(format_args!("Enabled {user}: it can sign in again."))?;
             }
             Self::Recover {
@@ -203,13 +195,13 @@ impl UserCommand {
             }
             Self::Delete {
                 user,
-                reason,
+                why,
                 immediately,
                 confirm,
-            } => Self::delete(console, &user, reason, immediately, &confirm).await?,
-            Self::Restore { user, reason } => {
+            } => Self::delete(console, &user, why.reason, immediately, &confirm).await?,
+            Self::Restore { user, why } => {
                 let id = console.user(&user).await?;
-                service.restore_user(operator, id, reason).await?;
+                service.restore_user(operator, id, why.reason).await?;
                 out.info(format_args!("Restored {user}: it can sign in again."))?;
             }
         }

@@ -1,10 +1,11 @@
 //! What administrative commands share: the service and its operator, where they
-//! print, and confirmation before changes that cut off a whole account,
-//! administrator or client.
+//! print, the reason a change records, and confirmation before changes that cut
+//! off a whole account, administrator or client.
 
 use super::{CliError, output::Output};
 use crate::{
-    AdminService, AuthConfig, Operator, UserRef, account::AccountService, admin::OperatorName,
+    AdminService, AuthConfig, Operator, Reason, UserRef, account::AccountService,
+    admin::OperatorName,
 };
 use clap::Args;
 use sourceorigin_common::{UserId, config::ConfigurationError};
@@ -64,6 +65,23 @@ impl Console {
                 source,
             })
     }
+}
+
+/// The `--reason` of a change, recorded with it.
+#[derive(Args)]
+pub(super) struct Why {
+    /// Why, recorded with the change: 1 to 500 characters.
+    #[arg(long)]
+    pub(super) reason: Reason,
+}
+
+/// The `--reason` of a change to an account, which its owner sees.
+#[derive(Args)]
+pub(super) struct WhyOwnerSees {
+    /// Why, recorded with the change and shown to the owner in their history:
+    /// 1 to 500 characters.
+    #[arg(long)]
+    pub(super) reason: Reason,
 }
 
 /// The `--yes` option of commands that cut off a whole account, administrator or

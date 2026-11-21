@@ -1,10 +1,10 @@
 //! Granting, revoking and listing administrators.
 
 use super::{
-    CliError, Confirm, Console,
+    CliError, Confirm, Console, WhyOwnerSees,
     output::{Cell, report},
 };
-use crate::{Reason, UserRef};
+use crate::UserRef;
 use clap::Subcommand;
 use sourceorigin_common::admin::Administrator;
 
@@ -20,20 +20,18 @@ pub(super) enum AdminCommand {
     Grant {
         /// The account: its handle, ID or verified email.
         user: UserRef,
-        /// Why, recorded with the change and shown to the owner in their history:
-        /// 1 to 500 characters.
-        #[arg(long)]
-        reason: Reason,
+        /// Why.
+        #[command(flatten)]
+        why: WhyOwnerSees,
     },
     /// Remove an account's administrator rights. The last active administrator
     /// keeps theirs.
     Revoke {
         /// The account: its handle, ID or verified email.
         user: UserRef,
-        /// Why, recorded with the change and shown to the owner in their history:
-        /// 1 to 500 characters.
-        #[arg(long)]
-        reason: Reason,
+        /// Why.
+        #[command(flatten)]
+        why: WhyOwnerSees,
         /// Confirmation.
         #[command(flatten)]
         confirm: Confirm,
@@ -52,22 +50,22 @@ impl AdminCommand {
             ..
         } = console;
         match self {
-            Self::Grant { user, reason } => {
+            Self::Grant { user, why } => {
                 let id = console.user(&user).await?;
-                service.grant_administrator(operator, id, reason).await?;
+                service
+                    .grant_administrator(operator, id, why.reason)
+                    .await?;
                 out.info(format_args!("Made {user} an administrator."))?;
             }
-            Self::Revoke {
-                user,
-                reason,
-                confirm,
-            } => {
+            Self::Revoke { user, why, confirm } => {
                 let id = console.user(&user).await?;
                 confirm.ask(
                     out,
                     &format!("Remove the administrator rights of {user} ({id})"),
                 )?;
-                service.revoke_administrator(operator, id, reason).await?;
+                service
+                    .revoke_administrator(operator, id, why.reason)
+                    .await?;
                 out.info(format_args!("Removed the administrator rights of {user}."))?;
             }
             Self::List => out.emit(&service.list_administrators(operator).await?[..])?,

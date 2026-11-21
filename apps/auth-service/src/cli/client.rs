@@ -1,7 +1,7 @@
 //! Registering, inspecting and changing OIDC clients.
 
 use super::{
-    CliError, Confirm, Console,
+    CliError, Confirm, Console, Why,
     output::{Cell, Joined, Single, Style, report},
 };
 use crate::{Applied, ClientDetails, GracePeriod, PUBLIC_BASE_URL, Reason};
@@ -40,9 +40,9 @@ pub(super) enum ClientCommand {
     Disable {
         /// The client's ID.
         id: ClientId,
-        /// Why, recorded with the change: 1 to 500 characters.
-        #[arg(long)]
-        reason: Reason,
+        /// Why.
+        #[command(flatten)]
+        why: Why,
         /// Confirmation.
         #[command(flatten)]
         confirm: Confirm,
@@ -52,9 +52,9 @@ pub(super) enum ClientCommand {
     Delete {
         /// The client's ID.
         id: ClientId,
-        /// Why, recorded with the change: 1 to 500 characters.
-        #[arg(long)]
-        reason: Reason,
+        /// Why.
+        #[command(flatten)]
+        why: Why,
         /// Confirmation.
         #[command(flatten)]
         confirm: Confirm,
@@ -63,18 +63,18 @@ pub(super) enum ClientCommand {
     Enable {
         /// The client's ID.
         id: ClientId,
-        /// Why, recorded with the change: 1 to 500 characters.
-        #[arg(long)]
-        reason: Reason,
+        /// Why.
+        #[command(flatten)]
+        why: Why,
     },
     /// Block a client: it is disabled, and its owner cannot enable it again
     /// until `unsuspend`.
     Suspend {
         /// The client's ID.
         id: ClientId,
-        /// Why, recorded with the change: 1 to 500 characters.
-        #[arg(long)]
-        reason: Reason,
+        /// Why.
+        #[command(flatten)]
+        why: Why,
         /// Confirmation.
         #[command(flatten)]
         confirm: Confirm,
@@ -83,9 +83,9 @@ pub(super) enum ClientCommand {
     Unsuspend {
         /// The client's ID.
         id: ClientId,
-        /// Why, recorded with the change: 1 to 500 characters.
-        #[arg(long)]
-        reason: Reason,
+        /// Why.
+        #[command(flatten)]
+        why: Why,
     },
     /// Print a new secret for a confidential client. Earlier secrets keep working
     /// during the grace period, while the client switches to the new one.
@@ -96,9 +96,9 @@ pub(super) enum ClientCommand {
         /// now, which asks first.
         #[arg(long, default_value = "24h")]
         grace: GracePeriod,
-        /// Why, recorded with the change: 1 to 500 characters.
-        #[arg(long)]
-        reason: Reason,
+        /// Why.
+        #[command(flatten)]
+        why: Why,
         /// Confirmation, which `--grace 0` needs.
         #[command(flatten)]
         confirm: Confirm,
@@ -120,9 +120,9 @@ pub(super) enum OriginCommand {
         id: ClientId,
         /// The origin, as browsers send it, e.g. `https://notes.example`.
         origin: RelatedOrigin,
-        /// Why, recorded with the change: 1 to 500 characters.
-        #[arg(long)]
-        reason: Reason,
+        /// Why.
+        #[command(flatten)]
+        why: Why,
     },
     /// Remove an origin: its pages stop signing users in.
     Remove {
@@ -130,9 +130,9 @@ pub(super) enum OriginCommand {
         id: ClientId,
         /// The origin, as approved.
         origin: RelatedOrigin,
-        /// Why, recorded with the change: 1 to 500 characters.
-        #[arg(long)]
-        reason: Reason,
+        /// Why.
+        #[command(flatten)]
+        why: Why,
     },
     /// List every approved origin.
     List,
@@ -148,18 +148,18 @@ impl OriginCommand {
             ..
         } = console;
         match self {
-            Self::Add { id, origin, reason } => {
+            Self::Add { id, origin, why } => {
                 // Tells hosts within auth's own domain, which browsers accept without the
                 // list, from public suffixes.
                 let auth: Origin = PUBLIC_BASE_URL.parse()?;
                 service
-                    .approve_related_origin(operator, &id, &origin, auth.host(), reason)
+                    .approve_related_origin(operator, &id, &origin, auth.host(), why.reason)
                     .await?;
                 out.info(format_args!("Approved {origin} for client {id}."))
             }
-            Self::Remove { id, origin, reason } => {
+            Self::Remove { id, origin, why } => {
                 service
-                    .remove_related_origin(operator, &id, &origin, reason)
+                    .remove_related_origin(operator, &id, &origin, why.reason)
                     .await?;
                 out.info(format_args!("Removed {origin} from client {id}."))
             }
@@ -181,7 +181,7 @@ impl ClientCommand {
         } = console;
         match self {
             Self::Create(create) => {
-                let (id, reason) = (create.id.clone(), create.reason.clone());
+                let (id, reason) = (create.id.clone(), create.why.reason.clone());
                 let secret = service
                     .create_client(operator, &create.registration()?, reason)
                     .await?;
@@ -194,37 +194,29 @@ impl ClientCommand {
             Self::List => out.emit(&service.list_clients(operator).await?[..]),
             Self::Show { id } => out.emit(&service.client_details(operator, &id).await?),
             Self::Update(update) => {
-                let (id, reason) = (update.id.clone(), update.reason.clone());
+                let (id, reason) = (update.id.clone(), update.why.reason.clone());
                 service
                     .update_client(operator, &id, reason, |client| update.apply(client))
                     .await?;
                 out.info(format_args!("Updated client {id}."))
             }
-            Self::Disable {
-                id,
-                reason,
-                confirm,
-            } => {
+            Self::Disable { id, why, confirm } => {
                 confirm.ask(
                     out,
                     &format!("Disable client {id}: it stops working at once"),
                 )?;
                 service
-                    .set_client_enabled(operator, &id, false, reason)
+                    .set_client_enabled(operator, &id, false, why.reason)
                     .await?;
                 out.info(format_args!("Disabled client {id}."))
             }
-            Self::Enable { id, reason } => {
+            Self::Enable { id, why } => {
                 service
-                    .set_client_enabled(operator, &id, true, reason)
+                    .set_client_enabled(operator, &id, true, why.reason)
                     .await?;
                 out.info(format_args!("Enabled client {id}."))
             }
-            Self::Suspend {
-                id,
-                reason,
-                confirm,
-            } => {
+            Self::Suspend { id, why, confirm } => {
                 confirm.ask(
                     out,
                     &format!(
@@ -232,38 +224,34 @@ impl ClientCommand {
                     ),
                 )?;
                 service
-                    .set_client_suspended(operator, &id, true, reason)
+                    .set_client_suspended(operator, &id, true, why.reason)
                     .await?;
                 out.info(format_args!("Suspended client {id}."))
             }
-            Self::Unsuspend { id, reason } => {
+            Self::Unsuspend { id, why } => {
                 service
-                    .set_client_suspended(operator, &id, false, reason)
+                    .set_client_suspended(operator, &id, false, why.reason)
                     .await?;
                 out.info(format_args!(
                     "Lifted the suspension of client {id}: it stays disabled until enabled."
                 ))
             }
-            Self::Delete {
-                id,
-                reason,
-                confirm,
-            } => {
+            Self::Delete { id, why, confirm } => {
                 confirm.ask(
                     out,
                     &format!(
                         "Delete client {id}: it stops working at once, and its ID can never be reused"
                     ),
                 )?;
-                service.delete_client(operator, &id, reason).await?;
+                service.delete_client(operator, &id, why.reason).await?;
                 out.info(format_args!("Deleted client {id}."))
             }
             Self::RotateSecret {
                 id,
                 grace,
-                reason,
+                why,
                 confirm,
-            } => Self::rotate_secret(console, &id, grace, reason, &confirm).await,
+            } => Self::rotate_secret(console, &id, grace, why.reason, &confirm).await,
             Self::Origin(command) => command.run(console).await,
         }
     }
@@ -462,9 +450,9 @@ pub(super) struct CreateClient {
     /// ends (OIDC Back-Channel Logout); HTTPS with a public address.
     #[arg(long)]
     backchannel_logout_uri: Option<BackchannelLogoutUri>,
-    /// Why, recorded with the change: 1 to 500 characters.
-    #[arg(long)]
-    reason: Reason,
+    /// Why.
+    #[command(flatten)]
+    why: Why,
 }
 
 /// A client a deployment manages, as `client apply` makes it.
@@ -489,7 +477,7 @@ impl ApplyClient {
     async fn run(self, console: &Console) -> Result<(), CliError> {
         let secret = self.secret()?;
         let id = self.client.id.clone();
-        let reason = self.client.reason.clone();
+        let reason = self.client.why.reason.clone();
         let registration = self.client.registration()?;
         let applied = console
             .service
@@ -599,9 +587,9 @@ pub(super) struct UpdateClient {
     /// Stop posting logout tokens to the client.
     #[arg(long)]
     no_backchannel_logout_uri: bool,
-    /// Why, recorded with the change: 1 to 500 characters.
-    #[arg(long)]
-    reason: Reason,
+    /// Why.
+    #[command(flatten)]
+    why: Why,
 }
 
 impl UpdateClient {

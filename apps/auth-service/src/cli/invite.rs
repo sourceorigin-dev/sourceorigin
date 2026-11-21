@@ -1,10 +1,10 @@
 //! Signup invitations.
 
 use super::{
-    CliError, Console,
+    CliError, Console, Why,
     output::{Cell, Single, report},
 };
-use crate::{AuthConfig, InviteExpiry, Reason};
+use crate::{AuthConfig, InviteExpiry};
 use clap::Subcommand;
 use sourceorigin_common::{
     TokenId,
@@ -28,9 +28,9 @@ pub(super) enum InviteCommand {
         /// How long the link stays valid, e.g. 24h or 7d.
         #[arg(long, default_value = "7d")]
         expires_in: InviteExpiry,
-        /// Why, recorded with the change: 1 to 500 characters.
-        #[arg(long)]
-        reason: Reason,
+        /// Why.
+        #[command(flatten)]
+        why: Why,
     },
     /// List invitations, newest first, without their links.
     List,
@@ -39,17 +39,17 @@ pub(super) enum InviteCommand {
     Resend {
         /// The invitation's ID, as `invite list` shows it.
         id: TokenId,
-        /// Why, recorded with the change: 1 to 500 characters.
-        #[arg(long)]
-        reason: Reason,
+        /// Why.
+        #[command(flatten)]
+        why: Why,
     },
     /// Revoke an unredeemed invitation.
     Revoke {
         /// The invitation's ID, as `invite list` shows it.
         id: TokenId,
-        /// Why, recorded with the change: 1 to 500 characters.
-        #[arg(long)]
-        reason: Reason,
+        /// Why.
+        #[command(flatten)]
+        why: Why,
     },
 }
 
@@ -66,11 +66,11 @@ impl InviteCommand {
             Self::Create {
                 email,
                 expires_in,
-                reason,
+                why,
             } => {
                 let links = AuthConfig::invitation_links_from_environment()?;
                 let invitation = service
-                    .create_invitation(operator, &links, expires_in, email, reason)
+                    .create_invitation(operator, &links, expires_in, email, why.reason)
                     .await?;
                 match invitation.sent {
                     InvitationSent::Link(link) => out.emit(&Single {
@@ -87,12 +87,12 @@ impl InviteCommand {
                 }
             }
             Self::List => out.emit(&service.list_invitations(operator).await?[..])?,
-            Self::Resend { id, reason } => {
-                service.resend_invitation(operator, id, reason).await?;
+            Self::Resend { id, why } => {
+                service.resend_invitation(operator, id, why.reason).await?;
                 out.info(format_args!("Mailed invitation {id} again."))?;
             }
-            Self::Revoke { id, reason } => {
-                service.revoke_invitation(operator, id, reason).await?;
+            Self::Revoke { id, why } => {
+                service.revoke_invitation(operator, id, why.reason).await?;
                 out.info(format_args!("Revoked invitation {id}."))?;
             }
         }

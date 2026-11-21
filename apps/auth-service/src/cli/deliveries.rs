@@ -1,10 +1,9 @@
 //! The break-glass view of the outbound delivery queue.
 
 use super::{
-    CliError, Console,
+    CliError, Console, Why,
     output::{Cell, Style, report},
 };
-use crate::Reason;
 use clap::Subcommand;
 use sourceorigin_common::{DeliveryId, admin::DeliverySummary};
 use sourceorigin_repository::DeliveryStatus;
@@ -28,17 +27,17 @@ pub(super) enum DeliveriesCommand {
     Retry {
         /// The delivery's ID.
         id: DeliveryId,
-        /// Why, recorded with the change: 1 to 500 characters.
-        #[arg(long)]
-        reason: Reason,
+        /// Why.
+        #[command(flatten)]
+        why: Why,
     },
     /// Cancel a pending or failed delivery.
     Cancel {
         /// The delivery's ID.
         id: DeliveryId,
-        /// Why, recorded with the change: 1 to 500 characters.
-        #[arg(long)]
-        reason: Reason,
+        /// Why.
+        #[command(flatten)]
+        why: Why,
     },
 }
 
@@ -61,12 +60,12 @@ impl DeliveriesCommand {
                     .list_deliveries(operator, status, channel.as_deref(), limit)
                     .await?[..],
             )?,
-            Self::Retry { id, reason } => {
-                admin.retry_delivery(operator, id, reason).await?;
+            Self::Retry { id, why } => {
+                admin.retry_delivery(operator, id, why.reason).await?;
                 out.info(format_args!("Delivery {id} will be attempted again now."))?;
             }
-            Self::Cancel { id, reason } => {
-                admin.cancel_delivery(operator, id, reason).await?;
+            Self::Cancel { id, why } => {
+                admin.cancel_delivery(operator, id, why.reason).await?;
                 out.info(format_args!("Cancelled delivery {id}."))?;
             }
         }
