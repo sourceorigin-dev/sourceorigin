@@ -308,7 +308,7 @@ jobs:
     services:
       postgres: *postgres
       # Receives auth's email over plain SMTP on the loopback address, and lets
-      # the suite read it from its API.
+      # the suite read it from its API. Not started on main, like Postgres.
       mailpit:
         image: ${{ github.event_name != 'push' && 'axllent/mailpit:v1.27' || '' }}
         ports: ['1025:1025', '8025:8025']

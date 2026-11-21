@@ -237,7 +237,7 @@ merge queue start from, since GitHub lets every branch read `main`'s caches:
   rustdoc, and compiles the doc tests without running them. `rust` runs
   `just coverage-build` and `just db check`, `e2e` builds the binaries without
   starting the browser suite, and `infra` installs piquelctl without checking
-  the manifests.
+  the manifests. `rust` and `e2e` start no Postgres or Mailpit.
 
 A commit's coverage report is in its merge queue run.
 
