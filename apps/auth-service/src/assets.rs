@@ -9,22 +9,6 @@ use axum::{
 };
 use sourceorigin_ui::Asset;
 
-/// Failures of embedded browser asset lookup.
-#[derive(Debug, thiserror::Error)]
-enum AssetError {
-    /// No embedded file is at the requested path.
-    #[error("embedded asset not found")]
-    NotFound,
-}
-impl From<AssetError> for ApiError {
-    /// Keeps missing-file replies in the same JSON shape as other browser errors.
-    fn from(error: AssetError) -> Self {
-        match error {
-            AssetError::NotFound => Self::not_found("There is no page at this address."),
-        }
-    }
-}
-
 /// The files of auth's pages, embedded in this executable.
 pub(crate) struct EmbeddedAssets;
 impl EmbeddedAssets {
@@ -78,15 +62,16 @@ impl EmbeddedAssets {
         sourceorigin_ui::FONTS[2],
     ];
 
-    /// Serves the embedded file at exactly `path`. A file's path changes with its
-    /// content, or its version, so nothing needs revalidating.
+    /// Serves the embedded file at exactly `path`, or a `404` in the JSON shape
+    /// of other browser errors. A file's path changes with its content, or its
+    /// version, so nothing needs revalidating.
     pub(crate) fn serve(path: &str) -> Result<Response, ApiError> {
         let asset = Self::SHARED
             .into_iter()
             .chain(Self::SCRIPTS)
             .chain(Self::DASHBOARD_SCRIPTS)
             .find(|asset| asset.path() == path)
-            .ok_or(AssetError::NotFound)?;
+            .ok_or_else(|| ApiError::not_found("There is no page at this address."))?;
         let headers = [(header::CONTENT_TYPE, asset.content_type())];
         Ok(Cached(CacheClass::Immutable, (headers, asset.bytes())).into_response())
     }
