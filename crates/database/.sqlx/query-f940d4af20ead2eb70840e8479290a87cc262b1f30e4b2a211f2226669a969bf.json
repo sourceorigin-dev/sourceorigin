@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n                    id AS \"id: SessionId\", user_id AS \"user_id: UserId\",\n                    authentication_methods AS \"authentication_methods: JsonArray<AuthenticationMethod>\",\n                    authenticated_at, expires_at, last_seen_at, revoked_at, passkey_confirmed_at,\n                    user_agent_family AS \"user_agent_family: UserAgentFamily\",\n                    last_seen_ip AS \"last_seen_ip: IpAddr\"\n                FROM sessions\n                WHERE user_id = $1\n                AND revoked_at IS NULL\n                AND expires_at > now()\n                ORDER BY last_seen_at DESC, id DESC",
+  "query": "SELECT s.id AS \"id: SessionId\", s.user_id AS \"user_id: UserId\",\n            s.authentication_methods AS \"authentication_methods: JsonArray<AuthenticationMethod>\",\n            s.authenticated_at, s.expires_at, s.last_seen_at, s.revoked_at,\n            s.passkey_confirmed_at, s.user_agent_family AS \"user_agent_family: UserAgentFamily\",\n            s.last_seen_ip AS \"last_seen_ip: IpAddr\" FROM sessions s JOIN users u ON u.id = s.user_id WHERE (s.id = $1) AND s.revoked_at IS NULL AND s.expires_at > now() AND u.status = 'active' ",
   "describe": {
     "columns": [
       {
@@ -72,5 +72,5 @@
       true
     ]
   },
-  "hash": "73d41b429bf9a26674bef96cbe415ea63025df9236a9e6edaaf9020ae141390d"
+  "hash": "f940d4af20ead2eb70840e8479290a87cc262b1f30e4b2a211f2226669a969bf"
 }

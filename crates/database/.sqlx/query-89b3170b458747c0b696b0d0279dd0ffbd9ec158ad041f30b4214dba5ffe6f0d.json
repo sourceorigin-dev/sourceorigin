@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n                    s.id AS \"id: SessionId\", s.user_id AS \"user_id: UserId\",\n                    s.authentication_methods AS \"authentication_methods: JsonArray<AuthenticationMethod>\",\n                    s.authenticated_at, s.expires_at, s.last_seen_at, s.revoked_at,\n                    s.passkey_confirmed_at,\n                    s.user_agent_family AS \"user_agent_family: UserAgentFamily\",\n                    s.last_seen_ip AS \"last_seen_ip: IpAddr\"\n                FROM browser_session_secrets b\n                JOIN sessions s ON s.id = b.session_id\n                JOIN users u ON u.id = s.user_id\n                WHERE b.secret_digest = $1\n                AND s.revoked_at IS NULL\n                AND s.expires_at > now()\n                AND u.status = 'active'",
+  "query": "SELECT s.id AS \"id: SessionId\", s.user_id AS \"user_id: UserId\",\n            s.authentication_methods AS \"authentication_methods: JsonArray<AuthenticationMethod>\",\n            s.authenticated_at, s.expires_at, s.last_seen_at, s.revoked_at,\n            s.passkey_confirmed_at, s.user_agent_family AS \"user_agent_family: UserAgentFamily\",\n            s.last_seen_ip AS \"last_seen_ip: IpAddr\" FROM sessions s\n                WHERE s.id = $1",
   "describe": {
     "columns": [
       {
@@ -56,7 +56,7 @@
     ],
     "parameters": {
       "Left": [
-        "Bytea"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -72,5 +72,5 @@
       true
     ]
   },
-  "hash": "bafc52761906314c0cf9006836d5cf5cea01021f0d5d2fc01e97df1756cb490e"
+  "hash": "89b3170b458747c0b696b0d0279dd0ffbd9ec158ad041f30b4214dba5ffe6f0d"
 }
