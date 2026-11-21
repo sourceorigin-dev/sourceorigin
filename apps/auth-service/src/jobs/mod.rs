@@ -66,6 +66,17 @@ impl Shutdown {
         let _ = self.0.clone().wait_for(|&requested| requested).await;
     }
 
+    /// Runs `work` unless shutdown is requested first: its output, or `None`
+    /// once shutdown is requested. A request that is already pending wins, so
+    /// no new work starts after it.
+    pub(crate) async fn unless<T>(&self, work: impl Future<Output = T>) -> Option<T> {
+        tokio::select! {
+            biased;
+            () = self.requested() => None,
+            output = work => Some(output),
+        }
+    }
+
     /// Whether shutdown has been requested, without waiting, for work that
     /// checks between steps.
     pub(crate) fn is_requested(&self) -> bool {
@@ -188,16 +199,13 @@ impl Jobs {
             let mut interval = tokio::time::interval(J::EVERY);
             interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
             loop {
-                tokio::select! {
-                    biased;
-                    () = shutdown.requested() => return,
-                    _ = interval.tick() => {}
+                if shutdown.unless(interval.tick()).await.is_none() {
+                    return;
                 }
                 // Dropping a half-opened connection on shutdown releases its lock.
-                let connection = tokio::select! {
-                    biased;
-                    () = shutdown.requested() => return,
-                    connection = database.try_exclusive(J::LOCK) => connection,
+                let Some(connection) = shutdown.unless(database.try_exclusive(J::LOCK)).await
+                else {
+                    return;
                 };
                 match connection {
                     Ok(Some(connection)) => {
@@ -337,13 +345,13 @@ impl Cleanup {
                 behind = Some(true);
                 break;
             }
-            tokio::select! {
-                biased;
-                () = shutdown.requested() => {
-                    behind = None;
-                    break;
-                },
-                () = tokio::time::sleep(Self::PAUSE) => {}
+            if shutdown
+                .unless(tokio::time::sleep(Self::PAUSE))
+                .await
+                .is_none()
+            {
+                behind = None;
+                break;
             }
             changed = Self::batch(connection).await?;
         }
