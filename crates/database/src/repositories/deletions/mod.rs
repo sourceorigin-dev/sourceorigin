@@ -160,22 +160,18 @@ impl AccountDeletionRepository<'_> {
         &mut self,
         user_id: UserId,
     ) -> Result<Option<PurgeFailure>, DatabaseError> {
-        let row = run!(
+        run!(
             self,
             fetch_optional,
-            sqlx::query!(
+            sqlx::query_as!(
+                PurgeFailure,
                 r#"SELECT attempts::bigint AS "attempts!: Unsigned",
                     last_error AS "last_error!", next_attempt_at AS "next_attempt_at!"
                 FROM account_deletions
                 WHERE user_id = $1 AND attempts > 0"#,
                 user_id.as_uuid(),
             )
-        )?;
-        Ok(row.map(|row| PurgeFailure {
-            attempts: row.attempts.into(),
-            last_error: row.last_error,
-            next_attempt_at: row.next_attempt_at,
-        }))
+        )
     }
 
     /// Counts the accounts whose purge failed at least `attempts` times in a row.

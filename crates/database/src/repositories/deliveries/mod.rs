@@ -185,45 +185,6 @@ pub struct DeliveryBacklog {
     pub oldest: Option<DateTime<Utc>>,
 }
 
-/// A listed delivery as stored.
-struct SummaryRow {
-    /// Delivery identifier.
-    id: DeliveryId,
-    /// Channel name.
-    channel: String,
-    /// Where it goes.
-    destination: String,
-    /// Life-cycle status.
-    status: DeliveryStatus,
-    /// Attempts so far.
-    attempts: Unsigned,
-    /// Next attempt.
-    next_attempt_at: DateTime<Utc>,
-    /// Latest error.
-    last_error: Option<String>,
-    /// Creation time.
-    created_at: DateTime<Utc>,
-    /// Finish time.
-    finished_at: Option<DateTime<Utc>>,
-}
-
-impl From<SummaryRow> for DeliverySummary {
-    /// Converts the stored attempt count.
-    fn from(row: SummaryRow) -> Self {
-        Self {
-            id: row.id,
-            channel: row.channel,
-            destination: row.destination,
-            status: row.status,
-            attempts: row.attempts.into(),
-            next_attempt_at: row.next_attempt_at,
-            last_error: row.last_error,
-            created_at: row.created_at,
-            finished_at: row.finished_at,
-        }
-    }
-}
-
 impl DeliveryRepository<'_> {
     /// Queues a delivery on channel `C`. Events' deliveries are inserted by
     /// [`DatabaseTransaction::record`]; insert directly only deliveries no event
@@ -455,11 +416,11 @@ impl DeliveryRepository<'_> {
         channel: Option<&str>,
         limit: u32,
     ) -> Result<Vec<DeliverySummary>, DatabaseError> {
-        Ok(run!(
+        run!(
             self,
             fetch_all,
             sqlx::query_as!(
-                SummaryRow,
+                DeliverySummary,
                 r#"SELECT
                     id AS "id: DeliveryId", channel, destination,
                     status AS "status: DeliveryStatus", attempts::bigint AS "attempts!: Unsigned",
@@ -473,10 +434,7 @@ impl DeliveryRepository<'_> {
                 channel,
                 i64::from(limit),
             )
-        )?
-        .into_iter()
-        .map(DeliverySummary::from)
-        .collect())
+        )
     }
 
     /// How many deliveries of channel `C` are pending, and since when the one
