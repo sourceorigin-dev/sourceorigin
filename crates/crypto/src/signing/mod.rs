@@ -125,6 +125,8 @@ impl PublicKey {
     pub fn pem(&self) -> String {
         // `from_jwk` refused a key with a defect, so this one has its DER.
         Pem::encode(PUBLIC_KEY_LABEL, self.key.der().unwrap_or_default())
+            .as_str()
+            .to_owned()
     }
 
     /// Whether this key signs with `alg`. Requiring the header's algorithm to be
@@ -244,10 +246,7 @@ impl Rs256Key {
     /// # Errors
     /// Preserves encoding failures from the provider.
     pub fn private_key_pem(&self) -> Result<Zeroizing<String>, CryptoError> {
-        Ok(Zeroizing::new(Pem::encode(
-            PKCS8_LABEL,
-            &self.private_key_der()?,
-        )))
+        Ok(Pem::encode(PKCS8_LABEL, &self.private_key_der()?))
     }
 
     /// Signs claims as a compact RS256 token whose `typ` header is `token_type`.
@@ -423,28 +422,42 @@ struct Pem;
 
 impl Pem {
     /// The DER of the first block labelled `label` in `text`, if it decodes.
-    /// A private key's base64 and DER are zeroized when dropped.
+    /// A private key's base64 and DER are zeroized when dropped; the base64 is
+    /// gathered into a buffer allocated at the body's size, so it never
+    /// reallocates and leaves no copy behind.
     fn decode(text: &str, label: &str) -> Option<Zeroizing<Vec<u8>>> {
         let begin = format!("-----BEGIN {label}-----");
         let end = format!("-----END {label}-----");
         let body = text.split_once(&begin)?.1.split_once(&end)?.0;
-        let base64: Zeroizing<String> = Zeroizing::new(body.split_whitespace().collect());
+        let mut base64 = Zeroizing::new(String::with_capacity(body.len()));
+        for piece in body.split_whitespace() {
+            base64.push_str(piece);
+        }
         STANDARD.decode(base64.as_str()).ok().map(Zeroizing::new)
     }
 
-    /// `der` as a block labelled `label`, in lines of 64 characters.
-    fn encode(label: &str, der: &[u8]) -> String {
-        let base64 = STANDARD.encode(der);
-        let mut lines = String::new();
+    /// `der` as a block labelled `label`, in lines of 64 characters. For a private
+    /// key's sake, every buffer holding its base64 is zeroized when dropped, and
+    /// the PEM is allocated at its final size, so it never reallocates and leaves
+    /// a copy behind in freed memory.
+    fn encode(label: &str, der: &[u8]) -> Zeroizing<String> {
+        let base64 = Zeroizing::new(STANDARD.encode(der));
+        let begin = format!("-----BEGIN {label}-----\n");
+        let end = format!("-----END {label}-----\n");
+        let mut pem = Zeroizing::new(String::with_capacity(
+            begin.len() + base64.len() + base64.len().div_ceil(64) + end.len(),
+        ));
+        pem.push_str(&begin);
         // Base64 is ASCII, so any split falls between characters.
         let mut rest = base64.as_str();
         while !rest.is_empty() {
             let (line, tail) = rest.split_at(rest.len().min(64));
-            lines.push_str(line);
-            lines.push('\n');
+            pem.push_str(line);
+            pem.push('\n');
             rest = tail;
         }
-        format!("-----BEGIN {label}-----\n{lines}-----END {label}-----\n")
+        pem.push_str(&end);
+        pem
     }
 }
 
