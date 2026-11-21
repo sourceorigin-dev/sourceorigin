@@ -21,7 +21,7 @@ filter = '''
 (package(auth-service) & (
     test(/^keys::tests::/)
     | test(/^admin::tests::keys::/)
-    | test(=web::admin::tests::signing_keys_are_rotated_and_revoked_from_the_dashboard)
+    | test(/::signing_keys_are_rotated_and_revoked_from_the_dashboard$/)
 ))
 | (package(sourceorigin-repository) & test(/^repositories::signing_keys::tests::/))
 '''
