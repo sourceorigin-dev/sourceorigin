@@ -2,7 +2,7 @@
 //! holds and clears it once it no longer does; at most one alert of each kind is
 //! current, the one not cleared yet.
 
-use super::{AlertRepository, KindProbe, RepositoryExecutor};
+use super::{AlertRepository, KindProbe, RepositoryExecutor, Unsigned};
 use crate::{DatabaseError, LockKey};
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -312,15 +312,15 @@ impl AlertRepository<'_> {
     ///
     /// Returns [`DatabaseError`] if the query fails.
     pub async fn open_count(&mut self) -> Result<u64, DatabaseError> {
-        let count = run!(
+        Ok(run!(
             self,
             fetch_one,
             sqlx::query_scalar!(
-                r#"SELECT count(*) AS "count!" FROM alerts
+                r#"SELECT count(*) AS "count!: Unsigned" FROM alerts
                 WHERE cleared_at IS NULL AND acknowledged_at IS NULL"#,
             )
-        )?;
-        Ok(count.try_into().unwrap_or_default())
+        )?
+        .into())
     }
 
     /// Stores alert `id` as written at payload `version`, as a newer release

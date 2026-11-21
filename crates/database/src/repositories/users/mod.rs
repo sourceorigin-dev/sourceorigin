@@ -332,12 +332,12 @@ impl UserRepository<'_> {
     ///
     /// Returns [`DatabaseError`] if the query fails.
     pub async fn count(&mut self) -> Result<u64, DatabaseError> {
-        let count = run!(
+        Ok(run!(
             self,
             fetch_one,
-            sqlx::query_scalar!(r#"SELECT count(*) AS "count!" FROM users"#)
-        )?;
-        Ok(count.try_into().unwrap_or_default())
+            sqlx::query_scalar!(r#"SELECT count(*) AS "count!: Unsigned" FROM users"#)
+        )?
+        .into())
     }
 
     /// Lists the `limit` newest accounts, newest first.
@@ -364,11 +364,11 @@ impl UserRepository<'_> {
     /// Returns [`DatabaseError`] if the query fails.
     pub async fn count_matching(&mut self, query: &str) -> Result<u64, DatabaseError> {
         let pattern = Self::escaped(query);
-        let count = run!(
+        Ok(run!(
             self,
             fetch_one,
             sqlx::query_scalar!(
-                r#"SELECT count(*) AS "count!"
+                r#"SELECT count(*) AS "count!: Unsigned"
                 FROM users u
                 JOIN handles h ON h.user_id = u.id AND h.released_at IS NULL
                 WHERE (
@@ -385,8 +385,8 @@ impl UserRepository<'_> {
                 query,
                 pattern,
             )
-        )?;
-        Ok(count.try_into().unwrap_or_default())
+        )?
+        .into())
     }
 
     /// Lists up to `limit` accounts whose ID is `query`, or whose handle,

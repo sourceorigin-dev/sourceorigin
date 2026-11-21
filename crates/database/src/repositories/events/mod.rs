@@ -6,7 +6,7 @@
 //! value, lives in a separate row that retention and account purges delete; reads
 //! then return [`Personal::Erased`] in its place.
 
-use super::{EventRepository, KindProbe, RepositoryExecutor};
+use super::{EventRepository, KindProbe, RepositoryExecutor, Unsigned};
 use crate::DatabaseError;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -385,11 +385,11 @@ impl EventRepository<'_> {
     ///
     /// Returns [`DatabaseError`] if the query fails.
     pub async fn count(&mut self, filter: &EventFilter) -> Result<u64, DatabaseError> {
-        let count = run!(
+        Ok(run!(
             self,
             fetch_one,
             sqlx::query_scalar!(
-                r#"SELECT count(*) AS "count!"
+                r#"SELECT count(*) AS "count!: Unsigned"
                 FROM domain_events
                 WHERE ($1::uuid IS NULL OR subject_user_id = $1)
                 AND ($2::text IS NULL OR kind = $2)
@@ -398,8 +398,8 @@ impl EventRepository<'_> {
                 filter.kind.as_deref(),
                 filter.except_kind.as_deref(),
             )
-        )?;
-        Ok(count.try_into().unwrap_or_default())
+        )?
+        .into())
     }
 
     /// Lists up to `limit` events matching `filter`, newest first, after its
@@ -492,11 +492,11 @@ impl EventRepository<'_> {
         kinds: &[String],
         since: DateTime<Utc>,
     ) -> Result<u64, DatabaseError> {
-        let count = run!(
+        Ok(run!(
             self,
             fetch_one,
             sqlx::query_scalar!(
-                r#"SELECT count(*) AS "count!"
+                r#"SELECT count(*) AS "count!: Unsigned"
                 FROM domain_events
                 WHERE occurred_at >= $1
                 AND kind = ANY($2)
@@ -505,8 +505,8 @@ impl EventRepository<'_> {
                 kinds,
                 subject.map(UserId::as_uuid),
             )
-        )?;
-        Ok(count.try_into().unwrap_or_default())
+        )?
+        .into())
     }
 
     /// Whether `actor` caused an event of `kind`, a [`DomainEvent`] variant's serde
