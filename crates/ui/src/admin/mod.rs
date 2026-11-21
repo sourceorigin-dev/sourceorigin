@@ -987,6 +987,28 @@ pub(crate) async fn reason_input<'a>(
     })
 }
 
+/// The subject and text inputs of a message mailed to accounts, holding
+/// `subject` and `body`, the subject focused when the form starts with it
+/// (`autofocus`).
+#[component]
+async fn message_fields<'a>(
+    subject: &'a str,
+    body: &'a str,
+    #[default] autofocus: bool,
+) -> Result<impl View> {
+    Ok(view! {
+        <label>
+            "Subject"
+            <input name="subject" required="" maxlength="150" value=(subject) autofocus=(autofocus)>
+        </label>
+        <label>
+            "Text"
+            <textarea name="body" required="" rows="14" maxlength="20000">(body)</textarea>
+            <small>"The email starts with “Hello,” and ends with “SourceOrigin”. Separate paragraphs with a blank line. Links are written out in full: mail apps make them clickable."</small>
+        </label>
+    })
+}
+
 /// A row's button making `change` through `action`: a dialog on the page, posting
 /// to the change's page with the hidden fields of `child`, once the dashboard
 /// confirmed a passkey, which the browser opens and closes with no script; a
@@ -1084,13 +1106,65 @@ pub(crate) async fn refused_action<'a>(label: &'a str, reason: &'a str) -> Resul
 /// An account's status, as a badge.
 #[component]
 pub(crate) async fn account_status(status: AccountStatus) -> Result<impl View> {
-    let (tone, label) = match status {
-        AccountStatus::Active => ("ok", "Active"),
-        AccountStatus::Disabled => ("neutral", "Disabled"),
-        AccountStatus::Deleting => ("warning", "Deleting"),
+    let shown = match status {
+        AccountStatus::Active => Badge::new("ok", "Active"),
+        AccountStatus::Disabled => Badge::new("neutral", "Disabled"),
+        AccountStatus::Deleting => Badge::new("warning", "Deleting"),
     };
+    Ok(view! { badge(shown: shown) })
+}
+
+/// A state as a badge shows it: its tone, the stylesheet's class colouring it,
+/// such as `ok` or `danger`, or none for the plain one, and its label.
+#[derive(Clone, Copy)]
+struct Badge {
+    /// The class colouring it.
+    tone: &'static str,
+    /// What it says.
+    label: &'static str,
+}
+
+impl Badge {
+    /// The badge saying `label` in `tone`.
+    const fn new(tone: &'static str, label: &'static str) -> Self {
+        Self { tone, label }
+    }
+}
+
+/// The badge `shown`, as a list or a card shows it.
+#[component]
+async fn badge(shown: Badge) -> Result<impl View> {
     Ok(view! {
-        <span class=(class!("badge", tone))>(label)</span>
+        <span class=(class!("badge", shown.tone))>(shown.label)</span>
+    })
+}
+
+/// A list's table under its `headings`, its rows the `child`, while it is
+/// `filled`; otherwise the `empty` line saying so in its place.
+#[component]
+async fn data_table<'a>(
+    headings: &'a [&'a str],
+    empty: &'a str,
+    filled: bool,
+    #[default] child: Child<'_>,
+) -> Result<impl View> {
+    Ok(view! {
+        if filled {
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            for heading in headings {
+                                <th>(*heading)</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>(child)</tbody>
+                </table>
+            </div>
+        } else {
+            <p class="empty">(empty)</p>
+        }
     })
 }
 
