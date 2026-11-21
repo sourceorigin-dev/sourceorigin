@@ -645,7 +645,7 @@ impl Notification {
             Self::AccountEnabled => "You can sign in to it again.".to_owned(),
             Self::DeletionScheduled { purge_after } => format!(
                 "It will be deleted for good on {}, with everything SourceOrigin knows about you. Until then, signing in lets you restore it.",
-                purge_after.format("%-d %B %Y")
+                purge_after.format("%-d %B %Y UTC")
             ),
             Self::AccountRestored => "It is no longer scheduled for deletion.".to_owned(),
             Self::NewDeviceSignIn => "A browser that had never signed in to your account did. If it was you, there is nothing to do. If it wasn’t, open this notification and select “This wasn’t me”, or sign out everywhere from the link in its email.".to_owned(),
