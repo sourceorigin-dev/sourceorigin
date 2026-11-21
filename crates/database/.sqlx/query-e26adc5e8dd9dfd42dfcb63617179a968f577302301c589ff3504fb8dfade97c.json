@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM request_limits WHERE ctid IN (SELECT ctid FROM request_limits WHERE expires_at < now() LIMIT $1 FOR UPDATE SKIP LOCKED)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e26adc5e8dd9dfd42dfcb63617179a968f577302301c589ff3504fb8dfade97c"
+}

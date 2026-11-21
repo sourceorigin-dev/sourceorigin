@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM webauthn_ceremonies WHERE ctid IN (SELECT ctid FROM webauthn_ceremonies WHERE expires_at < now()\n            OR consumed_at < now() - interval '1 day' LIMIT $1 FOR UPDATE SKIP LOCKED)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "87e29879d0a7d0923d65b8ca193e77a19e5223003dd0b5b4339a5e01b1bc050e"
+}
