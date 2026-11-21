@@ -794,6 +794,12 @@ export const MAX_LOGOUT_LIFETIME: number = 600000;
 export const MAX_TOKEN_BYTES: number = 16384;
 
 /**
+ * Most bytes read of a back-channel logout request, whose one logout token is at
+ * most `MAX_TOKEN_BYTES`. A larger body is refused as an invalid request.
+ */
+export const MAX_LOGOUT_REQUEST_BYTES: number = 65536;
+
+/**
  * Shortest RSA modulus a key may have, in bits (RFC 7518 §3.3).
  */
 export const MIN_MODULUS_BITS: number = 2048;

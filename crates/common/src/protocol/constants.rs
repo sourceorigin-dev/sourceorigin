@@ -14,6 +14,9 @@ super::sdk_constants! {
     pub const MAX_LOGOUT_LIFETIME: TimeDelta = TimeDelta::minutes(10);
     /// Longest compact token read, in bytes: decoding is bounded before it starts.
     pub const MAX_TOKEN_BYTES: usize = 16 * 1024;
+    /// Most bytes read of a back-channel logout request, whose one logout token is at
+    /// most `MAX_TOKEN_BYTES`. A larger body is refused as an invalid request.
+    pub const MAX_LOGOUT_REQUEST_BYTES: usize = 4 * MAX_TOKEN_BYTES;
     /// Shortest RSA modulus a key may have, in bits (RFC 7518 §3.3).
     pub const MIN_MODULUS_BITS: usize = 2048;
     /// Longest RSA modulus a key may have, in bits, as aws-lc verifies.

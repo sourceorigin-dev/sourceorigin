@@ -17,7 +17,7 @@ use super::{BoxFuture, CookieKey, seal::SealError, session::StoredLogin};
 use crate::{Client, ClientId, Credentials, LogoutToken, Scopes, StepUpRequirement};
 use axum::{
     Router,
-    extract::OriginalUri,
+    extract::{DefaultBodyLimit, OriginalUri},
     http::{Extensions, HeaderMap, HeaderValue, Method, StatusCode, Uri, header, request::Parts},
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -29,8 +29,8 @@ use sourceorigin_common::{
     ErrorChain,
     protocol::{
         constants::{
-            COOKIE_PREFIX, DEFAULT_SESSION_LIFETIME, MAX_COOKIE_BYTES, MAX_RETURN_TO_BYTES,
-            PENDING_LOGIN_SLOTS,
+            COOKIE_PREFIX, DEFAULT_SESSION_LIFETIME, MAX_COOKIE_BYTES, MAX_LOGOUT_REQUEST_BYTES,
+            MAX_RETURN_TO_BYTES, PENDING_LOGIN_SLOTS,
         },
         same_origin::BrowserRequest,
     },
@@ -324,8 +324,8 @@ impl LoginRoutes {
     /// The handler must be idempotent and return only once its record is durable:
     /// auth retries a delivery until it is answered 200, so a token can arrive twice,
     /// and an error answers 500 for auth to retry. The route answers 200 once the
-    /// handler succeeds; 400 with `{"error":"invalid_request"}` for an invalid token;
-    /// and 503 when auth's keys cannot be fetched.
+    /// handler succeeds; 400 with `{"error":"invalid_request"}` for an invalid token
+    /// or a request over 64 KiB; and 503 when auth's keys cannot be fetched.
     ///
     /// ```no_run
     /// # fn run(auth: sourceorigin_auth::axum::LoginRoutes) {
@@ -365,7 +365,11 @@ impl LoginRoutes {
             .route("/callback", get(Login::callback))
             .route("/logout", post(Login::logout));
         if self.0.on_logout.is_some() {
-            router = router.route("/backchannel-logout", post(Login::backchannel_logout));
+            router = router.route(
+                "/backchannel-logout",
+                post(Login::backchannel_logout)
+                    .layer(DefaultBodyLimit::max(MAX_LOGOUT_REQUEST_BYTES)),
+            );
         }
         router.with_state(Arc::new(self.0.clone()))
     }
