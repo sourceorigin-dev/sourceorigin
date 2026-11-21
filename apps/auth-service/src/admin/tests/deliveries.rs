@@ -3,24 +3,11 @@
 use super::*;
 use crate::security::CONFIRMATION_MAX_AGE;
 use sourceorigin_common::DeliveryId;
-use sourceorigin_repository::{Channel, DatabaseError, DeliveryStatus, EventFilter, NewDelivery};
+use sourceorigin_repository::{Channel, DeliveryStatus, EventFilter, NewDelivery};
 
-/// A delivery no worker sends, which the tests only retry and cancel.
-struct Unsent;
-
-impl Channel for Unsent {
-    const NAME: &'static str = "test_admin_unsent";
-    type Recipient = ();
-    type Payload = ();
-
-    fn deliveries(
-        _: &DomainEvent,
-        _: Option<UserId>,
-        _: &[sourceorigin_repository::Notified],
-        _: &mut DatabaseTransaction<'_>,
-    ) -> impl Future<Output = Result<Vec<NewDelivery<Self>>, DatabaseError>> + Send {
-        std::future::ready(Ok(vec![]))
-    }
+sourceorigin_repository::test_channels! {
+    /// A delivery no worker sends, which the tests only retry and cancel.
+    Unsent = "test_admin_unsent": () => ();
 }
 
 /// Retrying and cancelling a delivery check their administrator as every change
