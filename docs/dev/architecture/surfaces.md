@@ -291,14 +291,15 @@ When an administrator or operator acts:
 - Every change needs their reason, on the dashboard and at the terminal alike:
   changes to accounts, and to clients, keys, invitations, handles, deliveries,
   alerts and the audit history too. `AdminService` takes it by type, so no
-  change records an event without one. It is stored with each event as
-  personal data, and the owner of an account it changes sees it in their
-  security history, next to "By a SourceOrigin administrator". The owner never
-  sees who that administrator is, or the IP address and device of their
-  request: only the dashboard's event lists and `audit list` show them. Announcements
-  and messages to one account ask for none: their text says why, so sending
-  one records "See message contents", and a draft's own changes record
-  nothing.
+  change records an event without one. A dashboard change posted without one,
+  or with a blank one, is refused on its page, which asks for it again. It is
+  stored with each event as personal data, and the owner of an account it
+  changes sees it in their security history, next to "By a SourceOrigin
+  administrator". The owner never sees who that administrator is, or the IP
+  address and device of their request: only the dashboard's event lists and
+  `audit list` show them. Announcements and messages to one account ask for
+  none: their text says why, so sending one records "See message contents",
+  and a draft's own changes record nothing.
 - Events record the administrator or operator as their actor. Their reads are
   recorded as a view of the account, as `user show` is, once an hour per
   administrator session or operator. The owner's history leaves views out: it

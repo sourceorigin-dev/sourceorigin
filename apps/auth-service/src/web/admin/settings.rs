@@ -49,6 +49,7 @@ struct Administered<C> {
     #[serde(flatten)]
     change: C,
     /// Why, recorded with the change and shown to the owner in their history.
+    #[serde(default)]
     reason: String,
 }
 
@@ -58,6 +59,7 @@ struct NewHandle {
     /// The handle.
     handle: String,
     /// Why, recorded with the change and shown to the owner in their history.
+    #[serde(default)]
     reason: String,
     /// Whether a reserved handle, or one that looks like another, is allowed.
     #[serde(default)]
@@ -70,6 +72,7 @@ struct NewDisplayName {
     /// The name.
     display_name: String,
     /// Why, recorded with the change and shown to the owner in their history.
+    #[serde(default)]
     reason: String,
 }
 

@@ -285,6 +285,44 @@ async fn handles_are_reserved_given_released_and_unreserved() {
     );
 }
 
+/// A change posted without a reason is refused on its page, which asks for one
+/// again, whatever else its form takes: reserving a handle, whose form also takes
+/// the handle, answers as unreserving one, whose form asks only why. Neither
+/// fails to decode, and neither changes anything.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL"]
+async fn a_change_without_a_reason_is_refused_on_its_page() {
+    let harness = Harness::new().await;
+    let admin = harness.admin().await;
+    let dashboard = harness
+        .confirmed(&admin, "/handles/reserve", Utc::now())
+        .await;
+    let kept = format!("unreasoned-{}", &admin.user_id.to_string()[24..]);
+    let post = async |path: &str, fields: &[(&str, &str)]| {
+        let url = format!("{DASHBOARD}{path}");
+        dashboard
+            .submit(&harness.dashboard, &url, fields, OWN_PAGE)
+            .await
+    };
+    let unreserve = format!("/handles/unreserve?handle={kept}");
+    for (path, fields) in [
+        ("/handles/reserve", [("handle", kept.as_str())].as_slice()),
+        (&unreserve, &[]),
+    ] {
+        let refused = post(path, fields).await;
+        assert_eq!(refused.status(), StatusCode::BAD_REQUEST, "{path}");
+        let page = html(refused).await;
+        assert!(
+            page.contains("Give a reason of 1 to 500 characters"),
+            "{path}: {page}"
+        );
+        assert!(page.contains(r#"name="reason""#), "{path}: {page}");
+        assert!(page.contains(&kept), "still names the handle: {page}");
+    }
+    let page = html(harness.visit(&dashboard, "/handles").await).await;
+    assert!(!page.contains(&kept), "nothing reserved: {page}");
+}
+
 /// The Alerts page shows an open alert as needing attention, with posting an
 /// update on it, and the overview's banner leads there. An update is recorded
 /// as the administrator's, and the alert then shows its status and note. The
