@@ -53,13 +53,7 @@ path_param!(pub client: ClientId, error = not_found);
 pub(super) async fn list(cx: &Cx) -> Result<Response> {
     let admin = App::admin(cx).await?;
     let clients = App::of(cx).service.list_clients(&admin.operator).await?;
-    let rows: Vec<_> = clients
-        .iter()
-        .map(|client| AdminClientRow {
-            client,
-            href: href!(detail, Client(client.id.clone())).resolve(cx),
-        })
-        .collect();
+    let rows = App::client_rows(cx, &clients);
     let (rows, new) = (&rows, &href!(create).resolve(cx));
     let page = view! { cx => sourceorigin_ui::client_list(rows: rows, new: new) };
     App::render(cx, StatusCode::OK, "Clients", page).await
@@ -481,6 +475,20 @@ impl App {
             return Err(AdminError::from(ClientRegistryError::Deleted(id.clone())).into());
         }
         Ok(details)
+    }
+
+    /// `clients` as a list shows them, each linking its page.
+    pub(super) fn client_rows<'a>(
+        cx: &Cx,
+        clients: &'a [sourceorigin_common::admin::Client],
+    ) -> Vec<AdminClientRow<'a>> {
+        clients
+            .iter()
+            .map(|client| AdminClientRow {
+                client,
+                href: href!(detail, Client(client.id.clone())).resolve(cx),
+            })
+            .collect()
     }
 
     /// The client `stored`, as the console's pieces show it.
