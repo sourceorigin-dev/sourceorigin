@@ -56,6 +56,41 @@ async fn an_invitations_link_shows_once() {
     );
 }
 
+/// Without email, the dashboard offers no mailing the service would refuse: a
+/// mailed invitation can be revoked but not resent, and a new one asks for no
+/// address, only how long its link lasts.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL"]
+async fn invitations_offer_mailing_only_while_email_is_on() {
+    let mut config = AuthConfig::test(&AUTH_ORIGIN.parse().expect("auth origin"));
+    config.email.smtp = None;
+    let harness = Harness::of(config).await;
+    // Unique, since other scenarios share the database.
+    let jane = format!("jane-{}@example.com", TokenId::new());
+    // Mailed while email was on.
+    let invitation = AdminService::new(harness.database.clone(), true)
+        .create_invitation(
+            &operator(),
+            &crate::tests::invitation_links(),
+            InviteExpiry::default(),
+            Some(NormalizedEmail::parse(&jane).expect("address")),
+            reason(),
+        )
+        .await
+        .expect("invitation");
+    let admin = harness.admin().await;
+    let dashboard = harness
+        .confirmed(&admin, "/invitations/new", Utc::now())
+        .await;
+    let page = html(harness.visit(&dashboard, "/invitations").await).await;
+    let actions = format!("/invitations/{}", invitation.id);
+    assert!(page.contains(&format!("{actions}/revoke")), "{page}");
+    assert!(!page.contains(&format!("{actions}/resend")), "{page}");
+    let form = html(harness.visit(&dashboard, "/invitations/new").await).await;
+    assert!(form.contains(r#"name="expires_in""#), "{form}");
+    assert!(!form.contains(r#"name="email""#), "{form}");
+}
+
 sourceorigin_repository::test_channels! {
     /// A delivery no worker sends, which the dashboard's tests list, cancel and retry.
     Unsent = "test_dashboard_unsent": () => ();

@@ -60,6 +60,13 @@ impl AdminService {
         Self { database, mails }
     }
 
+    /// Whether email is enabled, so an invitation can be mailed: pages offer to
+    /// mail or resend one only while it is.
+    #[must_use]
+    pub(crate) const fn mails(&self) -> bool {
+        self.mails
+    }
+
     /// Ends every mutation: rechecks `operator`, records `events` about `subject`
     /// with their `reason`, then commits. Every mutation ends here, so none
     /// commits without a reason; a draft announcement's changes, which are not
