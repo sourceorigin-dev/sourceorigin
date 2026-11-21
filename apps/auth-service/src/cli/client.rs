@@ -7,7 +7,7 @@ use super::{
 use crate::{Applied, ClientDetails, GracePeriod, PUBLIC_BASE_URL, Reason};
 use clap::{Args, Subcommand};
 use sourceorigin_common::{
-    ClientId,
+    ClientId, UserId,
     admin::{ApprovedOrigin, Client},
     clients::{
         AllowedScopes, BackchannelLogoutUri, ClientKind, ClientRegistration, DisplayName,
@@ -292,6 +292,12 @@ impl ClientCommand {
             .warning("Store this client secret now: it cannot be shown again.")
     }
 
+    /// Who owns a client: its owner's account ID, or a muted `operator` for one
+    /// no account owns.
+    fn owner(owner: Option<UserId>) -> Cell {
+        owner.map_or_else(|| Cell::new("operator").style(Style::Muted), Cell::new)
+    }
+
     /// A client's status, coloured: `deleted`, `suspended`, `disabled` or
     /// `enabled`. Deletion comes first, then a suspension.
     fn status(deleted: bool, suspended: bool, enabled: bool) -> Cell {
@@ -323,9 +329,7 @@ report!([Client], self, out, {
                 client.allow_refresh.into(),
                 client.trusted.into(),
                 client.require_pushed_authorization_requests.into(),
-                client
-                    .owner_id
-                    .map_or_else(|| Cell::new("operator").style(Style::Muted), Cell::new),
+                ClientCommand::owner(client.owner_id),
                 Cell::new(&client.display_name),
             ]
         }),
@@ -353,12 +357,7 @@ report!(ClientDetails, self, out, {
                 client.enabled,
             ),
         ),
-        (
-            "Owner",
-            client
-                .owner_id
-                .map_or_else(|| Cell::new("operator").style(Style::Muted), Cell::new),
-        ),
+        ("Owner", ClientCommand::owner(client.owner_id)),
         ("Redirect URIs", list(&client.redirect_uris)),
         ("Post-logout URIs", list(&client.post_logout_uris)),
         ("Scopes", list(&client.allowed_scopes)),
