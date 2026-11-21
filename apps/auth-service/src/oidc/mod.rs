@@ -105,12 +105,13 @@ sourceorigin_common::str_enum! {
 
 impl AuthScheme {
     /// Returns the credentials of an `Authorization` value using this scheme.
-    /// Scheme names are case-insensitive (RFC 9110); credentials are untouched.
+    /// Scheme names are case-insensitive, and one or more spaces separate them
+    /// from the credentials (RFC 9110 §11.4); credentials are otherwise untouched.
     fn credentials(self, value: &str) -> Option<&str> {
         let (scheme, credentials) = value.split_once(' ')?;
         scheme
             .eq_ignore_ascii_case(self.as_str())
-            .then_some(credentials)
+            .then(|| credentials.trim_start_matches(' '))
     }
 }
 

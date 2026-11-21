@@ -162,6 +162,13 @@ fn authentication_schemes_are_case_insensitive() {
     assert_eq!(AuthScheme::Bearer.credentials("Bearer"), None);
 }
 
+/// Checks that credentials may follow the scheme after more than one space (RFC 9110 §11.4).
+#[test]
+fn authentication_schemes_allow_several_spaces() {
+    assert_eq!(AuthScheme::Bearer.credentials("Bearer   a.B"), Some("a.B"));
+    assert_eq!(AuthScheme::Basic.credentials("Basic  Zm9v"), Some("Zm9v"));
+}
+
 /// Checks deduplication, lexical ordering and preservation of registered extension scopes.
 #[test]
 fn scope_sets_preserve_existing_wire_semantics() {
