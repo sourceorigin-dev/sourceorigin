@@ -125,6 +125,7 @@ impl AuthConfig {
             .expect("audit keys"),
             trusted_proxies: vec![],
             requests_per_minute: REQUESTS_PER_MINUTE,
+            loopback_logout_ca: None,
         }
     }
 }
