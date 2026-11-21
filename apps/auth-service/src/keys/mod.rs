@@ -269,10 +269,8 @@ impl KeyStore {
         let mut interval = tokio::time::interval(RELOAD_EVERY);
         interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
         loop {
-            tokio::select! {
-                biased;
-                () = shutdown.requested() => return,
-                _ = interval.tick() => {}
+            if shutdown.unless(interval.tick()).await.is_none() {
+                return;
             }
             if let Err(error) = self.tick().await {
                 tracing::error!(error = %ErrorChain(&error), "signing key rotation failed");
