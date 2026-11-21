@@ -35,9 +35,16 @@ prepare:
 
 # Test targets and the `test-util` feature are included so checked queries
 # compiled only for tests are cached too.
+prepare_targets := '--all-targets --all-features'
+
 [positional-arguments]
 _prepare *ARGS:
-    @cd crates/database && cargo sqlx prepare "$@" -- --all-targets --all-features
+    @cd crates/database && cargo sqlx prepare "$@" -- {{ prepare_targets }}
+
+# CI's pushes to main run it to cache the build `prepare-check` compiles.
+# Compile what `prepare` checks, from the committed query cache, with no database.
+check:
+    @cd crates/database && cargo check --locked {{ prepare_targets }}
 
 # DATABASE_URL, TEST_DATABASE_URL and libpq's PG* variables point at the cluster,
 # which listens only on a socket under /tmp (socket paths are limited to about 100

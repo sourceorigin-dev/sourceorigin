@@ -80,6 +80,9 @@ doc:
 doc-test:
     @cargo test --locked --doc --workspace
 
+# The instrumented test build `coverage` runs and `coverage-build` compiles.
+llvm_cov := 'cargo llvm-cov nextest --locked --workspace'
+
 # Uses a scratch cluster unless TEST_DATABASE_URL names a disposable database,
 # which the database tests leave migrated. Instrumented builds live in
 # target/llvm-cov-target; `cargo llvm-cov report --html` renders the last run.
@@ -91,7 +94,7 @@ coverage *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
     if [[ -z "${TEST_DATABASE_URL:-}" ]]; then exec just db scratch just coverage "$@"; fi
-    cargo llvm-cov nextest --locked --workspace --run-ignored all --lcov --output-path target/lcov.info "$@"
+    {{ llvm_cov }} --run-ignored all --lcov --output-path target/lcov.info "$@"
     # lcov names each source file by absolute path; its crate is the
     # apps/<name> or crates/<name> directory holding it.
     awk -v root="$PWD/" '
@@ -105,6 +108,11 @@ coverage *ARGS:
             for (c in lf) { print row(c, lh[c], lf[c], fh[c], ff[c]) | "sort"; LH += lh[c]; LF += lf[c]; FH += fh[c]; FF += ff[c] }
             close("sort"); print row("workspace", LH, LF, FH, FF)
         }' target/lcov.info
+
+# CI's pushes to main run it to cache the build without running a test.
+# Compile every test `coverage` runs, instrumented, and run none of them.
+coverage-build:
+    @{{ llvm_cov }} --no-report -E 'none()' --no-tests=pass
 
 # Regenerate tests/sdk-vectors; `just test` fails while the committed files are stale.
 sdk-vectors:

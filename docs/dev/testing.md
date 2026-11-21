@@ -224,13 +224,18 @@ up: it fails if any job failed, and passes when the rest succeeded or were
 skipped. It is the one check the merge queue waits for.
 
 `main` receives the exact commit the merge queue tested, so a push to `main`
-doesn't test it again. It only builds, to save the Rust caches and the images'
-layers. GitHub lets every branch read `main`'s caches, so pull requests and the
-merge queue start from them. `checks`, `web` and `docs` save no cache of their
-own, so `main` skips them. `rust` builds its instrumented tests without running
-them, `e2e` builds the binaries without starting the browser suite, and `infra`
-installs piquelctl without checking the manifests. `rust-lint` still runs
-Clippy and the doc tests, since they are the compile it caches.
+doesn't test it again. It only refreshes the caches that pull requests and the
+merge queue start from, since GitHub lets every branch read `main`'s caches:
+
+- `checks`, `web` and `docs` save no cache of their own, so `main` skips them.
+- `docker` builds the images, saving their layers.
+- The Rust jobs build only when their cache's key changed, as after a
+  dependency or toolchain change: an unchanged key keeps the cache it has. Then
+  `rust` runs `just coverage-build` and `just db check`, which compile what its
+  tests do without running them, and `e2e` builds the binaries without starting
+  the browser suite.
+
+A commit's coverage report is in its merge queue run.
 
 Coverage is reported, never enforced. `rust` prints it per crate and uploads
 `target/lcov.info` as the `rust-coverage` artifact, and `just web test` prints

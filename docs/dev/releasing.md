@@ -113,7 +113,7 @@ toolchain of `rust-toolchain.toml`, Node and pnpm.
    git switch main && git pull
    ```
 
-   Wait for its CI run to pass.
+   The merge queue tested this exact commit before merging it.
 3. Check the release without changing anything:
 
    ```console

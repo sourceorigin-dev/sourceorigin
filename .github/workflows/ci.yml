@@ -40,8 +40,11 @@
 # whenever its lockfile hash is new.
 #
 # Main receives the very commit the queue tested, so pushes to main test
-# nothing again: they only build what the caches keep, skipping every step
-# marked `if: *tested` and the jobs that compile nothing.
+# nothing again: they only refresh the caches. They skip the jobs that save no
+# cache and every step marked `if: *tests`. rust-cache saves only when the key
+# it restored differs, as after a dependency or toolchain change, so a Rust
+# step marked `if: *builds` runs on main only then. The images' layers are
+# saved on every push.
 
 name: CI
 
@@ -167,9 +170,8 @@ jobs:
   # Clippy, rustdoc and the doc tests, beside `rust`: its coverage builds an
   # instrumented copy of everything, in target/llvm-cov-target, which they cannot
   # reuse. The doc tests reuse the dependencies Clippy compiled for build scripts
-  # and proc macros. Main still runs Clippy and the doc tests, which compile what
-  # the cache keeps: the doc tests are merged into one binary, which runs in
-  # about a second.
+  # and proc macros. Each of the three compiles dependencies the others don't,
+  # so main runs all three when it saves a new cache.
   rust-lint:
     name: rust-lint
     needs: changes
@@ -180,6 +182,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - *install-just
       - &rust-cache
+        id: rust-cache
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
           # rust-cache's key ignores this workflow, but includes the job's ID.
@@ -187,11 +190,14 @@ jobs:
           # installing sqlx-cli.
           prefix-key: v1-rust
           save-if: ${{ github.ref == 'refs/heads/main' }}
-      - run: just rust lint
-      # Steps main skips: they only test what the queue already tested.
-      - if: &tested github.event_name != 'push'
+      # Builds that main runs only when rust-cache restored no exact match, so
+      # that it saves a new cache. Every other run runs them.
+      - if: &builds github.event_name != 'push' || steps.rust-cache.outputs.cache-hit != 'true'
+        run: just rust lint
+      - if: *builds
         run: just doc
-      - run: just doc-test
+      - if: *builds
+        run: just doc-test
 
   # Everything `just publish` does except uploading: packages each crate and
   # builds it from its package, as `cargo install` and crates.io would, then
@@ -209,7 +215,8 @@ jobs:
       - *setup-node
       - *rust-cache
       - run: just install
-      - run: just publish --dry-run
+      - if: *builds
+        run: just publish --dry-run
 
   # Builds the published crates with the oldest Rust their `rust-version`
   # promises. Warnings aren't errors here: lints differ between Rust versions,
@@ -231,8 +238,10 @@ jobs:
           echo "RUSTUP_TOOLCHAIN=$msrv" >> "$GITHUB_ENV"
       - *install-just
       - *rust-cache
-      - run: cargo check --locked --all-features --package sourceorigin-common --package sourceorigin-crypto --package sourceorigin-auth
-      - run: just rust features
+      - if: *builds
+        run: cargo check --locked --all-features --package sourceorigin-common --package sourceorigin-crypto --package sourceorigin-auth
+      - if: *builds
+        run: just rust features
 
   rust:
     name: rust
@@ -260,16 +269,15 @@ jobs:
       # sqlx-cli publishes no prebuilt binaries. rust-cache keeps binaries
       # installed after it restores, so this compiles when main's cache lacks
       # the latest release, until main next saves a cache.
-      - run: just db install-sqlx
+      - if: *builds
+        run: just db install-sqlx
       # Every unit and database test, instrumented. Coverage is reported, not
       # enforced: per crate in the log, per line in the rust-coverage artifact.
       # cargo-llvm-cov adds the llvm-tools-preview component it needs.
-      - if: *tested
+      # Steps main skips: they test what the queue already tested.
+      - if: &tests github.event_name != 'push'
         run: just coverage
-      # Main builds the same instrumented tests, and runs none of them.
-      - if: github.event_name == 'push'
-        run: cargo llvm-cov nextest --locked --workspace --no-report -E 'none()' --no-tests=pass
-      - if: *tested
+      - if: *tests
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: rust-coverage
@@ -278,8 +286,14 @@ jobs:
       # The database tests migrated TEST_DATABASE_URL, so a migration that
       # breaks a cached query fails here even if no test runs that query, as
       # does a cached query the code no longer uses.
-      - if: *tested
+      - if: *tests
         run: just db prepare-check
+      # When main saves a new cache, it compiles what the two steps above do,
+      # without running a test or needing a database.
+      - if: github.event_name == 'push' && steps.rust-cache.outputs.cache-hit != 'true'
+        run: |
+          just coverage-build
+          just db check
 
   e2e:
     name: e2e
@@ -341,12 +355,13 @@ jobs:
       - run: just install
       # The binary embeds the passkey script and the stylesheet, as in the
       # deployed image.
-      - run: just rust build
+      - if: *builds
+        run: just rust build
       # The keys reach every later step, so the commands the suite runs, such as
       # `user recover`, which derives its link with the token digest key, share
       # them with the service.
       - name: Generate the keys
-        if: *tested
+        if: *tests
         run: |
           just auth generate-secret "$RUNNER_TEMP/key-encryption-key"
           just auth generate-secret "$RUNNER_TEMP/token-digest-key"
@@ -361,7 +376,7 @@ jobs:
       # The suite signs in through the public OIDC client from
       # tests/browser/README.md, whose origin has no server.
       - name: Start the auth service and sourceorigin.dev
-        if: *tested
+        if: *tests
         run: |
           cat > "$RUNNER_TEMP/Caddyfile" <<'EOF'
           {
@@ -387,9 +402,9 @@ jobs:
           curl -kfsS --retry 30 --retry-delay 1 --retry-all-errors "$E2E_WEB_URL/health"
       # The headless build matching the pinned Playwright, so runner image
       # updates cannot change the browser under test.
-      - if: *tested
+      - if: *tests
         run: pnpm exec playwright install --only-shell chromium
-      - if: *tested
+      - if: *tests
         run: just web test-browser
       - if: failure()
         run: |
@@ -437,8 +452,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - *install-just
       - *rust-cache
-      - run: cargo install --locked piquelctl
-      - if: *tested
+      - if: *builds
+        run: cargo install --locked piquelctl
+      - if: *tests
         run: just infra check
 
   # mdBook and lychee at the versions `just install-tools` installs.
