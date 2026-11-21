@@ -113,7 +113,7 @@ enum Name {
     /// Change the display name, which applications receive as `name` once they
     /// refresh the profile.
     Set {
-        /// The new name: at most 80 characters, not blank.
+        /// The new name: 1 to 80 characters, without control characters.
         name: String,
         /// Why.
         #[command(flatten)]

@@ -39,7 +39,8 @@ before your device creates it, and says so: remove one you no longer use first.
 1. Select **Rename** beside the passkey.
 2. Type its new name under **Passkey name**, then select **Save name**.
 
-A name only helps you tell passkeys apart: it can be up to 80 characters.
+A name only helps you tell passkeys apart. It can be 1 to 80 characters,
+without control characters such as tabs or line breaks.
 
 ## Remove a passkey
 
