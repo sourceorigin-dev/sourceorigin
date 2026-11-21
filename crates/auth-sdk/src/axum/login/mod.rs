@@ -30,8 +30,9 @@ use sourceorigin_common::{
     protocol::{
         constants::{
             COOKIE_PREFIX, DEFAULT_SESSION_LIFETIME, MAX_COOKIE_BYTES, MAX_LOGOUT_REQUEST_BYTES,
-            MAX_RETURN_TO_BYTES, PENDING_LOGIN_SLOTS,
+            PENDING_LOGIN_SLOTS,
         },
+        return_to,
         same_origin::BrowserRequest,
     },
 };
@@ -115,15 +116,11 @@ impl ReturnTo {
 
 impl FromStr for ReturnTo {
     type Err = InvalidReturnTo;
-    /// Accepts only same-origin relative paths.
+    /// Accepts only same-origin relative paths, by the rule auth shares.
     fn from_str(path: &str) -> Result<Self, Self::Err> {
-        let local = path.len() <= MAX_RETURN_TO_BYTES
-            && path.starts_with('/')
-            && !path[1..].starts_with(['/', '\\'])
-            && path
-                .bytes()
-                .all(|byte| byte.is_ascii_graphic() && !matches!(byte, b'\\' | b'#'));
-        local.then(|| Self(path.to_owned())).ok_or(InvalidReturnTo)
+        path.parse::<return_to::ReturnTo>()
+            .map(|path| Self(path.into()))
+            .map_err(|_| InvalidReturnTo)
     }
 }
 

@@ -19,7 +19,10 @@ use sourceorigin_common::{
     AuthenticationMethod, ErrorChain, Provider, SessionId, TokenId, UserId,
     config::{ConfigurationError, Origin, SecretBytes},
     events::{Actor, SignInFailure},
-    protocol::oauth::{CodeChallengeMethod, ResponseType},
+    protocol::{
+        oauth::{CodeChallengeMethod, ResponseType},
+        return_to::{self, InvalidReturnTo},
+    },
 };
 use sourceorigin_crypto::Pkce;
 use sourceorigin_crypto::Secret;
@@ -37,7 +40,6 @@ mod error;
 mod identities;
 pub use error::FederationConfigError;
 pub(crate) use error::FederationError;
-use error::InvalidReturnTo;
 pub(crate) use identities::{PendingKind, PendingView};
 /// Provider protocol facts and verified identity exchange.
 mod providers;
@@ -48,8 +50,6 @@ use providers::{ProviderEndpoints, VerifiedIdentity};
 const FLOW_LIFETIME: Duration = Duration::minutes(10);
 /// Maximum length of a provider authorization code.
 const MAX_CODE_BYTES: usize = 2048;
-/// Maximum length of a `return_to` address.
-const MAX_RETURN_TO_BYTES: usize = 2048;
 /// Maximum duration of a provider HTTP request.
 const HTTP_TIMEOUT: StdDuration = StdDuration::from_secs(8);
 /// Maximum duration of a provider connection attempt.
@@ -65,30 +65,11 @@ const DEFAULT_RETURN_TO: &str = routes::page::settings::HOME;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct ReturnTo(String);
 impl ReturnTo {
-    /// Accepts a path that cannot leave the auth origin, in printable ASCII as the
-    /// SDKs require. Absolute URLs are refused, even auth's own: its pages send paths.
+    /// Accepts a path that cannot leave the auth origin, by the rule the SDKs share.
+    /// Absolute URLs are refused, even auth's own: its pages send paths.
     pub(crate) fn parse(value: Option<&str>) -> Result<Self, InvalidReturnTo> {
-        let value = value.unwrap_or(DEFAULT_RETURN_TO);
-        if value.len() > MAX_RETURN_TO_BYTES {
-            return Err(InvalidReturnTo::TooLong(value.len()));
-        }
-        if value.contains('\\') {
-            return Err(InvalidReturnTo::Backslash);
-        }
-        if value.contains('#') {
-            return Err(InvalidReturnTo::Fragment);
-        }
-        if !value.bytes().all(|byte| byte.is_ascii_graphic()) {
-            return Err(InvalidReturnTo::NotPrintableAscii);
-        }
-        // One leading `/` makes this a path on the current origin.
-        if value.starts_with("//") {
-            return Err(InvalidReturnTo::ProtocolRelative);
-        }
-        if !value.starts_with('/') {
-            return Err(InvalidReturnTo::NotAPath);
-        }
-        Ok(Self(value.into()))
+        let path: return_to::ReturnTo = value.unwrap_or(DEFAULT_RETURN_TO).parse()?;
+        Ok(Self(path.into()))
     }
 
     /// The path.

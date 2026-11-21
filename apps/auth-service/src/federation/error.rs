@@ -1,10 +1,11 @@
 //! Federation failures and their single mapping to browser responses.
 
-use super::MAX_RETURN_TO_BYTES;
 use crate::emails::EmailError;
 use crate::security::{ApiError, SessionError};
 use axum::http::header::InvalidHeaderValue;
-use sourceorigin_common::{VocabularyError, config::ConfigurationError};
+use sourceorigin_common::{
+    VocabularyError, config::ConfigurationError, protocol::return_to::InvalidReturnTo,
+};
 use sourceorigin_crypto::CryptoError;
 use sourceorigin_repository::DatabaseError;
 use sourceorigin_ui::{CallbackError, QueryError};
@@ -167,30 +168,6 @@ impl From<FederationError> for ApiError {
             | FederationError::PageAddress(_)) => Self::internal(error),
         }
     }
-}
-
-/// Why a `return_to` address is refused. Each message names the rule it breaks.
-#[derive(Debug, Error)]
-pub(crate) enum InvalidReturnTo {
-    /// Anything but a path, such as an absolute URL, even one on auth.
-    #[error("return_to must be a path on auth, starting with /")]
-    NotAPath,
-    /// Browsers read a leading `//` as another host.
-    #[error("return_to cannot start with //, which browsers read as another host")]
-    ProtocolRelative,
-    /// Browsers treat `\` like `/`, so it could also reach another host.
-    #[error("return_to cannot contain a backslash")]
-    Backslash,
-    /// Fragments are not kept through the sign-in redirects.
-    #[error("return_to cannot contain a # fragment")]
-    Fragment,
-    /// A space, a control character or raw UTF-8, which would reach `Location`
-    /// as it is: anything but printable ASCII must be percent-encoded.
-    #[error("return_to must be printable ASCII; percent-encode anything else")]
-    NotPrintableAscii,
-    /// The path is longer than we store.
-    #[error("return_to is {0} bytes; at most {MAX_RETURN_TO_BYTES} are allowed")]
-    TooLong(usize),
 }
 
 /// Provider startup failures with operator-facing configuration context and sources.
