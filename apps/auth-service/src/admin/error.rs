@@ -59,9 +59,6 @@ pub enum AdminError {
     /// The account is already active.
     #[error("the account is already active")]
     AlreadyActive,
-    /// Reactivation found a verified email of the account owned by another active account.
-    #[error("another active account has claimed one of this account's verified emails")]
-    EmailClaimed(#[source] DatabaseError),
     /// The reason is blank, longer than 500 characters or holds control characters.
     #[error("give a reason of 1 to 500 characters, without control characters")]
     InvalidReason,
@@ -237,7 +234,6 @@ impl AdminError {
             Self::AdministratorTarget => "administrator_target",
             Self::AlreadyDisabled => "already_disabled",
             Self::AlreadyActive => "already_active",
-            Self::EmailClaimed(_) => "email_claimed",
             Self::InvalidReason => "invalid_reason",
             Self::InvalidInviteExpiry(_) => "invalid_invite_expiry",
             Self::InvalidInvitationEmail(_) => "invalid_invitation_email",
@@ -336,7 +332,6 @@ impl From<AdminError> for ApiError {
             | AdminError::SigningKey(KeyError::Unknown(_)) => Self::not_found(message),
             AdminError::AlreadyDisabled
             | AdminError::AlreadyActive
-            | AdminError::EmailClaimed(_)
             | AdminError::RecoveryOfDisabledAccount
             | AdminError::RecoveryNeedsEmail
             | AdminError::InvitationNeedsEmail

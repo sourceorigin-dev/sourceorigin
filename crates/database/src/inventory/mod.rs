@@ -14,8 +14,6 @@ sourceorigin_common::str_enum! {
         AccountDeletions = "account_deletions",
         /// Recoveries support started for accounts.
         AccountRecoveries = "account_recoveries",
-        /// Which account holds each verified address.
-        ActiveVerifiedEmailOwnership = "active_verified_email_ownership",
         /// Administrator rights.
         Administrators = "administrators",
         /// What administrators post on an alert while they handle it.
@@ -96,6 +94,8 @@ sourceorigin_common::str_enum! {
         UserEmails = "user_emails",
         /// Accounts.
         Users = "users",
+        /// Which account holds each verified address.
+        VerifiedEmailOwnership = "verified_email_ownership",
         /// Passkey ceremonies in progress.
         WebauthnCeremonies = "webauthn_ceremonies",
     }
@@ -130,7 +130,7 @@ impl Table {
             Self::DashboardSessions => Holds::Exported("sessions/*/dashboard"),
             Self::UserEmails => Holds::Exported("emails"),
             // A copy of the verified addresses.
-            Self::ActiveVerifiedEmailOwnership => Holds::Exported("emails/*/verified"),
+            Self::VerifiedEmailOwnership => Holds::Exported("emails/*/verified"),
             Self::PasskeyCredentials => Holds::Exported("passkeys"),
             Self::ExternalLoginIdentities => Holds::Exported("identities"),
             Self::Sessions => Holds::Exported("sessions"),

@@ -133,8 +133,8 @@ Important invariants:
   and reads their session and confirmation without locking either, so it joins
   no lock cycle.
 - An account scheduled for deletion has status `deleting` and an
-  `account_deletions` row; it keeps its verified emails until it is purged, so
-  restoring it never collides. Scheduling and purging take
+  `account_deletions` row; it keeps its verified emails until it is purged, as
+  a disabled account does, so restoring it never collides. Scheduling and purging take
   `administrators().lock()` before the account lock, as grants and disabling do,
   so the last active administrator's account cannot be deleted. Callers end its sessions and
   delete the clients it manages first. `deletions().purge` then deletes the rows

@@ -17,7 +17,7 @@ use sourceorigin_common::{
     email::NormalizedEmail,
     events::{DomainEvent, RevocationReason},
 };
-use sourceorigin_repository::{DatabaseError, DatabaseTransaction, StoredUser};
+use sourceorigin_repository::{DatabaseTransaction, StoredUser};
 
 /// Accounts per search page.
 const USER_PAGE_SIZE: u16 = 50;
@@ -196,8 +196,8 @@ impl AdminService {
         Self::finish(tx, operator, &reason, Some(user_id), vec![]).await
     }
 
-    /// Reactivates a disabled account, for `reason`. Fails if another active
-    /// account claimed one of its verified emails meanwhile.
+    /// Reactivates a disabled account, for `reason`. It kept its verified emails
+    /// while disabled, so nobody can have claimed them meanwhile.
     pub(crate) async fn enable_user(
         &self,
         operator: &Operator,
@@ -212,17 +212,7 @@ impl AdminService {
         }
         tx.users()
             .set_status(user_id, AccountStatus::Active)
-            .await
-            .map_err(|error| match error {
-                DatabaseError::Conflict(_) => AdminError::EmailClaimed(error),
-                DatabaseError::NotFound
-                | DatabaseError::Refused(_)
-                | DatabaseError::Timeout(_)
-                | DatabaseError::Cancelled(_)
-                | DatabaseError::LockUnavailable(_)
-                | DatabaseError::InvalidStoredData { .. }
-                | DatabaseError::Operation(_) => error.into(),
-            })?;
+            .await?;
         let enabled = DomainEvent::AccountEnabled {};
         Self::finish(tx, operator, &reason, Some(user_id), vec![enabled]).await
     }

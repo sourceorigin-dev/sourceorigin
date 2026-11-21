@@ -80,7 +80,8 @@ Without a confirmed address, apps receive none.
 ## Troubleshooting
 
 - **"This address is already used by another Origin Account."** Another
-  account confirmed it first. An address belongs to one account at a time.
+  account confirmed it first. An address belongs to one account at a time,
+  even while that account is disabled, until the account is deleted.
 - **"Too many verification emails were sent recently. Please try again
   later."** SourceOrigin limits how many confirmation emails it sends in an hour.
   Wait, then select **Resend link**.
