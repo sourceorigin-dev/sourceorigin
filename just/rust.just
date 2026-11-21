@@ -6,6 +6,7 @@ check:
 # The workspace unifies features, so a published crate's feature that needs
 # another it doesn't enable still builds there. Checking each crate with no
 # features, then each feature alone, builds them as a dependent might.
+[doc("Check each published crate with no features, then with each feature alone.")]
 features:
     #!/usr/bin/env bash
     set -euo pipefail
