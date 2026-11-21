@@ -39,6 +39,9 @@ detail.
   grants nothing, so it needs only ordinary login and no cooldown
   (`PATCH /account/profile` with `{"display_name": …}`). Either bumps the profile
   version, so relying parties refresh `preferred_username` or `name`.
+  Display names and passkey names are trimmed on every surface, then must be 1–80
+  characters with no control characters. A blank display name at signup becomes
+  the handle.
 - An account's profile picture, set on the Profile settings tab, is released as
   `picture` with the `profile` scope: a 512-pixel square JPEG auth encodes from the
   upload, keeping none of its metadata, at a URL whose image never changes. A

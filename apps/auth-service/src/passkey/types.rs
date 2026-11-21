@@ -11,8 +11,9 @@ const MAX_NAME_CHARS: usize = 80;
 /// Friendly name used when the browser omits a credential label.
 const DEFAULT_PASSKEY_NAME: &str = "Passkey";
 
-/// Declares a validated name type that keeps the browser's exact text.
-/// Deserializing runs the same check, so stored ceremony state stays valid too.
+/// Declares a validated name type. `parse` trims a name from a request;
+/// deserializing keeps the stored text exactly and runs the same check, so stored
+/// ceremony state stays valid too.
 macro_rules! validated_name {
     ($(#[$meta:meta])* $name:ident, $invalid:ident, $valid:expr) => {
         $(#[$meta])*
@@ -24,13 +25,9 @@ macro_rules! validated_name {
             fn is_valid(value: &str) -> bool {
                 ($valid)(value)
             }
-            /// Accepts `value` unchanged if it satisfies the rule.
-            pub(crate) fn parse(value: String) -> Result<Self, PasskeyError> {
-                if Self::is_valid(&value) {
-                    Ok(Self(value))
-                } else {
-                    Err(PasskeyError::$invalid)
-                }
+            /// Accepts a name from a request, trimmed, if it satisfies the rule.
+            pub(crate) fn parse(value: &str) -> Result<Self, PasskeyError> {
+                Self::try_from(value.trim().to_owned())
             }
             /// Borrows the validated text.
             pub(crate) fn as_str(&self) -> &str {
@@ -39,9 +36,14 @@ macro_rules! validated_name {
         }
         impl TryFrom<String> for $name {
             type Error = PasskeyError;
-            /// Validates names read back from stored ceremony state.
+            /// Accepts `value` unchanged if it satisfies the rule, as names read
+            /// back from stored ceremony state are.
             fn try_from(value: String) -> Result<Self, Self::Error> {
-                Self::parse(value)
+                if Self::is_valid(&value) {
+                    Ok(Self(value))
+                } else {
+                    Err(PasskeyError::$invalid)
+                }
             }
         }
         impl From<$name> for String {
@@ -126,7 +128,7 @@ pub(super) struct RegistrationStart {
     /// before handles send it as `username`.
     #[serde(alias = "username")]
     pub(super) handle: String,
-    /// Account display name; an empty value defaults to the handle.
+    /// Account display name, trimmed; a blank one defaults to the handle.
     #[serde(default)]
     pub(super) display_name: String,
     /// Invitation secret, required only when admission is gated.
@@ -142,7 +144,7 @@ pub(super) struct RegistrationFinish {
     pub(super) ceremony_id: TokenId,
     /// Authenticator's registration response, never logged.
     pub(super) credential: RegisterPublicKeyCredential,
-    /// Credential label; omission receives the default friendly name.
+    /// Credential label, trimmed; omission receives the default friendly name.
     #[serde(default = "RegistrationFinish::default_name")]
     pub(super) friendly_name: String,
 }
@@ -176,7 +178,7 @@ pub(crate) struct AuthenticationFinish {
 /// New label for an existing credential.
 #[derive(Deserialize)]
 pub(crate) struct Rename {
-    /// Label validated before the rename transaction.
+    /// Label, trimmed and validated before the rename transaction.
     pub(crate) friendly_name: String,
 }
 

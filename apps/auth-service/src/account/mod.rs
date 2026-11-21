@@ -162,7 +162,7 @@ impl AccountService {
         subject: &Subject,
         name: String,
     ) -> Result<(), AccountError> {
-        let name = DisplayName::parse(name.trim().to_owned())?;
+        let name = DisplayName::parse(&name)?;
         let mut tx = self.database.begin().await?;
         subject.lock(&mut tx).await?;
         if let Some(old) = tx.users().rename(subject.user(), name.as_str()).await? {

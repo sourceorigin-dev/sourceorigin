@@ -40,11 +40,11 @@ impl PasskeyApplication {
         Handles::new(&app.database)
             .ensure_unreserved(&handle)
             .await?;
-        let display_name = DisplayName::parse(if input.display_name.is_empty() {
-            handle.as_str().to_owned()
-        } else {
-            input.display_name
-        })?;
+        let display_name = match input.display_name.trim() {
+            "" => handle.as_str(),
+            name => name,
+        };
+        let display_name = DisplayName::parse(display_name)?;
         // An invitation given is checked whatever the setting, so the account it
         // creates is the invitation's, and its address, if it was mailed one.
         let invitation = match input
@@ -104,7 +104,7 @@ impl PasskeyApplication {
         headers: HeaderMap,
         Json(input): Json<RegistrationFinish>,
     ) -> Result<Response, ApiError> {
-        let friendly_name = PasskeyName::parse(input.friendly_name)?;
+        let friendly_name = PasskeyName::parse(&input.friendly_name)?;
         let RegistrationCeremony {
             user_id,
             handle,

@@ -63,15 +63,15 @@ impl AccountService {
             .collect())
     }
 
-    /// Changes a passkey's label. A name grants nothing, so the owner needs no
-    /// passkey confirmation.
+    /// Changes a passkey's label to `name`, trimmed. A name grants nothing, so the
+    /// owner needs no passkey confirmation.
     pub(crate) async fn rename_passkey(
         &self,
         subject: &Subject,
         id: PasskeyId,
         name: String,
     ) -> Result<(), AccountError> {
-        let friendly_name = PasskeyName::parse(name)?;
+        let friendly_name = PasskeyName::parse(&name)?;
         let mut tx = self.database.begin().await?;
         subject.lock(&mut tx).await?;
         if !tx
