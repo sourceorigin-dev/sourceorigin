@@ -86,39 +86,19 @@ fn trace_ids_are_lower_case_hex() {
     }
 }
 
-/// `DomainEvent::kind` is the serde tag each variant is stored under, for every
-/// variant: a variant serde knows that this list doesn't build fails the test.
+/// One event of every kind, which [`event_kinds_match_their_serde_tags`] proves
+/// covers every variant of `DomainEvent`.
 #[cfg(feature = "events")]
-#[test]
 #[expect(
     clippy::too_many_lines,
     reason = "one literal per event kind, so it grows with `DomainEvent`"
 )]
-fn event_kinds_match_their_serde_tags() {
+fn one_event_per_kind() -> Vec<events::DomainEvent> {
     use email::NormalizedEmail;
     use events::{
         CodeRedemptionFailure, DomainEvent, GrantRevocation, RevocationReason, SignInFailure,
         SigningKeyChange,
     };
-    use serde::Deserialize;
-
-    /// Captures the variant names serde expects when it reads an unknown tag.
-    #[derive(Debug)]
-    struct Tags(&'static [&'static str]);
-    impl std::fmt::Display for Tags {
-        fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(formatter, "{:?}", self.0)
-        }
-    }
-    impl std::error::Error for Tags {}
-    impl serde::de::Error for Tags {
-        fn custom<T: std::fmt::Display>(message: T) -> Self {
-            panic!("expected an unknown variant, not: {message}")
-        }
-        fn unknown_variant(_: &str, expected: &'static [&'static str]) -> Self {
-            Self(expected)
-        }
-    }
 
     let session_id = SessionId::new();
     let passkey_id = PasskeyId::new();
@@ -128,7 +108,7 @@ fn event_kinds_match_their_serde_tags() {
         position: 1,
         problem: admin::ChainProblem::EventChanged,
     });
-    let events = [
+    vec![
         DomainEvent::AccountCreated {
             method: AuthenticationMethod::Passkey,
             invited: false,
@@ -351,7 +331,37 @@ fn event_kinds_match_their_serde_tags() {
             category: crate::notifications::EmailCategory::Announcements,
             email: false,
         }),
-    ];
+    ]
+}
+
+/// `DomainEvent::kind` is the serde tag each variant is stored under, for every
+/// variant: a variant serde knows that [`one_event_per_kind`] doesn't build fails
+/// the test.
+#[cfg(feature = "events")]
+#[test]
+fn event_kinds_match_their_serde_tags() {
+    use events::DomainEvent;
+    use serde::Deserialize;
+
+    /// Captures the variant names serde expects when it reads an unknown tag.
+    #[derive(Debug)]
+    struct Tags(&'static [&'static str]);
+    impl std::fmt::Display for Tags {
+        fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(formatter, "{:?}", self.0)
+        }
+    }
+    impl std::error::Error for Tags {}
+    impl serde::de::Error for Tags {
+        fn custom<T: std::fmt::Display>(message: T) -> Self {
+            panic!("expected an unknown variant, not: {message}")
+        }
+        fn unknown_variant(_: &str, expected: &'static [&'static str]) -> Self {
+            Self(expected)
+        }
+    }
+
+    let events = one_event_per_kind();
     let mut kinds: Vec<&str> = events.iter().map(DomainEvent::kind).collect();
     for event in events {
         let tagged = serde_json::to_value(&event).expect("serialize");
@@ -363,6 +373,24 @@ fn event_kinds_match_their_serde_tags() {
     kinds.sort_unstable();
     tags.sort_unstable();
     assert_eq!(kinds, tags, "one event per variant");
+}
+
+/// `DomainEvent::HISTORY_KINDS` lists the kind of every event the security
+/// history shows, with the exceptions its documentation names.
+#[cfg(feature = "events")]
+#[test]
+fn history_kinds_are_the_kinds_the_history_shows() {
+    let mut shown: Vec<&str> = one_event_per_kind()
+        .iter()
+        .filter(|event| event.history_entry().is_some())
+        .map(events::DomainEvent::kind)
+        // The history shows only a refresh replay's revocation.
+        .filter(|kind| *kind != "grant_revoked")
+        .collect();
+    let mut listed = events::DomainEvent::HISTORY_KINDS.to_vec();
+    shown.sort_unstable();
+    listed.sort_unstable();
+    assert_eq!(listed, shown);
 }
 
 /// An invitation created before invitations could be mailed, stored without its
