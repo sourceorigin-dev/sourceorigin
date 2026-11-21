@@ -12,7 +12,7 @@ use crate::{
     developers::{SecretsState, app_secrets},
     form::{Checkbox, Lines},
     icons::Icon,
-    layout::{Destination, Group, page_head},
+    layout::{Destination, Group, alert_notice, page_head},
 };
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
@@ -183,9 +183,7 @@ pub async fn client_registration<'a>(
     };
     Ok(view! {
         page_head(title: title, lead: lead)
-        if let Some(refusal) = refusal {
-            <p class="notice error" role="alert">(refusal)</p>
-        }
+        alert_notice(message: refusal)
         client_form(
             action: action,
             change: (),
@@ -426,9 +424,7 @@ pub async fn client_secrets<'a>(
 ) -> Result<impl View> {
     Ok(view! {
         page_head(title: "Client secrets", lead: name.to_owned())
-        if let Some(refusal) = refusal {
-            <p class="notice error" role="alert">(refusal)</p>
-        }
+        alert_notice(message: refusal)
         app_secrets(page: page, secrets: secrets, now: now, state: state, confirmed: true, reason: reason)
     })
 }

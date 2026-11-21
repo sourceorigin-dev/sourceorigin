@@ -319,7 +319,7 @@ pub(super) async fn history(cx: &Cx) -> Result<Response> {
     };
     let rows = &rows;
     let section = view! { cx => sourceorigin_ui::history(rows: rows, holds: holds, page: page) };
-    App::settings_page(cx, user, Tab::History, None, section).await
+    Box::pin(App::settings_page(cx, user, Tab::History, None, section)).await
 }
 
 /// `/users/{account}/notifications`: the account's inbox, as its owner sees

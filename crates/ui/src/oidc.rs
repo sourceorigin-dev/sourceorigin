@@ -3,6 +3,7 @@
 
 use crate::{
     icons::{Icon, icon},
+    layout::alert_notice,
     login::switch_account,
 };
 use sourceorigin_common::{
@@ -170,9 +171,7 @@ pub async fn failure<'a>(
     };
     Ok(view! {
         <h1>(message)</h1>
-        if let Some(description) = description {
-            <p class="notice error" role="alert">(description)</p>
-        }
+        alert_notice(message: description)
         if let Some((label, href)) = link {
             <a class="button" href=(href)>(label)</a>
         }

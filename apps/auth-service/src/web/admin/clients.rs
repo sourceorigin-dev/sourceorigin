@@ -190,7 +190,13 @@ pub(super) async fn create(cx: &Cx, form: Option<Form<NewClientForm>>) -> Result
         id: &shown.id,
         kind: shown.kind(),
     };
-    App::registration_page(cx, registration, &shown.settings, refusal.as_deref()).await
+    Box::pin(App::registration_page(
+        cx,
+        registration,
+        &shown.settings,
+        refusal.as_deref(),
+    ))
+    .await
 }
 
 /// `/clients/{client}/settings`: changes a client's registration, every setting
@@ -222,7 +228,13 @@ pub(super) async fn edit(cx: &Cx, form: Option<Form<OperatorDraft>>) -> Result<R
     let registration = Registration::Edit {
         name: App::title(&stored),
     };
-    App::registration_page(cx, registration, &shown, refusal.as_deref()).await
+    Box::pin(App::registration_page(
+        cx,
+        registration,
+        &shown,
+        refusal.as_deref(),
+    ))
+    .await
 }
 
 /// `/clients/{client}/secret`: a confidential client's secrets, and rotating
@@ -548,6 +560,6 @@ impl App {
                 refusal: refusal,
             )
         };
-        App::render(cx, StatusCode::OK, title, page).await
+        Box::pin(App::render(cx, StatusCode::OK, title, page)).await
     }
 }

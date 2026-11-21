@@ -2,7 +2,10 @@
 //! form of its settings, its secrets and the one just made. The developer console
 //! shows an account's own apps with these, and the admin dashboard every client.
 
-use crate::form::{Checkbox, Fields, Lines, Precision, change_form, time};
+use crate::{
+    form::{Checkbox, Fields, Lines, Precision, change_form, time},
+    layout::alert_notice,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sourceorigin_common::{
@@ -614,9 +617,7 @@ pub(crate) async fn client_form<'a>(
                 change: change,
                 label: label,
                 confirm: confirm,
-                if let Some(error) = unplaced {
-                    <p class="notice error" role="alert">(error.message)</p>
-                }
+                alert_notice(message: unplaced.map(|error| error.message))
                 <label>
                     "App name"
                     <input

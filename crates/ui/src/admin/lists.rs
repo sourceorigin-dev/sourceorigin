@@ -4,7 +4,7 @@ use super::{Action, Change, UserRow, account_status, confirm, moment, refused_ac
 use crate::{
     clients::copyable,
     icons::{Icon, icon},
-    layout::{Pager, Who, avatar, page_head, pager},
+    layout::{Pager, Who, alert_notice, avatar, page_head, pager},
 };
 use chrono::{DateTime, Utc};
 use sourceorigin_common::{
@@ -121,9 +121,7 @@ pub async fn grant_search<'a>(
     };
     Ok(view! {
         page_head(title: change.title(), lead: change.description().to_owned())
-        if let Some(refusal) = refusal {
-            <p class="notice error" role="alert">(refusal)</p>
-        }
+        alert_notice(message: refusal)
         <form class="row search" method="get" action=(action) role="search">
             <label class="search-box grow">
                 icon(kind: Icon::Search)

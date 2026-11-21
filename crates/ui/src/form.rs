@@ -21,7 +21,7 @@ use crate::{
     AppChange, AppSettingsState, ConnectedAppChange, ConnectedAppsState, DataChange, DataState,
     DeviceChange, EmailChange, EmailsState, FieldError, HistoryChange, HistoryState, InboxChange,
     LoginChange, LoginQuery, NewAppChange, NotificationState, ProfileChange, RecoverChange,
-    SecretsChange, SignInChange, SignInState, UndoChange,
+    SecretsChange, SignInChange, SignInState, UndoChange, layout::alert_notice,
 };
 use chrono::{DateTime, SecondsFormat, Utc};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -468,7 +468,7 @@ pub(crate) async fn change_form<'a>(
                 </label>
             }
             if confirm {
-                <p class="notice error" role="alert" data-passkey-error="" hidden=""></p>
+                alert_notice(passkey: true)
                 <p class="help" data-unavailable="">(CONFIRM_UNAVAILABLE)</p>
             }
             <div class="row actions">
@@ -585,7 +585,7 @@ pub(crate) async fn passkey_form<'a>(
         >
             hidden(fields: change)
             (child)
-            <p class="notice error" role="alert" data-passkey-error="" hidden=""></p>
+            alert_notice(passkey: true)
             <p class="help" data-unavailable="">(ceremony.unavailable())</p>
             <button class=(class) disabled="">(label)</button>
         </form>
@@ -643,9 +643,7 @@ pub(crate) async fn fragment_form<'a>(
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
     Ok(view! {
-        if let Some(alert) = alert {
-            <p class="notice error" role="alert">(alert)</p>
-        }
+        alert_notice(message: alert)
         <form class="card stack" method="post" action=(action) data-submit-once="" data-fragment-form="">
             hidden(fields: change)
             for name in fragments {
