@@ -1,6 +1,7 @@
 //! The keys auth reads from the environment: the key-encryption keys, the token
 //! digest keys, the link keys derived from them, and the audit checkpoint key.
 
+use super::SecretVariable;
 use crate::{
     AuditKeys,
     emails::VerificationKeys,
@@ -108,14 +109,8 @@ impl KeyEncryptionKeys {
 
     /// Resolves and parses the key `variable` references.
     fn read(variable: Variable) -> Result<KeyEncryptionKey, ConfigurationError> {
-        let reference: SecretReference = variable.parse()?;
-        let secret = reference.resolve().map_err(|source| {
-            variable.error("must resolve through env://NAME or file://PATH", source)
-        })?;
-        let text = secret
-            .text()
-            .map_err(|source| variable.error("must contain UTF-8 text", source))?;
-        KeyEncryptionKey::parse(text)
+        let secret = variable.secret()?;
+        KeyEncryptionKey::parse(variable.secret_text(&secret)?)
             .map_err(|source| variable.error("must contain 32 bytes in unpadded base64url", source))
     }
 
@@ -267,10 +262,7 @@ impl TokenDigestKeys {
 
     /// Resolves the key `variable` references; its raw bytes are the key.
     fn read(variable: Variable) -> Result<SecretBytes, ConfigurationError> {
-        let reference: SecretReference = variable.parse()?;
-        let bytes = reference.resolve().map_err(|source| {
-            variable.error("must resolve through env://NAME or file://PATH", source)
-        })?;
+        let bytes = variable.secret()?;
         if bytes.expose_secret().len() < MIN_TOKEN_DIGEST_KEY_BYTES {
             return Err(variable.invalid("must contain at least 32 bytes"));
         }

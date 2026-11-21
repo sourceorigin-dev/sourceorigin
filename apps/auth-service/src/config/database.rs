@@ -1,9 +1,9 @@
 //! The database connections: the runtime role's, which every command uses, and
 //! the schema owner's, which `migrate` and `audit prune` may use.
 
-use super::AuthConfig;
+use super::{AuthConfig, SecretVariable};
 use secrecy::zeroize::Zeroizing;
-use sourceorigin_common::config::{ConfigurationError, SecretReference, Variable};
+use sourceorigin_common::config::{ConfigurationError, Variable};
 use sourceorigin_repository::{DatabaseConfig, RuntimeRole};
 use std::time::Duration;
 
@@ -41,7 +41,8 @@ const RUNTIME_DATABASE: DatabaseVariables = DatabaseVariables {
     url: DATABASE_URL,
     password: DATABASE_PASSWORD,
 };
-/// The schema owner's connection, used only by `migrate`.
+/// The schema owner's connection, which `migrate` and `audit prune` use when
+/// it is configured.
 const OWNER_DATABASE: DatabaseVariables = DatabaseVariables {
     url: DATABASE_OWNER_URL,
     password: DATABASE_OWNER_PASSWORD,
@@ -81,18 +82,8 @@ impl DatabaseVariables {
                 .password
                 .invalid("must be omitted when the database URL contains a password"));
         }
-        let secret = SecretReference::parse(&reference)
-            .and_then(|reference| reference.resolve())
-            .map_err(|source| {
-                self.password
-                    .error("must resolve through env://NAME or file://PATH", source)
-            })?;
-        let password = Zeroizing::new(
-            secret
-                .text()
-                .map_err(|source| self.password.error("must contain UTF-8 text", source))?
-                .to_owned(),
-        );
+        let secret = self.password.secret_from(&reference)?;
+        let password = Zeroizing::new(self.password.secret_text(&secret)?.to_owned());
         Ok((config.with_password(&password), Some(password)))
     }
 }
@@ -115,7 +106,7 @@ impl AuthConfig {
     pub fn owner_database_from_environment() -> Result<DatabaseConfig, ConfigurationError> {
         Ok(match DATABASE_OWNER_URL.optional()? {
             Some(url) => OWNER_DATABASE.read(&url)?.0,
-            None => RUNTIME_DATABASE.read(&DATABASE_URL.required()?)?.0,
+            None => Self::database_from_environment()?,
         })
     }
 

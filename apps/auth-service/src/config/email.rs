@@ -3,7 +3,7 @@
 
 #[cfg(test)]
 use super::LinkKeys;
-use super::TokenDigestKeys;
+use super::{SecretVariable, TokenDigestKeys};
 use crate::{
     emails::VerificationKeys,
     invitations::InvitationLinks,
@@ -15,7 +15,7 @@ use lettre::{
     message::Mailbox,
     transport::smtp::{authentication::Credentials, extension::ClientId},
 };
-use sourceorigin_common::config::{ConfigurationError, Origin, SecretReference};
+use sourceorigin_common::config::{ConfigurationError, Origin};
 use std::{net::IpAddr, time::Duration};
 
 sourceorigin_common::variables! {
@@ -153,16 +153,8 @@ impl EmailConfig {
                     .decode_utf8()
                     .map_err(|source| SMTP_URL.error("must hold a UTF-8 user", source))?
                     .into_owned();
-                let password = SecretReference::parse(&reference)
-                    .and_then(|reference| reference.resolve())
-                    .map_err(|source| {
-                        SMTP_PASSWORD
-                            .error("must resolve through env://NAME or file://PATH", source)
-                    })?;
-                let password = password
-                    .text()
-                    .map_err(|source| SMTP_PASSWORD.error("must contain UTF-8 text", source))?
-                    .to_owned();
+                let password = SMTP_PASSWORD.secret_from(&reference)?;
+                let password = SMTP_PASSWORD.secret_text(&password)?.to_owned();
                 builder
                     .credentials(Credentials::new(user, password))
                     .build()
