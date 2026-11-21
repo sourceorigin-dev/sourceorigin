@@ -59,9 +59,6 @@ pub enum AdminError {
     /// The account is already active.
     #[error("the account is already active")]
     AlreadyActive,
-    /// Reactivation found a verified email of the account owned by another active account.
-    #[error("another active account has claimed one of this account's verified emails")]
-    EmailClaimed(#[source] DatabaseError),
     /// The reason is blank, longer than 500 characters or holds control characters.
     #[error("give a reason of 1 to 500 characters, without control characters")]
     InvalidReason,
@@ -81,9 +78,11 @@ pub enum AdminError {
     /// so its link would never arrive.
     #[error("email can't be sent to the address to invite; check it, or use another one")]
     InvitationUnsendable(#[source] lettre::address::AddressError),
-    /// An active account already holds the address verified: its owner signs in
-    /// rather than signing up.
-    #[error("an account already holds this address verified; its owner can sign in")]
+    /// An account already holds the address verified, whatever its status: its
+    /// owner signs in rather than signing up, once enabled if it is disabled.
+    #[error(
+        "an account already holds this address verified, even if it is disabled; its owner signs in to it instead"
+    )]
     InvitationAddressTaken,
     /// Only an invitation mailed to an address can be sent again.
     #[error("this invitation was not mailed, so it has no address to send it to again")]
@@ -237,7 +236,6 @@ impl AdminError {
             Self::AdministratorTarget => "administrator_target",
             Self::AlreadyDisabled => "already_disabled",
             Self::AlreadyActive => "already_active",
-            Self::EmailClaimed(_) => "email_claimed",
             Self::InvalidReason => "invalid_reason",
             Self::InvalidInviteExpiry(_) => "invalid_invite_expiry",
             Self::InvalidInvitationEmail(_) => "invalid_invitation_email",
@@ -336,7 +334,6 @@ impl From<AdminError> for ApiError {
             | AdminError::SigningKey(KeyError::Unknown(_)) => Self::not_found(message),
             AdminError::AlreadyDisabled
             | AdminError::AlreadyActive
-            | AdminError::EmailClaimed(_)
             | AdminError::RecoveryOfDisabledAccount
             | AdminError::RecoveryNeedsEmail
             | AdminError::InvitationNeedsEmail

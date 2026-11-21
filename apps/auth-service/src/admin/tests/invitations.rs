@@ -1,7 +1,7 @@
 //! Creating, mailing and revoking invitations.
 
 use super::*;
-use crate::tests::invitation_links;
+use crate::tests::{invitation_links, verified_address};
 use sourceorigin_common::{admin::InvitationSent, email::NormalizedEmail};
 use sourceorigin_repository::{Channel, Invitation, InvitationKey};
 
@@ -105,6 +105,51 @@ async fn mailed_invitations_need_email_and_queue_their_link() {
     assert!(
         matches!(again, Err(AdminError::InvitationNotMailed)),
         "{again:?}"
+    );
+}
+
+/// An address a disabled account holds verified can't be invited, and an
+/// invitation mailed before the account verified it can't be resent: the account
+/// keeps it until it is purged, so the one the invitation creates never could.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL"]
+async fn a_disabled_accounts_address_cannot_be_invited() {
+    let harness = Harness::new().await;
+    let service = harness.service();
+    let links = invitation_links();
+    // Unique, since other scenarios share the database.
+    let jane = format!("jane-{}@example.com", TokenId::new());
+    let address = || Some(NormalizedEmail::parse(&jane).expect("address"));
+    let invite = async || {
+        service
+            .create_invitation(
+                &cli(),
+                &links,
+                InviteExpiry::default(),
+                address(),
+                reason("Jane"),
+            )
+            .await
+    };
+    let mailed = invite().await.expect("mailed");
+    let holder = harness.account().await;
+    verified_address(&harness.database, holder.user_id, &jane, true).await;
+    service
+        .disable_user(&cli(), holder.user_id, reason("Compromised"))
+        .await
+        .expect("disable");
+
+    let refused = invite().await;
+    assert!(
+        matches!(refused, Err(AdminError::InvitationAddressTaken)),
+        "{refused:?}"
+    );
+    let resent = service
+        .resend_invitation(&cli(), mailed.id, reason("Jane lost it"))
+        .await;
+    assert!(
+        matches!(resent, Err(AdminError::InvitationAddressTaken)),
+        "{resent:?}"
     );
 }
 

@@ -12,7 +12,7 @@ use axum::{
     response::Response,
 };
 use serde_json::{Value, json};
-use sourceorigin_common::AuthenticationMethod;
+use sourceorigin_common::{AccountStatus, AuthenticationMethod};
 use sourceorigin_repository::DeliverySummary;
 use std::net::{IpAddr, Ipv6Addr};
 
@@ -284,6 +284,41 @@ async fn verification_rejects_an_address_another_account_owns() {
         "This address is already used by another Origin Account."
     );
     assert_eq!(harness.list(&other).await[0]["verified"], false);
+}
+
+/// A disabled account keeps its verified address: another account verifying it
+/// is refused as owned elsewhere, and enabling the account again finds it still
+/// verified.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL"]
+async fn a_disabled_account_keeps_its_verified_address() {
+    let harness = Harness::new(true).await;
+    let owner = harness.account(AuthenticationMethod::Passkey).await;
+    let other = harness.account(AuthenticationMethod::Passkey).await;
+    let address = format!("{}@example.com", owner.user_id);
+    let verified = harness.added(&owner, &address).await;
+    assert_eq!(harness.verify(verified).await.0, StatusCode::OK);
+    let set_status = async |status| {
+        let changed = harness
+            .database
+            .users()
+            .set_status(owner.user_id, status)
+            .await;
+        assert!(changed.expect("status"));
+    };
+
+    set_status(AccountStatus::Disabled).await;
+    let claimed = harness.added(&other, &address).await;
+    let (status, body) = harness.verify(claimed).await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert_eq!(
+        body["error"],
+        "This address is already used by another Origin Account."
+    );
+    assert_eq!(harness.list(&other).await[0]["verified"], false);
+
+    set_status(AccountStatus::Active).await;
+    assert_eq!(harness.list(&owner).await[0]["verified"], true);
 }
 
 /// A verification link works signed out, and a browser signed in to the account

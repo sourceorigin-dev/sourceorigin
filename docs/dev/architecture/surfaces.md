@@ -215,7 +215,7 @@ an address binds the account created with it to that address, which starts
 verified and primary, since opening the mailed link proves what a verification
 email would. `AdminService::create_invitation` holds the rule for both surfaces:
 it refuses a mailed invitation before anything changes while email is disabled,
-or when an active account holds the address verified. Its link's token is
+or when any account holds the address verified, even a disabled one. Its link's token is
 derived from its ID, so the email sender, and **Resend**, rebuild the link and
 nobody sees it; one without an address is shown once instead (see
 [invite someone](../operations/administration.md#invite-someone) and

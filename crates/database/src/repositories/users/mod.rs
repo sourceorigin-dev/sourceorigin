@@ -297,16 +297,12 @@ impl UserRepository<'_> {
         Ok(())
     }
 
-    /// Changes the account's status. Returns `false` if it already had it.
-    ///
-    /// Disabling releases the account's verified emails and reactivating reclaims
-    /// them, through the schema's triggers.
+    /// Changes the account's status. Returns `false` if it already had it. The
+    /// account keeps its verified emails whatever its status.
     ///
     /// # Errors
     ///
-    /// Returns [`DatabaseError::Conflict`] if reactivation finds one of its verified
-    /// emails owned by another active account, or another [`DatabaseError`] if the
-    /// query fails.
+    /// Returns [`DatabaseError`] if the query fails.
     pub async fn set_status(
         &mut self,
         id: UserId,

@@ -79,8 +79,8 @@ impl EmailRepository<'_> {
     ///
     /// # Errors
     ///
-    /// Returns [`DatabaseError::Conflict`] if another active account owns the
-    /// address, or another [`DatabaseError`] if the query fails.
+    /// Returns [`DatabaseError::Conflict`] if another account owns the address,
+    /// or another [`DatabaseError`] if the query fails.
     pub async fn insert_verified(
         &mut self,
         input: &InsertVerifiedEmail,
@@ -221,8 +221,8 @@ impl EmailRepository<'_> {
     /// # Errors
     ///
     /// Returns [`DatabaseError::NotFound`] if the secret expired or was used
-    /// since it was found, [`DatabaseError::Conflict`] if another active account
-    /// owns the address, or another [`DatabaseError`] if a query fails.
+    /// since it was found, [`DatabaseError::Conflict`] if another account owns
+    /// the address, or another [`DatabaseError`] if a query fails.
     pub async fn consume_verification(
         &mut self,
         pending: &PendingVerification,
@@ -313,29 +313,29 @@ impl EmailRepository<'_> {
         Ok(())
     }
 
-    /// Whether an account other than `user_id` holds `normalized` verified: an
-    /// active one, or one scheduled for deletion, which keeps its addresses so
-    /// that restoring it finds them. Verifying the address for `user_id` would
-    /// fail meanwhile.
+    /// Whether an account holds `normalized` verified, other than `except` when
+    /// given, whatever its status: an account keeps its verified addresses until
+    /// it is purged, so enabling or restoring it finds them. Verifying the address
+    /// for any other account would fail meanwhile.
     ///
     /// # Errors
     ///
     /// Returns [`DatabaseError`] if the query fails.
-    pub async fn is_owned_elsewhere(
+    pub async fn is_owned(
         &mut self,
         normalized: &str,
-        user_id: UserId,
+        except: Option<UserId>,
     ) -> Result<bool, DatabaseError> {
         run!(
             self,
             fetch_one,
             sqlx::query_scalar!(
                 r#"SELECT EXISTS (
-                    SELECT 1 FROM active_verified_email_ownership
-                    WHERE normalized_email = $1 AND user_id <> $2
+                    SELECT 1 FROM verified_email_ownership
+                    WHERE normalized_email = $1 AND user_id IS DISTINCT FROM $2
                 ) AS "owned!""#,
                 normalized,
-                user_id.as_uuid(),
+                except.map(UserId::as_uuid),
             )
         )
     }
@@ -358,7 +358,7 @@ impl EmailRepository<'_> {
                 r#"SELECT
                     e.id AS "id: EmailId", e.user_id AS "user_id: UserId", e.normalized_email,
                     e.verified_at, e.is_primary
-                FROM active_verified_email_ownership o
+                FROM verified_email_ownership o
                 JOIN users u ON u.id = o.user_id
                     AND u.status = 'active'
                 JOIN user_emails e ON e.user_id = o.user_id
