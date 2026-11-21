@@ -192,10 +192,7 @@ impl Sealer {
             .into_iter()
             .flatten()
             .max_by_key(|checkpoint| checkpoint.position)
-            .map_or(ChainLink::GENESIS, |checkpoint| ChainLink {
-                position: checkpoint.position,
-                hash: checkpoint.head,
-            });
+            .map_or(ChainLink::GENESIS, ChainLink::signed);
         // Nothing new to sign, or an untrusted checkpoint holds the head's position
         // until the next event is sealed: return before recomputing anything.
         let newest = untrusted
