@@ -696,13 +696,15 @@ impl DraftAnnouncement {
         matches!(self.intent, DraftIntent::Find) || self.add.is_some()
     }
 
-    /// Whether the accounts list `handle`, with or without its `@`.
+    /// Whether the accounts list `handle`, with or without its `@`, ignoring
+    /// ASCII case as [`Handle::parse`] does.
     #[must_use]
     pub fn lists(&self, handle: &str) -> bool {
-        self.accounts
-            .lines()
-            .map(str::trim)
-            .any(|line| line.strip_prefix('@').unwrap_or(line) == handle)
+        self.accounts.lines().map(str::trim).any(|line| {
+            line.strip_prefix('@')
+                .unwrap_or(line)
+                .eq_ignore_ascii_case(handle)
+        })
     }
 
     /// Adds the account the pressed button names, by handle, to the accounts,
