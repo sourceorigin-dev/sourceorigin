@@ -6,8 +6,9 @@ use serde::{Deserialize, Serialize};
 use sourceorigin_common::{RecoveryId, TokenId, clients::RelatedOrigin};
 use webauthn_rs::prelude::{PublicKeyCredential, RegisterPublicKeyCredential};
 
-/// Maximum Unicode characters in display names and credential labels.
-const MAX_NAME_CHARS: usize = 80;
+/// Maximum Unicode characters in display names and credential labels, which
+/// the forms that type one limit too.
+pub(crate) const MAX_NAME_CHARS: usize = 80;
 /// Friendly name used when the browser omits a credential label.
 const DEFAULT_PASSKEY_NAME: &str = "Passkey";
 

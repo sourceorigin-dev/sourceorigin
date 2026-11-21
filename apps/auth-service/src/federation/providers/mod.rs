@@ -3,6 +3,7 @@
 //! `docs/dev/extending/federation-providers.md` to add one.
 
 use super::{FederationApplication, FederationConfigError, Provider};
+use crate::passkey::MAX_NAME_CHARS;
 use axum::http::{StatusCode, header};
 use serde::{Deserialize, de::DeserializeOwned};
 use sourceorigin_common::{
@@ -26,8 +27,6 @@ pub(super) use google::GoogleProtocol;
 const MAX_SUBJECT_BYTES: usize = 255;
 /// Maximum length of provider bearer credentials and ID tokens.
 const MAX_TOKEN_BYTES: usize = 8192;
-/// Maximum number of characters kept from a provider profile name.
-const MAX_DISPLAY_NAME_CHARS: usize = 80;
 /// Maximum provider response size, enforced while streaming chunked bodies too.
 const MAX_RESPONSE_BYTES: usize = 65536;
 
@@ -243,7 +242,8 @@ pub(super) struct VerifiedIdentity {
     /// provider verified an address once, and the address may have changed owners
     /// since, as a lapsed domain does, unless the provider hosts it.
     pub(super) email_authoritative: bool,
-    /// Profile name proposed for onboarding, at most `MAX_DISPLAY_NAME_CHARS` long.
+    /// Profile name proposed for onboarding, at most [`MAX_NAME_CHARS`] long, as
+    /// the account's display name may be.
     pub(super) display_name: String,
     /// The profile picture the provider reported, if it is one of its own.
     pub(super) picture: Option<ProviderPicture>,
@@ -280,7 +280,7 @@ impl VerifiedIdentity {
                 .filter(|name| !name.trim().is_empty())
                 .unwrap_or(fallback_name)
                 .chars()
-                .take(MAX_DISPLAY_NAME_CHARS)
+                .take(MAX_NAME_CHARS)
                 .collect(),
             picture: picture.and_then(|picture| ProviderPicture::parse(provider, picture)),
         })

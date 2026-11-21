@@ -15,6 +15,7 @@ use crate::{
     account::{Subject, Viewer},
     admin::SignedInAdmin,
     handles::HandlesError,
+    passkey::MAX_NAME_CHARS,
     security::ApiError,
     web::{
         account::AccountPage,
@@ -402,7 +403,7 @@ pub(super) async fn handle(cx: &Cx, form: Option<Form<NewHandle>>) -> Result<Res
             reason: reason,
             <label>
                 "New handle"
-                <input name="handle" required="" maxlength="32" autocomplete="off" value=(typed)>
+                <input name="handle" required="" maxlength=(sourceorigin_common::handle::MAX_LENGTH.to_string()) autocomplete="off" value=(typed)>
             </label>
             sourceorigin_ui::reserved_handle_choice(checked: allow_reserved)
         )
@@ -443,7 +444,7 @@ pub(super) async fn display_name(cx: &Cx, form: Option<Form<NewDisplayName>>) ->
             reason: reason,
             <label>
                 "New display name"
-                <input name="display_name" required="" maxlength="80" autocomplete="off" value=(typed) autofocus="">
+                <input name="display_name" required="" maxlength=(MAX_NAME_CHARS.to_string()) autocomplete="off" value=(typed) autofocus="">
             </label>
         )
     };
