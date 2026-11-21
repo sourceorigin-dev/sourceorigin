@@ -78,9 +78,11 @@ pub enum AdminError {
     /// so its link would never arrive.
     #[error("email can't be sent to the address to invite; check it, or use another one")]
     InvitationUnsendable(#[source] lettre::address::AddressError),
-    /// An active account already holds the address verified: its owner signs in
-    /// rather than signing up.
-    #[error("an account already holds this address verified; its owner can sign in")]
+    /// An account already holds the address verified, whatever its status: its
+    /// owner signs in rather than signing up, once enabled if it is disabled.
+    #[error(
+        "an account already holds this address verified, even if it is disabled; its owner signs in to it instead"
+    )]
     InvitationAddressTaken,
     /// Only an invitation mailed to an address can be sent again.
     #[error("this invitation was not mailed, so it has no address to send it to again")]

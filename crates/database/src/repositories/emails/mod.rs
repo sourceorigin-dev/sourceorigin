@@ -313,18 +313,18 @@ impl EmailRepository<'_> {
         Ok(())
     }
 
-    /// Whether an account other than `user_id` holds `normalized` verified,
-    /// whatever its status: an account keeps its verified addresses until it is
-    /// purged, so enabling or restoring it finds them. Verifying the address for
-    /// `user_id` would fail meanwhile.
+    /// Whether an account holds `normalized` verified, other than `except` when
+    /// given, whatever its status: an account keeps its verified addresses until
+    /// it is purged, so enabling or restoring it finds them. Verifying the address
+    /// for any other account would fail meanwhile.
     ///
     /// # Errors
     ///
     /// Returns [`DatabaseError`] if the query fails.
-    pub async fn is_owned_elsewhere(
+    pub async fn is_owned(
         &mut self,
         normalized: &str,
-        user_id: UserId,
+        except: Option<UserId>,
     ) -> Result<bool, DatabaseError> {
         run!(
             self,
@@ -332,10 +332,10 @@ impl EmailRepository<'_> {
             sqlx::query_scalar!(
                 r#"SELECT EXISTS (
                     SELECT 1 FROM verified_email_ownership
-                    WHERE normalized_email = $1 AND user_id <> $2
+                    WHERE normalized_email = $1 AND user_id IS DISTINCT FROM $2
                 ) AS "owned!""#,
                 normalized,
-                user_id.as_uuid(),
+                except.map(UserId::as_uuid),
             )
         )
     }
