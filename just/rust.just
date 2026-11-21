@@ -6,6 +6,7 @@ check:
 # The workspace unifies features, so a published crate's feature that needs
 # another it doesn't enable still builds there. Checking each crate with no
 # features, then each feature alone, builds them as a dependent might.
+[doc("Check each published crate with no features, then with each feature alone.")]
 features:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -25,6 +26,7 @@ fmt-check:
 # The workspace pass unifies features, so a crate's own tests can compile only
 # because another crate's dev-dependency enables a feature such as `test-util`.
 # Linting each crate alone too catches that.
+[doc("Clippy over the workspace, then over each crate alone, with warnings denied.")]
 lint:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -40,6 +42,7 @@ unused:
 # Advisories, licenses, wildcard requirements and sources other than crates.io,
 # as deny.toml configures them. Every feature is on, so the audit covers what
 # the SDKs' features pull in even when no workspace crate enables them.
+[doc("Advisories, licenses, wildcards and sources other than crates.io, by cargo-deny.")]
 audit:
     @cargo deny --all-features check
 

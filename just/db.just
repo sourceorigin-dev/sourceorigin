@@ -15,6 +15,7 @@ test *ARGS:
 # database tests migrate the database.
 # Fail unless the query cache matches exactly what the code compiles against
 # TEST_DATABASE_URL's migrated schema.
+[doc("Fail unless the query cache matches the code against TEST_DATABASE_URL's schema.")]
 prepare-check:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -44,6 +45,7 @@ _prepare *ARGS:
 # Run a command against a throwaway migrated cluster, e.g. `just db scratch -- psql`.
 # Every test fixture pools a few connections, and nextest runs one test per core,
 # so the cluster allows more than PostgreSQL's hundred.
+[doc("Run a command against a throwaway migrated cluster, e.g. `just db scratch -- psql`.")]
 [positional-arguments]
 scratch *ARGS:
     #!/usr/bin/env bash
