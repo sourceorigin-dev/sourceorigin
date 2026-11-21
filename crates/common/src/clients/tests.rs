@@ -184,3 +184,18 @@ fn generated_client_ids_use_the_prefix_and_base32() {
         format!("c_{}b", "a".repeat(19))
     );
 }
+
+/// A deletion outranks a suspension, which outranks whether the client is enabled.
+#[test]
+fn client_status_takes_the_first_that_applies() {
+    let at = DateTime::<Utc>::UNIX_EPOCH;
+    for (enabled, suspended_at, deleted_at, status) in [
+        (true, Some(at), Some(at), ClientStatus::Deleted { at }),
+        (true, Some(at), None, ClientStatus::Suspended { at }),
+        (false, None, None, ClientStatus::Disabled),
+        (true, None, None, ClientStatus::Enabled),
+    ] {
+        assert_eq!(ClientStatus::of(enabled, suspended_at, deleted_at), status);
+    }
+    assert_eq!(ClientStatus::Deleted { at }.to_string(), "deleted");
+}

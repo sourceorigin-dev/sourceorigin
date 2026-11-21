@@ -24,10 +24,10 @@ use crate::{
     clients::{ClientSettings, NewClient, OwnedClient, OwnedClientView},
     routes::page::developers::{self, APP, APP_SECRETS, APP_SETTINGS, HOME, NEW},
 };
-use sourceorigin_common::clients::ClientKind;
+use sourceorigin_common::clients::{ClientKind, ClientStatus};
 use sourceorigin_ui::{
-    AppLink, AppTab, ClientDraft, ClientRow, ClientStatus, Crumb, Messages, NewAppChange,
-    NewAppState, Notice, Registered, Revealed, Section, Title,
+    AppLink, AppTab, ClientDraft, ClientRow, Crumb, Messages, NewAppChange, NewAppState, Notice,
+    Registered, Revealed, Section, Title,
 };
 use topcoat::{
     context::Cx,
@@ -168,7 +168,8 @@ impl<'a> From<&'a OwnedClientView> for ClientRow<'a> {
             id: &client.id,
             name: &client.display_name,
             kind: client.kind,
-            status: ClientStatus::of(client.enabled, client.suspended_at),
+            // The owner's clients leave out deleted ones.
+            status: ClientStatus::of(client.enabled, client.suspended_at, None),
             redirect_uris: &client.redirect_uris,
             post_logout_uris: &client.post_logout_uris,
             allowed_scopes: &client.allowed_scopes,
