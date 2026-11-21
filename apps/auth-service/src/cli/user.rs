@@ -400,24 +400,9 @@ report!(UserDetail, self, out, {
         }),
     )?;
     out.section("Passkeys")?;
-    out.table(
-        ["ID", "NAME"],
-        "No passkeys.",
-        self.passkeys
-            .iter()
-            .map(|passkey| [Cell::new(passkey.id), Cell::new(&passkey.friendly_name)]),
-    )?;
+    self.passkeys[..].human(out)?;
     out.section("Linked identities")?;
-    out.table(
-        ["PROVIDER", "EMAIL"],
-        "No linked identities.",
-        self.identities.iter().map(|identity| {
-            [
-                Cell::new(identity.provider),
-                identity.linked_email.as_deref().into(),
-            ]
-        }),
-    )?;
+    self.identities[..].human(out)?;
     out.section("Sessions")?;
     out.table(
         ["ID", "METHODS", "SIGNED IN", "LAST SEEN", "EXPIRES"],

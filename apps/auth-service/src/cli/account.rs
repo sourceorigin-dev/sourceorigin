@@ -470,7 +470,7 @@ report!(Option<PictureView>, self, out, {
     }
 });
 
-// One passkey per line.
+// One passkey per line, as `user show` lists them too.
 report!([Passkey], self, out, {
     out.table(
         ["ID", "NAME"],
@@ -480,7 +480,7 @@ report!([Passkey], self, out, {
     )
 });
 
-// One linked provider per line.
+// One linked provider per line, as `user show` lists them too.
 report!([Identity], self, out, {
     out.table(
         ["PROVIDER", "EMAIL"],
