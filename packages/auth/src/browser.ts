@@ -384,10 +384,17 @@ export class Session {
     return this.#owner.client.issuer.clock();
   }
 
-  /** Redeems `refreshToken`, keeping the session's user and sign-in (OIDC Core §12.2). */
+  /**
+   * Redeems `refreshToken`, keeping the session's user and sign-in (OIDC Core §12.2),
+   * and `refreshToken` itself when the response carries none (RFC 6749 §6).
+   */
   async #refresh(refreshToken: string): Promise<void> {
     const tokens = await this.#owner.client.refresh(refreshToken, this.#signedIn);
-    this.#tokens = { ...tokens, idToken: tokens.idToken ?? this.#tokens.idToken };
+    this.#tokens = {
+      ...tokens,
+      idToken: tokens.idToken ?? this.#tokens.idToken,
+      refreshToken: tokens.refreshToken ?? refreshToken
+    };
   }
 }
 
