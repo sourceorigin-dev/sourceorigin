@@ -427,6 +427,32 @@ fn announcements_split_into_paragraphs_of_lines() {
     );
 }
 
+/// A page and a page size are never zero: `Paging::new` reads a zero page size
+/// as one item a page, and decoding refuses a zero page or page size, so neither
+/// divides by zero nor underflows. Valid paging keeps its JSON.
+#[cfg(feature = "admin")]
+#[test]
+fn paging_has_no_zero_page_or_page_size() {
+    let one_each = admin::Paging::new(None, 5, 0);
+    assert_eq!((one_each.pages, one_each.per_page), (5, 1));
+    for json in [
+        r#"{"page":0,"pages":1,"total":0,"per_page":10}"#,
+        r#"{"page":1,"pages":1,"total":0,"per_page":0}"#,
+    ] {
+        assert!(
+            serde_json::from_str::<admin::Paging>(json).is_err(),
+            "{json}"
+        );
+    }
+    let paging = admin::Paging::new(Some(2), 120, 50);
+    let json = serde_json::to_string(&paging).expect("serialize");
+    assert_eq!(json, r#"{"page":2,"pages":3,"total":120,"per_page":50}"#);
+    assert_eq!(
+        serde_json::from_str::<admin::Paging>(&json).expect("deserialize"),
+        paging
+    );
+}
+
 /// Only public addresses pass the shared check, however they are written: an
 /// embedded IPv4 address (mapped, NAT64, 6to4) is checked too. A back-channel
 /// logout URI on a literal address registers exactly when deliveries could reach

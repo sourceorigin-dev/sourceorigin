@@ -17,8 +17,8 @@ use crate::{
     protocol::{jwt::KeyId, oauth::ClientAuthMethod},
 };
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-use std::net::IpAddr;
+use serde::{Deserialize, Deserializer, Serialize};
+use std::{net::IpAddr, num::NonZeroU32};
 use url::Url;
 
 /// An account, as search results and its detail page show it.
@@ -61,24 +61,29 @@ pub struct UserPage {
 }
 
 /// Where a page of a list stands: pages count from 1, and a list with no match
-/// has one empty page.
+/// has one empty page. Neither the page nor the page size is ever zero: build it
+/// with [`Paging::new`], and decoding refuses a zero.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Paging {
-    /// The page shown.
+    /// The page shown, from 1.
+    #[serde(deserialize_with = "Paging::non_zero")]
     pub page: u32,
     /// How many pages there are.
     pub pages: u32,
     /// How many items match, over every page.
     pub total: u64,
-    /// How many items a page holds at most.
+    /// How many items a page holds at most, at least 1.
+    #[serde(deserialize_with = "Paging::non_zero")]
     pub per_page: u32,
 }
 
 impl Paging {
     /// Page `page` of `total` items, `per_page` at a time. A page past the last
-    /// reads as the last, so a stale link still shows something.
+    /// reads as the last, so a stale link still shows something, and a page size
+    /// of 0 reads as 1.
     #[must_use]
     pub fn new(page: Option<u32>, total: u64, per_page: u32) -> Self {
+        let per_page = per_page.max(1);
         let pages = total
             .div_ceil(u64::from(per_page))
             .clamp(1, u64::from(u32::MAX));
@@ -94,7 +99,7 @@ impl Paging {
     /// How many items the pages before this one hold: the query's offset.
     #[must_use]
     pub fn offset(self) -> u64 {
-        u64::from(self.page - 1) * u64::from(self.per_page)
+        u64::from(self.page.saturating_sub(1)) * u64::from(self.per_page)
     }
 
     /// The numbers of the first and last item of the page, counting from 1, or
@@ -128,6 +133,12 @@ impl Paging {
         } else {
             None
         }
+    }
+
+    /// Decodes a page or a page size, refusing zero as [`Self::new`] never builds
+    /// it, so a decoded page's offset can't underflow.
+    fn non_zero<'de, D: Deserializer<'de>>(deserializer: D) -> Result<u32, D::Error> {
+        NonZeroU32::deserialize(deserializer).map(NonZeroU32::get)
     }
 }
 
