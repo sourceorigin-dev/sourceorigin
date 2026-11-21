@@ -85,7 +85,7 @@ impl App {
     pub(super) fn event_rows<'a>(cx: &Cx, list: &'a [Event]) -> Vec<EventRow<'a>> {
         list.iter()
             .map(|event| {
-                let actor = match serde_json::from_value(event.actor.clone()) {
+                let actor = match event.actor() {
                     Ok(Actor::User { user_id, .. } | Actor::Admin { user_id, .. }) => {
                         Some(App::account(cx, user_id))
                     }

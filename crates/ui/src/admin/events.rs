@@ -4,7 +4,6 @@
 use super::moment;
 use crate::layout::{Pager, page_head, pager};
 use crate::settings::device_name;
-use serde_json::Value;
 use sourceorigin_common::{
     AlertId, AuthenticationMethod, Personal, Provider,
     admin::Event,
@@ -76,11 +75,7 @@ impl Description {
 impl EventRow<'_> {
     /// The event's kind, or `unknown`.
     fn kind(&self) -> &str {
-        self.event
-            .event
-            .get("kind")
-            .and_then(Value::as_str)
-            .unwrap_or("unknown")
+        self.event.kind().unwrap_or("unknown")
     }
 
     /// The event, if this release knows its kind and payload.
@@ -92,7 +87,7 @@ impl EventRow<'_> {
     /// operator's doing. An administrator is named by their handle while their
     /// account exists.
     fn actor(&self) -> (String, bool) {
-        match serde_json::from_value(self.event.actor.clone()) {
+        match self.event.actor() {
             Ok(Actor::User { .. }) => ("the account".to_owned(), false),
             Ok(Actor::Admin { .. }) => (
                 self.event.administrator.as_ref().map_or_else(

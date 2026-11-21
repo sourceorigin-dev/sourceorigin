@@ -189,7 +189,7 @@ impl ListEvents {
             event.occurred_at.into(),
             Cell::new(Self::actor(event)),
             event.subject.map(Cell::new).into(),
-            event.event["kind"].as_str().into(),
+            event.kind().into(),
             reason,
         ]
     }
@@ -198,7 +198,7 @@ impl ListEvents {
     /// while their account exists, or as the stored JSON when this release does
     /// not know the kind of actor.
     fn actor(event: &Event) -> String {
-        match serde_json::from_value(event.actor.clone()) {
+        match event.actor() {
             Ok(Actor::User { user_id, .. }) => format!("user {user_id}"),
             Ok(Actor::Admin { user_id, .. }) => match &event.administrator {
                 Some(handle) => format!("admin @{handle}"),
