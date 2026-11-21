@@ -1,6 +1,6 @@
 //! The outbound delivery queue: listing deliveries, retrying and cancelling one.
 
-use super::{AdminApplication as App, ReasonForm, Refused};
+use super::{AdminApplication as App, ReasonForm, ReasonPage};
 use sourceorigin_common::{DeliveryId, admin::DeliveryStatus};
 use sourceorigin_ui::{Action, Change, DeliveryRow, Target};
 use topcoat::{
@@ -99,35 +99,25 @@ impl App {
         form: Option<Form<ReasonForm>>,
         change: Change,
     ) -> Result<Response> {
-        let admin = Self::admin(cx).await?;
-        Self::confirm(cx, admin)?;
+        let admin = Self::confirmed(cx).await?;
         let service = &Self::of(cx).service;
         let id = *path_param::<Delivery>(cx)?;
         let back = href!(list).resolve(cx);
-        let refusal = Self::submit_reason(cx, form, back.clone(), async |reason| {
+        let shown = id.to_string();
+        let page = ReasonPage {
+            target: Some(Target {
+                name: "Delivery",
+                id: Some(&shown),
+            }),
+            ..ReasonPage::new(change, &back)
+        };
+        Self::reason_change(cx, form, page, back.clone(), async |reason| {
             if change == Change::CancelDelivery {
                 service.cancel_delivery(&admin.operator, id, reason).await
             } else {
                 service.retry_delivery(&admin.operator, id, reason).await
             }
         })
-        .await?;
-        let id = id.to_string();
-        let target = Target {
-            name: "Delivery",
-            id: Some(&id),
-        };
-        let reason = refusal.as_ref().map(Refused::reason);
-        let refusal = refusal.as_deref();
-        let page = view! { cx =>
-            sourceorigin_ui::dashboard_change(
-                change: change,
-                target: target,
-                back: back.as_str(),
-                refusal: refusal,
-                reason: reason,
-            )
-        };
-        Self::render(cx, StatusCode::OK, change.title(), page).await
+        .await
     }
 }

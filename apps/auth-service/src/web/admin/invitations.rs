@@ -1,7 +1,7 @@
 //! Signup invitations, whatever the signup setting: mailed to an address, or
 //! links to pass on.
 
-use super::{AdminApplication as App, ReasonForm, Refused};
+use super::{AdminApplication as App, ReasonForm, ReasonPage};
 use crate::{AdminError, InviteExpiry, Reason};
 use chrono::Utc;
 use sourceorigin_common::{
@@ -146,59 +146,50 @@ pub(super) async fn create(cx: &Cx, form: Option<Form<CreateInvitation>>) -> Res
 /// `/invitations/{invitation}/resend`: mails an open invitation's link again.
 #[route([GET, POST] "/invitations/{invitation}/resend")]
 pub(super) async fn resend(cx: &Cx, form: Option<Form<ReasonForm>>) -> Result<Response> {
-    let admin = App::admin(cx).await?;
-    App::confirm(cx, admin)?;
+    let admin = App::confirmed(cx).await?;
     let service = &App::of(cx).service;
     let id = *path_param::<Invitation>(cx)?;
-    let back = href!(list).resolve(cx);
-    let refusal = App::submit_reason(cx, form, back.clone(), async |reason| {
+    App::invitation_change(cx, form, Change::ResendInvitation, id, async |reason| {
         service.resend_invitation(&admin.operator, id, reason).await
     })
-    .await?;
-    App::invitation_change(cx, Change::ResendInvitation, id, &back, refusal).await
+    .await
 }
 
 /// `/invitations/{invitation}/revoke`: revokes an unredeemed invitation.
 #[route([GET, POST] "/invitations/{invitation}/revoke")]
 pub(super) async fn revoke(cx: &Cx, form: Option<Form<ReasonForm>>) -> Result<Response> {
-    let admin = App::admin(cx).await?;
-    App::confirm(cx, admin)?;
+    let admin = App::confirmed(cx).await?;
     let service = &App::of(cx).service;
     let id = *path_param::<Invitation>(cx)?;
-    let back = href!(list).resolve(cx);
-    let refusal = App::submit_reason(cx, form, back.clone(), async |reason| {
+    App::invitation_change(cx, form, Change::RevokeInvitation, id, async |reason| {
         service.revoke_invitation(&admin.operator, id, reason).await
     })
-    .await?;
-    App::invitation_change(cx, Change::RevokeInvitation, id, &back, refusal).await
+    .await
 }
 
 impl App {
-    /// The page of `change` to the invitation `id`, going back to `back`, with
-    /// why its last attempt was refused, if it was.
-    async fn invitation_change(
+    /// The page of `change` to the invitation `id`, made with `call`, which goes
+    /// back to the invitations once made.
+    async fn invitation_change<F, Fut>(
         cx: &Cx,
+        form: Option<Form<ReasonForm>>,
         change: Change,
         id: TokenId,
-        back: &str,
-        refusal: Option<Refused<ReasonForm>>,
-    ) -> Result<Response> {
+        call: F,
+    ) -> Result<Response>
+    where
+        F: FnOnce(Reason) -> Fut,
+        Fut: Future<Output = Result<(), AdminError>>,
+    {
+        let back = href!(list).resolve(cx);
         let shown = id.to_string();
-        let target = Target {
-            name: "Invitation",
-            id: Some(&shown),
+        let page = ReasonPage {
+            target: Some(Target {
+                name: "Invitation",
+                id: Some(&shown),
+            }),
+            ..ReasonPage::new(change, &back)
         };
-        let reason = refusal.as_ref().map(Refused::reason);
-        let refusal = refusal.as_deref();
-        let page = view! { cx =>
-            sourceorigin_ui::dashboard_change(
-                change: change,
-                target: target,
-                back: back,
-                refusal: refusal,
-                reason: reason,
-            )
-        };
-        App::render(cx, StatusCode::OK, change.title(), page).await
+        Self::reason_change(cx, form, page, back.clone(), call).await
     }
 }

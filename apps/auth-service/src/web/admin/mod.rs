@@ -80,8 +80,8 @@ use sourceorigin_crypto::NoteVerifier;
 use sourceorigin_repository::Database;
 use sourceorigin_telemetry::HttpTelemetry;
 use sourceorigin_ui::{
-    Crumb, Dashboard, DashboardConfirmation, DashboardTab, Health, PreferenceChange, SearchAction,
-    SearchPage, Shortcut, ShortcutKind, Target, Who,
+    Change, Crumb, Dashboard, DashboardConfirmation, DashboardTab, Health, PreferenceChange,
+    SearchAction, SearchPage, Shortcut, ShortcutKind, Target, Who,
 };
 use std::{
     future::Future,
@@ -631,6 +631,15 @@ impl AdminApplication {
         }
     }
 
+    /// The administrator signed in to the dashboard, once its passkey
+    /// confirmation is recent enough for a change (see [`Self::confirm`]): what
+    /// every change's page checks first.
+    async fn confirmed(cx: &Cx) -> Result<&SignedInAdmin> {
+        let admin = Self::admin(cx).await?;
+        Self::confirm(cx, admin)?;
+        Ok(admin)
+    }
+
     /// Sends the browser through auth's handoff page, which signs it in or
     /// confirms its session with a passkey, and back to the page.
     fn hand_off(&self, cx: &Cx) -> Error {
@@ -743,6 +752,53 @@ impl AdminApplication {
         .await
     }
 
+    /// Serves `page`, a change whose form asks only why: a `GET` asks for the
+    /// reason, and a `POST` makes the change with `call`, then goes to `done`, or
+    /// shows the page again with why it was refused.
+    async fn reason_change<F, Fut, E>(
+        cx: &Cx,
+        form: Option<Form<ReasonForm>>,
+        page: ReasonPage<'_>,
+        done: String,
+        call: F,
+    ) -> Result<Response>
+    where
+        E: Into<Refusal>,
+        F: FnOnce(Reason) -> Fut,
+        Fut: Future<Output = Result<(), E>>,
+    {
+        let refused = Self::submit_reason(cx, form, done, call).await?;
+        Self::reason_page(cx, page, refused, ()).await
+    }
+
+    /// Answers with `page`, its `child` above the reason, and why its change was
+    /// `refused`, with the reason as typed, if it was.
+    async fn reason_page(
+        cx: &Cx,
+        page: ReasonPage<'_>,
+        refused: Option<Refused<ReasonForm>>,
+        child: impl View,
+    ) -> Result<Response> {
+        let target = match page.target {
+            Some(target) => Some(target),
+            None => Self::target(cx).await,
+        };
+        let reason = refused.as_ref().map(Refused::reason);
+        let refusal = refused.as_deref();
+        let child = Child::new(child);
+        let view = view! { cx =>
+            sourceorigin_ui::dashboard_change(
+                change: page.change,
+                target: target,
+                back: page.back,
+                refusal: refusal,
+                reason: reason,
+                (child)
+            )
+        };
+        Self::render(cx, StatusCode::OK, page.crumb, view).await
+    }
+
     /// Like [`Self::change`], then goes to `done` once the change is made.
     async fn submit<I, E, F, Fut>(
         cx: &Cx,
@@ -808,6 +864,33 @@ struct ReasonForm {
     /// Why, as typed.
     #[serde(default)]
     reason: String,
+}
+
+/// The page of a change whose form asks only why, which
+/// [`AdminApplication::reason_change`] serves.
+struct ReasonPage<'a> {
+    /// What the change does.
+    change: Change,
+    /// The page's crumb.
+    crumb: &'a str,
+    /// What the change acts on, named beside its button: the page's parent when
+    /// `None`, read once the change is refused or not posted.
+    target: Option<Target<'a>>,
+    /// Where Cancel leads.
+    back: &'a str,
+}
+
+impl<'a> ReasonPage<'a> {
+    /// The page of `change`, under its title, naming the page's parent, its
+    /// Cancel leading `back`.
+    const fn new(change: Change, back: &'a str) -> Self {
+        Self {
+            change,
+            crumb: change.title(),
+            target: None,
+            back,
+        }
+    }
 }
 
 impl Refused<ReasonForm> {

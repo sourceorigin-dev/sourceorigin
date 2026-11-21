@@ -15,7 +15,7 @@
 //! page at `/clients/new`, whatever the client's ID.
 
 use super::{
-    AdminApplication as App, ReasonForm, Refusal, Refused,
+    AdminApplication as App, ReasonForm, ReasonPage, Refusal,
     origins::{self, OriginQuery},
 };
 use crate::{
@@ -163,8 +163,7 @@ pub(super) async fn detail(cx: &Cx) -> Result<Response> {
 /// which shows a confidential one's first secret, once.
 #[route([GET, POST] "/clients/new")]
 pub(super) async fn create(cx: &Cx, form: Option<Form<NewClientForm>>) -> Result<Response> {
-    let admin = App::admin(cx).await?;
-    App::confirm(cx, admin)?;
+    let admin = App::confirmed(cx).await?;
     let service = &App::of(cx).service;
     let created = App::change(cx, form, async |new: NewClientForm| {
         let reason = Reason::parse(new.settings.reason.clone())?;
@@ -203,8 +202,7 @@ pub(super) async fn create(cx: &Cx, form: Option<Form<NewClientForm>>) -> Result
 /// but its ID and kind, then goes back to its page.
 #[route([GET, POST] "/clients/{client}/settings")]
 pub(super) async fn edit(cx: &Cx, form: Option<Form<OperatorDraft>>) -> Result<Response> {
-    let admin = App::admin(cx).await?;
-    App::confirm(cx, admin)?;
+    let admin = App::confirmed(cx).await?;
     let service = &App::of(cx).service;
     let stored = App::changing(cx, admin).await?.client;
     let id = stored.id.clone();
@@ -393,8 +391,7 @@ impl Toggle {
     /// `POST` makes it, then goes back to the client's page, or to the clients
     /// once the client is deleted.
     async fn page(self, cx: &Cx, form: Option<Form<ReasonForm>>) -> Result<Response> {
-        let admin = App::admin(cx).await?;
-        App::confirm(cx, admin)?;
+        let admin = App::confirmed(cx).await?;
         let service = &App::of(cx).service;
         let id = App::changing(cx, admin).await?.client.id;
         let back = href!(detail, Client(id.clone())).resolve(cx);
@@ -402,24 +399,12 @@ impl Toggle {
             Self::Delete => href!(list).resolve(cx),
             Self::Enable | Self::Disable | Self::Suspend | Self::Unsuspend => back.clone(),
         };
-        let refusal = App::submit_reason(cx, form, done, async |reason| {
+        let change = self.change();
+        let page = ReasonPage::new(change, &back);
+        App::reason_change(cx, form, page, done, async |reason| {
             self.make(service, &admin.operator, &id, reason).await
         })
-        .await?;
-        let change = self.change();
-        let target = App::target(cx).await;
-        let reason = refusal.as_ref().map(Refused::reason);
-        let refusal = refusal.as_deref();
-        let page = view! { cx =>
-            sourceorigin_ui::dashboard_change(
-                change: change,
-                target: target,
-                back: back.as_str(),
-                refusal: refusal,
-                reason: reason,
-            )
-        };
-        App::render(cx, StatusCode::OK, change.title(), page).await
+        .await
     }
 }
 

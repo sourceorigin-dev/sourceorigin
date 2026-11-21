@@ -455,8 +455,7 @@ impl App {
     /// dashboard's passkey confirmation is recent enough for its changes.
     async fn settings(cx: &Cx) -> Result<(&SignedInAdmin, UserId)> {
         let user = *path_param::<Account>(cx)?;
-        let admin = Self::admin(cx).await?;
-        Self::confirm(cx, admin)?;
+        let admin = Self::confirmed(cx).await?;
         Ok((admin, user))
     }
 

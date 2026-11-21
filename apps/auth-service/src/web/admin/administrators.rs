@@ -1,6 +1,6 @@
 //! Who administers Origin Auth: the list, granting rights and revoking them.
 
-use super::{AdminApplication as App, ReasonForm, Refused};
+use super::{AdminApplication as App, ReasonForm, ReasonPage};
 use crate::{AdminError, Reason};
 use serde::Deserialize;
 use sourceorigin_common::{UserId, admin::UserSearch};
@@ -69,8 +69,7 @@ pub(super) struct GrantForm {
 /// makes it an administrator.
 #[route([GET, POST] "/administrators/grant")]
 pub(super) async fn grant(cx: &Cx, form: Option<Form<GrantForm>>) -> Result<Response> {
-    let admin = App::admin(cx).await?;
-    App::confirm(cx, admin)?;
+    let admin = App::confirmed(cx).await?;
     let service = &App::of(cx).service;
     let back = href!(list).resolve(cx);
     let (q, page) = form
@@ -117,28 +116,18 @@ pub(super) async fn grant(cx: &Cx, form: Option<Form<GrantForm>>) -> Result<Resp
 /// rights.
 #[route([GET, POST] "/administrators/{administrator}/revoke")]
 pub(super) async fn revoke(cx: &Cx, form: Option<Form<ReasonForm>>) -> Result<Response> {
-    let admin = App::admin(cx).await?;
-    App::confirm(cx, admin)?;
+    let admin = App::confirmed(cx).await?;
     let service = &App::of(cx).service;
     let id = *path_param::<Administrator>(cx)?;
     let back = href!(list).resolve(cx);
-    let refusal = App::submit_reason(cx, form, back.clone(), async |reason| {
+    let page = ReasonPage {
+        crumb: "Revoke rights",
+        ..ReasonPage::new(Change::RevokeAdministrator, &back)
+    };
+    App::reason_change(cx, form, page, back.clone(), async |reason| {
         service
             .revoke_administrator(&admin.operator, id, reason)
             .await
     })
-    .await?;
-    let target = App::target(cx).await;
-    let reason = refusal.as_ref().map(Refused::reason);
-    let refusal = refusal.as_deref();
-    let page = view! { cx =>
-        sourceorigin_ui::dashboard_change(
-            change: Change::RevokeAdministrator,
-            target: target,
-            back: back.as_str(),
-            refusal: refusal,
-            reason: reason,
-        )
-    };
-    App::render(cx, StatusCode::OK, "Revoke rights", page).await
+    .await
 }
