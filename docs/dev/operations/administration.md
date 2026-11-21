@@ -118,13 +118,13 @@ Its link stops working at once.
 - Mailing an invitation needs email enabled (`AUTH_SMTP_URL`). Without it, the
   dashboard's form asks for no **Email address**, and the terminal refuses
   `--email` before creating anything. A link to pass on still works.
-- An address an account already holds confirmed can't be invited: its owner
-  signs in instead.
+- An address an account already holds confirmed can't be invited, even when
+  that account is disabled: its owner signs in instead, once you enable it.
 - If another account confirms the address before the person signs up, the new
   account starts without it.
 - Only a mailed invitation can be sent again, and only while email is enabled:
   the dashboard offers **Resend** only then. It can't go to an address an
-  account has confirmed since.
+  account has confirmed since, even a disabled account.
 - Where signup is open, a signup that starts at GitHub or Google doesn't carry
   the invitation: the account is created without it, and without its address.
 

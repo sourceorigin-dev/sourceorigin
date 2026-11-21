@@ -163,13 +163,14 @@ Important invariants:
   cascades with its account, so a purge by any release removes it.
 - Active provider subjects and active provider-per-account links are unique.
   Unlink marks the identity revoked and releases both constraints.
-- Verified email ownership is unique across active accounts. Email is optional;
+- Verified email ownership is unique across every account, whatever its status,
+  until the account is purged or the address removed. Email is optional;
   explicit provider linking never transfers ownership of another account's email.
   An unverified address keeps the digest of its verification token in
   `email_verification_secrets` until it is verified, which deletes the row under
   the account's lock, or until the token expires, when cleanup deletes the
   address with it. Verifying runs the ownership trigger, so an address another
-  active account verified fails as a conflict.
+  account verified fails as a conflict, even while that account is disabled.
 - A session's `acr`, `amr` and `auth_time` are derived from its methods,
   `authenticated_at` and `passkey_confirmed_at` (`SessionAuthentication`). Codes
   copy them when issued, and refresh families copy them from the code, so a grant

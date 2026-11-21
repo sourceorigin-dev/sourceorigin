@@ -43,7 +43,7 @@ own. It builds on the [security boundaries](boundaries.md); the
 | Brute force and floods from one source | Per-IP budgets per category, in PostgreSQL; never per account, so naming an account cannot lock its owner out ([handles](handles.md#threat-model)). |
 | Learning who has an account | Accepted: handles are public, and handle sign-in says whether one has an active account ([handles](handles.md)). |
 | Look-alike handles | Signup and renames refuse a handle that reads like a reserved or held one ([handles](handles.md)). |
-| Claiming another person's email | Email is a verified contact, never an identifier, and a verified address belongs to one active account at most ([email normalization](email-normalization.md), [database](../architecture/database.md)). |
+| Claiming another person's email | Email is a verified contact, never an identifier, and a verified address belongs to one account at most, whatever its status, until the account is purged or the address removed ([email normalization](email-normalization.md), [database](../architecture/database.md)). |
 
 ### Against an account
 

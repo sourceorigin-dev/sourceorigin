@@ -301,7 +301,7 @@ impl EmailApplication {
             .any(|email| email.verified_at.is_some() || email.normalized_email == address.as_str())
             || tx
                 .emails()
-                .is_owned_elsewhere(address.as_str(), user_id)
+                .is_owned(address.as_str(), Some(user_id))
                 .await?
         {
             return Ok(());
@@ -351,7 +351,7 @@ impl EmailApplication {
     ) -> Result<(), EmailError> {
         if tx
             .emails()
-            .is_owned_elsewhere(address.as_str(), user_id)
+            .is_owned(address.as_str(), Some(user_id))
             .await?
         {
             tracing::info!("invited address held by another account; not added");
