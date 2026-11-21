@@ -161,7 +161,8 @@ auth-service user enable alice --reason "Appealed by email"
 ```
 
 Disabling ends the account's sessions and refresh tokens, and it can't sign in
-until you enable it. On the dashboard, open the account, select **Disable** or
+until you enable it. It keeps its verified email addresses, so no other account
+can verify one of them meanwhile, and enabling it again always gets them back. On the dashboard, open the account, select **Disable** or
 **Enable**, and give a reason. The owner sees it in their security history, so
 write what was asked, never the evidence. Nobody can disable the last active
 administrator's account.

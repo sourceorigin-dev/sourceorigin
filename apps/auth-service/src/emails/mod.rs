@@ -276,8 +276,8 @@ impl EmailApplication {
     /// it; otherwise unverified, with its verification email, as when the owner
     /// adds it, since it may have changed owners since the provider verified it.
     /// Only an account with no verified address and without it takes one, and
-    /// never one another account holds verified, even while that one is being
-    /// deleted: a provider never replaces the owner's own address or takes
+    /// never one another account holds verified, even while that one is disabled
+    /// or being deleted: a provider never replaces the owner's own address or takes
     /// someone else's. An address that would be one
     /// too many, or whose link cannot be sent now, is skipped, since signing in
     /// matters more: the owner can add it later. Another account verifying the
@@ -545,7 +545,7 @@ impl AccountService {
         {
             Ok(primary) => primary,
             Err(DatabaseError::NotFound) => return Err(EmailError::InvalidToken.into()),
-            // The ownership trigger: another active account verified it first.
+            // The ownership trigger: another account, of any status, verified it first.
             Err(DatabaseError::Conflict(_)) => return Err(EmailError::OwnedElsewhere.into()),
             Err(error) => return Err(error.into()),
         };
