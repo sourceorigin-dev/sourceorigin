@@ -307,7 +307,8 @@ Handlers mark a response cacheable with `Cached`
 every response that sets a cookie, is `no-store`. Every value also carries
 `no-transform`, so Cloudflare never rewrites a body: its Email Address
 Obfuscation would replace addresses with a link to a script the pages'
-Content-Security-Policy blocks.
+Content-Security-Policy blocks. sourceorigin.dev's web server adds it too: see
+[sourceorigin.dev](#sourceorigindev).
 
 | Class | `Cache-Control` | Responses |
 | --- | --- | --- |
@@ -378,3 +379,12 @@ cached once sourceorigin.dev serves pages of its own.
 
 Cloudflare's edge sets sourceorigin.dev's `Strict-Transport-Security`, with the values
 sourceorigin-web sends: `max-age=31536000`, without `includeSubDomains` or `preload`.
+
+sourceorigin-web sets its own `Cache-Control`, and every value carries
+`no-transform`, as auth's do, so the policies' email links keep working:
+
+| `Cache-Control` | Responses |
+| --- | --- |
+| `public, max-age=300, no-transform` | the pages |
+| `public, max-age=31536000, immutable, no-transform` | the stylesheet and typefaces, at paths naming their content or version |
+| `no-store, no-transform` | redirects, errors and the health probe |

@@ -29,8 +29,10 @@ const POLICY: &str = "default-src 'none'; style-src 'self'; font-src 'self'; \
 const ASSETS: [Asset; 4] = [STYLESHEET, FONTS[0], FONTS[1], FONTS[2]];
 
 /// How long browsers and shared caches may keep a page: they change only with a
-/// release.
-const PAGE_CACHE: &str = "public, max-age=300";
+/// release. Like every `Cache-Control` value here, it forbids transforming the
+/// body: Cloudflare's Email Address Obfuscation would otherwise rewrite the
+/// policies' email links into a script the Content-Security-Policy blocks.
+const PAGE_CACHE: &str = "public, max-age=300, no-transform";
 
 /// sourceorigin.dev, which relies on auth at `auth` only to sign people in.
 #[derive(Clone)]
@@ -85,7 +87,10 @@ impl Site {
         (
             [
                 (header::CONTENT_TYPE, asset.content_type()),
-                (header::CACHE_CONTROL, "public, max-age=31536000, immutable"),
+                (
+                    header::CACHE_CONTROL,
+                    "public, max-age=31536000, immutable, no-transform",
+                ),
             ],
             asset.bytes(),
         )
@@ -174,7 +179,7 @@ impl Site {
         }
         headers
             .entry(header::CACHE_CONTROL)
-            .or_insert(HeaderValue::from_static("no-store"));
+            .or_insert(HeaderValue::from_static("no-store, no-transform"));
         response
     }
 }

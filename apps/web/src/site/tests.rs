@@ -55,7 +55,10 @@ async fn sends_every_other_path_to_auth() {
         response.headers()[header::LOCATION],
         "https://auth.sourceorigin.dev/settings/emails/verify?remove=1"
     );
-    assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+    assert_eq!(
+        response.headers()[header::CACHE_CONTROL],
+        "no-store, no-transform"
+    );
     let headers = response.headers();
     assert_eq!(headers[header::CONTENT_SECURITY_POLICY], POLICY);
     assert_eq!(headers["cross-origin-opener-policy"], "same-origin");
@@ -64,4 +67,27 @@ async fn sends_every_other_path_to_auth() {
         headers["permissions-policy"],
         sourceorigin_common::protocol::isolation::PERMISSIONS_POLICY
     );
+}
+
+/// Every answer forbids transforming its body, so the edge never rewrites the
+/// policies' email links into a script the Content-Security-Policy blocks.
+#[tokio::test]
+async fn no_answer_may_be_transformed() {
+    let paths = Page::ALL
+        .into_iter()
+        .map(|page| page.path().to_owned())
+        .chain(ASSETS.map(|asset| asset.path()))
+        .chain([HEALTH.to_owned(), "/settings".to_owned()]);
+    for path in paths {
+        let response = visit(&path).await;
+        let cache = response.headers()[header::CACHE_CONTROL]
+            .to_str()
+            .expect("ASCII");
+        assert!(
+            cache
+                .split(", ")
+                .any(|directive| directive == "no-transform"),
+            "{path}: {cache}"
+        );
+    }
 }
