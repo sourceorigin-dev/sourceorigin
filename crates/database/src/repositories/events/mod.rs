@@ -196,20 +196,15 @@ impl TryFrom<EventRow> for StoredEvent {
         } else {
             Personal::Erased
         };
-        // Known only if it decodes to an event this release writes in the same
-        // version. A version this release does not write came from a newer one.
-        let decoded = KindProbe::knows::<DomainEvent>(&row.kind).then(|| {
-            DomainEvent::deserialize(&Value::Object(Map::from_iter([
-                ("kind".to_owned(), Value::String(row.kind.clone())),
-                ("data".to_owned(), payload.clone()),
-            ])))
-        });
-        let event = match decoded {
-            Some(Ok(event)) if event.version() == row.version => RecordedEvent::Known(event),
-            Some(Err(source)) if row.version == DomainEvent::FIRST_VERSION => {
-                return Err(invalid("payload", source));
-            }
-            Some(_) | None => RecordedEvent::Unknown {
+        let tagged = Value::Object(Map::from_iter([
+            ("kind".to_owned(), Value::String(row.kind.clone())),
+            ("data".to_owned(), payload.clone()),
+        ]));
+        let event = match KindProbe::versioned(tagged, row.version, DomainEvent::version)
+            .map_err(|source| invalid("payload", source))?
+        {
+            Some(event) => RecordedEvent::Known(event),
+            None => RecordedEvent::Unknown {
                 kind: row.kind,
                 version: row.version,
                 data: payload,
