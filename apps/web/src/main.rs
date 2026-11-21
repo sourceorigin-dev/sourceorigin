@@ -8,7 +8,10 @@ mod pages;
 mod site;
 
 use site::Site;
-use sourceorigin_common::config::{ConfigurationError, Origin};
+use sourceorigin_common::{
+    ErrorChain,
+    config::{ConfigurationError, Origin},
+};
 use sourceorigin_telemetry::{Export, Telemetry, TelemetryError};
 use std::{net::SocketAddr, process::ExitCode, time::Duration};
 use tokio::{net::TcpListener, signal::unix::SignalKind};
@@ -89,21 +92,9 @@ impl Web {
         let telemetry = Telemetry::init(SERVICE_NAME, TELEMETRY_FILTER, Export::Required)?;
         let result = async { Self::from_environment()?.serve().await }.await;
         if let Err(error) = telemetry.shutdown(TELEMETRY_FLUSH).await {
-            eprintln!("warning: {}", Self::chain(&error));
+            eprintln!("warning: {}", ErrorChain(&error));
         }
         result
-    }
-
-    /// `error` and its causes, on one line.
-    fn chain(error: &dyn std::error::Error) -> String {
-        let mut text = error.to_string();
-        let mut source = error.source();
-        while let Some(cause) = source {
-            text.push_str(": ");
-            text.push_str(&cause.to_string());
-            source = cause.source();
-        }
-        text
     }
 }
 
@@ -113,7 +104,7 @@ async fn main() -> ExitCode {
     match Web::run().await {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
-            eprintln!("error: {}", Web::chain(&error));
+            eprintln!("error: {}", ErrorChain(&error));
             ExitCode::FAILURE
         }
     }
