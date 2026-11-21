@@ -218,7 +218,7 @@ const MAX_SUBJECT_CHARS: usize = 150;
 /// Maximum Unicode characters in a letter's text.
 const MAX_BODY_CHARS: usize = 20_000;
 /// Maximum accounts an announcement is chosen for; more go to everyone.
-pub(super) const MAX_CHOSEN_ACCOUNTS: usize = 1_000;
+const MAX_CHOSEN_ACCOUNTS: usize = 1_000;
 
 /// What administrators write to accounts, in an announcement or a message: its
 /// subject and text, checked.

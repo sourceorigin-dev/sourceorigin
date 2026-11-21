@@ -48,9 +48,9 @@ pub enum AdminError {
         /// The states the operation applies to.
         states: &'static str,
     },
-    /// The dashboard never acts on administrator accounts, so a stolen dashboard
-    /// session cannot lock other administrators out. Revoke their rights first, or
-    /// use the CLI.
+    /// The dashboard never changes administrator accounts, so a stolen dashboard
+    /// session cannot lock other administrators out; it may still message one,
+    /// which changes nothing. Revoke their rights first, or use the CLI.
     #[error("administrator accounts can only be changed after revoking their rights")]
     AdministratorTarget,
     /// The account is already disabled.

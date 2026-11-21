@@ -28,7 +28,9 @@ use sourceorigin_repository::{Database, DatabaseTransaction};
 /// adapters that say which [`Operator`] acts. Every mutation, and viewing an
 /// account's details, records a domain event attributed to it in the same
 /// transaction. Every mutation that records one takes the operator's [`Reason`],
-/// which its events carry.
+/// which its events carry. Drafting, editing and discarding an announcement are
+/// not mutations here: a draft is the administrators' own working copy, which
+/// they change with what a read needs, recording nothing.
 ///
 /// Every operation takes its [`Operator`] and checks it, so a caller in the same
 /// process, such as the dashboard, needs no check of its own. Reads first require
@@ -60,8 +62,10 @@ impl AdminService {
 
     /// Ends every mutation: rechecks `operator`, records `events` about `subject`
     /// with their `reason`, then commits. Every mutation ends here, so none
-    /// commits without a reason. The check runs after the mutation's last write,
-    /// so it waits for nothing afterwards, and a failure rolls the writes back.
+    /// commits without a reason; a draft announcement's changes, which are not
+    /// mutations, commit on their own. The check runs after the mutation's last
+    /// write, so it waits for nothing afterwards, and a failure rolls the writes
+    /// back.
     async fn finish(
         mut tx: DatabaseTransaction<'_>,
         operator: &Operator,

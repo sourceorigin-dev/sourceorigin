@@ -137,7 +137,8 @@ impl AdminService {
     }
 
     /// The accounts `recipients` names, each once, or `None` for everyone. An
-    /// account that does not exist is named in the refusal.
+    /// account that does not exist is named in the refusal. It first checks that
+    /// `operator` may read, all that drafting or editing a draft needs.
     async fn chosen(
         &self,
         operator: &Operator,
