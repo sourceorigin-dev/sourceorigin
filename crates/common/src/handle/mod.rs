@@ -144,20 +144,7 @@ impl FromStr for Handle {
     }
 }
 
-impl TryFrom<String> for Handle {
-    type Error = HandleError;
-    /// Accepts only canonical handles, as [`FromStr`] does.
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        value.parse()
-    }
-}
-
-impl From<Handle> for String {
-    /// Unwraps the handle.
-    fn from(value: Handle) -> Self {
-        value.0
-    }
-}
+text_conversions!(Handle);
 
 crate::__str_enum_sqlx!(Handle);
 
