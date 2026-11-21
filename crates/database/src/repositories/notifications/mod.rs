@@ -60,13 +60,7 @@ impl TryFrom<NotificationRow> for StoredNotification {
     /// Decodes the payload. A kind this release does not know reads as `None`;
     /// a known one that does not decode fails.
     fn try_from(row: NotificationRow) -> Result<Self, DatabaseError> {
-        let known = row
-            .payload
-            .get("kind")
-            .and_then(Value::as_str)
-            .is_some_and(KindProbe::knows::<Notification>);
-        let notification = known
-            .then(|| serde_json::from_value(row.payload))
+        let notification = KindProbe::known(row.payload)
             .transpose()
             .map_err(|source| DatabaseError::InvalidStoredData {
                 column: "payload".into(),

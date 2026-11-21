@@ -8,6 +8,8 @@
 
 use crate::{Database, DatabaseTransaction, ExclusiveConnection};
 use serde::de::DeserializeOwned;
+use serde_json::Value;
+use sourceorigin_common::events::DomainEvent;
 use sqlx::{
     Decode, PgConnection, PgPool, Postgres, Type,
     error::BoxDynError,
@@ -141,7 +143,6 @@ repositories! {
 /// [`serde::de::Error::unknown_variant`].
 ///
 /// [`Alert`]: sourceorigin_common::alerts::Alert
-/// [`DomainEvent`]: sourceorigin_common::events::DomainEvent
 /// [`Notification`]: sourceorigin_common::notifications::Notification
 #[derive(Debug, thiserror::Error)]
 enum KindProbe {
@@ -171,6 +172,32 @@ impl KindProbe {
         let tag =
             serde::de::value::MapDeserializer::<_, Self>::new(std::iter::once(("kind", kind)));
         !matches!(T::deserialize(tag), Err(Self::Unknown))
+    }
+
+    /// Decodes `tagged`, a stored `{"kind": …}` `T`, or returns `None` if this
+    /// release does not know its kind.
+    fn known<T: DeserializeOwned>(tagged: Value) -> Option<Result<T, serde_json::Error>> {
+        let known = tagged
+            .get("kind")
+            .and_then(Value::as_str)
+            .is_some_and(Self::knows::<T>);
+        known.then(|| serde_json::from_value(tagged))
+    }
+
+    /// Decodes `tagged`, a `T` stored at payload `version`, if this release writes
+    /// its kind in that version, which `version_of` tells; any other reads as
+    /// `None`, as a newer release wrote it. A known kind at the first version, which
+    /// every release reads, fails if it does not decode.
+    fn versioned<T: DeserializeOwned>(
+        tagged: Value,
+        version: i16,
+        version_of: impl Fn(&T) -> i16,
+    ) -> Result<Option<T>, serde_json::Error> {
+        match Self::known(tagged) {
+            Some(Ok(value)) if version_of(&value) == version => Ok(Some(value)),
+            Some(Err(source)) if version == DomainEvent::FIRST_VERSION => Err(source),
+            Some(_) | None => Ok(None),
+        }
     }
 }
 

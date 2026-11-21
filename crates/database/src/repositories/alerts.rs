@@ -9,7 +9,7 @@ use serde_json::Value;
 use sourceorigin_common::{
     AlertId, EventId, Handle,
     alerts::{Alert, AlertAuthor, AlertKind, AlertStatus, AlertUpdate, AlertsShown, StoredAlert},
-    events::{Actor, DomainEvent},
+    events::Actor,
 };
 use sqlx::types::{Json, Uuid};
 
@@ -37,21 +37,13 @@ impl TryFrom<AlertRow> for StoredAlert {
     /// Decodes the payload, as events' are: a kind or version this release does
     /// not write reads as `None`, and a known one that does not decode fails.
     fn try_from(row: AlertRow) -> Result<Self, DatabaseError> {
-        let known = row
-            .payload
-            .get("kind")
-            .and_then(Value::as_str)
-            .is_some_and(KindProbe::knows::<Alert>);
-        let alert = match known.then(|| serde_json::from_value::<Alert>(row.payload)) {
-            Some(Ok(alert)) if alert.version() == row.version => Some(alert),
-            Some(Err(source)) if row.version == DomainEvent::FIRST_VERSION => {
-                return Err(DatabaseError::InvalidStoredData {
+        let alert =
+            KindProbe::versioned(row.payload, row.version, Alert::version).map_err(|source| {
+                DatabaseError::InvalidStoredData {
                     column: "payload".into(),
                     source: source.into(),
-                });
-            }
-            Some(_) | None => None,
-        };
+                }
+            })?;
         Ok(Self {
             id: row.id,
             alert,
