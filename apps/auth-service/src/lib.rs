@@ -65,27 +65,24 @@ mod tests;
 /// auth.sourceorigin.dev's server-rendered pages.
 mod web;
 
-pub use admin::{
+pub(crate) use admin::{
     AdminError, AdminService, AnnouncementDraft, AnnouncementRecipients, GracePeriod,
     HandleProblem, InviteExpiry, Letter, Operator, Reason, UserRef,
 };
 use audit::AuditApplication;
-pub use audit::{AuditError, AuditKeys};
+pub(crate) use audit::{AuditError, AuditKeys};
 pub use cli::Cli;
-pub use clients::{
-    Applied, ClientDetails, ClientRegistry, ClientRegistryError, MAX_DAILY_REGISTRATIONS,
-    MAX_OWNED_CLIENTS,
+pub(crate) use clients::{
+    Applied, ClientDetails, ClientRegistry, ClientRegistryError, MAX_OWNED_CLIENTS,
 };
-pub use config::{
+pub(crate) use config::{
     AuditConfig, AuthConfig, DashboardConfig, KeyEncryptionKeys, PUBLIC_BASE_URL, TokenDigestKeys,
 };
-pub use deletion::DeletionError;
 use emails::EmailApplication;
 use federation::FederationApplication;
-pub use handles::HandlesError;
 use history::HistoryApplication;
-pub use jobs::Jobs;
-pub use keys::{KeyError, KeyStore, SigningKeys};
+pub(crate) use jobs::Jobs;
+pub(crate) use keys::{KeyError, KeyStore, SigningKeys};
 use notifications::NotificationApplication;
 use oidc::OidcApplication;
 use passkey::PasskeyApplication;
@@ -101,10 +98,10 @@ use sourceorigin_telemetry::HttpTelemetry;
 use thiserror::Error;
 
 /// The default `service.name` of exported telemetry.
-pub const SERVICE_NAME: &str = "auth-service";
+pub(crate) const SERVICE_NAME: &str = "auth-service";
 /// What is traced, and logged unless `RUST_LOG` says otherwise: auth's own
 /// operations, and its database queries and committed events.
-pub const TELEMETRY_FILTER: &str = "auth_service=info,sourceorigin_repository=info";
+pub(crate) const TELEMETRY_FILTER: &str = "auth_service=info,sourceorigin_repository=info";
 
 /// Bound on browser ceremony and API JSON bodies.
 const MAX_REQUEST_BODY_BYTES: usize = 64 * 1024;
@@ -115,7 +112,7 @@ const MAX_DASHBOARD_BODY_BYTES: usize = 512 * 1024;
 
 /// Failures encountered before the service can accept requests.
 #[derive(Debug, Error)]
-pub enum StartupError {
+pub(crate) enum StartupError {
     /// Passkey library initialization failed.
     #[error("could not initialize passkey application")]
     Passkey(#[from] passkey::PasskeyConfigError),
@@ -144,7 +141,11 @@ impl AuthConfig {
     ///
     /// # Errors
     /// Fails when an application cannot initialize.
-    pub fn router(&self, database: Database, keys: &SigningKeys) -> Result<Router, StartupError> {
+    pub(crate) fn router(
+        &self,
+        database: Database,
+        keys: &SigningKeys,
+    ) -> Result<Router, StartupError> {
         let oidc = OidcApplication::new(database.clone(), &self.oidc, keys.clone())?;
         let federation = FederationApplication::new(database.clone(), &self.federation)?;
         let passkeys = self.passkeys(database.clone(), oidc.clone())?;
@@ -222,7 +223,7 @@ impl AuthConfig {
     /// # Errors
     /// Fails when the dashboard's host or policy cannot be sent in a header, or
     /// its passkey ceremonies cannot initialize.
-    pub fn admin_router(
+    pub(crate) fn admin_router(
         &self,
         database: Database,
         keys: &SigningKeys,
