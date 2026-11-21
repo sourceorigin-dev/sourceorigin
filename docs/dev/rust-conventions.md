@@ -12,18 +12,20 @@ Keep implementations simple. Follow neighbouring modules and share repeated logi
   bearer challenges, step-up requirements, SDK error codes and the constants both
   SDKs apply, the bodies of auth's settings API, the same-origin rule for browser
   requests, and the browser isolation headers every response of auth and
-  sourceorigin.dev carries (`isolation`). The rest are features: `admin` (the
-  views of administration, which the admin dashboard shows, the CLI prints as
-  JSON and the database crate decodes into),
-  `client-spans` (`SendTraced`, client spans around `reqwest` requests, for auth
-  and the SDK), `config` (environment variables, validated origins, secret
-  references), `email` (address normalization), `events` (domain events),
+  sourceorigin.dev carries (`isolation`). Beside them sit the public IP ranges,
+  the only ones auth delivers to (`net`), and what auth's forms post that
+  doesn't decode as itself, such as a checkbox (`form`). The rest are features:
+  `admin` (the views of administration, which the admin dashboard shows, the CLI
+  prints as JSON and the database crate decodes into), `client-spans`
+  (`SendTraced`, client spans around `reqwest` requests, for auth and the SDK), `config` (environment variables, validated origins, secret
+  references), `email` (address normalization), `events` (domain events, the
+  notifications they give owners and the alerts administrators see),
   `similarity` (look-alike detection for handles and client names) and `sqlx`
   (column decoding, enabled only by the database crate).
 - `sourceorigin-crypto` (`crates/crypto`): random secrets, digests, HMAC, constant-time
-  comparison, PKCE, RS256 signing, key sets, AES-256-GCM sealing of keys at rest,
-  Ed25519 signed notes, for audit checkpoints, and SCRAM-SHA-256 verifiers of
-  database passwords.
+  comparison, PKCE, RS256 signing and verification, key sets, AES-256-GCM sealing
+  of keys at rest, Ed25519 signed notes, for audit checkpoints, and SCRAM-SHA-256
+  verifiers of database passwords.
 - `sourceorigin-auth` (`crates/auth-sdk`): the public Rust SDK, following
   [sdk.md](architecture/sdk.md): token validation, typed scopes, login and the JWKS cache auth
   also uses for Google; its `axum` feature adds extractors, a bearer layer and
@@ -66,7 +68,7 @@ Application code uses `Secret`, `Digest`, `Pkce`, `Rs256Key`, `KeySet`,
 `aws-lc-rs` directly. Environment reads go through `Variable`.
 Keep cryptographic implementations in the crypto crate so they can be audited
 together. It is Apache-2.0, like the SDK, so the SDK uses it too, for its
-randomness, hashes and cookie sealing.
+randomness, hashes, token signature checks and cookie sealing.
 
 The workspace has one cryptographic library, `aws-lc-rs`: the crypto crate
 builds on it, and it is rustls's provider for every TLS client (reqwest, SQLx
