@@ -36,8 +36,10 @@ other labels that fit (`gh label list`).
    `html_preview` and `html_render`, including growth over time from the
    JSON.
 2. Read the output, then check what the script can't count:
-   - coverage, from the `rust-coverage` artifact of `main`'s latest CI run (or
-     `just coverage`) and `just web test`
+   - coverage, from the `rust-coverage` artifact of the latest merge queue run
+     (`gh run list -w ci.yml -e merge_group -s success -L 1`, then
+     `gh run download <id> -n rust-coverage`), or `just coverage`, and
+     `just web test`
    - unused code and dependencies, with `just unused`
    - generated files missing from `.gitattributes`
    - which `expect` calls can really panic

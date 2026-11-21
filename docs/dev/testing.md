@@ -219,9 +219,27 @@ pull request, since a change anywhere can break a link to it. The `changes` job
 in [ci.yml](https://github.com/sourceorigin-dev/sourceorigin/blob/main/.github/workflows/ci.yml)
 has the exact filters.
 
-The merge queue, pushes to `main` and manual runs run every job. The `ci` check
-sums the others up: it fails if any job failed, and passes when the rest
-succeeded or were skipped. It is the one check the merge queue waits for.
+The merge queue and manual runs run every job. The `ci` check sums the others
+up: it fails if any job failed, and passes when the rest succeeded or were
+skipped. It is the one check the merge queue waits for.
+
+`main` receives the exact commit the merge queue tested, so a push to `main`
+doesn't test it again. It only refreshes the caches that pull requests and the
+merge queue start from, since GitHub lets every branch read `main`'s caches:
+
+- `checks` and `docs` save no cache, and `web` saves only the pnpm store,
+  which `package` and `e2e` save too, so `main` skips them.
+- `docker` builds the images, saving their layers.
+- The jobs that restore a Rust cache build only when no cache is saved under
+  their current key, as after a dependency or toolchain change, or after GitHub
+  evicts an unused cache. Then they build without testing. `package` and
+  `msrv` run as usual, since they only build. `rust-lint` runs Clippy and
+  rustdoc, and compiles the doc tests without running them. `rust` runs
+  `just coverage-build` and `just db check`, `e2e` builds the binaries without
+  starting the browser suite, and `infra` installs piquelctl without checking
+  the manifests.
+
+A commit's coverage report is in its merge queue run.
 
 Coverage is reported, never enforced. `rust` prints it per crate and uploads
 `target/lcov.info` as the `rust-coverage` artifact, and `just web test` prints
