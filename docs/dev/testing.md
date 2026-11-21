@@ -90,6 +90,14 @@ Another crate's tests get them through the `test-util` feature. A test in
 test shares, such as the audit chain's verification tests, gets one from
 `Database::isolated`.
 
+The tests share one database, so they share its advisory locks too, even in a
+schema of their own. A test that holds a database-wide lock belongs in that
+lock's test group in `.config/nextest.toml`: `signing-keys` for the signing key
+lock, `audit` for the audit chain and verification locks. Each group runs its
+tests one at a time. Otherwise they queue for the lock under a timeout, the
+15-second statement timeout or the test's own, and on a busy machine the last
+one fails.
+
 ### SDK test vectors
 
 The Rust and TypeScript SDKs run the same cases, in
