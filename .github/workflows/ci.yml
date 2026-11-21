@@ -191,6 +191,10 @@ jobs:
           # installing sqlx-cli.
           prefix-key: v1-rust
           save-if: ${{ github.ref == 'refs/heads/main' }}
+          # Pushes to main only check whether their key has a cache: most
+          # have one and build nothing, so a download would go unused. A miss
+          # builds from nothing.
+          lookup-only: ${{ github.event_name == 'push' }}
       # Builds that main runs only when rust-cache restored no exact match, so
       # that it saves a new cache. Every other run runs them.
       - if: &builds github.event_name != 'push' || steps.rust-cache.outputs.cache-hit != 'true'
