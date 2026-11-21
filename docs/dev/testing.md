@@ -229,7 +229,8 @@ merge queue start from, since GitHub lets every branch read `main`'s caches:
 
 - `checks` and `docs` save no cache, and `web` saves only the pnpm store,
   which `package` and `e2e` save too, so `main` skips them.
-- `docker` builds the images, saving their layers.
+- `docker` builds the auth and web images, saving their layers. It skips the
+  docs image, which caches none.
 - The jobs that restore a Rust cache build only when no cache is saved under
   their current key, as after a dependency or toolchain change, or after GitHub
   evicts an unused cache. Then they build without testing. `package` and
