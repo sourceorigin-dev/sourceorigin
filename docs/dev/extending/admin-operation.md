@@ -95,12 +95,13 @@ its message says what to fix, its `reason()` names it, and its arm in
 
 ## 3. Record its event
 
-Add the event to `DomainEvent` in `crates/common/src/events/mod.rs`. It holds
-only typed IDs, enums and timestamps; anything that identifies a person is
-`Personal<T>`. The compiler then asks for its arms:
+Add the event to `DomainEvent` in `crates/common/src/events/mod.rs`, with the
+name it is stored under in its `#[serde(rename = "…")]`. That name never
+changes, and `DomainEvent::kind` returns it. The event holds only typed IDs,
+enums and timestamps; anything that identifies a person is `Personal<T>`. The
+compiler then asks for its arms:
 
-- `DomainEvent::kind`, the name it is stored under, which never changes, and
-  `client_id` and `session_id`, the IDs stored in columns of their own;
+- `client_id` and `session_id`, the IDs stored in columns of their own;
 - `DomainEvent::history_entry` (`crates/common/src/events/history.rs`): whether
   the owner sees it in their security history. An entry also needs its
   `HistoryEntry` variant and its text in `crates/ui/src/settings/timeline.rs`;

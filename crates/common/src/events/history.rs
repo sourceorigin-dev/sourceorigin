@@ -220,41 +220,7 @@ impl DomainEvent {
     }
 }
 
-/// Declares [`HistoryEntry`] with each variant's `kind` written once, in its serde
-/// rename, so [`HistoryEntry::kind`] always returns what the entry serializes as.
-macro_rules! history_entry {
-    (
-        $(#[$meta:meta])*
-        pub enum $name:ident {
-            $(
-                $(#[doc = $doc:literal])*
-                #[serde(rename = $kind:literal)]
-                $variant:ident $({ $($fields:tt)* })? $(( $($tuple:tt)* ))?
-            ),* $(,)?
-        }
-    ) => {
-        $(#[$meta])*
-        pub enum $name {
-            $(
-                $(#[doc = $doc])*
-                #[serde(rename = $kind)]
-                $variant $({ $($fields)* })? $(( $($tuple)* ))?
-            ),*
-        }
-
-        impl $name {
-            /// The entry's stable `kind`, e.g. `passkey.added`, as it serializes.
-            #[must_use]
-            pub const fn kind(&self) -> &'static str {
-                match self {
-                    $(Self::$variant { .. } => $kind,)*
-                }
-            }
-        }
-    };
-}
-
-history_entry! {
+tagged_enum! {
 /// What an entry of an account's security history says happened, serialized as a
 /// stable `kind` with its details beside it, e.g.
 /// `{"kind": "passkey.added", "passkey_id": …}`. Built by
@@ -429,6 +395,9 @@ pub enum HistoryEntry {
     #[serde(rename = "account.restored")]
     AccountRestored,
 }
+
+/// The entry's stable `kind`, e.g. `passkey.added`, as it serializes.
+fn kind;
 }
 
 impl HistoryEntry {
