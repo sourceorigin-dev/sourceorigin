@@ -151,11 +151,9 @@ async fn a_probation_sign_in_short_of_the_target_answers_the_client() {
     let credential = Credential::Probation(ProbationPasskey::of(&stored).expect("probation"));
     let user_id = flow.user_id;
     let probation_sign_in = || async {
-        let mut tx = database.begin().await.expect("transaction");
-        let session = Session::create(&mut tx, RequestContext::TEST, user_id, credential).await;
-        tx.commit().await.expect("commit");
-        let cookie = BrowserCookie::Session.as_str();
-        format!("{cookie}={}", session.expect("session").encoded())
+        Browser::sign_in_by(&database, RequestContext::TEST, user_id, credential)
+            .await
+            .cookie
     };
     let before_the_request = probation_sign_in().await;
     let response = flow

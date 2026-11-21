@@ -91,8 +91,7 @@ impl Harness {
 
     /// Creates an account signed in by `method`.
     pub(crate) async fn signed_in(&self, method: AuthenticationMethod) -> Account {
-        let suffix = TokenId::new().to_string();
-        let user_id = self.named(&format!("admin-{}", &suffix[24..])).await;
+        let user_id = self.database.users().insert_named("admin").await;
         let browser = Browser::sign_in_with(&self.database, user_id, method).await;
         Account {
             user_id,

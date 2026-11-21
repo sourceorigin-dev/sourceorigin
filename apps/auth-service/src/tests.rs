@@ -13,7 +13,7 @@ use crate::{
     invitations::InvitationLinks,
     recovery::RecoveryLinks,
     routes,
-    security::{BrowserCookie, RequestContext, Session},
+    security::{BrowserCookie, Credential, RequestContext, Session},
 };
 use axum::{
     Extension, Router,
@@ -25,8 +25,7 @@ use axum::{
 use chrono::{Duration, Utc};
 use serde_json::Value;
 use sourceorigin_common::{
-    AuthenticationMethod, ClientId, EmailId, Handle, PasskeyId, Provider, SessionId, TokenId,
-    UserId,
+    AuthenticationMethod, ClientId, EmailId, PasskeyId, Provider, SessionId, TokenId, UserId,
     clients::{
         AllowedScopes, ClientField, ClientKind, ClientOwner, ClientRegistration, PostLogoutUris,
         RedirectUris, ScopeName,
@@ -203,11 +202,7 @@ impl Replicas {
 
     /// Connects a new pool to the migrated test database.
     pub(crate) async fn database() -> Database {
-        let database = Database::connect(Self::database_config(5))
-            .await
-            .expect("database");
-        database.run_migrations().await.expect("migrations");
-        database
+        Database::test().await
     }
 
     /// A pool of up to `connections` to the test database, such as a fixture
@@ -244,18 +239,12 @@ pub(crate) struct Browser {
 impl Browser {
     /// Creates an account and signs a browser in to it with a passkey.
     pub(crate) async fn new_account(database: &Database) -> Self {
-        let user_id = UserId::new();
-        database
-            .users()
-            .insert(&InsertUser {
-                id: user_id,
-                handle: Handle::parse(&format!("browser-{}", &user_id.to_string()[24..]))
-                    .expect("handle"),
-                display_name: "Browser test".into(),
-            })
-            .await
-            .expect("user");
-        Self::sign_in(database, user_id).await
+        let account = InsertUser {
+            display_name: "Browser test".into(),
+            ..InsertUser::named("browser")
+        };
+        database.users().insert(&account).await.expect("user");
+        Self::sign_in(database, account.id).await
     }
 
     /// A browser with no session.
@@ -280,8 +269,19 @@ impl Browser {
         user_id: UserId,
         method: AuthenticationMethod,
     ) -> Self {
+        Self::sign_in_by(database, RequestContext::TEST, user_id, method.into()).await
+    }
+
+    /// Signs another browser in to `user_id` from `context` with `credential`,
+    /// such as a given passkey, or a recovery's probation passkey.
+    pub(crate) async fn sign_in_by(
+        database: &Database,
+        context: RequestContext,
+        user_id: UserId,
+        credential: Credential,
+    ) -> Self {
         let mut tx = database.begin().await.expect("transaction");
-        let secret = Session::create(&mut tx, RequestContext::TEST, user_id, method.into())
+        let secret = Session::create(&mut tx, context, user_id, credential)
             .await
             .expect("session");
         let session_id = tx

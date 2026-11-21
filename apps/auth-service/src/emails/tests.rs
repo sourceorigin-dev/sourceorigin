@@ -2,10 +2,10 @@
 //! verification link works, and what an address another account owns gets.
 
 use super::*;
-use crate::security::{BrowserCookie, Session, tests::assert_step_up_required};
+use crate::security::tests::assert_step_up_required;
 use crate::{
     account::AccountApplication,
-    tests::{AUTH_ORIGIN, MAX_RESPONSE_BYTES, Replicas},
+    tests::{AUTH_ORIGIN, Browser, MAX_RESPONSE_BYTES, Replicas},
 };
 use axum::{
     body::{Body, to_bytes},
@@ -13,8 +13,8 @@ use axum::{
     response::Response,
 };
 use serde_json::{Value, json};
-use sourceorigin_common::{AuthenticationMethod, Handle};
-use sourceorigin_repository::{DeliverySummary, InsertUser};
+use sourceorigin_common::AuthenticationMethod;
+use sourceorigin_repository::DeliverySummary;
 use std::net::{IpAddr, Ipv6Addr};
 use tower::ServiceExt;
 
@@ -59,25 +59,11 @@ impl Harness {
     /// Creates an account and signs a browser in to it with `method`. Only a
     /// passkey sign-in confirms the session.
     async fn account(&self, method: AuthenticationMethod) -> Account {
-        let user_id = UserId::new();
-        self.database
-            .users()
-            .insert(&InsertUser {
-                id: user_id,
-                handle: Handle::parse(&format!("email-{}", &user_id.to_string()[24..]))
-                    .expect("handle"),
-                display_name: "Email test".into(),
-            })
-            .await
-            .expect("user");
-        let mut tx = self.database.begin().await.expect("transaction");
-        let secret = Session::create(&mut tx, self.context, user_id, method.into())
-            .await
-            .expect("session");
-        tx.commit().await.expect("commit");
+        let user_id = self.database.users().insert_named("email").await;
+        let browser = Browser::sign_in_by(&self.database, self.context, user_id, method.into());
         Account {
             user_id,
-            cookie: format!("{}={}", BrowserCookie::Session.as_str(), secret.encoded()),
+            cookie: browser.await.cookie,
         }
     }
 

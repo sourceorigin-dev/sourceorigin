@@ -12,7 +12,7 @@ use super::{
 };
 use crate::{
     account::AccountApplication,
-    tests::{pending_sign_in, unusable_passkey},
+    tests::{Browser, pending_sign_in, unusable_passkey},
 };
 use axum::{
     Json,
@@ -20,9 +20,9 @@ use axum::{
     http::{HeaderValue, Method, Request, StatusCode, header},
     routing::post,
 };
-use sourceorigin_common::{Handle, PasskeyId};
+use sourceorigin_common::PasskeyId;
 use sourceorigin_crypto::Secret;
-use sourceorigin_repository::{DatabaseTransaction, InsertUser, InsertVerifiedEmail};
+use sourceorigin_repository::{DatabaseTransaction, InsertVerifiedEmail};
 use tower::ServiceExt;
 
 /// Isolated database fixture with replaceable provider endpoints and unique subjects.
@@ -183,17 +183,8 @@ impl TestApp {
     }
     /// Creates a unique account with optional verified email and passkey.
     async fn user(&self, email: Option<&str>, with_key: bool) -> UserId {
-        let id = UserId::new();
         let mut tx = self.app.database.begin().await.expect("transaction");
-        tx.users()
-            .insert(&InsertUser {
-                id,
-                handle: Handle::parse(&format!("fed-{}", &TokenId::new().to_string()[24..]))
-                    .expect("handle"),
-                display_name: "Federation Test".into(),
-            })
-            .await
-            .expect("user");
+        let id = tx.users().insert_named("fed").await;
         if let Some(email) = email {
             tx.emails()
                 .insert_verified(&InsertVerifiedEmail {
@@ -255,29 +246,17 @@ impl TestApp {
     }
     /// Creates a social browser session, optionally confirmed with a passkey now.
     async fn session(&self, user_id: UserId, confirmed: bool) -> (SessionId, String) {
-        let mut tx = self.app.database.begin().await.expect("transaction");
-        let cookie = security::Session::create(
-            &mut tx,
-            security::RequestContext::TEST,
-            user_id,
-            AuthenticationMethod::Federation.into(),
-        )
-        .await
-        .expect("session");
-        let raw = format!("{}={}", BrowserCookie::Session.as_str(), cookie.encoded());
-        tx.commit().await.expect("commit");
-        let session = security::Session::required(&self.app.database, &Self::cookies(&raw))
-            .await
-            .expect("active session");
+        let database = &self.app.database;
+        let browser =
+            Browser::sign_in_with(database, user_id, AuthenticationMethod::Federation).await;
         if confirmed {
-            self.app
-                .database
+            database
                 .sessions()
-                .confirm_passkey(session.id, PasskeyId::new(), chrono::Utc::now())
+                .confirm_passkey(browser.session_id, PasskeyId::new(), chrono::Utc::now())
                 .await
                 .expect("confirm");
         }
-        (session.id, raw)
+        (browser.session_id, browser.cookie)
     }
     /// The headers of a browser sending the `cookie` pairs.
     fn cookies(cookie: &str) -> HeaderMap {

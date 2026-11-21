@@ -16,8 +16,7 @@ use sourceorigin_common::{
 };
 use sourceorigin_crypto::Secret;
 use sourceorigin_repository::{
-    DraftedAnnouncement, InsertInvitation, InsertRecovery, InsertUnverifiedEmail, InsertUser,
-    Recipients,
+    DraftedAnnouncement, InsertInvitation, InsertRecovery, InsertUnverifiedEmail, Recipients,
 };
 use std::{
     net::{IpAddr, Ipv6Addr},
@@ -52,19 +51,10 @@ impl Mailer for Arc<Outbox> {
     }
 }
 
-/// Creates an account on `database`, named after its ID.
-async fn account(database: &Database) -> UserId {
-    let user_id = UserId::new();
-    database
-        .users()
-        .insert(&InsertUser {
-            id: user_id,
-            handle: Handle::parse(&format!("mail-{}", &user_id.to_string()[24..])).expect("handle"),
-            display_name: "Mail test".into(),
-        })
-        .await
-        .expect("user");
-    user_id
+/// The handle `user_id`'s account holds.
+async fn stored_handle(database: &Database, user_id: UserId) -> Handle {
+    let account = database.users().find_by_id(user_id).await.expect("read");
+    account.expect("account").handle
 }
 
 /// Starts recovering `user_id` with a token from `links`, and returns the
@@ -151,7 +141,7 @@ impl Outbox {
 async fn retries_resend_the_same_message_to_the_current_address() {
     let database = Replicas::database().await;
     let config = EmailConfig::test(&AUTH_ORIGIN.parse().expect("auth origin"), true);
-    let user_id = account(&database).await;
+    let user_id = database.users().insert_named("mail").await;
     let email_id = EmailId::new();
     let token = config.verification_keys.token(email_id);
     database
@@ -196,10 +186,7 @@ async fn retries_resend_the_same_message_to_the_current_address() {
     else {
         panic!("a verification message has a link");
     };
-    assert_eq!(
-        handle.as_str(),
-        format!("mail-{}", &user_id.to_string()[24..])
-    );
+    assert_eq!(handle, stored_handle(&database, user_id).await);
     assert_eq!(
         link,
         format!(
@@ -314,7 +301,7 @@ async fn a_verification_link_survives_a_change_of_key() {
 async fn a_recovery_link_is_sent_while_it_works() {
     let database = Replicas::database().await;
     let mut config = EmailConfig::test(&AUTH_ORIGIN.parse().expect("auth origin"), true);
-    let user_id = account(&database).await;
+    let user_id = database.users().insert_named("mail").await;
     let address = format!("{user_id}@example.com");
     let email_id = verified_address(&database, user_id, &address, true).await;
     // Started under a key that a change of token digest key made the accepted
@@ -344,10 +331,7 @@ async fn a_recovery_link_is_sent_while_it_works() {
         panic!("a recovery's link has a recipient");
     };
     assert_eq!(to, address);
-    assert_eq!(
-        handle.as_str(),
-        format!("mail-{}", &user_id.to_string()[24..])
-    );
+    assert_eq!(handle, stored_handle(&database, user_id).await);
     assert_eq!(
         url,
         before.url(&token).as_str(),
@@ -461,7 +445,7 @@ async fn an_invitation_is_mailed_while_it_is_open() {
 async fn recovery_notices_link_to_the_undo_page() {
     let database = Replicas::database().await;
     let config = EmailConfig::test(&AUTH_ORIGIN.parse().expect("auth origin"), true);
-    let user_id = account(&database).await;
+    let user_id = database.users().insert_named("mail").await;
     let address = format!("{user_id}@example.com");
     let email_id = verified_address(&database, user_id, &address, true).await;
     let (recovery_id, _) = recover(&database, user_id, &config.recovery_links).await;
@@ -516,7 +500,7 @@ async fn recovery_notices_link_to_the_undo_page() {
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn notifications_are_emailed_to_the_addresses_their_kind_names() {
     let database = Replicas::database().await;
-    let user_id = account(&database).await;
+    let user_id = database.users().insert_named("mail").await;
     let primary =
         verified_address(&database, user_id, &format!("{user_id}@example.com"), true).await;
     let other = verified_address(
@@ -585,7 +569,7 @@ async fn notifications_are_emailed_to_the_addresses_their_kind_names() {
     );
     assert_eq!(emailed(other).await, [removed, recovered, started]);
 
-    let unaddressed = account(&database).await;
+    let unaddressed = database.users().insert_named("mail").await;
     record(unaddressed, DomainEvent::AccountEnabled {}).await;
     let unread = database.notifications().unread(unaddressed).await;
     assert_eq!(unread.expect("unread"), 1, "the inbox has it");
@@ -614,7 +598,7 @@ async fn a_raised_alert_notifies_active_administrators() {
     };
     let database = Replicas::database().await;
     let addressed = async || {
-        let user_id = account(&database).await;
+        let user_id = database.users().insert_named("mail").await;
         let primary =
             verified_address(&database, user_id, &format!("{user_id}@example.com"), true).await;
         let other = format!("other-{user_id}@example.com");
@@ -683,7 +667,7 @@ async fn a_raised_alert_notifies_active_administrators() {
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn an_alerts_email_links_the_dashboard() {
     let database = Replicas::database().await;
-    let user_id = account(&database).await;
+    let user_id = database.users().insert_named("mail").await;
     let config = EmailConfig::test(&AUTH_ORIGIN.parse().expect("auth origin"), true);
     let message = EmailMessage::Notification {
         address: format!("{user_id}@example.com"),
@@ -722,7 +706,7 @@ async fn an_alerts_email_links_the_dashboard() {
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn security_emails_carry_the_sign_out_link() {
     let database = Replicas::database().await;
-    let user_id = account(&database).await;
+    let user_id = database.users().insert_named("mail").await;
     let config = EmailConfig::test(&AUTH_ORIGIN.parse().expect("auth origin"), true);
     let sender = EmailSender::with_mailer(database.clone(), None::<Arc<Outbox>>, &config);
     let notification_id = NotificationId::new();
@@ -775,7 +759,7 @@ async fn security_emails_carry_the_sign_out_link() {
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn announcement_emails_offer_unsubscribing_unless_essential() {
     let database = Replicas::database().await;
-    let user_id = account(&database).await;
+    let user_id = database.users().insert_named("mail").await;
     verified_address(&database, user_id, &format!("{user_id}@example.com"), true).await;
     let sent = async |essential| {
         let id = AnnouncementId::new();
@@ -850,7 +834,7 @@ async fn announcement_emails_offer_unsubscribing_unless_essential() {
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn a_messages_email_is_its_preview() {
     let database = Replicas::database().await;
-    let user_id = account(&database).await;
+    let user_id = database.users().insert_named("mail").await;
     let origin: Origin = AUTH_ORIGIN.parse().expect("origin");
     let config = EmailConfig::test(&origin, true);
     let letter = Letter::new(
