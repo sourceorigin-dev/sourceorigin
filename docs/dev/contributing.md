@@ -22,7 +22,13 @@ A feature reaches every surface it applies to:
 - the admin dashboard, at `admin.sourceorigin.dev`;
 - the Rust and TypeScript SDKs, which share
   [test vectors](testing.md#sdk-test-vectors);
+- for what an account holds, its history, its data export and its purge;
+- the browser tests' accessibility pass, for a new page;
 - the documentation, in the [user guide](../user/introduction.md) and this one.
+
+Every way in needs a way out and a way to see it, on the same surfaces: create
+needs delete, enable needs disable, grant needs revoke, and each state shows
+where people look for it.
 
 An admin operation may stay CLI-only only with a documented reason next to its
 arm in `AdminApplication::page()` (`apps/auth-service/src/web/admin/mod.rs`), as
