@@ -232,10 +232,12 @@ merge queue start from, since GitHub lets every branch read `main`'s caches:
 - `docker` builds the images, saving their layers.
 - The jobs that restore a Rust cache build only when no cache is saved under
   their current key, as after a dependency or toolchain change, or after GitHub
-  evicts an unused cache. Then they build without testing: `rust` runs
-  `just coverage-build` and `just db check`, `rust-lint` compiles the doc tests
-  without running them, `e2e` builds the binaries without starting the browser
-  suite, and `infra` installs piquelctl without checking the manifests.
+  evicts an unused cache. Then they build without testing. `package` and
+  `msrv` run as usual, since they only build. `rust-lint` runs Clippy and
+  rustdoc, and compiles the doc tests without running them. `rust` runs
+  `just coverage-build` and `just db check`, `e2e` builds the binaries without
+  starting the browser suite, and `infra` installs piquelctl without checking
+  the manifests.
 
 A commit's coverage report is in its merge queue run.
 

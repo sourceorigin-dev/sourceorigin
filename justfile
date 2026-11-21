@@ -77,8 +77,9 @@ test *ARGS='--workspace':
 doc:
     @RUSTDOCFLAGS='-D warnings' cargo doc --locked --workspace --no-deps
 
-# Extra arguments go to the doc tests; CI's pushes to main pass `--list` to
-# compile them without running them.
+# CI's pushes to main pass `--list`, which compiles the merged doc tests
+# without running them; one that can't be merged compiles only when it runs.
+# Run the doc tests; extra arguments go to them.
 [positional-arguments]
 doc-test *ARGS:
     @cargo test --locked --doc --workspace -- "$@"

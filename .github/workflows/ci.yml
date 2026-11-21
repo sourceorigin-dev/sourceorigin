@@ -35,7 +35,7 @@
 #
 # Rust caches, and the Rust images' layers, are saved from main only: GitHub
 # scopes a cache to the branch that saved it, and every other branch, the
-# queue's included, can read main's. A branch so never evicts main's caches
+# queue's included, can read main's. So a branch never evicts main's caches
 # with copies no other branch can read. pnpm's small store cache is saved
 # whenever its lockfile hash is new.
 #
