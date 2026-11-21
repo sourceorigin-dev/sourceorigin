@@ -227,13 +227,15 @@ skipped. It is the one check the merge queue waits for.
 doesn't test it again. It only refreshes the caches that pull requests and the
 merge queue start from, since GitHub lets every branch read `main`'s caches:
 
-- `checks`, `web` and `docs` save no cache of their own, so `main` skips them.
+- `checks` and `docs` save no cache, and `web` saves only the pnpm store,
+  which `package` and `e2e` save too, so `main` skips them.
 - `docker` builds the images, saving their layers.
-- The Rust jobs build only when their cache's key changed, as after a
-  dependency or toolchain change: an unchanged key keeps the cache it has. Then
-  `rust` runs `just coverage-build` and `just db check`, which compile what its
-  tests do without running them, and `e2e` builds the binaries without starting
-  the browser suite.
+- The jobs that restore a Rust cache build only when no cache is saved under
+  their current key, as after a dependency or toolchain change, or after GitHub
+  evicts an unused cache. Then they build without testing: `rust` runs
+  `just coverage-build` and `just db check`, `rust-lint` compiles the doc tests
+  without running them, `e2e` builds the binaries without starting the browser
+  suite, and `infra` installs piquelctl without checking the manifests.
 
 A commit's coverage report is in its merge queue run.
 

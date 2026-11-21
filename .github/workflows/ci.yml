@@ -40,11 +40,12 @@
 # whenever its lockfile hash is new.
 #
 # Main receives the very commit the queue tested, so pushes to main test
-# nothing again: they only refresh the caches. They skip the jobs that save no
-# cache and every step marked `if: *tests`. rust-cache saves only when the key
-# it restored differs, as after a dependency or toolchain change, so a Rust
-# step marked `if: *builds` runs on main only then. The images' layers are
-# saved on every push.
+# nothing again: they only refresh the caches. They skip the jobs whose cache
+# another job saves too, or that save none, and every step marked
+# `if: *tests`. rust-cache saves only when no cache is saved under its current
+# key, as after a dependency or toolchain change or an eviction, so a step
+# marked `if: *builds` runs on main only then. The images' layers are saved on
+# every push.
 
 name: CI
 
@@ -197,7 +198,7 @@ jobs:
       - if: *builds
         run: just doc
       - if: *builds
-        run: just doc-test
+        run: just doc-test ${{ github.event_name == 'push' && '--list' || '' }}
 
   # Everything `just publish` does except uploading: packages each crate and
   # builds it from its package, as `cargo install` and crates.io would, then
@@ -274,6 +275,7 @@ jobs:
       # Every unit and database test, instrumented. Coverage is reported, not
       # enforced: per crate in the log, per line in the rust-coverage artifact.
       # cargo-llvm-cov adds the llvm-tools-preview component it needs.
+      #
       # Steps main skips: they test what the queue already tested.
       - if: &tests github.event_name != 'push'
         run: just coverage

@@ -77,8 +77,11 @@ test *ARGS='--workspace':
 doc:
     @RUSTDOCFLAGS='-D warnings' cargo doc --locked --workspace --no-deps
 
-doc-test:
-    @cargo test --locked --doc --workspace
+# Extra arguments go to the doc tests; CI's pushes to main pass `--list` to
+# compile them without running them.
+[positional-arguments]
+doc-test *ARGS:
+    @cargo test --locked --doc --workspace -- "$@"
 
 # The instrumented test build `coverage` runs and `coverage-build` compiles.
 llvm_cov := 'cargo llvm-cov nextest --locked --workspace'
