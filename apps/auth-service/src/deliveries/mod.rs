@@ -162,6 +162,15 @@ pub(crate) enum Failure {
 }
 
 impl DeliveryError {
+    /// A failure another attempt may get past, at the retry policy's own pace:
+    /// nothing, such as a receiver's `Retry-After`, asked for a particular wait.
+    pub(crate) const fn retryable(failure: Failure) -> Self {
+        Self::Retryable {
+            failure,
+            retry_after: None,
+        }
+    }
+
     /// What to record for a delivery's `attempts`th attempt, which failed with
     /// this error at `now`. A retry later than `expires` fails it instead.
     /// `jitter`, in `[0, 1)`, scales the backoff: a retry waits a random time up to
@@ -313,10 +322,7 @@ impl<S: Sender> Worker<S> {
         } else {
             tokio::time::timeout(SEND_TIMEOUT, sender.send(&delivery))
                 .await
-                .unwrap_or(Err(DeliveryError::Retryable {
-                    failure: Failure::Timeout,
-                    retry_after: None,
-                }))
+                .unwrap_or(Err(DeliveryError::retryable(Failure::Timeout)))
         };
         let outcome = match result {
             Ok(()) => DeliveryOutcome::Succeeded,
