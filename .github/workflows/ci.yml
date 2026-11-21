@@ -27,17 +27,21 @@
 #
 # Pull requests run only the jobs their changes can affect (see `changes`),
 # except `docs`: a change anywhere can break a link to it.
-# The merge queue, pushes to main and manual runs run everything: the queue
-# tests each pull request on top of the latest main before it merges, so two
-# pull requests that pass alone cannot break main together. `ci` is the single
-# status to require, and the queue waits for it: it fails if any job failed
-# and passes when the rest succeeded or were skipped. audit.yml audits new
-# advisories weekly.
+# The merge queue and manual runs run everything: the queue tests each pull
+# request on top of the latest main before it merges, so two pull requests that
+# pass alone cannot break main together. `ci` is the single status to require,
+# and the queue waits for it: it fails if any job failed and passes when the
+# rest succeeded or were skipped. audit.yml audits new advisories weekly.
 #
-# Rust caches, and the Rust images' layers, are saved from main only. Pull
-# requests restore main's caches, so a branch never evicts them with copies no
-# other branch can read. pnpm's small store cache is saved whenever its lockfile
-# hash is new.
+# Rust caches, and the Rust images' layers, are saved from main only: GitHub
+# scopes a cache to the branch that saved it, and every other branch, the
+# queue's included, can read main's. A branch so never evicts main's caches
+# with copies no other branch can read. pnpm's small store cache is saved
+# whenever its lockfile hash is new.
+#
+# Main receives the very commit the queue tested, so pushes to main test
+# nothing again: they only build what the caches keep, skipping every step
+# marked `if: *tested` and the jobs that compile nothing.
 
 name: CI
 
@@ -113,7 +117,7 @@ jobs:
   checks:
     name: checks
     needs: changes
-    if: needs.changes.outputs.rust == 'true' || needs.changes.outputs.deps == 'true'
+    if: github.event_name != 'push' && (needs.changes.outputs.rust == 'true' || needs.changes.outputs.deps == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -126,10 +130,11 @@ jobs:
       - if: needs.changes.outputs.deps == 'true'
         run: just rust audit
 
+  # Skipped on main, whose pnpm store cache `package` and `e2e` save.
   web:
     name: web
     needs: changes
-    if: needs.changes.outputs.web == 'true' || needs.changes.outputs.deps == 'true'
+    if: github.event_name != 'push' && (needs.changes.outputs.web == 'true' || needs.changes.outputs.deps == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -162,7 +167,9 @@ jobs:
   # Clippy, rustdoc and the doc tests, beside `rust`: its coverage builds an
   # instrumented copy of everything, in target/llvm-cov-target, which they cannot
   # reuse. The doc tests reuse the dependencies Clippy compiled for build scripts
-  # and proc macros.
+  # and proc macros. Main still runs Clippy and the doc tests, which compile what
+  # the cache keeps: the doc tests are merged into one binary, which runs in
+  # about a second.
   rust-lint:
     name: rust-lint
     needs: changes
@@ -181,7 +188,9 @@ jobs:
           prefix-key: v1-rust
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: just rust lint
-      - run: just doc
+      # Steps main skips: they only test what the queue already tested.
+      - if: &tested github.event_name != 'push'
+        run: just doc
       - run: just doc-test
 
   # Everything `just publish` does except uploading: packages each crate and
@@ -255,8 +264,13 @@ jobs:
       # Every unit and database test, instrumented. Coverage is reported, not
       # enforced: per crate in the log, per line in the rust-coverage artifact.
       # cargo-llvm-cov adds the llvm-tools-preview component it needs.
-      - run: just coverage
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      - if: *tested
+        run: just coverage
+      # Main builds the same instrumented tests, and runs none of them.
+      - if: github.event_name == 'push'
+        run: cargo llvm-cov nextest --locked --workspace --no-report -E 'none()' --no-tests=pass
+      - if: *tested
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: rust-coverage
           path: target/lcov.info
@@ -264,7 +278,8 @@ jobs:
       # The database tests migrated TEST_DATABASE_URL, so a migration that
       # breaks a cached query fails here even if no test runs that query, as
       # does a cached query the code no longer uses.
-      - run: just db prepare-check
+      - if: *tested
+        run: just db prepare-check
 
   e2e:
     name: e2e
@@ -331,6 +346,7 @@ jobs:
       # `user recover`, which derives its link with the token digest key, share
       # them with the service.
       - name: Generate the keys
+        if: *tested
         run: |
           just auth generate-secret "$RUNNER_TEMP/key-encryption-key"
           just auth generate-secret "$RUNNER_TEMP/token-digest-key"
@@ -345,6 +361,7 @@ jobs:
       # The suite signs in through the public OIDC client from
       # tests/browser/README.md, whose origin has no server.
       - name: Start the auth service and sourceorigin.dev
+        if: *tested
         run: |
           cat > "$RUNNER_TEMP/Caddyfile" <<'EOF'
           {
@@ -370,8 +387,10 @@ jobs:
           curl -kfsS --retry 30 --retry-delay 1 --retry-all-errors "$E2E_WEB_URL/health"
       # The headless build matching the pinned Playwright, so runner image
       # updates cannot change the browser under test.
-      - run: pnpm exec playwright install --only-shell chromium
-      - run: just web test-browser
+      - if: *tested
+        run: pnpm exec playwright install --only-shell chromium
+      - if: *tested
+        run: just web test-browser
       - if: failure()
         run: |
           cat "$RUNNER_TEMP"/*.log || true
@@ -419,11 +438,13 @@ jobs:
       - *install-just
       - *rust-cache
       - run: cargo install --locked piquelctl
-      - run: just infra check
+      - if: *tested
+        run: just infra check
 
   # mdBook and lychee at the versions `just install-tools` installs.
   docs:
     name: docs
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -453,5 +474,5 @@ jobs:
     steps:
       - uses: re-actors/alls-green@b5b5b37504aa4183270bd3d855c52a67f212be35 # v1.3.0
         with:
-          allowed-skips: checks, web, rust, rust-lint, package, msrv, e2e, docker, infra
+          allowed-skips: checks, web, rust, rust-lint, package, msrv, e2e, docker, infra, docs
           jobs: ${{ toJSON(needs) }}

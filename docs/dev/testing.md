@@ -219,9 +219,18 @@ pull request, since a change anywhere can break a link to it. The `changes` job
 in [ci.yml](https://github.com/sourceorigin-dev/sourceorigin/blob/main/.github/workflows/ci.yml)
 has the exact filters.
 
-The merge queue, pushes to `main` and manual runs run every job. The `ci` check
-sums the others up: it fails if any job failed, and passes when the rest
-succeeded or were skipped. It is the one check the merge queue waits for.
+The merge queue and manual runs run every job. The `ci` check sums the others
+up: it fails if any job failed, and passes when the rest succeeded or were
+skipped. It is the one check the merge queue waits for.
+
+`main` receives the exact commit the merge queue tested, so a push to `main`
+doesn't test it again. It only builds, to save the Rust caches and the images'
+layers. GitHub lets every branch read `main`'s caches, so pull requests and the
+merge queue start from them. `checks`, `web` and `docs` save no cache of their
+own, so `main` skips them. `rust` builds its instrumented tests without running
+them, `e2e` builds the binaries without starting the browser suite, and `infra`
+installs piquelctl without checking the manifests. `rust-lint` still runs
+Clippy and the doc tests, since they are the compile it caches.
 
 Coverage is reported, never enforced. `rust` prints it per crate and uploads
 `target/lcov.info` as the `rust-coverage` artifact, and `just web test` prints
