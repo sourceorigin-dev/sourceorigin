@@ -9,9 +9,13 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
     routing::get,
 };
-use sourceorigin_common::{config::Origin, protocol::isolation};
+use sourceorigin_common::{
+    config::Origin,
+    protocol::headers::{self, ReferrerPolicy},
+};
 use sourceorigin_telemetry::HttpTelemetry;
 use sourceorigin_ui::{Asset, FONTS, Policies, STYLESHEET};
+use std::time::Duration;
 use topcoat::{
     context::Cx,
     view::{ViewExt, view},
@@ -29,10 +33,8 @@ const POLICY: &str = "default-src 'none'; style-src 'self'; font-src 'self'; \
 const ASSETS: [Asset; 4] = [STYLESHEET, FONTS[0], FONTS[1], FONTS[2]];
 
 /// How long browsers and shared caches may keep a page: they change only with a
-/// release. Like every `Cache-Control` value here, it forbids transforming the
-/// body: Cloudflare's Email Address Obfuscation would otherwise rewrite the
-/// policies' email links into a script the Content-Security-Policy blocks.
-const PAGE_CACHE: &str = "public, max-age=300, no-transform";
+/// release.
+const PAGE_MAX_AGE: Duration = Duration::from_mins(5);
 
 /// sourceorigin.dev, which relies on auth at `auth` only to sign people in.
 #[derive(Clone)]
@@ -87,10 +89,7 @@ impl Site {
         (
             [
                 (header::CONTENT_TYPE, asset.content_type()),
-                (
-                    header::CACHE_CONTROL,
-                    "public, max-age=31536000, immutable, no-transform",
-                ),
+                (header::CACHE_CONTROL, headers::CACHE_IMMUTABLE),
             ],
             asset.bytes(),
         )
@@ -136,11 +135,8 @@ impl Site {
         match html {
             Ok(html) => (
                 [
-                    (
-                        header::CONTENT_TYPE,
-                        HeaderValue::from_static("text/html; charset=utf-8"),
-                    ),
-                    (header::CACHE_CONTROL, HeaderValue::from_static(PAGE_CACHE)),
+                    (header::CONTENT_TYPE, "text/html; charset=utf-8".to_owned()),
+                    (header::CACHE_CONTROL, headers::cache_public(PAGE_MAX_AGE)),
                 ],
                 html.render(&cx),
             )
@@ -152,34 +148,26 @@ impl Site {
         }
     }
 
-    /// Adds the headers every answer carries, its Content-Security-Policy
-    /// included, and forbids caching any that did not choose: redirects and
-    /// errors.
+    /// Adds the security headers every answer carries and its
+    /// Content-Security-Policy, and forbids caching any that did not choose:
+    /// redirects and errors.
     fn secure(mut response: Response) -> Response {
         let headers = response.headers_mut();
-        // No other site may embed what it serves.
-        for (name, value) in isolation::headers(false) {
+        // No other site may embed what it serves, and links to apps carry no path
+        // of sourceorigin.dev.
+        for (name, value) in headers::security(false, ReferrerPolicy::Origin) {
             headers.insert(
                 HeaderName::from_static(name),
                 HeaderValue::from_static(value),
             );
         }
-        for (name, value) in [
-            (header::CONTENT_SECURITY_POLICY, POLICY),
-            // No MIME sniffing.
-            (header::X_CONTENT_TYPE_OPTIONS, "nosniff"),
-            // Links to apps carry no path of sourceorigin.dev.
-            (header::REFERRER_POLICY, "strict-origin-when-cross-origin"),
-            // No page may be framed.
-            (header::X_FRAME_OPTIONS, "DENY"),
-            // Keep later visits on HTTPS for a year.
-            (header::STRICT_TRANSPORT_SECURITY, "max-age=31536000"),
-        ] {
-            headers.insert(name, HeaderValue::from_static(value));
-        }
+        headers.insert(
+            header::CONTENT_SECURITY_POLICY,
+            HeaderValue::from_static(POLICY),
+        );
         headers
             .entry(header::CACHE_CONTROL)
-            .or_insert(HeaderValue::from_static("no-store, no-transform"));
+            .or_insert(HeaderValue::from_static(headers::CACHE_NO_STORE));
         response
     }
 }

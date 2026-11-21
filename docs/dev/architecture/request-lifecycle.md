@@ -255,7 +255,9 @@ errors and preflights included:
   `Cross-Origin-Opener-Policy: same-origin`, so a page of another site that opens
   sign-in or consent in a window keeps no handle on it. `Permissions-Policy`
   allows passkeys and writing to the clipboard, for the copy buttons, and turns
-  off every other powerful feature (`sourceorigin_common::protocol::isolation`).
+  off every other powerful feature. `sourceorigin_common::protocol::headers`
+  holds these headers, and sourceorigin.dev's web server sends them too, with its
+  own `Referrer-Policy`.
 - **`Cross-Origin-Resource-Policy`:** `cross-origin` for what other sites may
   embed or read, the responses with the public CORS grant, such as profile
   pictures, discovery and the keys, and `same-origin` for everything else: each
