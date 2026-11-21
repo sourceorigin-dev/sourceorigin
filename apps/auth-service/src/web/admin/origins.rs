@@ -3,7 +3,7 @@
 //! client's page lists its own.
 
 use super::{
-    AdminApplication as App, ReasonForm, Refusal, Refused,
+    AdminApplication as App, ReasonForm, ReasonPage, Refusal,
     clients::{self, Client},
 };
 use crate::{Reason, clients::MAX_RELATED_ORIGIN_DOMAINS, security::ApiError};
@@ -33,8 +33,7 @@ impl Query for OriginQuery {}
 /// sign users in with their passkeys, without sending them to auth's pages.
 #[route([GET, POST] "/clients/{client}/origins/approve")]
 pub(super) async fn approve(cx: &Cx, form: Option<Form<ApproveOrigin>>) -> Result<Response> {
-    let admin = App::admin(cx).await?;
-    App::confirm(cx, admin)?;
+    let admin = App::confirmed(cx).await?;
     let app = App::of(cx);
     let id = App::changing(cx, admin).await?.client.id;
     let back = href!(clients::detail, Client(id.clone())).resolve(cx);
@@ -82,34 +81,23 @@ pub(super) async fn approve(cx: &Cx, form: Option<Form<ApproveOrigin>>) -> Resul
 /// drop the origin from their copy of the list within five minutes.
 #[route([GET, POST] "/clients/{client}/origins/remove")]
 pub(super) async fn remove(cx: &Cx, form: Option<Form<ReasonForm>>) -> Result<Response> {
-    let admin = App::admin(cx).await?;
-    App::confirm(cx, admin)?;
+    let admin = App::confirmed(cx).await?;
     let service = &App::of(cx).service;
     let id = path_param::<Client>(cx)?.clone();
     let origin = query_params::<OriginQuery>(cx)?.origin.clone();
     let back = href!(clients::detail, Client(id.clone())).resolve(cx);
-    let refusal = App::submit_reason(cx, form, back.clone(), async |reason| {
+    let (shown, client) = (origin.to_string(), id.to_string());
+    let page = ReasonPage {
+        target: Some(Target {
+            name: &shown,
+            id: Some(&client),
+        }),
+        ..ReasonPage::new(Change::RemoveOrigin, &back)
+    };
+    App::reason_change(cx, form, page, back.clone(), async |reason| {
         service
             .remove_related_origin(&admin.operator, &id, &origin, reason)
             .await
     })
-    .await?;
-    let shown = origin.to_string();
-    let client = id.to_string();
-    let target = Target {
-        name: &shown,
-        id: Some(&client),
-    };
-    let reason = refusal.as_ref().map(Refused::reason);
-    let refusal = refusal.as_deref();
-    let page = view! { cx =>
-        sourceorigin_ui::dashboard_change(
-            change: Change::RemoveOrigin,
-            target: target,
-            back: back.as_str(),
-            refusal: refusal,
-            reason: reason,
-        )
-    };
-    App::render(cx, StatusCode::OK, Change::RemoveOrigin.title(), page).await
+    .await
 }

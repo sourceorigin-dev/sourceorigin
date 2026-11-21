@@ -1,6 +1,6 @@
 //! Signing keys: listing, rotating, revoking and rewrapping them.
 
-use super::{AdminApplication as App, ReasonForm, Refused};
+use super::{AdminApplication as App, ReasonForm, ReasonPage};
 use crate::Reason;
 use serde::Deserialize;
 use sourceorigin_common::protocol::jwt::KeyId;
@@ -58,8 +58,7 @@ pub(super) async fn list(cx: &Cx) -> Result<Response> {
 /// `/keys/rotate`: publishes a new signing key, or makes it sign at once.
 #[route([GET, POST] "/keys/rotate")]
 pub(super) async fn rotate(cx: &Cx, form: Option<Form<Rotation>>) -> Result<Response> {
-    let admin = App::admin(cx).await?;
-    App::confirm(cx, admin)?;
+    let admin = App::confirmed(cx).await?;
     let app = App::of(cx);
     let back = href!(list).resolve(cx);
     let refused = App::submit(cx, form, back.clone(), |input: Rotation| async move {
@@ -83,60 +82,39 @@ pub(super) async fn rotate(cx: &Cx, form: Option<Form<Rotation>>) -> Result<Resp
 /// stored beside it, a new key signing instead.
 #[route([GET, POST] "/keys/{key}/revoke")]
 pub(super) async fn revoke(cx: &Cx, form: Option<Form<ReasonForm>>) -> Result<Response> {
-    let admin = App::admin(cx).await?;
-    App::confirm(cx, admin)?;
+    let admin = App::confirmed(cx).await?;
     let app = App::of(cx);
     let id = path_param::<Key>(cx)?.clone();
     let back = href!(list).resolve(cx);
-    let refused = App::submit_reason(cx, form, back.clone(), async |reason| {
+    let page = ReasonPage {
+        target: Some(Target {
+            name: "Signing key",
+            id: Some(id.as_str()),
+        }),
+        ..ReasonPage::new(Change::RevokeSigningKey, &back)
+    };
+    App::reason_change(cx, form, page, back.clone(), async |reason| {
         app.service
             .revoke_signing_key(&admin.operator, &app.keys, &id, reason)
             .await
             .map(drop)
     })
-    .await?;
-    let target = Target {
-        name: "Signing key",
-        id: Some(id.as_str()),
-    };
-    let reason = refused.as_ref().map(Refused::reason);
-    let refused = refused.as_deref();
-    let page = view! { cx =>
-        sourceorigin_ui::dashboard_change(
-            change: Change::RevokeSigningKey,
-            target: target,
-            back: back.as_str(),
-            refusal: refused,
-            reason: reason,
-        )
-    };
-    App::render(cx, StatusCode::OK, Change::RevokeSigningKey.title(), page).await
+    .await
 }
 
 /// `/keys/rewrap`: seals every signing key again under the current key-encryption
 /// key, after a change of key-encryption key.
 #[route([GET, POST] "/keys/rewrap")]
 pub(super) async fn rewrap(cx: &Cx, form: Option<Form<ReasonForm>>) -> Result<Response> {
-    let admin = App::admin(cx).await?;
-    App::confirm(cx, admin)?;
+    let admin = App::confirmed(cx).await?;
     let app = App::of(cx);
     let back = href!(list).resolve(cx);
-    let refused = App::submit_reason(cx, form, back.clone(), async |reason| {
+    let page = ReasonPage::new(Change::RewrapSigningKeys, &back);
+    App::reason_change(cx, form, page, back.clone(), async |reason| {
         app.service
             .rewrap_signing_keys(&admin.operator, &app.keys, reason)
             .await
             .map(drop)
     })
-    .await?;
-    let reason = refused.as_ref().map(Refused::reason);
-    let refused = refused.as_deref();
-    let page = view! { cx =>
-        sourceorigin_ui::dashboard_change(
-            change: Change::RewrapSigningKeys,
-            back: back.as_str(),
-            refusal: refused,
-            reason: reason,
-        )
-    };
-    App::render(cx, StatusCode::OK, Change::RewrapSigningKeys.title(), page).await
+    .await
 }
