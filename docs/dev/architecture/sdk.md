@@ -392,7 +392,9 @@ sibling site's under the same domain: any `*.sourceorigin.dev` page could post t
 its signed-in user. So logout, and every request that is not `GET`, `HEAD`, `OPTIONS`
 or `TRACE` to a handler reading the session, are accepted only from the app's own
 pages: `Sec-Fetch-Site: same-origin` when the browser sends it, and otherwise an
-`Origin` equal to the app's, which `null` never is. Anything else gets 403 before
+`Origin` equal to the app's redirect URI's. `null` never matches, not even when the
+redirect URI has an opaque origin, such as `com.example.app:/callback`, which
+serializes as `null` too. Anything else gets 403 before
 the session is read, with or without a cookie, so handlers need no CSRF token. A form
 on a page with `Referrer-Policy: no-referrer` sends `Origin: null` with
 `Sec-Fetch-Site: same-origin`, so it is accepted. Safe methods must not change

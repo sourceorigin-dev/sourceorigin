@@ -168,6 +168,7 @@ impl Vectors {
             "tokens",
             "challenges",
             "callbacks",
+            "same-origin",
             "sessions",
             "cookie-keys",
         ]
@@ -1302,6 +1303,102 @@ impl Vectors {
         }
     }
 
+    /// Same-origin cases: whether a browser request with these `Sec-Fetch-Site` and
+    /// `Origin` headers comes from the pages of an app whose redirect URI is
+    /// `redirect_uri`, the CSRF check of logout and of reading a session.
+    fn same_origin(&mut self) {
+        let app = "https://client.example.com/callback";
+        let opaque = "com.example.notes:/callback";
+        for (name, description, redirect_uri, fetch_site, origin, own) in [
+            (
+                "no-referrer-form",
+                "a form on a no-referrer page sends Origin: null, and Sec-Fetch-Site decides",
+                app,
+                Some("same-origin"),
+                Some("null"),
+                true,
+            ),
+            (
+                "fetch-site-only",
+                "Sec-Fetch-Site: same-origin is enough without Origin",
+                app,
+                Some("same-origin"),
+                None,
+                true,
+            ),
+            (
+                "origin-only",
+                "without Sec-Fetch-Site, an Origin equal to the app's is accepted",
+                app,
+                None,
+                Some("https://client.example.com"),
+                true,
+            ),
+            (
+                "same-site",
+                "Sec-Fetch-Site: same-site is refused, whatever Origin says",
+                app,
+                Some("same-site"),
+                Some("https://client.example.com"),
+                false,
+            ),
+            (
+                "cross-site",
+                "Sec-Fetch-Site: cross-site is refused, whatever Origin says",
+                app,
+                Some("cross-site"),
+                Some("https://client.example.com"),
+                false,
+            ),
+            (
+                "origin-null",
+                "without Sec-Fetch-Site, Origin: null is refused",
+                app,
+                None,
+                Some("null"),
+                false,
+            ),
+            (
+                "no-headers",
+                "a request with neither header is refused",
+                app,
+                None,
+                None,
+                false,
+            ),
+            (
+                "sibling-origin",
+                "a sibling under the same domain is another origin",
+                app,
+                None,
+                Some("https://evil.client.example.com"),
+                false,
+            ),
+            (
+                "opaque-origin-null",
+                "an opaque redirect URI's origin serializes as null but matches nothing",
+                opaque,
+                None,
+                Some("null"),
+                false,
+            ),
+        ] {
+            self.case(
+                &format!("same-origin/{name}.json"),
+                &Case {
+                    description,
+                    now: None,
+                    input: json!({
+                        "redirect_uri": redirect_uri,
+                        "sec_fetch_site": fetch_site,
+                        "origin": origin,
+                    }),
+                    expected: Expected::ok(&own),
+                },
+            );
+        }
+    }
+
     /// Session cookie cases: the session a `Cookie` header holds for the fixture
     /// client, sealed with [`COOKIE_KEY`]. They are sealed here with OpenSSL, apart
     /// from any SDK's own code, and a fixed nonce, so they are reproducible.
@@ -1589,6 +1686,7 @@ fn sdk_vectors_are_current() {
     vectors.tokens();
     vectors.challenges();
     vectors.callbacks();
+    vectors.same_origin();
     vectors.sessions();
     vectors.cookie_keys();
     vectors.finish();

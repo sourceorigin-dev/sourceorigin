@@ -1,0 +1,11 @@
+{
+  "description": "without Sec-Fetch-Site, an Origin equal to the app's is accepted",
+  "input": {
+    "origin": "https://client.example.com",
+    "redirect_uri": "https://client.example.com/callback",
+    "sec_fetch_site": null
+  },
+  "expected": {
+    "ok": true
+  }
+}

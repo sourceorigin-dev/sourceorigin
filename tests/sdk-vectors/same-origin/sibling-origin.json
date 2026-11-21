@@ -1,0 +1,11 @@
+{
+  "description": "a sibling under the same domain is another origin",
+  "input": {
+    "origin": "https://evil.client.example.com",
+    "redirect_uri": "https://client.example.com/callback",
+    "sec_fetch_site": null
+  },
+  "expected": {
+    "ok": false
+  }
+}

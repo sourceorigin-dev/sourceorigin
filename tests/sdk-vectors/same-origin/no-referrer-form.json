@@ -1,0 +1,11 @@
+{
+  "description": "a form on a no-referrer page sends Origin: null, and Sec-Fetch-Site decides",
+  "input": {
+    "origin": "null",
+    "redirect_uri": "https://client.example.com/callback",
+    "sec_fetch_site": "same-origin"
+  },
+  "expected": {
+    "ok": true
+  }
+}
