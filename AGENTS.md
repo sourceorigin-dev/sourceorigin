@@ -91,7 +91,7 @@ where people look for it.
 Every admin operation is an `AdminOperation`: `AdminApplication::page()`
 (`apps/auth-service/src/web/admin/mod.rs`) fails to compile until it maps it to
 a dashboard page or `None`, and the CLI's `every_operation_has_its_command` test
-fails until a command runs it. An operation may stay CLI-only (`None`) only
+fails until a command names it. An operation may stay CLI-only (`None`) only
 with a documented reason next to its arm, as `PurgeUser`, `ApplyClient` and
 `PruneAuditChain` have.
 
