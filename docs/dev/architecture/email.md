@@ -10,7 +10,7 @@ anything under `apps/auth-service/src/emails` or the `email` delivery channel.
 | --- | --- |
 | `user_emails` | an account's addresses, each normalized, with when it was verified and whether it is primary |
 | `email_verification_secrets` | the SHA-256 digest of an unverified address's link token, and when it expires |
-| `active_verified_email_ownership` | one row per verified address of an active account, naming that account |
+| `verified_email_ownership` | one row per verified address, naming the account that holds it |
 
 Addresses are compared as `NormalizedEmail` (`sourceorigin_common::email`), whose rules
 [email normalization](../security/email-normalization.md) sets out.
@@ -20,13 +20,13 @@ The schema holds the invariants itself:
 - **One primary verified address per account**, by a unique partial index. The
   OIDC `email` claim reports that address, and an account without one has no
   `email` claim.
-- **A verified address belongs to one active account.** Triggers on `user_emails`
-  and on account status keep `active_verified_email_ownership` in step, and
-  verifying an address another active account verified fails as a unique
-  violation. Disabling an account releases its addresses, and enabling it again
-  fails if another account claimed one meanwhile. An account scheduled for
-  deletion keeps its verified addresses, so nobody claims them before it is
-  restored or purged.
+- **A verified address belongs to one account until it is purged.** Triggers
+  on `user_emails` keep `verified_email_ownership` in step, and verifying an
+  address another account verified fails as a unique violation, whatever that
+  account's status. A disabled account, or one scheduled for deletion, keeps its
+  verified addresses, so nobody can claim one before it is enabled, restored or
+  purged, and enabling or restoring it never collides. The purge deletes the
+  account's row, which releases them.
 - **An unverified address waits for its link.** Verifying it deletes its
   secret, under the account's lock. Once the link expires, the cleanup job deletes
   the address with its secret.

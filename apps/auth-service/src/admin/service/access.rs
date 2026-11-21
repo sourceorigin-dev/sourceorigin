@@ -32,9 +32,9 @@ impl AdminService {
     /// tracked signup link. With an `email`, its link is mailed there, and the
     /// account created with it starts with that address, verified; it is refused
     /// before anything is created while email is disabled, when the sender can't
-    /// send to the address, or when an active account already holds it verified.
-    /// Without one, its link is returned for the operator to pass on: only its
-    /// token's digest is stored, so it is never shown again.
+    /// send to the address, or when an account already holds it verified, even a
+    /// disabled one. Without one, its link is returned for the operator to pass
+    /// on: only its token's digest is stored, so it is never shown again.
     ///
     /// # Errors
     /// Fails when the operator may not make changes, the invitation cannot be
@@ -88,7 +88,8 @@ impl AdminService {
     }
 
     /// Mails an open invitation's link again, to the address it was mailed to,
-    /// for `reason`, unless an active account holds that address verified since.
+    /// for `reason`, unless an account holds that address verified since, even a
+    /// disabled one.
     /// The link and its expiry stay the same: to give more time, revoke it and
     /// invite again.
     pub(crate) async fn resend_invitation(
@@ -113,16 +114,18 @@ impl AdminService {
         Self::finish(tx, operator, &reason, None, vec![mailed]).await
     }
 
-    /// Refuses to mail an invitation to `email` while an active account holds it
-    /// verified: its owner signs in rather than signing up.
+    /// Refuses to mail an invitation to `email` while any account holds it
+    /// verified, whatever its status: its owner signs in rather than signing up,
+    /// and a disabled account keeps its addresses until it is purged, so the
+    /// account the invitation creates could never have it.
     async fn untaken(
         tx: &mut DatabaseTransaction<'_>,
         email: &NormalizedEmail,
     ) -> Result<(), AdminError> {
-        match tx.emails().find_active_verified(email.as_str()).await? {
-            Some(_) => Err(AdminError::InvitationAddressTaken),
-            None => Ok(()),
+        if tx.emails().is_owned(email.as_str(), None).await? {
+            return Err(AdminError::InvitationAddressTaken);
         }
+        Ok(())
     }
 
     /// The event mailing invitation `invitation_id` to `email`, which queues its

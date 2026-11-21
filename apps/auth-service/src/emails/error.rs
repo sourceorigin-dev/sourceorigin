@@ -52,7 +52,8 @@ pub(crate) enum EmailError {
     /// account.
     #[error("verification token is unknown, expired or used")]
     InvalidToken,
-    /// Another active account verified this address first.
+    /// Another account verified this address first; it keeps it until it is
+    /// purged, even while disabled.
     #[error("address is verified by another account")]
     OwnedElsewhere,
     /// Persistence failed.

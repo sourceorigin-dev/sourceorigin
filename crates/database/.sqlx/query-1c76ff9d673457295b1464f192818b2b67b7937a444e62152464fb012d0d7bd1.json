@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT EXISTS (\n                    SELECT 1 FROM active_verified_email_ownership\n                    WHERE normalized_email = $1 AND user_id <> $2\n                ) AS \"owned!\"",
+  "query": "SELECT EXISTS (\n                    SELECT 1 FROM verified_email_ownership\n                    WHERE normalized_email = $1 AND user_id IS DISTINCT FROM $2\n                ) AS \"owned!\"",
   "describe": {
     "columns": [
       {
@@ -19,5 +19,5 @@
       null
     ]
   },
-  "hash": "9f233de84352634ef8d6fec15bdb4090adf42c7adedb7fef7e9a12f70d74f98a"
+  "hash": "1c76ff9d673457295b1464f192818b2b67b7937a444e62152464fb012d0d7bd1"
 }

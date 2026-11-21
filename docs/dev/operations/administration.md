@@ -118,13 +118,13 @@ Its link stops working at once.
 - Mailing an invitation needs email enabled (`AUTH_SMTP_URL`). Without it, the
   dashboard's form asks for no **Email address**, and the terminal refuses
   `--email` before creating anything. A link to pass on still works.
-- An address an account already holds confirmed can't be invited: its owner
-  signs in instead.
+- An address an account already holds confirmed can't be invited, even when
+  that account is disabled: its owner signs in instead, once you enable it.
 - If another account confirms the address before the person signs up, the new
   account starts without it.
 - Only a mailed invitation can be sent again, and only while email is enabled:
   the dashboard offers **Resend** only then. It can't go to an address an
-  account has confirmed since.
+  account has confirmed since, even a disabled account.
 - Where signup is open, a signup that starts at GitHub or Google doesn't carry
   the invitation: the account is created without it, and without its address.
 
@@ -161,7 +161,8 @@ auth-service user enable alice --reason "Appealed by email"
 ```
 
 Disabling ends the account's sessions and refresh tokens, and it can't sign in
-until you enable it. On the dashboard, open the account, select **Disable** or
+until you enable it. It keeps its verified email addresses, so no other account
+can verify one of them meanwhile, and enabling it again always gets them back. On the dashboard, open the account, select **Disable** or
 **Enable**, and give a reason. The owner sees it in their security history, so
 write what was asked, never the evidence. Nobody can disable the last active
 administrator's account.
