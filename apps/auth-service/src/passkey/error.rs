@@ -1,5 +1,6 @@
 //! Passkey failures and their single conversion boundary to browser responses.
 
+use super::{DisplayName, PasskeyName};
 use crate::handles::HandlesError;
 use crate::security::{ApiError, SessionError};
 use sourceorigin_common::{InvalidValue, events::SignInFailure};
@@ -141,12 +142,8 @@ impl From<PasskeyError> for ApiError {
                  your account settings, or ask SourceOrigin support.",
                 PasskeyRepository::LIMIT
             )),
-            PasskeyError::InvalidDisplayName => {
-                Self::bad_request("Choose a display name of at most 80 characters.")
-            }
-            PasskeyError::InvalidPasskeyName => {
-                Self::bad_request("Choose a passkey name of at most 80 characters.")
-            }
+            PasskeyError::InvalidDisplayName => Self::bad_request(DisplayName::refusal()),
+            PasskeyError::InvalidPasskeyName => Self::bad_request(PasskeyName::refusal()),
             PasskeyError::InvitationRequired => Self::forbidden("A valid invitation is required."),
             PasskeyError::InvitationMissingAtFinish => Self::forbidden(
                 "This signup started before invitations were required. Start again with an invitation.",

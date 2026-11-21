@@ -11,11 +11,12 @@ const MAX_NAME_CHARS: usize = 80;
 /// Friendly name used when the browser omits a credential label.
 const DEFAULT_PASSKEY_NAME: &str = "Passkey";
 
-/// Declares a validated name type. `parse` trims a name from a request;
-/// deserializing keeps the stored text exactly and runs the same check, so stored
-/// ceremony state stays valid too.
+/// Declares a validated name type, called `$noun` in messages: not blank, no
+/// control characters, at most `MAX_NAME_CHARS` characters. `parse` trims a name
+/// from a request; deserializing keeps the stored text exactly and runs the same
+/// check, so stored ceremony state stays valid too.
 macro_rules! validated_name {
-    ($(#[$meta:meta])* $name:ident, $invalid:ident, $valid:expr) => {
+    ($(#[$meta:meta])* $name:ident, $invalid:ident, $noun:literal) => {
         $(#[$meta])*
         #[derive(Clone, Serialize, Deserialize)]
         #[serde(try_from = "String", into = "String")]
@@ -23,7 +24,16 @@ macro_rules! validated_name {
         impl $name {
             /// Whether `value` satisfies this name's rule.
             fn is_valid(value: &str) -> bool {
-                ($valid)(value)
+                !value.trim().is_empty()
+                    && value.chars().count() <= MAX_NAME_CHARS
+                    && !value.chars().any(char::is_control)
+            }
+            /// The message refusing a name, which states the whole rule.
+            pub(super) fn refusal() -> String {
+                format!(
+                    "Choose a {} of 1 to {MAX_NAME_CHARS} characters, without control characters.",
+                    $noun
+                )
             }
             /// Accepts a name from a request, trimmed, if it satisfies the rule.
             pub(crate) fn parse(value: &str) -> Result<Self, PasskeyError> {
@@ -56,16 +66,12 @@ macro_rules! validated_name {
 }
 
 validated_name! {
-    /// A display name: not blank, no control characters, at most `MAX_NAME_CHARS` characters.
-    DisplayName, InvalidDisplayName, |value: &str| {
-        !value.trim().is_empty()
-            && value.chars().count() <= MAX_NAME_CHARS
-            && !value.chars().any(char::is_control)
-    }
+    /// An account's display name.
+    DisplayName, InvalidDisplayName, "display name"
 }
 validated_name! {
-    /// A passkey label, following the same rule as display names.
-    PasskeyName, InvalidPasskeyName, DisplayName::is_valid
+    /// A passkey's label.
+    PasskeyName, InvalidPasskeyName, "passkey name"
 }
 
 /// Registration authenticator selection, rather than a different authentication provider.

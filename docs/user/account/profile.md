@@ -49,8 +49,9 @@ change it again.
 
 ## Change your display name
 
-Your display name is the name apps show for you. It can be up to 80
-characters, and doesn't need to be unique.
+Your display name is the name apps show for you. It can be 1 to 80
+characters, without control characters such as tabs or line breaks, and doesn't
+need to be unique.
 
 1. Select **Change** beside **Display name**.
 2. Type the new name under **Display name**, then select **Save name**.

@@ -235,6 +235,40 @@ async fn signup_trims_the_display_name_and_passkey_name() {
     assert_eq!(user(&blank).await.display_name, blank);
 }
 
+/// Signup refuses a display name or passkey name holding a control character
+/// with a message that states the whole rule, not only its length.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL"]
+async fn signup_refuses_a_control_character_name_with_the_whole_rule() {
+    let fixture = Fixture::new().await;
+    let handle = format!("rule-{}", &TokenId::new().to_string()[24..]);
+    let body = json!({"handle": handle, "display_name": "a\u{7}b"});
+    let refused = fixture
+        .request("/webauthn/register/start", Method::POST, "", body)
+        .await;
+    assert_eq!(refused.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        json(refused).await["error"],
+        "Choose a display name of 1 to 80 characters, without control characters."
+    );
+
+    let body = json!({"handle": handle, "display_name": "Alice"});
+    let (started, browser) = fixture.start("/webauthn/register/start", "", body).await;
+    let finish = json!({
+        "ceremony_id": started["ceremony_id"],
+        "credential": fixture.credential(&started),
+        "friendly_name": "a\u{7}b",
+    });
+    let refused = fixture
+        .request("/webauthn/register/finish", Method::POST, &browser, finish)
+        .await;
+    assert_eq!(refused.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        json(refused).await["error"],
+        "Choose a passkey name of 1 to 80 characters, without control characters."
+    );
+}
+
 /// An account keeps at most 100 active passkeys: enrolling a 101st is refused as
 /// it starts, before the authenticator creates a passkey, and the database refuses
 /// one that started before the account filled up. Neither stores anything.
