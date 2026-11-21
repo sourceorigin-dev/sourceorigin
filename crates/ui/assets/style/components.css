@@ -447,10 +447,9 @@ img.avatar {
   color: var(--muted);
 }
 .events .raw summary {
-  /* Small text, but a target of 24 pixels at least. */
-  display: flex;
-  align-items: center;
-  min-height: 24px;
+  /* Small text, but a target of 24 pixels at least: each line is 24 pixels
+     tall. Not flex, which drops the spaces at the edges of its text. */
+  line-height: 24px;
   list-style: none;
   cursor: pointer;
   overflow-wrap: anywhere;

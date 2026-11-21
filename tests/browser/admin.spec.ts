@@ -221,6 +221,11 @@ test("an administrator's views of an account are listed only when shown", async 
   // the form then keeps it through.
   await expect(created).toBeVisible();
   await expect(viewed).toHaveCount(0);
+  // An event's kind and trace keep the spaces between them on screen.
+  await expect(admin.getByRole('listitem').filter({ has: created }).locator('summary')).toHaveText(
+    /^account_created · trace [0-9a-f]{32}$/,
+    { useInnerText: true }
+  );
   await admin.getByRole('link', { name: 'Show views', exact: true }).click();
   await expect(viewed).toBeVisible();
   await expect(created).toBeVisible();
