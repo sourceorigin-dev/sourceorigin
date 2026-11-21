@@ -58,7 +58,7 @@ async fn a_probation_passkey_signs_in_anew_and_never_confirms() {
     let confirmed = scenario.signed_in_with(scenario.keys.key_id).await;
     let response = scenario.login(&confirmed).await;
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
-    let body = Fixture::json(response).await;
+    let body = json(response).await;
     assert_eq!(body["code"], "passkey_required");
     let says = body["error"].as_str().expect("message");
     assert!(says.ends_with("Sign out first."), "{says}");

@@ -3,11 +3,11 @@
 
 use super::*;
 use crate::{
-    AdminError, AdminService, Reason,
+    AdminError, AdminService,
     jobs::AccountPurge,
     security::SessionError,
     tests::{
-        Browser, Replicas, change, operator, refresh_grant, register, registration,
+        Browser, Replicas, change, operator, reason, refresh_grant, register, registration,
         verified_address,
     },
 };
@@ -383,11 +383,6 @@ const fn user(browser: &Browser) -> Actor {
         user_id: browser.user_id,
         session_id: Some(browser.session_id),
     }
-}
-
-/// Why the scenarios' operators act.
-fn reason() -> Reason {
-    Reason::parse("Asked by email".into()).expect("reason")
 }
 
 /// An export needs a recent passkey confirmation, and is recorded. It holds a

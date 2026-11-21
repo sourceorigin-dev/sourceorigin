@@ -4,7 +4,7 @@ use super::*;
 use crate::config::TokenDigestKey;
 use crate::security::RequestContext;
 use crate::tests::{
-    AUTH_ORIGIN, Browser, Replicas, TlsListener, location, parameter, until_blocked,
+    AUTH_ORIGIN, Browser, Replicas, TlsListener, html, json, location, parameter, until_blocked,
     verified_address,
 };
 use crate::{AuthConfig, federation::FederationApplication, web::WebApplication};
@@ -147,12 +147,8 @@ impl Flow {
         self.app
             .database
             .events()
-            .history_for_user(self.user_id, 100)
+            .known_history(self.user_id, 100)
             .await
-            .expect("history")
-            .into_iter()
-            .map(|stored| stored.event.known().cloned().expect("a known event"))
-            .collect()
     }
 
     /// Dispatches an encoded protocol request, or a page's form, through the OIDC routes.
@@ -225,7 +221,7 @@ impl Flow {
     async fn pushed(&self, scope: &str, prompt: Option<&str>) -> String {
         let response = self.push(scope, prompt, self.basic.as_deref()).await;
         assert_eq!(response.status(), StatusCode::CREATED);
-        let body = Self::json(response).await;
+        let body = json(response).await;
         assert_eq!(body["expires_in"], PUSHED_REQUEST_SECONDS);
         body["request_uri"]
             .as_str()
@@ -289,25 +285,6 @@ impl Flow {
         assert_eq!(parameter(&url, "iss"), self.app.issuer);
         url
     }
-    /// Reads the scenario's text response.
-    async fn text(response: Response) -> String {
-        String::from_utf8(
-            to_bytes(response.into_body(), 1024 * 1024)
-                .await
-                .expect("read complete HTTP response body")
-                .to_vec(),
-        )
-        .expect("UTF-8 response")
-    }
-    /// Reads and decodes the scenario’s JSON response.
-    async fn json(response: Response) -> Value {
-        serde_json::from_slice(
-            &to_bytes(response.into_body(), 1024 * 1024)
-                .await
-                .expect("read complete HTTP response body"),
-        )
-        .expect("decode HTTP JSON response")
-    }
     /// Completes explicit consent when needed and extracts the issued authorization code.
     async fn code(&self, scopes: &str) -> String {
         let response = self.authorize(scopes, None).await;
@@ -353,7 +330,7 @@ impl Flow {
     /// with the token's claims.
     async fn id_token(&self, response: Response) -> (Value, Value) {
         assert_eq!(response.status(), StatusCode::OK);
-        let tokens = Self::json(response).await;
+        let tokens = json(response).await;
         let claims = self
             .app
             .keys
@@ -381,7 +358,7 @@ impl Flow {
     async fn assert_invalid_grant(response: Response) {
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         assert_eq!(
-            Self::json(response).await["error"],
+            json(response).await["error"],
             OAuthCode::InvalidGrant.as_str()
         );
     }
@@ -393,7 +370,7 @@ impl Flow {
             .request(Method::POST, routes::oidc::LOGOUT, fields, None)
             .await;
         assert_eq!(page.status(), StatusCode::OK);
-        Self::text(page).await
+        html(page).await
     }
     /// Shows the logout page for `fields`, then confirms it by posting the hidden
     /// fields the page rendered, as its form does, answering the confirmation's

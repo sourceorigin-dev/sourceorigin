@@ -309,7 +309,7 @@ async fn a_hint_naming_another_account_says_so() {
         .request(Method::POST, routes::page::LOGOUT, &fields, None)
         .await;
     assert_eq!(warned.status(), StatusCode::OK);
-    let page = Flow::text(warned).await;
+    let page = html(warned).await;
     assert!(page.contains("a different account"), "{page}");
     assert!(page.contains(r#"name="warned""#), "{page}");
     let database = &flow.app.database;

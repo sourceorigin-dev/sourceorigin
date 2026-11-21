@@ -219,7 +219,8 @@ impl Replicas {
 /// The request budget the test configuration allows, as production does.
 pub(crate) const REQUESTS_PER_MINUTE: i32 = 120;
 
-/// Largest response body [`Browser::call`] and the page tests read.
+/// Largest response body the tests read, through [`Browser::call`], [`html`],
+/// [`json`] and [`reply`].
 pub(crate) const MAX_RESPONSE_BYTES: usize = 256 * 1024;
 /// What a form on one of auth's pages sends: they have `Referrer-Policy: no-referrer`,
 /// so the browser sends `Origin: null`.
@@ -332,18 +333,29 @@ impl Browser {
         path: &str,
         body: Option<Value>,
     ) -> (StatusCode, Value) {
+        let response = self
+            .send_from(router, RequestContext::TEST, method, path, body)
+            .await;
+        reply(response).await
+    }
+
+    /// Like [`Self::send`], with `context` attached instead, such as a client
+    /// address of a test's own, and returns the whole response.
+    pub(crate) async fn send_from(
+        &self,
+        router: &Router,
+        context: RequestContext,
+        method: Method,
+        path: &str,
+        body: Option<Value>,
+    ) -> Response {
         let request = self
             .request(method, path)
-            .extension(RequestContext::TEST)
+            .extension(context)
             .header(header::CONTENT_TYPE, "application/json")
             .body(body.map_or_else(Body::empty, |body| Body::from(body.to_string())))
             .expect("request");
-        let response = Self::dispatch(router, request).await;
-        let status = response.status();
-        let body = to_bytes(response.into_body(), MAX_RESPONSE_BYTES)
-            .await
-            .expect("body");
-        (status, serde_json::from_slice(&body).unwrap_or(Value::Null))
+        Self::dispatch(router, request).await
     }
 
     /// Navigates to `path` on the whole service as this browser, and returns the
@@ -479,12 +491,30 @@ pub(crate) fn policy(response: &Response) -> &str {
         .expect("CSP is text")
 }
 
+/// `response`'s whole body, of at most [`MAX_RESPONSE_BYTES`].
+async fn body(response: Response) -> axum::body::Bytes {
+    to_bytes(response.into_body(), MAX_RESPONSE_BYTES)
+        .await
+        .expect("body")
+}
+
 /// `response`'s body, as text.
 pub(crate) async fn html(response: Response) -> String {
-    let body = to_bytes(response.into_body(), MAX_RESPONSE_BYTES)
-        .await
-        .expect("body");
-    String::from_utf8(body.to_vec()).expect("UTF-8 page")
+    String::from_utf8(body(response).await.to_vec()).expect("UTF-8 page")
+}
+
+/// `response`'s body, as JSON.
+pub(crate) async fn json(response: Response) -> Value {
+    serde_json::from_slice(&body(response).await).expect("JSON")
+}
+
+/// `response`'s status, and its body as JSON, or null unless it is JSON.
+pub(crate) async fn reply(response: Response) -> (StatusCode, Value) {
+    let status = response.status();
+    (
+        status,
+        serde_json::from_slice(&body(response).await).unwrap_or(Value::Null),
+    )
 }
 
 /// A passkey of `user_id`'s account whose credential no ceremony can use, for the

@@ -43,7 +43,7 @@ async fn signup_applies_the_handle_rules() {
             )
             .await;
         assert_eq!(response.status(), status, "{handle}");
-        assert_eq!(Fixture::json(response).await["code"], code, "{handle}");
+        assert_eq!(json(response).await["code"], code, "{handle}");
     }
     let (started, _) = fixture
         .start(
@@ -224,7 +224,7 @@ async fn enrollment_refuses_a_101st_passkey() {
         )
         .await;
     assert_eq!(refused.status(), StatusCode::CONFLICT);
-    assert_eq!(Fixture::json(refused).await["error"], REFUSED);
+    assert_eq!(json(refused).await["error"], REFUSED);
     let credential = fixture.credential(&started);
     let response = fixture
         .request(
@@ -235,7 +235,7 @@ async fn enrollment_refuses_a_101st_passkey() {
         )
         .await;
     assert_eq!(response.status(), StatusCode::CONFLICT);
-    assert_eq!(Fixture::json(response).await["error"], REFUSED);
+    assert_eq!(json(response).await["error"], REFUSED);
     let active = fixture
         .database()
         .passkeys()

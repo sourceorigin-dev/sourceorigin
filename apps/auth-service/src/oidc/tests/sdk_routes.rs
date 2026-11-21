@@ -278,7 +278,7 @@ async fn sdk_login_routes_run_against_the_provider() {
     let first = LoginApp::cookie(&callback, &app.named("session"));
     let shown = app.send(Method::GET, "/notes", Some(&first)).await;
     assert_eq!(shown.status(), StatusCode::OK);
-    let access = Flow::text(shown).await;
+    let access = html(shown).await;
 
     // A second sign-in replaces the browser's session.
     let callback = app.sign_in("/auth/login", Some(&first)).await;
@@ -291,7 +291,7 @@ async fn sdk_login_routes_run_against_the_provider() {
     let refreshed = app.send(Method::GET, "/notes", Some(&second)).await;
     assert_eq!(refreshed.status(), StatusCode::OK);
     let copy = LoginApp::cookie(&refreshed, &app.named("session"));
-    assert_ne!(Flow::text(refreshed).await, access);
+    assert_ne!(html(refreshed).await, access);
 
     // Open redirects are refused: login falls back to the home page.
     let callback = app
@@ -426,7 +426,7 @@ async fn sdk_step_up_runs_against_the_provider() {
     assert_eq!(location(&prompt).path(), routes::page::LOGIN);
 
     let access = app.send(Method::GET, "/notes", Some(&first)).await;
-    let access = Flow::text(access).await;
+    let access = html(access).await;
     let payload = access.split('.').nth(1).expect("JWT payload");
     let claims: Value = serde_json::from_slice(
         &base64::engine::general_purpose::URL_SAFE_NO_PAD
@@ -479,7 +479,7 @@ async fn sdk_step_up_runs_against_the_provider() {
         "the retry marker is used up"
     );
     assert_eq!(page.status(), StatusCode::OK);
-    assert_eq!(Flow::text(page).await, "settings");
+    assert_eq!(html(page).await, "settings");
 
     // An API that refuses whatever the token holds gets one step-up sign-in, then an
     // error on the retry instead of another redirect, even when its challenge names

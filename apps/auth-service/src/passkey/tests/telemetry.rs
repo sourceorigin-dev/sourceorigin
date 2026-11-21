@@ -111,7 +111,7 @@ impl Fixture {
         .await
         .expect("response");
         assert_eq!(exchanged.status(), StatusCode::OK);
-        let tokens = Self::json(exchanged).await;
+        let tokens = json(exchanged).await;
         let mut secrets = vec![
             "state-in-the-query".to_owned(),
             "nonce-in-the-query".to_owned(),

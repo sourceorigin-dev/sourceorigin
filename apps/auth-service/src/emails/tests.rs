@@ -5,26 +5,16 @@ use super::*;
 use crate::security::tests::assert_step_up_required;
 use crate::{
     account::AccountApplication,
-    tests::{AUTH_ORIGIN, Browser, MAX_RESPONSE_BYTES, Replicas},
+    tests::{AUTH_ORIGIN, Browser, Replicas, reply},
 };
 use axum::{
-    body::{Body, to_bytes},
-    http::{Method, Request, header},
+    http::{Method, header},
     response::Response,
 };
 use serde_json::{Value, json};
 use sourceorigin_common::AuthenticationMethod;
 use sourceorigin_repository::DeliverySummary;
 use std::net::{IpAddr, Ipv6Addr};
-use tower::ServiceExt;
-
-/// A scenario account with one signed-in browser.
-struct Account {
-    /// The account.
-    user_id: UserId,
-    /// The browser's session cookie pair.
-    cookie: String,
-}
 
 /// The address routes over the test database, as requests from one client IP of
 /// their own, so no other test shares its verification limit.
@@ -58,70 +48,45 @@ impl Harness {
 
     /// Creates an account and signs a browser in to it with `method`. Only a
     /// passkey sign-in confirms the session.
-    async fn account(&self, method: AuthenticationMethod) -> Account {
+    async fn account(&self, method: AuthenticationMethod) -> Browser {
         let user_id = self.database.users().insert_named("email").await;
-        let browser = Browser::sign_in_by(&self.database, self.context, user_id, method.into());
-        Account {
-            user_id,
-            cookie: browser.await.cookie,
-        }
+        Browser::sign_in_by(&self.database, self.context, user_id, method.into()).await
     }
 
-    /// Sends a request, as `account`'s browser if any.
+    /// Sends a request as `browser`.
     async fn send(
         &self,
-        account: Option<&Account>,
+        browser: &Browser,
         method: Method,
         path: &str,
         body: Option<Value>,
     ) -> Response {
-        let mut request = Request::builder()
-            .extension(self.context)
-            .method(method)
-            .uri(path)
-            .header(header::CONTENT_TYPE, "application/json");
-        if let Some(account) = account {
-            request = request.header(header::COOKIE, &account.cookie);
-        }
-        let body = body.map_or_else(Body::empty, |body| Body::from(body.to_string()));
-        self.router
-            .clone()
-            .oneshot(request.body(body).expect("request"))
+        browser
+            .send_from(&self.router, self.context, method, path, body)
             .await
-            .expect("response")
     }
 
     /// Sends a request and returns its status and JSON body.
     async fn call(
         &self,
-        account: Option<&Account>,
+        browser: &Browser,
         method: Method,
         path: &str,
         body: Option<Value>,
     ) -> (StatusCode, Value) {
-        let response = self.send(account, method, path, body).await;
-        let status = response.status();
-        let body = to_bytes(response.into_body(), MAX_RESPONSE_BYTES)
-            .await
-            .expect("body");
-        (status, serde_json::from_slice(&body).unwrap_or(Value::Null))
+        reply(self.send(browser, method, path, body).await).await
     }
 
-    /// Adds `address` to `account`, returning the status and body.
-    async fn add(&self, account: &Account, address: &str) -> (StatusCode, Value) {
+    /// Adds `address` to `browser`'s account, returning the status and body.
+    async fn add(&self, browser: &Browser, address: &str) -> (StatusCode, Value) {
         let body = json!({ "email": address });
-        self.call(
-            Some(account),
-            Method::POST,
-            routes::emails::LIST,
-            Some(body),
-        )
-        .await
+        self.call(browser, Method::POST, routes::emails::LIST, Some(body))
+            .await
     }
 
-    /// Adds `address` to `account` and returns its ID.
-    async fn added(&self, account: &Account, address: &str) -> EmailId {
-        let (status, body) = self.add(account, address).await;
+    /// Adds `address` to `browser`'s account and returns its ID.
+    async fn added(&self, browser: &Browser, address: &str) -> EmailId {
+        let (status, body) = self.add(browser, address).await;
         assert_eq!(status, StatusCode::CREATED, "{body}");
         body["id"].as_str().expect("id").parse().expect("email ID")
     }
@@ -135,34 +100,39 @@ impl Harness {
     /// Presents `token`, signed out.
     async fn verify_token(&self, token: &str) -> (StatusCode, Value) {
         let body = json!({ "token": token });
-        self.call(None, Method::POST, routes::emails::VERIFY, Some(body))
-            .await
+        self.call(
+            &Browser::signed_out(),
+            Method::POST,
+            routes::emails::VERIFY,
+            Some(body),
+        )
+        .await
     }
 
-    /// Makes `id` the primary address of `account`.
-    async fn make_primary(&self, account: &Account, id: EmailId) -> (StatusCode, Value) {
+    /// Makes `id` the primary address of `browser`'s account.
+    async fn make_primary(&self, browser: &Browser, id: EmailId) -> (StatusCode, Value) {
         let path = routes::emails::PRIMARY.replace("{id}", &id.to_string());
-        self.call(Some(account), Method::POST, &path, None).await
+        self.call(browser, Method::POST, &path, None).await
     }
 
-    /// Removes `id` from `account`.
-    async fn remove(&self, account: &Account, id: EmailId) -> (StatusCode, Value) {
+    /// Removes `id` from `browser`'s account.
+    async fn remove(&self, browser: &Browser, id: EmailId) -> (StatusCode, Value) {
         let path = routes::emails::ITEM.replace("{id}", &id.to_string());
-        self.call(Some(account), Method::DELETE, &path, None).await
+        self.call(browser, Method::DELETE, &path, None).await
     }
 
-    /// `account`'s addresses, as it lists them.
-    async fn list(&self, account: &Account) -> Vec<Value> {
+    /// The addresses of `browser`'s account, as it lists them.
+    async fn list(&self, browser: &Browser) -> Vec<Value> {
         let (status, body) = self
-            .call(Some(account), Method::GET, routes::emails::LIST, None)
+            .call(browser, Method::GET, routes::emails::LIST, None)
             .await;
         assert_eq!(status, StatusCode::OK, "{body}");
         body.as_array().expect("addresses").clone()
     }
 
-    /// The email deliveries queued for `account`.
-    async fn deliveries(&self, account: &Account) -> Vec<DeliverySummary> {
-        let destination = format!("account {}", account.user_id);
+    /// The email deliveries queued for `browser`'s account.
+    async fn deliveries(&self, browser: &Browser) -> Vec<DeliverySummary> {
+        let destination = format!("account {}", browser.user_id);
         self.database
             .deliveries()
             .list(None, Some("email"), 1000)
@@ -186,12 +156,7 @@ async fn adding_asks_for_confirmation_first() {
         let body = json!({ "email": "not an address" });
         assert_step_up_required(
             harness
-                .send(
-                    Some(&social),
-                    Method::POST,
-                    routes::emails::LIST,
-                    Some(body),
-                )
+                .send(&social, Method::POST, routes::emails::LIST, Some(body))
                 .await,
         )
         .await;
@@ -340,7 +305,7 @@ async fn verification_checks_the_signed_in_account() {
 
     let first = format!("{}-first@example.com", owner.user_id);
     let first = harness.added(&owner, &first).await;
-    let (status, body) = verify(Some(&other), first).await;
+    let (status, body) = verify(&other, first).await;
     assert_eq!(status, StatusCode::CONFLICT);
     assert_eq!(
         body["error"],
@@ -348,11 +313,16 @@ async fn verification_checks_the_signed_in_account() {
          to. Sign out first if you meant to confirm it."
     );
     assert_eq!(harness.list(&owner).await[0]["verified"], false);
-    assert_eq!(verify(None, first).await.0, StatusCode::OK, "link kept");
+    let signed_out = Browser::signed_out();
+    assert_eq!(
+        verify(&signed_out, first).await.0,
+        StatusCode::OK,
+        "link kept"
+    );
 
     let second = format!("{}-second@example.com", owner.user_id);
     let second = harness.added(&owner, &second).await;
-    assert_eq!(verify(Some(&owner), second).await.0, StatusCode::OK);
+    assert_eq!(verify(&owner, second).await.0, StatusCode::OK);
     let verified = harness
         .database
         .events()
@@ -414,7 +384,7 @@ async fn expired_links_replacements_and_limits() {
     }
     let response = harness
         .send(
-            Some(&account),
+            &account,
             Method::POST,
             routes::emails::LIST,
             Some(json!({ "email": "sixth@example.com" })),

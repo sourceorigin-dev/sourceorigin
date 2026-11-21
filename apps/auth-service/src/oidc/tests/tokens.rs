@@ -28,7 +28,7 @@ async fn confidential_refresh_keeps_its_token_logout_and_client_binding() {
         .exchange(&code, Flow::verifier(), flow.basic.as_deref())
         .await;
     assert_eq!(response.status(), StatusCode::OK);
-    let tokens = Flow::json(response).await;
+    let tokens = json(response).await;
     let claims: IdTokenClaims = flow
         .app
         .keys
@@ -67,7 +67,7 @@ async fn confidential_refresh_keeps_its_token_logout_and_client_binding() {
         .await;
     assert_eq!(invalid.status(), StatusCode::BAD_REQUEST);
     assert_eq!(
-        Flow::json(invalid).await["error"],
+        json(invalid).await["error"],
         OAuthCode::InvalidScope.as_str()
     );
     let response = flow
@@ -84,7 +84,7 @@ async fn confidential_refresh_keeps_its_token_logout_and_client_binding() {
         )
         .await;
     assert_eq!(response.status(), StatusCode::OK);
-    let narrowed = Flow::json(response).await;
+    let narrowed = json(response).await;
     assert_eq!(narrowed["scope"], Scope::OpenId.as_str());
     let narrowed_claims: IdTokenClaims = flow
         .app
@@ -106,7 +106,7 @@ async fn confidential_refresh_keeps_its_token_logout_and_client_binding() {
     let response = flow
         .exchange(&code, Flow::verifier(), flow.basic.as_deref())
         .await;
-    let tokens = Flow::json(response).await;
+    let tokens = json(response).await;
     let response = flow
         .log_out(&[
             ("client_id", flow.client.id.as_str()),
@@ -171,7 +171,7 @@ async fn code_replay_revokes_its_refresh_family() {
         .exchange(&code, Flow::verifier(), flow.basic.as_deref())
         .await;
     assert_eq!(response.status(), StatusCode::OK);
-    let tokens = Flow::json(response).await;
+    let tokens = json(response).await;
     let guessed = OpaqueToken {
         id: OpaqueToken::parse(TokenPrefix::AuthorizationCode, &code)
             .expect("issued code parses")
@@ -193,7 +193,7 @@ async fn code_replay_revokes_its_refresh_family() {
         )
         .await;
     assert_eq!(response.status(), StatusCode::OK, "a guess revokes nothing");
-    let rotated = Flow::json(response).await["refresh_token"]
+    let rotated = json(response).await["refresh_token"]
         .as_str()
         .expect("refresh response contains the rotated token")
         .to_owned();
@@ -202,7 +202,7 @@ async fn code_replay_revokes_its_refresh_family() {
         .await;
     assert_eq!(replay.status(), StatusCode::BAD_REQUEST);
     assert_eq!(
-        Flow::json(replay).await["error"],
+        json(replay).await["error"],
         OAuthCode::InvalidGrant.as_str()
     );
     assert_eq!(
@@ -275,7 +275,7 @@ async fn another_client_isnt_told_an_account_is_disabled() {
     let rejection = async |code: &str| {
         let response = other.exchange(code, Flow::verifier(), None).await;
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-        Flow::json(response).await
+        json(response).await
     };
     let expected = rejection(&active).await;
     flow.disable().await;
@@ -298,7 +298,7 @@ async fn concurrent_refreshes_across_replicas() {
             .exchange(&code, Flow::verifier(), b.basic.as_deref())
             .await;
         assert_eq!(response.status(), StatusCode::OK);
-        let token = Flow::json(response).await["refresh_token"]
+        let token = json(response).await["refresh_token"]
             .as_str()
             .expect("token response contains a refresh token")
             .to_owned();
@@ -306,7 +306,7 @@ async fn concurrent_refreshes_across_replicas() {
         let mut successors = Vec::new();
         for response in [first, second] {
             assert_eq!(response.status(), StatusCode::OK);
-            successors.push(Flow::json(response).await["refresh_token"].clone());
+            successors.push(json(response).await["refresh_token"].clone());
         }
         if confidential {
             assert!(
@@ -354,7 +354,7 @@ async fn concurrent_refreshes_across_replicas() {
 async fn a_refresh_that_waits_for_an_undo_or_disablement_issues_nothing() {
     for (confidential, disable) in [(false, false), (false, true), (true, false), (true, true)] {
         let flow = Flow::new(confidential, true).await;
-        let tokens = Flow::json(
+        let tokens = json(
             flow.exchange(
                 &flow.code(REFRESH_SCOPES).await,
                 Flow::verifier(),
@@ -409,7 +409,7 @@ async fn a_refresh_that_waits_for_an_undo_or_disablement_issues_nothing() {
 async fn changing_keys_keeps_codes_and_refresh_tokens() {
     let flow = Flow::new(false, true).await;
     let code = flow.code(REFRESH_SCOPES).await;
-    let tokens = Flow::json(
+    let tokens = json(
         flow.exchange(
             &flow.code(REFRESH_SCOPES).await,
             Flow::verifier(),
@@ -445,7 +445,7 @@ async fn changing_keys_keeps_codes_and_refresh_tokens() {
     assert_eq!(exchanged.status(), StatusCode::OK);
     let refreshed = changed.refresh(token).await;
     assert_eq!(refreshed.status(), StatusCode::OK);
-    let rotated = Flow::json(refreshed).await["refresh_token"]
+    let rotated = json(refreshed).await["refresh_token"]
         .as_str()
         .expect("rotated refresh token")
         .to_owned();
@@ -484,7 +484,7 @@ async fn policy_reduction_blocks_outstanding_codes_and_refresh() {
         OAuthCode::InvalidScope.as_str()
     );
     let code = flow.code(REFRESH_SCOPES).await;
-    let tokens = Flow::json(flow.exchange(&code, Flow::verifier(), None).await).await;
+    let tokens = json(flow.exchange(&code, Flow::verifier(), None).await).await;
     flow.client.allow_refresh = false;
     let client = flow.client.clone();
     crate::tests::replace(&database, &client)

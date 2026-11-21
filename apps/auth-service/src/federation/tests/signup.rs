@@ -135,16 +135,7 @@ async fn signup_imports_the_provider_address_verified_only_where_the_provider_is
         assert_eq!(email.normalized_email, address);
         assert_eq!(email.verified_at.is_some(), authoritative);
         assert_eq!(email.is_primary, authoritative);
-        let history: Vec<_> = test
-            .app
-            .database
-            .events()
-            .history_for_user(user, 10)
-            .await
-            .expect("history")
-            .into_iter()
-            .map(|stored| stored.event.known().cloned().expect("known"))
-            .collect();
+        let history = test.app.database.events().known_history(user, 10).await;
         assert!(
             history.iter().any(|event| matches!(
                 event,
