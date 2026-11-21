@@ -1,8 +1,9 @@
 //! Domain repository handles backed by a private pool or transaction connection.
 //!
 //! This module holds only what every repository shares: the executor, the
-//! declaration macro, the `run!` query macro, the `in_safe_order!` event order and
-//! the column types that checked queries decode into. Each submodule owns one repository together with the
+//! declaration macro, the `run!` query macro, `query_record!`, which writes a
+//! record's columns once, the `in_safe_order!` event order and the column types
+//! that checked queries decode into. Each submodule owns one repository together with the
 //! records it accepts and returns.
 
 use crate::{Database, DatabaseTransaction, ExclusiveConnection};
@@ -213,6 +214,23 @@ macro_rules! run {
         .map_err(Into::<DatabaseError>::into);
         RepositoryExecutor::finish(&span, result)
     }};
+}
+
+/// A checked `sqlx::query_as!` returning `$record`s, with their `$columns`
+/// between `$head`, which ends where they go, after `SELECT` or `RETURNING`, and
+/// `$tail`, literals joined with `+`. A record that several queries read declares
+/// a macro over this one, so its columns are written once, e.g.
+/// `passkeys!("SELECT", "FROM passkey_credentials p WHERE p.id = $1", id)`.
+macro_rules! query_record {
+    (
+        $record:path,
+        $columns:literal,
+        $head:literal,
+        $tail:literal $(+ $more:literal)*
+        $(, $arg:expr)* $(,)?
+    ) => {
+        sqlx::query_as!($record, $head + " " + $columns + " " + $tail $(+ $more)* $(, $arg)*)
+    };
 }
 
 /// A checked `sqlx::query_as!` over `domain_events e` in the safe order, the rule

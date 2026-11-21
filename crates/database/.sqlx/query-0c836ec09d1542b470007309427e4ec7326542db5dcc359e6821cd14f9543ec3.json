@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n                    id AS \"id: TokenId\", client_id AS \"client_id: ClientId\",\n                    user_id AS \"user_id: UserId\",\n                    session_id AS \"session_id: SessionId\", redirect_uri, pkce_challenge,\n                    nonce, scopes AS \"scopes: JsonArray<String>\", audience,\n                    authentication AS \"authentication: SessionAuthentication\"\n                FROM authorization_codes\n                WHERE id = $1\n                AND secret_digest = ANY($2)\n                AND consumed_at IS NULL\n                AND expires_at > now()\n                FOR UPDATE",
+  "query": "SELECT c.id AS \"id: TokenId\", c.client_id AS \"client_id: ClientId\",\n            c.user_id AS \"user_id: UserId\",\n            c.session_id AS \"session_id: SessionId\", c.redirect_uri, c.pkce_challenge,\n            c.nonce, c.scopes AS \"scopes: JsonArray<String>\", c.audience,\n            c.authentication AS \"authentication: SessionAuthentication\" FROM authorization_codes c\n                WHERE c.id = $1\n                AND c.secret_digest = ANY($2)\n                AND c.consumed_at IS NULL\n                AND c.expires_at > now()\n                FOR UPDATE",
   "describe": {
     "columns": [
       {
@@ -73,5 +73,5 @@
       false
     ]
   },
-  "hash": "c2caf3e062bcf46312ba760ccaf9f58f30a3de8c66102f5d3fd92f3339872cc9"
+  "hash": "0c836ec09d1542b470007309427e4ec7326542db5dcc359e6821cd14f9543ec3"
 }

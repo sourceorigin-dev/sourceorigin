@@ -58,6 +58,19 @@ pub struct StoredPasskey {
     pub revoked_at: Option<DateTime<Utc>>,
 }
 
+/// A [`query_record!`] returning [`StoredPasskey`]s, read as `p`.
+macro_rules! passkeys {
+    ($($query:tt)*) => {
+        query_record!(
+            StoredPasskey,
+            r#"p.id AS "id: PasskeyId", p.credential_id, p.user_id AS "user_id: UserId",
+            p.credential, p.friendly_name, p.created_at, p.last_used_at, p.revoked_at"#,
+            $($query)*
+        )
+    };
+}
+pub(crate) use passkeys;
+
 impl From<StoredPasskey> for Passkey {
     /// Shows the label and enrollment time only, never the credential.
     fn from(passkey: StoredPasskey) -> Self {
@@ -116,14 +129,12 @@ impl PasskeyRepository<'_> {
         run!(
             self,
             fetch_one,
-            sqlx::query_as!(
-                StoredPasskey,
-                r#"INSERT INTO passkey_credentials (
+            passkeys!(
+                "INSERT INTO passkey_credentials AS p (
                     id, credential_id, user_id, credential, friendly_name
                 ) VALUES ($1, $2, $3, $4, $5)
-                RETURNING
-                    id AS "id: PasskeyId", credential_id, user_id AS "user_id: UserId", credential,
-                    friendly_name, created_at, last_used_at, revoked_at"#,
+                RETURNING",
+                "",
                 input.id.as_uuid(),
                 input.credential_id,
                 input.user_id.as_uuid(),
@@ -145,15 +156,12 @@ impl PasskeyRepository<'_> {
         run!(
             self,
             fetch_all,
-            sqlx::query_as!(
-                StoredPasskey,
-                r#"SELECT
-                    id AS "id: PasskeyId", credential_id, user_id AS "user_id: UserId", credential,
-                    friendly_name, created_at, last_used_at, revoked_at
-                FROM passkey_credentials
-                WHERE user_id = $1
-                AND revoked_at IS NULL
-                ORDER BY created_at"#,
+            passkeys!(
+                "SELECT",
+                "FROM passkey_credentials p
+                WHERE p.user_id = $1
+                AND p.revoked_at IS NULL
+                ORDER BY p.created_at",
                 user_id.as_uuid(),
             )
         )
@@ -174,18 +182,15 @@ impl PasskeyRepository<'_> {
         run!(
             self,
             fetch_all,
-            sqlx::query_as!(
-                StoredPasskey,
-                r#"SELECT
-                    p.id AS "id: PasskeyId", p.credential_id, p.user_id AS "user_id: UserId",
-                    p.credential, p.friendly_name, p.created_at, p.last_used_at, p.revoked_at
-                FROM passkey_credentials p
+            passkeys!(
+                "SELECT",
+                "FROM passkey_credentials p
                 JOIN users u ON u.id = p.user_id
                 JOIN handles h ON h.user_id = u.id AND h.released_at IS NULL
                 WHERE h.handle = $1
                 AND u.status IN ('active', 'deleting')
                 AND p.revoked_at IS NULL
-                ORDER BY p.created_at"#,
+                ORDER BY p.created_at",
                 handle.as_str(),
             )
         )
@@ -204,15 +209,12 @@ impl PasskeyRepository<'_> {
         run!(
             self,
             fetch_optional,
-            sqlx::query_as!(
-                StoredPasskey,
-                r#"SELECT
-                    id AS "id: PasskeyId", credential_id, user_id AS "user_id: UserId", credential,
-                    friendly_name, created_at, last_used_at, revoked_at
-                FROM passkey_credentials
-                WHERE credential_id = $1
-                AND revoked_at IS NULL
-                FOR UPDATE"#,
+            passkeys!(
+                "SELECT",
+                "FROM passkey_credentials p
+                WHERE p.credential_id = $1
+                AND p.revoked_at IS NULL
+                FOR UPDATE",
                 credential_id,
             )
         )
