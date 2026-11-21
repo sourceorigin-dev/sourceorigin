@@ -58,7 +58,7 @@ also run, with the same notices
   removal is recorded before the row is deleted, so the `email` channel still
   reads the address and copies it into the notice of its removal. The primary
   address can only be removed once no other verified address could replace it.
-- **Import** (`EmailApplication::import`), during a GitHub or Google sign-up or
+- **Import** (`Emails::import`), during a GitHub or Google sign-up or
   link, adds the provider's address to an account that has no verified one. It
   arrives verified and primary only when the provider hosts the mailbox
   (`email_authoritative`: Gmail, or the account's Google Workspace domain), and
@@ -69,7 +69,7 @@ also run, with the same notices
 ### Limits
 
 Every verification email counts against three hourly budgets, in the transaction
-that queues it, so a refused or failed addition counts nothing (`EmailApplication::limit`):
+that queues it, so a refused or failed addition counts nothing (`Emails::limit`):
 
 | Budget | Per hour |
 | --- | --- |

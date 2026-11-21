@@ -10,7 +10,7 @@ use super::{
     types::{AuthenticationFinish, DisplayName, LoginStart, RegistrationFinish, RegistrationStart},
 };
 use crate::deletion::Deletions;
-use crate::emails::{EmailApplication, EmailError};
+use crate::emails::{EmailError, Emails};
 use crate::federation::FederationApplication;
 use crate::handles::{Handles, HandlesError};
 use crate::security::{ApiError, BrowserCookie, Credential, RequestContext};
@@ -234,7 +234,7 @@ impl PasskeyApplication {
         tx.record(actor, Some(user_id), event).await?;
         if let Some(email) = redeemed.email {
             let address = NormalizedEmail::parse(&email).map_err(EmailError::Invalid)?;
-            EmailApplication::invited(tx, actor, user_id, &address).await?;
+            Emails::new(tx, actor, user_id).invited(&address).await?;
         }
         Ok(())
     }

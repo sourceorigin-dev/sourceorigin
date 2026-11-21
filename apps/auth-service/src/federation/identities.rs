@@ -3,7 +3,7 @@
 use super::{FederationApplication, FederationError, Flow, FlowCookie, Provider, ProviderPicture};
 use crate::account::{AccountError, AccountService, Owner, Subject, Viewer};
 use crate::config::EmailConfig;
-use crate::emails::EmailApplication;
+use crate::emails::Emails;
 use crate::security::BrowserCookie;
 use axum::http::HeaderMap;
 use sourceorigin_common::{
@@ -73,7 +73,9 @@ impl FederationApplication {
             .await?;
         tx.record(context, Some(user_id), Self::linked(&pending))
             .await?;
-        EmailApplication::import(tx, context, email, client_ip, user_id, &pending).await?;
+        Emails::new(tx, context, user_id)
+            .import(email, client_ip, &pending)
+            .await?;
         // Checked again, as stored evidence is read back.
         Ok(pending
             .picture_url
@@ -208,7 +210,9 @@ impl AccountService {
             }
         }
         let client_ip = owner.request().client_ip;
-        EmailApplication::import(&mut tx, &context, email, client_ip, user, &evidence).await?;
+        Emails::new(&mut tx, &context, user)
+            .import(email, client_ip, &evidence)
+            .await?;
         tx.commit().await?;
         Ok((evidence.return_to, FlowCookie(Flow::Settled)))
     }
