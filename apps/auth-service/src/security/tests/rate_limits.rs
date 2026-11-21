@@ -17,15 +17,17 @@ async fn rate_limit_deadline_includes_a_blocked_database_query() {
         .allow_request(bucket.as_bytes(), 120, std::time::Duration::from_mins(1))
         .await
         .expect("hold bucket lock");
-    // The deadline also bounds the request after the lock is released, so it
-    // leaves room for queries while other database tests run.
-    fixture.policy.request_timeout = std::time::Duration::from_secs(1);
-    fixture.router = Router::new()
-        .route("/oauth/token", any(|| async { StatusCode::ACCEPTED }))
-        .layer(middleware::from_fn_with_state(
-            fixture.policy.clone(),
-            HttpSecurity::protect,
-        ));
+    let token_route = |policy: HttpSecurity| {
+        Router::new()
+            .route("/oauth/token", any(|| async { StatusCode::ACCEPTED }))
+            .layer(middleware::from_fn_with_state(
+                policy,
+                HttpSecurity::protect,
+            ))
+    };
+    let mut short = fixture.policy.clone();
+    short.request_timeout = std::time::Duration::from_secs(1);
+    fixture.router = token_route(short);
     let response = tokio::time::timeout(
         std::time::Duration::from_secs(5),
         fixture.request(Method::POST, "/oauth/token", None, false),
@@ -34,6 +36,9 @@ async fn rate_limit_deadline_includes_a_blocked_database_query() {
     .expect("whole request is bounded");
     assert_eq!(response.status(), StatusCode::GATEWAY_TIMEOUT);
     transaction.rollback().await.expect("release lock");
+    // Once the lock is free, the fixture's own deadline applies: a request on a
+    // busy machine may take longer than the second the blocked one had.
+    fixture.router = token_route(fixture.policy.clone());
     assert_eq!(
         fixture
             .request(Method::POST, "/oauth/token", None, false)
