@@ -5,6 +5,42 @@
 //! that made the change, keeping every [`Personal`] value and the
 //! [`RequestOrigin`](crate::events::RequestOrigin) apart from the event so both can be deleted on their own.
 
+/// Declares an enum with each variant's serde tag written once, in its rename, and a
+/// `kind` method returning that tag, so `kind` always says what a value serializes as.
+macro_rules! tagged_enum {
+    (
+        $(#[$meta:meta])*
+        pub enum $name:ident {
+            $(
+                $(#[doc = $doc:literal])*
+                #[serde(rename = $kind:literal)]
+                $variant:ident $({ $($fields:tt)* })? $(( $($tuple:tt)* ))?
+            ),* $(,)?
+        }
+        $(#[doc = $kind_doc:literal])+
+        fn kind;
+    ) => {
+        $(#[$meta])*
+        pub enum $name {
+            $(
+                $(#[doc = $doc])*
+                #[serde(rename = $kind)]
+                $variant $({ $($fields)* })? $(( $($tuple)* ))?
+            ),*
+        }
+
+        impl $name {
+            $(#[doc = $kind_doc])+
+            #[must_use]
+            pub const fn kind(&self) -> &'static str {
+                match self {
+                    $(Self::$variant { .. } => $kind,)*
+                }
+            }
+        }
+    };
+}
+
 /// Who caused an event, where the request came from, and why.
 mod context;
 /// Projection of events into an account's own security history.
@@ -36,15 +72,17 @@ use crate::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+tagged_enum! {
 /// Something that happened to an account or its grants, recorded in the
 /// transaction that made the change. Adding a variant makes every `match` handle it.
 ///
 /// Outside [`Personal`], a variant holds only typed auth IDs, enums, scopes,
 /// timestamps and counts, so a secret, token or raw header cannot end up in one.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", content = "data", rename_all = "snake_case")]
+#[serde(tag = "kind", content = "data")]
 pub enum DomainEvent {
     /// An account was created. Its first session follows as [`Self::SignedIn`].
+    #[serde(rename = "account_created")]
     AccountCreated {
         /// How the person proved who they are: a passkey, or a provider for social signup.
         method: AuthenticationMethod,
@@ -52,6 +90,7 @@ pub enum DomainEvent {
         invited: bool,
     },
     /// A browser signed in: it got a new session, or re-authenticated its current one.
+    #[serde(rename = "signed_in")]
     SignedIn {
         /// The new or re-authenticated session.
         session_id: SessionId,
@@ -70,6 +109,7 @@ pub enum DomainEvent {
     },
     /// A passkey or provider authentication was rejected, whether signing in or
     /// confirming a session. Only the rejected attempt is recorded; nothing changed.
+    #[serde(rename = "sign_in_failed")]
     SignInFailed {
         /// The method that was attempted.
         method: AuthenticationMethod,
@@ -77,6 +117,7 @@ pub enum DomainEvent {
         reason: SignInFailure,
     },
     /// A session ended early. Revoking several sessions records one event each.
+    #[serde(rename = "session_revoked")]
     SessionRevoked {
         /// The revoked session.
         session_id: SessionId,
@@ -84,26 +125,31 @@ pub enum DomainEvent {
         reason: RevocationReason,
     },
     /// A session proved possession of a passkey for protected actions.
+    #[serde(rename = "passkey_confirmed")]
     PasskeyConfirmed {
         /// The confirmed session.
         session_id: SessionId,
     },
     /// A passkey was added to the account.
+    #[serde(rename = "passkey_added")]
     PasskeyAdded {
         /// The new passkey.
         passkey_id: PasskeyId,
     },
     /// A passkey's label changed.
+    #[serde(rename = "passkey_renamed")]
     PasskeyRenamed {
         /// The renamed passkey.
         passkey_id: PasskeyId,
     },
     /// A passkey was removed from the account.
+    #[serde(rename = "passkey_removed")]
     PasskeyRemoved {
         /// The removed passkey.
         passkey_id: PasskeyId,
     },
     /// A provider identity was linked to the account.
+    #[serde(rename = "identity_linked")]
     IdentityLinked {
         /// The identity's provider.
         provider: Provider,
@@ -111,6 +157,7 @@ pub enum DomainEvent {
         subject: Personal<String>,
     },
     /// A provider identity was unlinked from the account.
+    #[serde(rename = "identity_unlinked")]
     IdentityUnlinked {
         /// The identity's provider.
         provider: Provider,
@@ -118,6 +165,7 @@ pub enum DomainEvent {
     /// An unverified email address was added to the account. Its verification
     /// email is queued with it, unless a provider imported it verified, which
     /// [`Self::EmailVerified`] then records.
+    #[serde(rename = "email_added")]
     EmailAdded {
         /// The new address.
         email_id: EmailId,
@@ -129,12 +177,14 @@ pub enum DomainEvent {
     },
     /// Someone holding the address's verification link confirmed it, or the
     /// provider it was imported from is authoritative for it.
+    #[serde(rename = "email_verified")]
     EmailVerified {
         /// The verified address.
         email_id: EmailId,
     },
     /// Another verified address became the account's primary one, which the
     /// OIDC `email` claim reports. The previous primary address is told.
+    #[serde(rename = "primary_email_changed")]
     PrimaryEmailChanged {
         /// The new primary address.
         email_id: EmailId,
@@ -143,11 +193,13 @@ pub enum DomainEvent {
         previous_email_id: Option<EmailId>,
     },
     /// An email address was removed from the account.
+    #[serde(rename = "email_removed")]
     EmailRemoved {
         /// The removed address.
         email_id: EmailId,
     },
     /// The user approved a client's access, adding to any earlier consent.
+    #[serde(rename = "consent_granted")]
     ConsentGranted {
         /// The approved client.
         client_id: ClientId,
@@ -158,11 +210,13 @@ pub enum DomainEvent {
     /// and unused codes. An untrusted client asks for consent again at its next
     /// sign-in; a trusted one is let back in. Undoing a recovery withdraws every
     /// client's access.
+    #[serde(rename = "consent_revoked")]
     ConsentRevoked {
         /// The client.
         client_id: ClientId,
     },
     /// A client exchanged an authorization code for tokens.
+    #[serde(rename = "grant_issued")]
     GrantIssued {
         /// The client the tokens were issued to.
         client_id: ClientId,
@@ -172,6 +226,7 @@ pub enum DomainEvent {
         scopes: Vec<String>,
     },
     /// A refresh family was revoked. Rotations are not events; they are counted as metrics.
+    #[serde(rename = "grant_revoked")]
     GrantRevoked {
         /// The client the family was issued to.
         client_id: ClientId,
@@ -182,12 +237,14 @@ pub enum DomainEvent {
     },
     /// A client redeemed an authorization code a second time. Every refresh family
     /// issued from the code is revoked, each with its own [`Self::GrantRevoked`].
+    #[serde(rename = "code_replayed")]
     CodeReplayed {
         /// The client that redeemed the code.
         client_id: ClientId,
     },
     /// A client's redemption of an authorization code failed, which expired the
     /// code: it cannot be redeemed again.
+    #[serde(rename = "code_redemption_failed")]
     CodeRedemptionFailed {
         /// The client that redeemed the code.
         client_id: ClientId,
@@ -196,6 +253,7 @@ pub enum DomainEvent {
     },
     /// A signup invitation was created. A mailed one is then
     /// [`Self::InvitationMailed`].
+    #[serde(rename = "invitation_created")]
     InvitationCreated {
         /// The new invitation. Events recorded before invitations could be
         /// mailed have none.
@@ -206,6 +264,7 @@ pub enum DomainEvent {
     },
     /// An open invitation's link was mailed to the address it invites, when it
     /// was created or sent again. Its email is queued with it.
+    #[serde(rename = "invitation_mailed")]
     InvitationMailed {
         /// The mailed invitation.
         invitation_id: TokenId,
@@ -213,16 +272,19 @@ pub enum DomainEvent {
         recipient: Personal<NormalizedEmail>,
     },
     /// An invitation was redeemed by creating the account the event concerns.
+    #[serde(rename = "invitation_redeemed")]
     InvitationRedeemed {
         /// The redeemed invitation.
         invitation_id: TokenId,
     },
     /// An unredeemed signup invitation was revoked.
+    #[serde(rename = "invitation_revoked")]
     InvitationRevoked {
         /// The revoked invitation.
         invitation_id: TokenId,
     },
     /// The account was disabled. Its sessions follow as [`Self::SessionRevoked`].
+    #[serde(rename = "account_disabled")]
     AccountDisabled {
         /// Why, as the administrator or operator wrote it: the same as its
         /// context's reason, which the owner's history shows. Free text may name
@@ -230,17 +292,22 @@ pub enum DomainEvent {
         reason: Personal<String>,
     },
     /// A disabled account was reactivated.
+    #[serde(rename = "account_enabled")]
     AccountEnabled {},
     /// An administrator viewed the account's details, which hold personal data.
     /// Kept for the audit only: the owner's history shows changes, not reads.
+    #[serde(rename = "account_viewed")]
     AccountViewed {},
     /// The account became an administrator.
+    #[serde(rename = "administrator_granted")]
     AdministratorGranted {},
     /// The account's administrator rights were removed. Its dashboard sessions
     /// end with them, each as [`Self::DashboardSignedOut`].
+    #[serde(rename = "administrator_revoked")]
     AdministratorRevoked {},
     /// An administrator signed in to the admin dashboard, with a passkey, from
     /// the auth session `session_id`.
+    #[serde(rename = "dashboard_signed_in")]
     DashboardSignedIn {
         /// The auth session the dashboard's session rests on.
         session_id: SessionId,
@@ -248,12 +315,14 @@ pub enum DomainEvent {
     /// A dashboard session of the auth session `session_id` ended early: its
     /// administrator signed out, or their rights were revoked, as the actor says.
     /// One that timed out records nothing.
+    #[serde(rename = "dashboard_signed_out")]
     DashboardSignedOut {
         /// The auth session the dashboard's session rested on.
         session_id: SessionId,
     },
     /// The account's handle changed. Relying parties see it as a new
     /// `preferred_username` once they refresh the profile.
+    #[serde(rename = "handle_changed")]
     HandleChanged {
         /// The previous handle. A username from before the handle rules may break
         /// them, so it stays text.
@@ -263,6 +332,7 @@ pub enum DomainEvent {
     },
     /// The account's display name changed. Relying parties see it as a new
     /// `name` once they refresh the profile.
+    #[serde(rename = "display_name_changed")]
     DisplayNameChanged {
         /// The previous name.
         old: Personal<String>,
@@ -271,14 +341,17 @@ pub enum DomainEvent {
     },
     /// The account got a new profile picture, replacing any other. Relying
     /// parties see its new URL as `picture` once they refresh the profile.
+    #[serde(rename = "picture_changed")]
     PictureChanged {
         /// The new picture.
         picture_id: PictureId,
     },
     /// The account's profile picture was removed.
+    #[serde(rename = "picture_removed")]
     PictureRemoved {},
     /// An operator deleted a released handle, so anyone may claim it again. Its
     /// former owner, if not purged, is the subject.
+    #[serde(rename = "handle_released")]
     HandleReleased {
         /// The released handle.
         handle: Personal<Handle>,
@@ -286,16 +359,19 @@ pub enum DomainEvent {
     /// An administrator reserved a handle: nobody takes it, or a look-alike, until
     /// an administrator gives it to an account or removes it. The event's reason
     /// says who or what it is kept for.
+    #[serde(rename = "handle_reserved")]
     HandleReserved {
         /// The reserved handle.
         handle: Handle,
     },
     /// An administrator removed a handle from the reserved list.
+    #[serde(rename = "handle_unreserved")]
     HandleUnreserved {
         /// The handle.
         handle: Handle,
     },
     /// An OIDC client was registered, enabled. A confidential client got its first secret.
+    #[serde(rename = "client_registered")]
     ClientRegistered {
         /// The new client.
         client_id: ClientId,
@@ -303,6 +379,7 @@ pub enum DomainEvent {
         kind: ClientKind,
     },
     /// A client's name, redirect URIs, scopes, refresh or consent policy changed.
+    #[serde(rename = "client_updated")]
     ClientUpdated {
         /// The changed client.
         client_id: ClientId,
@@ -311,34 +388,40 @@ pub enum DomainEvent {
         changed: Vec<ClientField>,
     },
     /// A disabled client was enabled again.
+    #[serde(rename = "client_enabled")]
     ClientEnabled {
         /// The enabled client.
         client_id: ClientId,
     },
     /// A client was disabled: it can no longer authorize, exchange or refresh.
+    #[serde(rename = "client_disabled")]
     ClientDisabled {
         /// The disabled client.
         client_id: ClientId,
     },
     /// An operator suspended a client: it is disabled, and its owner cannot enable
     /// it until an operator lifts the suspension.
+    #[serde(rename = "client_suspended")]
     ClientSuspended {
         /// The suspended client.
         client_id: ClientId,
     },
     /// An operator lifted a client's suspension. It stays disabled until enabled.
+    #[serde(rename = "client_suspension_lifted")]
     ClientSuspensionLifted {
         /// The client.
         client_id: ClientId,
     },
     /// A client was deleted. Its ID stays reserved, it is disabled, its refresh
     /// families are revoked, and its secrets and consents are removed.
+    #[serde(rename = "client_deleted")]
     ClientDeleted {
         /// The deleted client.
         client_id: ClientId,
     },
     /// A confidential client got a new secret. Its earlier secrets keep working until
     /// `previous_expire_at` at the latest, so the client can redeploy in between.
+    #[serde(rename = "client_secret_rotated")]
     ClientSecretRotated {
         /// The client.
         client_id: ClientId,
@@ -349,6 +432,7 @@ pub enum DomainEvent {
     /// grants end, its unverified addresses go, and a link that enrolls one new
     /// passkey is sent to its owner, or only printed when `revoke` is set. Its
     /// sessions follow as [`Self::SessionRevoked`].
+    #[serde(rename = "recovery_started")]
     RecoveryStarted {
         /// The recovery.
         recovery_id: RecoveryId,
@@ -361,6 +445,7 @@ pub enum DomainEvent {
         revoke: Option<RecoveryRevocation>,
     },
     /// A recovery's link enrolled a new passkey, which also signed its browser in.
+    #[serde(rename = "recovery_completed")]
     RecoveryCompleted {
         /// The recovery.
         recovery_id: RecoveryId,
@@ -373,23 +458,27 @@ pub enum DomainEvent {
     /// [`Self::ConsentRevoked`]. Every session ends after it
     /// ([`Self::SessionRevoked`]). An unused link is cancelled instead, which
     /// records only this event.
+    #[serde(rename = "recovery_undone")]
     RecoveryUndone {
         /// The recovery.
         recovery_id: RecoveryId,
     },
     /// An operator made a failed or cancelled delivery due again.
+    #[serde(rename = "delivery_retried")]
     DeliveryRetried {
         /// The delivery.
         delivery_id: DeliveryId,
     },
     /// An operator cancelled a pending or failed delivery, such as a notice to a
     /// user.
+    #[serde(rename = "delivery_cancelled")]
     DeliveryCancelled {
         /// The delivery.
         delivery_id: DeliveryId,
     },
     /// An origin of a client's was approved for inline passkey sign-in, so
     /// `/.well-known/webauthn` lists it.
+    #[serde(rename = "related_origin_approved")]
     RelatedOriginApproved {
         /// The client whose pages are on the origin.
         client_id: ClientId,
@@ -397,6 +486,7 @@ pub enum DomainEvent {
         origin: RecordedOrigin,
     },
     /// An approved origin was removed: its pages can no longer sign users in.
+    #[serde(rename = "related_origin_removed")]
     RelatedOriginRemoved {
         /// The client whose pages were on the origin.
         client_id: ClientId,
@@ -406,12 +496,14 @@ pub enum DomainEvent {
     /// The user reported an event of their history as not theirs. Their other
     /// sessions follow as [`Self::SessionRevoked`], and every refresh family of the
     /// account is revoked with them.
+    #[serde(rename = "compromise_reported")]
     CompromiseReported {
         /// The reported event.
         event_id: EventId,
     },
     /// A signing key moved through its lifecycle (see [`SigningKeyChange`]). It
     /// concerns no account.
+    #[serde(rename = "signing_key_changed")]
     SigningKeyChanged {
         /// The key's `kid`.
         key_id: KeyId,
@@ -419,29 +511,35 @@ pub enum DomainEvent {
         change: SigningKeyChange,
     },
     /// The user downloaded a copy of their account's data.
+    #[serde(rename = "account_exported")]
     AccountExported {},
     /// A security notification's "sign me out everywhere" link was used, which
     /// works without signing in: every session and refresh grant of the account
     /// ended, its sessions following as [`Self::SessionRevoked`]. Recorded even
     /// when none was left, so the owner's history shows every use.
+    #[serde(rename = "signed_out_everywhere")]
     SignedOutEverywhere {
         /// The notification whose email carried the link.
         notification_id: NotificationId,
     },
     /// The account was scheduled for deletion. Its sessions follow as
     /// [`Self::SessionRevoked`], and every refresh family is revoked with them.
+    #[serde(rename = "account_deletion_scheduled")]
     AccountDeletionScheduled {
         /// When the account is purged, unless it is restored first.
         purge_after: DateTime<Utc>,
     },
     /// An account scheduled for deletion was restored.
+    #[serde(rename = "account_restored")]
     AccountRestored {},
     /// The account was deleted with everything auth knew about the person: the
     /// personal data of every event it was the subject or actor of went with it.
+    #[serde(rename = "account_purged")]
     AccountPurged {},
     /// The audit history was pruned: every event through the checkpoint at
     /// `through` was deleted, and that checkpoint became the chain's anchor. It
     /// concerns no account.
+    #[serde(rename = "audit_history_pruned")]
     AuditHistoryPruned {
         /// The position of the checkpoint pruned through.
         through: u64,
@@ -451,12 +549,14 @@ pub enum DomainEvent {
     /// The audit chain was verified, by `auth-service audit verify`, from the
     /// dashboard or by auth's own verifier job, with what that found. It concerns
     /// no account.
+    #[serde(rename = "audit_chain_verified")]
     AuditChainVerified(AuditVerification),
     /// An administrator or operator sent an announcement, such as a security
     /// incident or a change to the privacy policy, to every account or to chosen
     /// ones. Each recipient with a primary verified address is emailed it, and
     /// every recipient gets it as a notification in their inbox. It concerns no
     /// one account.
+    #[serde(rename = "announcement_sent")]
     AnnouncementSent {
         /// The announcement.
         announcement_id: AnnouncementId,
@@ -472,9 +572,11 @@ pub enum DomainEvent {
     /// finds in their inbox and at their primary verified address. Its text,
     /// which may be personal, is not recorded: the account's notification and its
     /// queued email hold the only copies, deleted with the account.
+    #[serde(rename = "message_sent")]
     MessageSent {},
     /// A condition that needs an administrator's attention began to hold, so the
     /// alert `alert_id` was raised. It concerns no account.
+    #[serde(rename = "alert_raised")]
     AlertRaised {
         /// The alert.
         alert_id: AlertId,
@@ -485,6 +587,7 @@ pub enum DomainEvent {
     /// saying where its handling stands, with their note as the reason. The
     /// first acknowledges it: it stops counting as a warning, though it stays
     /// current while its condition holds. It concerns no account.
+    #[serde(rename = "alert_updated")]
     AlertUpdated {
         /// The alert.
         alert_id: AlertId,
@@ -495,6 +598,7 @@ pub enum DomainEvent {
     },
     /// The condition of the alert `alert_id` no longer holds, or holds
     /// differently, as another alert, so it cleared. It concerns no account.
+    #[serde(rename = "alert_cleared")]
     AlertCleared {
         /// The alert.
         alert_id: AlertId,
@@ -503,7 +607,12 @@ pub enum DomainEvent {
     },
     /// The owner turned a category of notifications' email on or off, in their
     /// settings or with an email's unsubscribe link.
+    #[serde(rename = "notification_preference_changed")]
     NotificationPreferenceChanged(NotificationPreference),
+}
+
+/// The variant's serde tag, e.g. `signed_in`: the `kind` it is stored under.
+fn kind;
 }
 
 impl DomainEvent {
@@ -695,81 +804,6 @@ impl DomainEvent {
             | Self::AlertUpdated { .. }
             | Self::AlertCleared { .. }
             | Self::NotificationPreferenceChanged(_) => None,
-        }
-    }
-
-    /// The variant's serde tag, e.g. `signed_in`: the `kind` it is stored under.
-    #[must_use]
-    pub const fn kind(&self) -> &'static str {
-        match self {
-            Self::AccountCreated { .. } => "account_created",
-            Self::SignedIn { .. } => "signed_in",
-            Self::SignInFailed { .. } => "sign_in_failed",
-            Self::SessionRevoked { .. } => "session_revoked",
-            Self::PasskeyConfirmed { .. } => "passkey_confirmed",
-            Self::PasskeyAdded { .. } => "passkey_added",
-            Self::PasskeyRenamed { .. } => "passkey_renamed",
-            Self::PasskeyRemoved { .. } => "passkey_removed",
-            Self::IdentityLinked { .. } => "identity_linked",
-            Self::IdentityUnlinked { .. } => "identity_unlinked",
-            Self::EmailAdded { .. } => "email_added",
-            Self::EmailVerified { .. } => "email_verified",
-            Self::PrimaryEmailChanged { .. } => "primary_email_changed",
-            Self::EmailRemoved { .. } => "email_removed",
-            Self::ConsentGranted { .. } => "consent_granted",
-            Self::ConsentRevoked { .. } => "consent_revoked",
-            Self::GrantIssued { .. } => "grant_issued",
-            Self::GrantRevoked { .. } => "grant_revoked",
-            Self::CodeReplayed { .. } => "code_replayed",
-            Self::CodeRedemptionFailed { .. } => "code_redemption_failed",
-            Self::InvitationCreated { .. } => "invitation_created",
-            Self::InvitationMailed { .. } => "invitation_mailed",
-            Self::InvitationRedeemed { .. } => "invitation_redeemed",
-            Self::InvitationRevoked { .. } => "invitation_revoked",
-            Self::AccountDisabled { .. } => "account_disabled",
-            Self::AccountEnabled {} => "account_enabled",
-            Self::AccountViewed {} => "account_viewed",
-            Self::AdministratorGranted {} => "administrator_granted",
-            Self::AdministratorRevoked {} => "administrator_revoked",
-            Self::DashboardSignedIn { .. } => "dashboard_signed_in",
-            Self::DashboardSignedOut { .. } => "dashboard_signed_out",
-            Self::HandleChanged { .. } => "handle_changed",
-            Self::DisplayNameChanged { .. } => "display_name_changed",
-            Self::PictureChanged { .. } => "picture_changed",
-            Self::PictureRemoved {} => "picture_removed",
-            Self::HandleReleased { .. } => "handle_released",
-            Self::HandleReserved { .. } => "handle_reserved",
-            Self::HandleUnreserved { .. } => "handle_unreserved",
-            Self::ClientRegistered { .. } => "client_registered",
-            Self::ClientUpdated { .. } => "client_updated",
-            Self::ClientEnabled { .. } => "client_enabled",
-            Self::ClientDisabled { .. } => "client_disabled",
-            Self::ClientSuspended { .. } => "client_suspended",
-            Self::ClientSuspensionLifted { .. } => "client_suspension_lifted",
-            Self::ClientDeleted { .. } => "client_deleted",
-            Self::ClientSecretRotated { .. } => "client_secret_rotated",
-            Self::RecoveryStarted { .. } => "recovery_started",
-            Self::RecoveryCompleted { .. } => "recovery_completed",
-            Self::RecoveryUndone { .. } => "recovery_undone",
-            Self::DeliveryRetried { .. } => "delivery_retried",
-            Self::DeliveryCancelled { .. } => "delivery_cancelled",
-            Self::RelatedOriginApproved { .. } => "related_origin_approved",
-            Self::RelatedOriginRemoved { .. } => "related_origin_removed",
-            Self::CompromiseReported { .. } => "compromise_reported",
-            Self::SigningKeyChanged { .. } => "signing_key_changed",
-            Self::AccountExported {} => "account_exported",
-            Self::SignedOutEverywhere { .. } => "signed_out_everywhere",
-            Self::AccountDeletionScheduled { .. } => "account_deletion_scheduled",
-            Self::AccountRestored {} => "account_restored",
-            Self::AccountPurged {} => "account_purged",
-            Self::AuditHistoryPruned { .. } => "audit_history_pruned",
-            Self::AuditChainVerified(_) => "audit_chain_verified",
-            Self::AnnouncementSent { .. } => "announcement_sent",
-            Self::MessageSent {} => "message_sent",
-            Self::AlertRaised { .. } => "alert_raised",
-            Self::AlertUpdated { .. } => "alert_updated",
-            Self::AlertCleared { .. } => "alert_cleared",
-            Self::NotificationPreferenceChanged(_) => "notification_preference_changed",
         }
     }
 }
