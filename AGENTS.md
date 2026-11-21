@@ -19,26 +19,94 @@ This repository contains everything under the sourceorigin.dev domain:
 - `tests/browser` (Playwright) and `tests/sdk-vectors` (cases every SDK passes).
 - `docs/`: the documentation book, a user guide and a contributor guide.
 
+Terms that are easy to mix up:
+
+- **App and client:** the documentation calls a site that signs people in an
+  *app*; the code, the CLI (`client`) and the dashboard's **Clients** page call
+  it an OIDC *client*. `AdminApplication` is the admin dashboard itself.
+- **Operator and administrator:** an operator runs `auth-service` commands at a
+  terminal, with the database's credentials. An administrator is an Origin
+  Account holding administrator rights, acting on the dashboard.
+- **Sessions:** an auth session is a browser, or an app's passkey sign-in on its
+  own page (an inline session), signed in to auth. The dashboard's session hangs
+  off an auth session. An app's own session is the app's, which the SDKs keep.
+
 This is still very early development. Breaking changes are expected. There are
 no real users yet so breaking things doesn't matter.
 
+## Hazards
+
+What you run here can reach beyond your worktree. Each rule says why, so you
+can recognise a case it doesn't name.
+
+- **Never deploy, promote or delete staging or production**, or change the
+  application on piqueld (`piquelctl env …`, `app deploy`, `app apply`). They
+  are the owner's, and only merges to `main` and the owner's promotions change
+  them.
+- **Previews:** deploy and delete only your own branch's preview, or your own
+  `--slot` of it when another agent shares the branch, and pass that `--slot`
+  to every preview command. Other previews belong to other agents at work;
+  delete one only when the owner asks.
+- **Permissions:** report a permission error to the owner. Never work around
+  it with other credentials or tokens found on the machine: they grant what the
+  owner chose not to give you.
+- **Databases:** `just db test` and `just coverage` make a scratch cluster and
+  delete it. Never point `TEST_DATABASE_URL` at a database that matters: the
+  tests migrate it, leave accounts and schemas in it, and create and drop roles,
+  which belong to the whole cluster. `auth-service` commands, `just auth`
+  included, act on whatever database their `AUTH_DATABASE_*` variables name:
+  run them on your preview
+  (`piquelctl preview exec sourceorigin <branch> auth -- auth-service --operator <you> …`).
+- **Processes:** stop only a process you started, by the PID you captured, or
+  the one that owns your own port. Never kill by name or pattern (`pkill -f`,
+  `killall`): your own agent process has the worktree's path in its arguments,
+  and other worktrees run the same binaries.
+- **Shared containers and ports:** `just auth mailpit` and
+  `just infra telemetry` start Docker containers with fixed names and ports, and
+  `just docs serve` takes port 3000. Another worktree may be using them: reuse
+  one that is running, and don't stop it.
+
+## Surfaces
+
+A feature reaches every surface it applies to. Before handing one back, walk
+this list and say which entries applied:
+
+- the operator CLI (`apps/auth-service/src/cli`), the most complete surface;
+- the user settings (`/settings`) and the developer console (`/developers`);
+- the admin dashboard (`apps/auth-service/src/web/admin`);
+- the Rust SDK (`crates/auth-sdk`) and the TypeScript SDK (`packages/auth`);
+- the SDK test vectors (`tests/sdk-vectors`), when both SDKs must agree;
+- for what an account holds, its history (`DomainEvent`), its data export and
+  its purge (the tests of `crates/database/src/inventory` fail until a new
+  table says what it holds);
+- the browser tests' accessibility pass, for a new page;
+- the documentation, in the same pull request: the user guide, the contributor
+  guide, the screenshots and the skills in `docs/user/agents/skills`. Use the
+  `sourceorigin-docs` skill.
+
+Every way in needs a way out and a way to see it, on the same surfaces: create
+needs delete, enable needs disable, grant needs revoke, and each state shows
+where people look for it.
+
+Every admin operation is an `AdminOperation`: `AdminApplication::page()`
+(`apps/auth-service/src/web/admin/mod.rs`) fails to compile until it maps it to
+a dashboard page or `None`, and the CLI's `every_operation_has_its_command` test
+fails until a command names it. An operation may stay CLI-only (`None`) only
+with a documented reason next to its arm, as `PurgeUser`, `ApplyClient` and
+`PruneAuditChain` have.
+
 ## Guidelines
-
-When adding a feature, make sure all our surfaces get the feature as
-appropriate. This includes the operator CLI (`apps/auth-service/src/cli`), the
-developer console, the user settings, the admin panel, the SDKs and the
-documentation. All surfaces should support all features. Don't let anything be
-left behind. A feature ships with its documentation in the same pull request:
-use the `sourceorigin-docs` skill.
-
-The CLI is the most complete surface. An admin operation may stay CLI-only
-(`AdminApplication::page()` in `apps/auth-service/src/web/admin/mod.rs` maps
-it to `None`) only with a documented reason next to its arm, as `PurgeUser`,
-`ApplyClient` and `PruneAuditChain` have.
 
 Generated files are committed; regenerate them with `just db prepare` (SQLx
 cache), `just sdk-vectors`, `just sdk-types` and `just docs reference` (the CLI
 and configuration references).
+
+Read a dependency's real source, at the version `Cargo.lock` pins, in
+`~/.cargo/registry/src` (`node_modules` for TypeScript), rather than trusting
+what you remember of a fast-moving crate's API.
+
+If a rule here fights the task, say so plainly, and get the owner's sign-off
+before breaking it.
 
 ## Conventions
 
