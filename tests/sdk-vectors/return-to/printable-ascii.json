@@ -1,0 +1,9 @@
+{
+  "description": "every printable ASCII character but \\ and # is accepted",
+  "input": {
+    "return_to": "/!\"$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+  },
+  "expected": {
+    "ok": true
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "description": "a path not starting with / is refused",
+  "input": {
+    "return_to": "notes"
+  },
+  "expected": {
+    "ok": false
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "description": "an empty path is refused",
+  "input": {
+    "return_to": ""
+  },
+  "expected": {
+    "ok": false
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "description": "a URL is refused, even one on another site",
+  "input": {
+    "return_to": "https://evil.example/"
+  },
+  "expected": {
+    "ok": false
+  }
+}

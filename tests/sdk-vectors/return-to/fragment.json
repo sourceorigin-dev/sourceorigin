@@ -1,0 +1,9 @@
+{
+  "description": "a fragment is refused",
+  "input": {
+    "return_to": "/notes#x"
+  },
+  "expected": {
+    "ok": false
+  }
+}

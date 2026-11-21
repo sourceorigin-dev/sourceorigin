@@ -65,7 +65,11 @@ which also defines the small helpers they call, `env`, `page` and `escape`.
 `login.handle` answers the login routes and returns `null` for any other request:
 
 - `GET /auth/login?return_to=/page` sends the browser to auth, and back to
-  `/page` once signed in. `return_to` must be a path on your app.
+  `/page` once signed in. `return_to` must be a path on your app, in printable
+  ASCII once the query is decoded, or sign-in returns home instead. To
+  return to a path with a space or non-ASCII character, percent-encode it in
+  the path, then encode the whole path again as the query parameter:
+  `return_to=%2Fcaf%25C3%25A9` reaches the check as `/caf%C3%A9`.
 - `GET /auth/callback` completes the sign-in and sets the session cookie.
 - `POST /auth/logout` signs the user out.
 

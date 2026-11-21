@@ -3,23 +3,17 @@
 
 use super::*;
 
-/// `return_to` accepts only same-origin relative paths.
+/// `return_to` is accepted, or login returns home, as the vectors expect.
 #[test]
-fn return_to_refuses_open_redirects() {
-    for path in ["/", "/notes?page=2", "/a/b"] {
-        assert!(path.parse::<ReturnTo>().is_ok(), "{path}");
-    }
-    for path in [
-        "",
-        "notes",
-        "//evil.example",
-        "/\\evil.example",
-        "https://evil.example/",
-        "/notes#x",
-        "/a\\b",
-        "/a\nb",
-    ] {
-        assert!(path.parse::<ReturnTo>().is_err(), "{path:?}");
+fn return_to_vectors() {
+    for case in Case::all("return-to") {
+        let accepted = case.text("return_to").parse::<ReturnTo>().is_ok();
+        assert_eq!(
+            json!(accepted),
+            case.json["expected"]["ok"],
+            "{}",
+            case.name
+        );
     }
 }
 

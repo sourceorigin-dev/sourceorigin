@@ -1,0 +1,9 @@
+{
+  "description": "UTF-8 percent-encoded is accepted",
+  "input": {
+    "return_to": "/caf%C3%A9"
+  },
+  "expected": {
+    "ok": true
+  }
+}

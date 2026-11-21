@@ -190,6 +190,30 @@ describe('same-origin vectors', () => {
   }
 });
 
+describe('return-to vectors', () => {
+  const cookieKey = CookieKey.parse(String(vector('sessions', 'valid').input.cookie_key));
+  for (const vector of cases('return-to')) {
+    test(vector.name, async () => {
+      const issuer = await Issuer.discover(ISSUER, { fetch: FakeFetch.issuer().fetch });
+      const client = issuer.client({
+        clientId: 'notes-web',
+        clientSecret: 'secret',
+        redirectUri: REDIRECT_URI
+      });
+      // `afterLogin` is checked by the rule `return_to` is, and refused with a TypeError.
+      const afterLogin = String(vector.input.return_to);
+      let accepted = true;
+      try {
+        new Login(client, { cookieKey, afterLogin });
+      } catch (error) {
+        if (!(error instanceof TypeError)) throw error;
+        accepted = false;
+      }
+      assert.deepEqual({ ok: accepted }, vector.expected);
+    });
+  }
+});
+
 /** Why `CookieKey.parse` refuses `text`, in the vectors' shape, read from its message. */
 function refusal(text: string): unknown {
   try {
