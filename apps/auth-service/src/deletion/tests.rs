@@ -16,7 +16,7 @@ use serde_json::json;
 use sourceorigin_common::{
     AnnouncementId, AuthenticationMethod, PictureId, Provider, RecoveryId, TokenId,
     clients::{ClientKind, ClientOwner},
-    events::{JobName, Platform, RequestOrigin, SignInFailure, UserAgentFamily},
+    events::{Actor, JobName, Platform, RequestOrigin, SignInFailure, UserAgentFamily},
     notifications::{EmailCategory, Notification, NotificationPreference},
 };
 use sourceorigin_repository::{

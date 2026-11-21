@@ -33,7 +33,7 @@ use axum::http::{HeaderMap, header::InvalidHeaderValue};
 use chrono::{DateTime, Duration, Utc};
 use sourceorigin_common::{
     AccountStatus, ClientId, PasskeyId, UserId,
-    events::{Actor, DomainEvent, EventContext, RevocationReason},
+    events::{DomainEvent, EventContext, RevocationReason},
 };
 use sourceorigin_crypto::Secret;
 use sourceorigin_repository::{DatabaseTransaction, StoredUser};
@@ -347,10 +347,7 @@ impl AccountService {
         {
             return Err(DeletionError::RestoreExpired.into());
         }
-        let actor = context.actor(Actor::User {
-            user_id: user.id,
-            session_id: None,
-        });
+        let actor = context.user_without_session(user.id);
         Deletions::new(&mut tx, actor).restore(&user).await?;
         // As the passkey's sign-in would have. A recovery's passkey in probation
         // gets no offer, so this passkey may confirm.

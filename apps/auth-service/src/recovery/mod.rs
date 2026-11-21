@@ -41,7 +41,7 @@ use serde::Serialize;
 use sourceorigin_common::{
     AccountStatus, Handle, PasskeyId, RecoveryId, UserId,
     config::Origin,
-    events::{Actor, DomainEvent, EventContext, RevocationReason},
+    events::{DomainEvent, EventContext, RevocationReason},
     protocol::api::Passkey,
 };
 use sourceorigin_crypto::Secret;
@@ -518,10 +518,7 @@ impl AccountService {
         if undoable.passkey() == Some(verified.passkey()) {
             return Err(RecoveryError::OlderPasskeyRequired.into());
         }
-        let context = request.actor(Actor::User {
-            user_id: user,
-            session_id: None,
-        });
+        let context = request.user_without_session(user);
         let reason = RevocationReason::CredentialRemoved;
         Ok(Self::revert(tx, &context, &undoable, reason).await?)
     }

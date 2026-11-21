@@ -13,7 +13,7 @@ use crate::{
 };
 use sourceorigin_common::{
     UserId,
-    events::{Actor, DomainEvent},
+    events::DomainEvent,
     notifications::{EmailCategory, NotificationPreference},
 };
 use sourceorigin_repository::DatabaseTransaction;
@@ -58,10 +58,7 @@ impl AccountService {
         if tx.users().find_by_id_for_update(user).await?.is_none() {
             return Ok(());
         }
-        let context = request.actor(Actor::User {
-            user_id: user,
-            session_id: None,
-        });
+        let context = request.user_without_session(user);
         let preference = NotificationPreference {
             category: EmailCategory::Announcements,
             email: false,

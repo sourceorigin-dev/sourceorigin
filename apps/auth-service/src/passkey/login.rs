@@ -137,10 +137,7 @@ impl PasskeyApplication {
             return Err(PasskeyError::from(refused).into());
         }
         inserted?;
-        let actor = context.actor(Actor::User {
-            user_id,
-            session_id: None,
-        });
+        let actor = context.user_without_session(user_id);
         tx.record(
             &actor,
             Some(user_id),

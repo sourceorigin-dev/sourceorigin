@@ -19,7 +19,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sourceorigin_common::{
     EventId, NotificationId,
-    events::{Actor, DomainEvent, RevocationReason},
+    events::{DomainEvent, RevocationReason},
     notifications::{Notification, NotificationAction, NotificationPreference},
 };
 use sourceorigin_repository::{Database, StoredNotification};
@@ -264,10 +264,7 @@ impl AccountService {
         {
             return Ok(false);
         }
-        let context = request.actor(Actor::User {
-            user_id: user,
-            session_id: None,
-        });
+        let context = request.user_without_session(user);
         // Recorded even when no session was left, so the owner's history shows
         // every use of the link, from where it was used.
         tx.record(
