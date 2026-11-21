@@ -180,11 +180,13 @@ impl UserRepository<'_> {
         }
     }
 
-    /// Finds an active account by its current handle.
+    /// Finds an active account by its current handle, for tests that look up
+    /// the account a flow created.
     ///
     /// # Errors
     ///
     /// Returns [`DatabaseError`] if the query fails or the row is invalid.
+    #[cfg(any(test, feature = "test-util"))]
     pub async fn find_active_by_handle(
         &mut self,
         handle: &Handle,

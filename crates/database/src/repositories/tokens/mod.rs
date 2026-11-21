@@ -498,11 +498,13 @@ impl TokenRepository<'_> {
         }
     }
 
-    /// Revokes the family of the token matching `id` and any of `digests`, if any.
+    /// Revokes the family of the token matching `id` and any of `digests`, if
+    /// any, for tests that hold its lock until the transaction ends.
     ///
     /// # Errors
     ///
     /// Returns [`DatabaseError`] if the query fails.
+    #[cfg(any(test, feature = "test-util"))]
     pub async fn revoke_family_for_token(
         &mut self,
         id: TokenId,
@@ -525,9 +527,9 @@ impl TokenRepository<'_> {
         Ok(())
     }
 
-    /// Like [`Self::revoke_family_for_token`], but only for a family issued to
-    /// `client` (token revocation by that client). Returns the family if this
-    /// call revoked it.
+    /// Revokes the family of the token matching `id` and any of `digests`, but
+    /// only for a family issued to `client` (token revocation by that client).
+    /// Returns the family if this call revoked it.
     ///
     /// # Errors
     ///

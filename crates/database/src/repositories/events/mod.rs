@@ -356,23 +356,6 @@ impl EventRepository<'_> {
         Ok(id)
     }
 
-    /// Lists the events concerning an account, newest first, for its security history.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`DatabaseError`] if the query fails or a stored event does not decode.
-    pub async fn history_for_user(
-        &mut self,
-        user_id: UserId,
-        limit: u32,
-    ) -> Result<Vec<StoredEvent>, DatabaseError> {
-        let filter = EventFilter {
-            subject: Some(user_id),
-            ..EventFilter::default()
-        };
-        self.list(&filter, limit).await
-    }
-
     /// Counts the events matching `filter`, whatever its `before`, `id` and
     /// `offset`: how many a numbered page is of.
     ///
@@ -532,6 +515,25 @@ impl EventRepository<'_> {
                 Json(actor) as _,
             )
         )
+    }
+
+    /// Lists the events concerning an account, newest first, for tests of what an
+    /// operation recorded.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DatabaseError`] if the query fails or a stored event does not decode.
+    #[cfg(any(test, feature = "test-util"))]
+    pub async fn history_for_user(
+        &mut self,
+        user_id: UserId,
+        limit: u32,
+    ) -> Result<Vec<StoredEvent>, DatabaseError> {
+        let filter = EventFilter {
+            subject: Some(user_id),
+            ..EventFilter::default()
+        };
+        self.list(&filter, limit).await
     }
 
     /// Lists the events concerning a client, newest first, for tests of client changes.
