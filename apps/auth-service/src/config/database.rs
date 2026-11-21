@@ -89,7 +89,8 @@ impl DatabaseVariables {
 }
 
 impl AuthConfig {
-    /// Loads the runtime connection, which every command but an owner `migrate` uses.
+    /// Loads the runtime connection, which every command uses but an owner `migrate`
+    /// and an `audit prune` given `AUTH_DATABASE_OWNER_URL`.
     ///
     /// # Errors
     /// Names invalid transport settings or unresolved password references.
