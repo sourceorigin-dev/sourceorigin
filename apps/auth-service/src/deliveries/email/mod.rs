@@ -76,10 +76,7 @@ impl Mailer for AsyncSmtpTransport<Tokio1Executor> {
             if error.is_permanent() && !matches!(code, Some(530 | 534 | 535)) {
                 DeliveryError::Permanent(failure)
             } else {
-                DeliveryError::Retryable {
-                    failure,
-                    retry_after: None,
-                }
+                DeliveryError::retryable(failure)
             },
         )
     }
@@ -158,15 +155,8 @@ impl<M: Mailer> EmailSender<M> {
         user_id: UserId,
         message: &EmailMessage,
     ) -> Result<(), DeliveryError> {
-        let Some(mailer) = &self.mailer else {
-            tracing::info!(%id, "email is disabled; delivery dropped");
-            return Ok(());
-        };
-        let Some(content) = self.content(user_id, message).await? else {
-            tracing::info!(%id, "link is no longer needed; delivery dropped");
-            return Ok(());
-        };
-        mailer.send(self.compose(id, &content).await?).await
+        let content = self.content(user_id, message);
+        self.mail(id, content, "link is no longer needed").await
     }
 
     /// Sends the announcement `announcement` to `user_id`'s primary verified
@@ -179,15 +169,9 @@ impl<M: Mailer> EmailSender<M> {
         user_id: UserId,
         announcement: AnnouncementId,
     ) -> Result<(), DeliveryError> {
-        let Some(mailer) = &self.mailer else {
-            tracing::info!(%id, "email is disabled; delivery dropped");
-            return Ok(());
-        };
-        let Some(content) = self.announcement(user_id, announcement).await? else {
-            tracing::info!(%id, "the account has no primary address to announce to; delivery dropped");
-            return Ok(());
-        };
-        mailer.send(self.compose(id, &content).await?).await
+        let content = self.announcement(user_id, announcement);
+        let gone = "the account has no primary address to announce to";
+        self.mail(id, content, gone).await
     }
 
     /// Sends the invitation `invitation_id`'s link to the address it invites, as
@@ -195,12 +179,26 @@ impl<M: Mailer> EmailSender<M> {
     /// invitation was redeemed, revoked or expired, so the delivery succeeds
     /// rather than retrying.
     async fn invite(&self, id: DeliveryId, invitation_id: TokenId) -> Result<(), DeliveryError> {
+        let content = self.invitation(invitation_id);
+        self.mail(id, content, "invitation is no longer open").await
+    }
+
+    /// Sends what `content` finds as the delivery `id`. While email is disabled,
+    /// drops the delivery without looking anything up; when `content` finds
+    /// nothing to send, drops it saying it is `gone`. A dropped delivery
+    /// succeeds rather than retrying.
+    async fn mail(
+        &self,
+        id: DeliveryId,
+        content: impl Future<Output = Result<Option<Content>, DeliveryError>>,
+        gone: &str,
+    ) -> Result<(), DeliveryError> {
         let Some(mailer) = &self.mailer else {
             tracing::info!(%id, "email is disabled; delivery dropped");
             return Ok(());
         };
-        let Some(content) = self.invitation(invitation_id).await? else {
-            tracing::info!(%id, "invitation is no longer open; delivery dropped");
+        let Some(content) = content.await? else {
+            tracing::info!(%id, "{gone}; delivery dropped");
             return Ok(());
         };
         mailer.send(self.compose(id, &content).await?).await
@@ -381,10 +379,7 @@ impl<M: Mailer> EmailSender<M> {
     /// A failed read of a link's recipient, retried.
     fn unread(error: &DatabaseError) -> DeliveryError {
         tracing::error!(error = %ErrorChain(error), "could not read email recipient");
-        DeliveryError::Retryable {
-            failure: Failure::Database,
-            retry_after: None,
-        }
+        DeliveryError::retryable(Failure::Database)
     }
 
     /// A `link` of what `id` names, or its token, `rebuilt` under the key that
