@@ -215,13 +215,10 @@ impl From<HttpSecurityError> for ApiError {
             HttpSecurityError::RateLimited => {
                 Self::too_many_requests("Too many requests. Please wait a minute.", RATE_WINDOW)
             }
-            HttpSecurityError::Overloaded => Self {
-                retry_after: Some(OVERLOADED_RETRY),
-                ..Self::new(
-                    StatusCode::SERVICE_UNAVAILABLE,
-                    "The service is busy. Please try again in a moment.",
-                )
-            },
+            HttpSecurityError::Overloaded => Self::busy(
+                "The service is busy. Please try again in a moment.",
+                OVERLOADED_RETRY,
+            ),
             HttpSecurityError::Timeout(_) => {
                 Self::new(StatusCode::GATEWAY_TIMEOUT, "Request timed out.")
             }

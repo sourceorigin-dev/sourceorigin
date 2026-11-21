@@ -91,10 +91,10 @@ impl BrowserCookie {
         change: &PreferenceChange,
     ) -> Result<(), InvalidHeaderValue> {
         if let Some(theme) = change.theme {
-            Self::Theme.append(response, theme.as_str(), Self::Theme.max_age())?;
+            Self::Theme.set_text_on(response, theme.as_str())?;
         }
         if let Some(sidebar) = change.sidebar {
-            Self::Sidebar.append(response, sidebar.as_str(), Self::Sidebar.max_age())?;
+            Self::Sidebar.set_text_on(response, sidebar.as_str())?;
         }
         Ok(())
     }
@@ -125,11 +125,11 @@ impl BrowserCookie {
         response: &mut axum::http::Response<B>,
         secret: &Secret,
     ) -> Result<(), InvalidHeaderValue> {
-        self.append(response, &secret.encoded(), self.max_age())
+        self.set_text_on(response, &secret.encoded())
     }
 
     /// Adds a `Set-Cookie` header storing `value`, text a cookie may hold such as
-    /// base64url, to an axum response or a page's.
+    /// base64url, for this cookie's lifetime, to an axum response or a page's.
     pub(crate) fn set_text_on<B>(
         self,
         response: &mut axum::http::Response<B>,
@@ -150,7 +150,7 @@ impl BrowserCookie {
         response: &mut axum::http::Response<B>,
         notice: sourceorigin_ui::Notice,
     ) -> Result<(), InvalidHeaderValue> {
-        Self::Notice.append(response, notice.as_str(), Self::Notice.max_age())
+        Self::Notice.set_text_on(response, notice.as_str())
     }
 
     /// Adds a `Set-Cookie` header deleting this cookie, to an axum response or a page's.

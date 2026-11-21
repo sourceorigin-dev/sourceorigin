@@ -117,10 +117,7 @@ impl ApiError {
     /// Tells an application's page to send the user to auth's pages instead,
     /// explaining why.
     pub(crate) fn interaction_required(message: impl Into<Cow<'static, str>>) -> Self {
-        Self {
-            code: Some(ErrorCode::InteractionRequired),
-            ..Self::bad_request(message)
-        }
+        Self::bad_request(message).with_code(ErrorCode::InteractionRequired)
     }
 
     /// Rejects a write that collides with existing data, naming what is already in use.
