@@ -3,8 +3,8 @@
 use crate::security::ApiError;
 use thiserror::Error;
 
-/// Sessions that cannot be signed out from settings, mapped to HTTP once in
-/// `From<SessionsError>`.
+/// Sessions that cannot be signed out, by their owner or by an administrator,
+/// mapped to HTTP once in `From<SessionsError>`.
 #[derive(Debug, Error)]
 pub(crate) enum SessionsError {
     /// The account has no active session with this ID.
@@ -16,11 +16,12 @@ pub(crate) enum SessionsError {
 }
 
 impl From<SessionsError> for ApiError {
-    /// Says which sessions can be signed out here.
+    /// Says which sessions can be signed out here, in words that read right to
+    /// the owner and to an administrator.
     fn from(error: SessionsError) -> Self {
         match error {
             SessionsError::NotFound => {
-                Self::not_found("You have no such session; it may already be signed out.")
+                Self::not_found("There is no such session; it may already be signed out.")
             }
             SessionsError::Current => {
                 Self::bad_request("This is the device you are using; sign out of it instead.")
