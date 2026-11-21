@@ -248,7 +248,7 @@ link is only mailed, so `--revoke` stays at the terminal.
   passkey", the list and the undo page give its ID and enrollment time, and the
   list offers no rename for it; the admin dashboard's account page lists every
   passkey by ID and enrollment time only:
-  `web::admin::tests::an_accounts_page_names_no_passkey`), sign sessions out,
+  `web::admin::tests::accounts::an_accounts_page_names_no_passkey`), sign sessions out,
   report a sign-in as not theirs, verify an address added during the probation,
   and sign in to apps that don't ask for `phr`, approving their consent.
 - **P4.** A relying party that asks for `phr` doesn't loop a probation user
