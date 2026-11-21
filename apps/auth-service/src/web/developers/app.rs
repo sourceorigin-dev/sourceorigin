@@ -11,7 +11,7 @@ use crate::{
     },
     web::{
         Failure, WebApplication,
-        account::{AccountPage, Applied, NoChange, Reader},
+        account::{AccountPage, Applied, Reader, no_change},
     },
 };
 use chrono::Utc;
@@ -33,21 +33,8 @@ impl AccountPage for Overview {
     const SECTION: Section = Section::Developers;
     const PATH: &'static str = APP;
     const TITLE: &'static str = Title::App.as_str();
-    type Change = NoChange;
     type Row = ();
-
-    fn reopened(change: &NoChange) {
-        match *change {}
-    }
-
-    fn apply(
-        _: &WebApplication,
-        _: &Cx,
-        _: Owner,
-        change: NoChange,
-    ) -> impl Future<Output = Result<Applied<()>, AccountError>> + Send {
-        std::future::ready(change.absurd())
-    }
+    no_change!();
 
     async fn render(
         web: &WebApplication,

@@ -101,6 +101,33 @@ impl NoChange {
     }
 }
 
+/// The change of an [`AccountPage`] without a form, written in its `impl`: its
+/// `Change` is [`NoChange`], so nothing reopens a row or makes a change.
+macro_rules! no_change {
+    () => {
+        type Change = $crate::web::account::NoChange;
+
+        fn reopened(change: &Self::Change) -> Self::Row {
+            change.absurd()
+        }
+
+        fn apply(
+            _: &$crate::web::WebApplication,
+            _: &::topcoat::context::Cx,
+            _: $crate::account::Owner,
+            change: Self::Change,
+        ) -> impl Future<
+            Output = Result<
+                $crate::web::account::Applied<Self::Row>,
+                $crate::account::AccountError,
+            >,
+        > + Send {
+            std::future::ready(change.absurd())
+        }
+    };
+}
+pub(super) use no_change;
+
 /// What a change did, which its page answers.
 pub(super) enum Applied<R> {
     /// The page says the notice, which a cookie carries, so a link can never claim

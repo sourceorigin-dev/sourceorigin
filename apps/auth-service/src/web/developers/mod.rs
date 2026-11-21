@@ -16,7 +16,7 @@ pub(super) use app::{AppSecrets, AppSettings, Overview};
 
 use super::{
     Failure, WebApplication,
-    account::{AccountPage, Applied, Framed, NoChange, Reader},
+    account::{AccountPage, Applied, Framed, Reader, no_change},
 };
 use crate::{
     MAX_OWNED_CLIENTS,
@@ -53,21 +53,8 @@ impl AccountPage for Apps {
     const SECTION: Section = Section::Developers;
     const PATH: &'static str = HOME;
     const TITLE: &'static str = Title::Developers.as_str();
-    type Change = NoChange;
     type Row = ();
-
-    fn reopened(change: &NoChange) {
-        match *change {}
-    }
-
-    fn apply(
-        _: &WebApplication,
-        _: &Cx,
-        _: Owner,
-        change: NoChange,
-    ) -> impl Future<Output = Result<Applied<()>, AccountError>> + Send {
-        std::future::ready(change.absurd())
-    }
+    no_change!();
 
     async fn render(
         web: &WebApplication,

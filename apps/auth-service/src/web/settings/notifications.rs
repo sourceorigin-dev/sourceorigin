@@ -15,7 +15,7 @@ use crate::{
     security::FETCH_SITE_HEADER,
     web::{
         Failure, WebApplication,
-        account::{AccountPage, Applied, Framed, NoChange, Reader},
+        account::{AccountPage, Applied, Framed, Reader, no_change},
     },
 };
 use sourceorigin_common::{
@@ -159,21 +159,8 @@ impl AccountPage for NotificationPage {
     const SECTION: Section = Section::Account;
     const PATH: &'static str = settings::NOTIFICATION;
     const TITLE: &'static str = Tab::Notifications.label();
-    type Change = NoChange;
     type Row = NotificationState;
-
-    fn reopened(change: &NoChange) -> NotificationState {
-        change.absurd()
-    }
-
-    fn apply(
-        _: &WebApplication,
-        _: &Cx,
-        _: Owner,
-        change: NoChange,
-    ) -> impl Future<Output = Result<Applied<NotificationState>, AccountError>> + Send {
-        std::future::ready(change.absurd())
-    }
+    no_change!();
 
     /// Marks the notification read once opened from auth's own pages, unless to
     /// report its event, which marks it read once made, then shows it, with its history entry, the recovery's undo page while it can
