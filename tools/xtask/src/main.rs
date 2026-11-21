@@ -64,6 +64,7 @@ fn main() -> Result<()> {
 
 /// The checkout `cargo xtask` runs in, which may be one of several worktrees.
 struct Workspace {
+    /// The checkout's top directory, which commands run from and paths are relative to.
     root: PathBuf,
     /// The workspace's crates, as `cargo metadata` describes them.
     packages: Vec<Package>,
@@ -105,10 +106,6 @@ impl Workspace {
         let Metadata { packages } =
             serde_json::from_str(&metadata).context("parse cargo metadata")?;
         Ok(Self { root, packages })
-    }
-
-    fn root(&self) -> &Path {
-        &self.root
     }
 
     /// The crates published to crates.io: every one without `publish = false`.
