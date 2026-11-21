@@ -7,11 +7,10 @@ use crate::{
     web::{
         Failure, WebApplication,
         account::{AccountPage, Applied, Reader},
+        settings::HeldRows,
     },
 };
-use sourceorigin_ui::{
-    Audience, EmailRow, HistoryChange, HistoryPage, HistoryState, Holdings, Messages, Section, Tab,
-};
+use sourceorigin_ui::{Audience, HistoryChange, HistoryPage, HistoryState, Messages, Section, Tab};
 use topcoat::{
     context::Cx,
     router::{StatusCode, response::Response},
@@ -87,27 +86,14 @@ impl AccountPage for History {
     ) -> Result<Response, Failure> {
         let viewer = reader.viewer();
         let history = web.account.history(&viewer, shown.before).await?;
-        let passkeys = web.account.passkeys(&viewer).await?;
-        let emails = web.account.emails(&viewer).await?;
-        let linked: Vec<_> = web
-            .account
-            .identities(&viewer)
-            .await?
-            .into_iter()
-            .map(|identity| identity.provider)
-            .collect();
+        let holdings = web.account.holdings(&viewer).await?;
         let reported = match shown.reported {
             Some(event_id) => web.account.reported(&viewer, event_id).await?,
             None => None,
         };
-        let email_rows: Vec<_> = emails.iter().map(EmailRow::from).collect();
+        let held = HeldRows::from(&holdings);
+        let holds = held.holds(reader.recovery());
         let rows = history.rows();
-        let holds = Holdings {
-            passkeys: &passkeys,
-            emails: &email_rows,
-            linked: &linked,
-            recovery: reader.recovery(),
-        };
         let page = HistoryPage {
             page: settings::HISTORY,
             sign_in: settings::SIGN_IN,

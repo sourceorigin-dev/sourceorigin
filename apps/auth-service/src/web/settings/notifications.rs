@@ -16,6 +16,7 @@ use crate::{
     web::{
         Failure, WebApplication,
         account::{AccountPage, Applied, Framed, Reader, no_change},
+        settings::HeldRows,
     },
 };
 use sourceorigin_common::{
@@ -23,8 +24,8 @@ use sourceorigin_common::{
     notifications::{NotificationAction, NotificationPreference},
 };
 use sourceorigin_ui::{
-    Audience, Crumb, EmailRow, HistoryRow, Holdings, InboxChange, InboxPage, InboxRow, InboxState,
-    Messages, NotificationState, Section, SignOutStep, Tab, Title, UnsubscribeStep,
+    Audience, Crumb, HistoryRow, InboxChange, InboxPage, InboxRow, InboxState, Messages,
+    NotificationState, Section, SignOutStep, Tab, Title, UnsubscribeStep,
 };
 use topcoat::{
     context::{Cx, app_context},
@@ -180,16 +181,8 @@ impl AccountPage for NotificationPage {
         }
         let viewer = reader.viewer();
         let view = web.account.notification(&viewer, id).await?;
-        let passkeys = web.account.passkeys(&viewer).await?;
-        let emails = web.account.emails(&viewer).await?;
-        let linked: Vec<_> = web
-            .account
-            .identities(&viewer)
-            .await?
-            .into_iter()
-            .map(|identity| identity.provider)
-            .collect();
-        let email_rows: Vec<_> = emails.iter().map(EmailRow::from).collect();
+        let holdings = web.account.holdings(&viewer).await?;
+        let held = HeldRows::from(&holdings);
         let entry = view.history.as_ref().map(HistoryRow::from);
         let here = uri(cx).path().to_owned();
         // What it offers, while it can be done: undoing a recovery the account
@@ -214,12 +207,7 @@ impl AccountPage for NotificationPage {
                 .as_ref()
                 .map(|(action, href)| (*action, href.as_str())),
             entry: entry.as_ref(),
-            holds: Holdings {
-                passkeys: &passkeys,
-                emails: &email_rows,
-                linked: &linked,
-                recovery: reader.recovery(),
-            },
+            holds: held.holds(reader.recovery()),
             shown,
         };
         let row = InboxRow::from(&view.item);

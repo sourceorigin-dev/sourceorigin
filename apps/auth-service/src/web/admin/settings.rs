@@ -18,15 +18,15 @@ use crate::{
     security::ApiError,
     web::{
         account::AccountPage,
-        settings::{Addresses, ConnectedApps, SignInMethods},
+        settings::{Addresses, ConnectedApps, HeldRows, SignInMethods},
     },
 };
 use serde::{Deserialize, de::DeserializeOwned};
 use sourceorigin_common::{EventId, Handle, UserId};
 use sourceorigin_ui::{
     Audience, Change, Checkbox, ConnectedAppChange, ConnectedAppRow, EmailChange, EmailRow,
-    HistoryPage, HistoryState, Holdings, InboxPage, InboxRow, InboxState, ProfileChange,
-    ProfileDialog, ProfilePages, ProfileState, ProviderRow, Recovery, SignInChange, Tab, Who,
+    HistoryPage, HistoryState, InboxPage, InboxRow, InboxState, ProfileChange, ProfileDialog,
+    ProfilePages, ProfileState, ProviderRow, Recovery, SignInChange, Tab, Who,
 };
 use topcoat::{
     Result,
@@ -282,23 +282,11 @@ pub(super) async fn history(cx: &Cx) -> Result<Response> {
     let viewer = App::viewer(user, admin);
     let account = &App::of(cx).account;
     let history = account.history(&viewer, before).await?;
-    let passkeys = account.passkeys(&viewer).await?;
-    let addresses = account.emails(&viewer).await?;
-    let linked: Vec<_> = account
-        .identities(&viewer)
-        .await?
-        .into_iter()
-        .map(|identity| identity.provider)
-        .collect();
+    let holdings = account.holdings(&viewer).await?;
     let recovery = account.recovery_notice(&viewer).await?.map(Recovery::from);
-    let email_rows: Vec<_> = addresses.iter().map(EmailRow::from).collect();
+    let held = HeldRows::from(&holdings);
     let rows = history.rows();
-    let holds = Holdings {
-        passkeys: &passkeys,
-        emails: &email_rows,
-        linked: &linked,
-        recovery: recovery.as_ref(),
-    };
+    let holds = held.holds(recovery.as_ref());
     let links = [
         App::here(cx),
         href!(sign_in, Account(user)).resolve(cx),

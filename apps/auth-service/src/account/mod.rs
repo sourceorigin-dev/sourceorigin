@@ -25,7 +25,7 @@ mod error;
 mod subject;
 
 pub(crate) use error::AccountError;
-pub(crate) use subject::{ConfirmedOwner, ConfirmedSubject, Owner, Subject, Viewer};
+pub(crate) use subject::{Authorized, ConfirmedOwner, ConfirmedSubject, Owner, Subject, Viewer};
 
 use crate::{
     emails::EmailView,
@@ -178,6 +178,28 @@ impl AccountService {
         }
         subject.commit(tx).await
     }
+
+    /// What the account holds, which its security history and notifications
+    /// name, under one authorization: its passkeys, addresses and linked
+    /// identities, each read as its own reader does.
+    pub(crate) async fn holdings(&self, viewer: &Viewer) -> Result<Holdings, AccountError> {
+        let read = viewer.authorize(&self.database).await?;
+        Ok(Holdings {
+            passkeys: self.authorized_passkeys(&read).await?,
+            emails: self.authorized_emails(&read).await?,
+            identities: self.authorized_identities(&read).await?,
+        })
+    }
+}
+
+/// What an account holds, as [`AccountService::holdings`] reads it.
+pub(crate) struct Holdings {
+    /// Its active passkeys.
+    pub(crate) passkeys: Vec<Passkey>,
+    /// Its addresses, primary first.
+    pub(crate) emails: Vec<EmailView>,
+    /// Its active social identities.
+    pub(crate) identities: Vec<Identity>,
 }
 
 /// The account as auth's pages show it to the browser signed in to it: in the
