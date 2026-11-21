@@ -40,6 +40,17 @@ fn return_destinations_and_browser_bindings_are_strict() {
     assert!(BrowserCookie::FederationPending.read(&headers).is_none());
 }
 
+/// Accepts printable ASCII only, as the SDKs do: a space or raw UTF-8 would reach
+/// `Location` as it is.
+#[test]
+fn return_destinations_are_printable_ascii() {
+    for value in ["/caf\u{e9}", "/a b", "/a\u{7f}"] {
+        assert!(ReturnTo::parse(Some(value)).is_err(), "{value:?}");
+    }
+    let path = "/!$&'()*+,-.:;=?@[]^_`{|}~%C3%A9";
+    assert_eq!(ReturnTo::parse(Some(path)).expect(path).0, path);
+}
+
 /// Callbacks require browser state and retain unregistered subjects as pending
 /// evidence. One whose state names no flow of this browser's, such as a forged
 /// one, leaves the sign-in under way in it as it is.
