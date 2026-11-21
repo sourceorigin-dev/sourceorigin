@@ -61,7 +61,11 @@ export type AuthErrorDetail =
       >;
     }
   | { code: Extract<ErrorCategory, 'oauth'>; response: ErrorResponse }
-  /** `url` is the request that could not be sent or read, when one did. */
+  /**
+   * `url` is the request that could not be sent or read, or whose answer was a redirect, a
+   * status a document endpoint does not answer, or a body over the limit. Errors
+   * about a body's contents, or about signing keys not fetched recently, have none.
+   */
   | { code: Extract<ErrorCategory, 'network'>; url?: string }
   /** `scope` is every scope the request needs, space-separated, when known. */
   | { code: 'missing_token'; scope?: string }

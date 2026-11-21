@@ -58,7 +58,10 @@ export class Reply {
   /** Requires `200 OK`, as document endpoints answer. */
   ok(): this {
     if (this.status === 200) return this;
-    throw new AuthError({ code: 'network' }, `${this.url} answered HTTP ${String(this.status)}`);
+    throw new AuthError(
+      { code: 'network', url: this.url },
+      `${this.url} answered HTTP ${String(this.status)}`
+    );
   }
 
   /** The body as JSON, or a {@link DecodeError} when it is not UTF-8 JSON. */
@@ -215,7 +218,7 @@ export class Http {
     }
     if (body === undefined) {
       throw new AuthError(
-        { code: 'network' },
+        { code: 'network', url },
         `${url} sent more than ${String(MAX_RESPONSE_BYTES)} bytes`
       );
     }

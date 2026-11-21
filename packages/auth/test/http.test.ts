@@ -1,8 +1,12 @@
-/** The transport policy: a deadline and no redirects, whatever the injected `fetch` does. */
+/**
+ * The transport policy: a deadline and no redirects, whatever the injected `fetch`
+ * does, and network errors that name the URL.
+ */
 import assert from 'node:assert/strict';
 import { mock, test } from 'node:test';
-import { AuthError } from '../src/index.ts';
+import { AuthError, Issuer } from '../src/index.ts';
 import { Http } from '../src/http.ts';
+import { DISCOVERY_URL, ISSUER } from './vectors.ts';
 
 const TOKEN_URL = 'https://auth.example.com/oauth/token';
 
@@ -82,4 +86,14 @@ test('only https URLs are requested', async () => {
   });
   await assert.rejects(http.get('http://auth.example.com/jwks'), network);
   assert.equal(sent, false);
+});
+
+test('a document endpoint answering other than 200 fails, naming the URL', async () => {
+  const fetch = () => Promise.resolve(new Response(null, { status: 500 }));
+  await assert.rejects(Issuer.discover(ISSUER, { fetch }), { code: 'network', url: DISCOVERY_URL });
+});
+
+test('a body over 256 KiB fails, naming the URL', async () => {
+  const http = new Http(() => Promise.resolve(new Response(new Uint8Array(256 * 1024 + 1))));
+  await assert.rejects(http.get(TOKEN_URL), { code: 'network', url: TOKEN_URL });
 });
