@@ -43,9 +43,10 @@ can recognise a case it doesn't name.
   application on piqueld (`piquelctl env …`, `app deploy`, `app apply`). They
   are the owner's, and only merges to `main` and the owner's promotions change
   them.
-- **Previews:** deploy and delete only your own branch's preview, with your own
-  `--slot`. Other previews belong to other agents at work; delete one only when
-  the owner asks.
+- **Previews:** deploy and delete only your own branch's preview, or your own
+  `--slot` of it when another agent shares the branch, and pass that `--slot`
+  to every preview command. Other previews belong to other agents at work;
+  delete one only when the owner asks.
 - **Permissions:** report a permission error to the owner. Never work around
   it with other credentials or tokens found on the machine: they grant what the
   owner chose not to give you.
@@ -53,8 +54,9 @@ can recognise a case it doesn't name.
   delete it. Never point `TEST_DATABASE_URL` at a database that matters: the
   tests migrate it, leave accounts and schemas in it, and create and drop roles,
   which belong to the whole cluster. `auth-service` commands, `just auth`
-  included, act on whatever `AUTH_DATABASE_URL` names: run them on your
-  preview (`piquelctl preview exec sourceorigin <branch> auth -- auth-service …`).
+  included, act on whatever database their `AUTH_DATABASE_*` variables name:
+  run them on your preview
+  (`piquelctl preview exec sourceorigin <branch> auth -- auth-service --operator <you> …`).
 - **Processes:** stop only a process you started, by the PID you captured, or
   the one that owns your own port. Never kill by name or pattern (`pkill -f`,
   `killall`): your own agent process has the worktree's path in its arguments,
@@ -88,8 +90,8 @@ where people look for it.
 
 Every admin operation is an `AdminOperation`: `AdminApplication::page()`
 (`apps/auth-service/src/web/admin/mod.rs`) fails to compile until it maps it to
-a dashboard page, and the CLI's `every_operation_has_its_command` test fails
-until a command runs it. An operation may stay CLI-only (mapped to `None`) only
+a dashboard page or `None`, and the CLI's `every_operation_has_its_command` test
+fails until a command runs it. An operation may stay CLI-only (`None`) only
 with a documented reason next to its arm, as `PurgeUser`, `ApplyClient` and
 `PruneAuditChain` have.
 
