@@ -1,0 +1,56 @@
+{
+  "$schema": "https://t3.codes/schema/t3.json",
+  "scripts": [
+    {
+      "name": "Setup Worktree",
+      "command": "just install",
+      "icon": "configure",
+      "runOnWorktreeCreate": true
+    },
+    {
+      "name": "Deploy Preview",
+      "command": "just preview",
+      "icon": "play"
+    },
+    {
+      "name": "Validate Workspace",
+      "command": "just validate",
+      "icon": "test"
+    },
+    {
+      "name": "Format Workspace",
+      "command": "just fmt",
+      "icon": "configure"
+    },
+    {
+      "name": "Lint Workspace",
+      "command": "just lint",
+      "icon": "lint"
+    },
+    {
+      "name": "Check Workspace",
+      "command": "just check",
+      "icon": "build"
+    },
+    {
+      "name": "Test Workspace",
+      "command": "just test",
+      "icon": "test"
+    },
+    {
+      "name": "Test Database",
+      "command": "just db test",
+      "icon": "test"
+    },
+    {
+      "name": "Audit Dependencies",
+      "command": "just audit",
+      "icon": "lint"
+    },
+    {
+      "name": "Build Docs",
+      "command": "just docs",
+      "icon": "build"
+    }
+  ]
+}
