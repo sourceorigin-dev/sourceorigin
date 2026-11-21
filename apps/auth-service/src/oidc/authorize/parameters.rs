@@ -3,13 +3,12 @@
 //! [`ValidatedAuthorization`].
 
 use crate::oidc::{
-    AUTHORIZATION_REQUEST_MINUTES, Claim, CodeChallengeMethod, Interaction, MAX_STATE_BYTES,
-    OAuthCode, OAuthError, OidcApplication, OpaqueToken, PUSHED_REQUEST_SECONDS, Prompt, Reject,
-    ResponseMode, ResponseType, Scopes, TokenPrefix,
+    AUTHORIZATION_REQUEST_MINUTES, CodeChallengeMethod, Interaction, MAX_STATE_BYTES, OAuthCode,
+    OAuthError, OidcApplication, OpaqueToken, PUSHED_REQUEST_SECONDS, Prompt, Reject, ResponseMode,
+    ResponseType, Scopes, TokenPrefix,
 };
 use chrono::{Duration, Utc};
 use serde::Deserialize;
-use serde_json::Value;
 use sourceorigin_common::{UserId, clients::ClientKind, protocol::claims::Acr};
 use sourceorigin_repository::{InsertAuthorizationRequest, StoredOidcClient};
 use url::Url;
@@ -145,37 +144,13 @@ impl AuthorizationParameters {
         let Some(hint) = &self.id_token_hint else {
             return Ok(None);
         };
-        // An expired ID token still identifies the account.
-        let claims = app
-            .keys
-            .current()?
-            .verify_id_token_hint(hint, &app.issuer)
-            .map_err(|error| {
-                OAuthCode::InvalidRequest
-                    .reject_with(format!("id_token_hint is invalid: {error}"), error)
-            })?;
-        if claims[Claim::Audience.as_str()] != client.id.as_str() {
+        let hint = app.id_token_hint(hint)?;
+        if hint.client != client.id {
             return Err(
                 OAuthCode::InvalidRequest.reject("id_token_hint was issued to another client")
             );
         }
-        if claims
-            .get(Claim::ExpiresAt.as_str())
-            .and_then(Value::as_i64)
-            .is_none()
-        {
-            return Err(OAuthCode::InvalidRequest.reject("id_token_hint has no numeric exp claim"));
-        }
-        claims
-            .get(Claim::Subject.as_str())
-            .and_then(Value::as_str)
-            .ok_or_else(|| OAuthCode::InvalidRequest.reject("id_token_hint has no sub claim"))?
-            .parse()
-            .map(Some)
-            .map_err(|error| {
-                OAuthCode::InvalidRequest
-                    .reject_with("id_token_hint sub claim is not an account ID", error)
-            })
+        Ok(Some(hint.user))
     }
 
     /// Requires `response_type=code`: a missing one is a malformed request, and
