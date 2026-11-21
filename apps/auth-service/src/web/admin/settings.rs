@@ -371,7 +371,7 @@ pub(super) async fn handle(cx: &Cx, form: Option<Form<NewHandle>>) -> Result<Res
     let (admin, user) = App::settings(cx).await?;
     let back = href!(profile, Account(user)).resolve(cx);
     let refused = App::submit(cx, form, back.clone(), |input: NewHandle| async move {
-        let handle = Handle::parse(input.handle.trim()).map_err(HandlesError::from)?;
+        let handle = Handle::parse(&input.handle).map_err(HandlesError::from)?;
         let reason = Reason::parse(input.reason)?;
         App::of(cx)
             .service

@@ -48,29 +48,12 @@ struct SearchQuery {
 #[route(GET "/users")]
 pub(super) async fn search(cx: &Cx) -> Result<Response> {
     let admin = App::admin(cx).await?;
-    let app = App::of(cx);
     let query = query_params::<SearchQuery>(cx)?;
     let q = query.q.clone().unwrap_or_default();
-    let found = app
-        .service
-        .search_users(&admin.operator, &q, query.page)
-        .await?;
-    let administrators: Vec<_> = app
-        .service
-        .list_administrators(&admin.operator)
-        .await?
-        .into_iter()
-        .map(|administrator| administrator.user_id)
-        .collect();
     let action = href!(search).resolve(cx);
-    let rows = App::user_rows(cx, &found.users, &administrators);
-    let pager = Pager::of(found.paging, |page| {
-        UserSearch {
-            q: q.clone(),
-            page: Some(page),
-        }
-        .on(&action)
-    })?;
+    let (users, administrators, pager) =
+        App::found_users(cx, admin, &q, query.page, &action).await?;
+    let rows = App::user_rows(cx, &users, &administrators);
     let invite = href!(invitations::create).resolve(cx);
     let (q, rows, pager, invite) = (&q, &rows, &pager, invite.as_str());
     let page = view! { cx =>
@@ -477,6 +460,42 @@ impl App {
     /// Where auth serves the picture `id`, if any: the dashboard serves none.
     pub(super) fn picture(cx: &Cx, id: Option<PictureId>) -> Option<String> {
         id.map(|id| routes::pictures::url(&Self::of(cx).auth, id))
+    }
+
+    /// The accounts on `page` of those matching `q`, those that administer Origin
+    /// Auth, and the pager linking the other pages of the search at `action`.
+    pub(super) async fn found_users(
+        cx: &Cx,
+        admin: &SignedInAdmin,
+        q: &str,
+        page: Option<u32>,
+        action: &str,
+    ) -> Result<(Vec<User>, Vec<UserId>, Pager)> {
+        let found = Self::of(cx)
+            .service
+            .search_users(&admin.operator, q, page)
+            .await?;
+        let administrators = Self::administrator_ids(cx, admin).await?;
+        let pager = Pager::of(found.paging, |page| {
+            UserSearch {
+                q: q.to_owned(),
+                page: Some(page),
+            }
+            .on(action)
+        })?;
+        Ok((found.users, administrators, pager))
+    }
+
+    /// The accounts that administer Origin Auth, as `admin` reads them.
+    pub(super) async fn administrator_ids(cx: &Cx, admin: &SignedInAdmin) -> Result<Vec<UserId>> {
+        let administrators = Self::of(cx)
+            .service
+            .list_administrators(&admin.operator)
+            .await?;
+        Ok(administrators
+            .into_iter()
+            .map(|administrator| administrator.user_id)
+            .collect())
     }
 
     /// `users` as a list shows them, those in `administrators` marked.
