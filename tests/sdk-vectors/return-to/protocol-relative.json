@@ -1,0 +1,9 @@
+{
+  "description": "// starts a path on another host",
+  "input": {
+    "return_to": "//evil.example"
+  },
+  "expected": {
+    "ok": false
+  }
+}

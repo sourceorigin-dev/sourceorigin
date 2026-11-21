@@ -75,12 +75,16 @@ impl CookieNames {
 
 /// A path on this app to send the user back to: same-origin and relative, so login
 /// cannot be turned into an open redirect. It starts with one `/` (not `//` or
-/// `/\`), and has no `\`, `#` or control characters.
+/// `/\`), is printable ASCII without `\` or `#`, as a `Location` header holds it,
+/// and has at most 2048 bytes. Anything else, such as a space or raw UTF-8, must be
+/// percent-encoded.
 ///
 /// ```
 /// use sourceorigin_auth::axum::ReturnTo;
 ///
 /// assert!("/notes?page=2".parse::<ReturnTo>().is_ok());
+/// assert!("/caf%C3%A9".parse::<ReturnTo>().is_ok());
+/// assert!("/café".parse::<ReturnTo>().is_err());
 /// // Another site, protocol-relative or not, is refused.
 /// assert!("https://evil.example".parse::<ReturnTo>().is_err());
 /// assert!("//evil.example".parse::<ReturnTo>().is_err());
@@ -116,9 +120,9 @@ impl FromStr for ReturnTo {
         let local = path.len() <= MAX_RETURN_TO_BYTES
             && path.starts_with('/')
             && !path[1..].starts_with(['/', '\\'])
-            && !path
-                .chars()
-                .any(|character| matches!(character, '\\' | '#') || character.is_control());
+            && path
+                .bytes()
+                .all(|byte| byte.is_ascii_graphic() && !matches!(byte, b'\\' | b'#'));
         local.then(|| Self(path.to_owned())).ok_or(InvalidReturnTo)
     }
 }

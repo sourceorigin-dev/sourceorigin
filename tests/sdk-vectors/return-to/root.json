@@ -1,0 +1,9 @@
+{
+  "description": "the site root is accepted",
+  "input": {
+    "return_to": "/"
+  },
+  "expected": {
+    "ok": true
+  }
+}

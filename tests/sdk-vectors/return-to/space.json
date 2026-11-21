@@ -1,0 +1,9 @@
+{
+  "description": "a raw space is refused, as a Location header cannot hold it",
+  "input": {
+    "return_to": "/a b"
+  },
+  "expected": {
+    "ok": false
+  }
+}

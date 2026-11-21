@@ -1,0 +1,9 @@
+{
+  "description": "a control character is refused",
+  "input": {
+    "return_to": "/a\nb"
+  },
+  "expected": {
+    "ok": false
+  }
+}
