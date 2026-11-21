@@ -193,18 +193,15 @@ impl SigningKeyRepository<'_> {
     /// Returns [`DatabaseError::NotFound`] if `id` is no `next` key, or another
     /// [`DatabaseError`].
     pub async fn activate(&mut self, id: &KeyId, at: DateTime<Utc>) -> Result<(), DatabaseError> {
-        Self::found(
-            run!(
-                self,
-                execute,
-                sqlx::query!(
-                    "UPDATE signing_keys SET state = 'active', activated_at = $2
-                    WHERE id = $1 AND state = 'next'",
-                    id.as_str(),
-                    at,
-                )
-            )?
-            .rows_affected(),
+        run!(
+            self,
+            required,
+            sqlx::query!(
+                "UPDATE signing_keys SET state = 'active', activated_at = $2
+                WHERE id = $1 AND state = 'next'",
+                id.as_str(),
+                at,
+            )
         )
     }
 
@@ -215,18 +212,15 @@ impl SigningKeyRepository<'_> {
     /// Returns [`DatabaseError::NotFound`] if `id` is no `active` key, or another
     /// [`DatabaseError`].
     pub async fn deactivate(&mut self, id: &KeyId, at: DateTime<Utc>) -> Result<(), DatabaseError> {
-        Self::found(
-            run!(
-                self,
-                execute,
-                sqlx::query!(
-                    "UPDATE signing_keys SET state = 'retiring', deactivated_at = $2
-                    WHERE id = $1 AND state = 'active'",
-                    id.as_str(),
-                    at,
-                )
-            )?
-            .rows_affected(),
+        run!(
+            self,
+            required,
+            sqlx::query!(
+                "UPDATE signing_keys SET state = 'retiring', deactivated_at = $2
+                WHERE id = $1 AND state = 'active'",
+                id.as_str(),
+                at,
+            )
         )
     }
 
@@ -237,19 +231,16 @@ impl SigningKeyRepository<'_> {
     /// Returns [`DatabaseError::NotFound`] if `id` is no `retiring` key, or
     /// another [`DatabaseError`].
     pub async fn retire(&mut self, id: &KeyId, at: DateTime<Utc>) -> Result<(), DatabaseError> {
-        Self::found(
-            run!(
-                self,
-                execute,
-                sqlx::query!(
-                    "UPDATE signing_keys
-                    SET state = 'retired', retired_at = $2, sealed_private_key = NULL
-                    WHERE id = $1 AND state = 'retiring'",
-                    id.as_str(),
-                    at,
-                )
-            )?
-            .rows_affected(),
+        run!(
+            self,
+            required,
+            sqlx::query!(
+                "UPDATE signing_keys
+                SET state = 'retired', retired_at = $2, sealed_private_key = NULL
+                WHERE id = $1 AND state = 'retiring'",
+                id.as_str(),
+                at,
+            )
         )
     }
 
@@ -265,18 +256,15 @@ impl SigningKeyRepository<'_> {
         id: &KeyId,
         sealed_private_key: &[u8],
     ) -> Result<(), DatabaseError> {
-        Self::found(
-            run!(
-                self,
-                execute,
-                sqlx::query!(
-                    "UPDATE signing_keys SET sealed_private_key = $2
-                    WHERE id = $1 AND sealed_private_key IS NOT NULL",
-                    id.as_str(),
-                    sealed_private_key,
-                )
-            )?
-            .rows_affected(),
+        run!(
+            self,
+            required,
+            sqlx::query!(
+                "UPDATE signing_keys SET sealed_private_key = $2
+                WHERE id = $1 AND sealed_private_key IS NOT NULL",
+                id.as_str(),
+                sealed_private_key,
+            )
         )
     }
 
@@ -287,23 +275,11 @@ impl SigningKeyRepository<'_> {
     /// Returns [`DatabaseError::NotFound`] if no key has this ID, or another
     /// [`DatabaseError`].
     pub async fn delete(&mut self, id: &KeyId) -> Result<(), DatabaseError> {
-        Self::found(
-            run!(
-                self,
-                execute,
-                sqlx::query!("DELETE FROM signing_keys WHERE id = $1", id.as_str())
-            )?
-            .rows_affected(),
+        run!(
+            self,
+            required,
+            sqlx::query!("DELETE FROM signing_keys WHERE id = $1", id.as_str())
         )
-    }
-
-    /// Reports a change that matched no key as [`DatabaseError::NotFound`].
-    const fn found(rows: u64) -> Result<(), DatabaseError> {
-        if rows == 1 {
-            Ok(())
-        } else {
-            Err(DatabaseError::NotFound)
-        }
     }
 }
 

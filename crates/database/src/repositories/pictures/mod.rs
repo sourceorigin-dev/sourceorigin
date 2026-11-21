@@ -62,9 +62,9 @@ impl PictureRepository<'_> {
     ///
     /// Returns [`DatabaseError`] if the query fails.
     pub async fn remove(&mut self, user_id: UserId) -> Result<bool, DatabaseError> {
-        Ok(run!(
+        run!(
             self,
-            execute,
+            changed_one,
             sqlx::query!(
                 "WITH p AS (
                     DELETE FROM profile_pictures WHERE user_id = $1 RETURNING user_id
@@ -74,9 +74,7 @@ impl PictureRepository<'_> {
                 WHERE id IN (SELECT user_id FROM p)",
                 user_id.as_uuid(),
             )
-        )?
-        .rows_affected()
-            == 1)
+        )
     }
 
     /// The account's current picture, if it has one, in any status.

@@ -463,9 +463,9 @@ impl OidcRepository<'_> {
         id: &ClientId,
         suspended: bool,
     ) -> Result<bool, DatabaseError> {
-        Ok(run!(
+        run!(
             self,
-            execute,
+            changed_one,
             sqlx::query!(
                 "UPDATE oidc_clients
                 SET suspended_at = CASE WHEN $2 THEN now() END,
@@ -475,9 +475,7 @@ impl OidcRepository<'_> {
                 id.as_str(),
                 suspended,
             )
-        )?
-        .rows_affected()
-            == 1)
+        )
     }
 
     /// Records that a token was issued to the client, at most once an hour so
@@ -846,17 +844,15 @@ impl OidcRepository<'_> {
         id: &ClientId,
         origin: &RelatedOrigin,
     ) -> Result<bool, DatabaseError> {
-        Ok(run!(
+        run!(
             self,
-            execute,
+            changed_one,
             sqlx::query!(
                 "DELETE FROM client_webauthn_origins WHERE origin = $1 AND client_id = $2",
                 origin.as_str(),
                 id.as_str(),
             )
-        )?
-        .rows_affected()
-            == 1)
+        )
     }
 
     /// The client whose pages on `origin`, serialized as browsers send it in an

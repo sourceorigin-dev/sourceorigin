@@ -313,9 +313,9 @@ impl FederationRepository<'_> {
         user_id: UserId,
         provider: Provider,
     ) -> Result<bool, DatabaseError> {
-        Ok(run!(
+        run!(
             self,
-            execute,
+            changed_one,
             sqlx::query!(
                 "UPDATE external_login_identities
                 SET revoked_at = now()
@@ -325,9 +325,7 @@ impl FederationRepository<'_> {
                 user_id.as_uuid(),
                 provider.as_str(),
             )
-        )?
-        .rows_affected()
-            == 1)
+        )
     }
 
     /// Stores verified provider evidence for a pending signup or link.

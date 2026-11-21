@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE signing_keys SET sealed_private_key = $2\n                WHERE id = $1 AND sealed_private_key IS NOT NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0e4febd4cabc2d37ce69c6937b5e20ef0fd3202a03be008e8c62c104298a8767"
+}

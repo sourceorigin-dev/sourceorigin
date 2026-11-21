@@ -229,9 +229,9 @@ impl PasskeyRepository<'_> {
         credential_id: &[u8],
         credential: &Value,
     ) -> Result<bool, DatabaseError> {
-        Ok(run!(
+        run!(
             self,
-            execute,
+            changed_one,
             sqlx::query!(
                 "UPDATE passkey_credentials
                 SET credential = $1, last_used_at = now()
@@ -240,9 +240,7 @@ impl PasskeyRepository<'_> {
                 credential,
                 credential_id,
             )
-        )?
-        .rows_affected()
-            == 1)
+        )
     }
 
     /// Renames one of the account's unrevoked credentials. Returns `false` if
@@ -257,9 +255,9 @@ impl PasskeyRepository<'_> {
         user_id: UserId,
         name: &str,
     ) -> Result<bool, DatabaseError> {
-        Ok(run!(
+        run!(
             self,
-            execute,
+            changed_one,
             sqlx::query!(
                 "UPDATE passkey_credentials
                 SET friendly_name = $1
@@ -270,9 +268,7 @@ impl PasskeyRepository<'_> {
                 id.as_uuid(),
                 user_id.as_uuid(),
             )
-        )?
-        .rows_affected()
-            == 1)
+        )
     }
 
     /// Revokes a credential only while another active passkey remains.
@@ -289,9 +285,9 @@ impl PasskeyRepository<'_> {
         id: PasskeyId,
         user_id: UserId,
     ) -> Result<bool, DatabaseError> {
-        Ok(run!(
+        run!(
             self,
-            execute,
+            changed_one,
             sqlx::query!(
                 "WITH locked AS MATERIALIZED (
                     SELECT id, revoked_at
@@ -315,9 +311,7 @@ impl PasskeyRepository<'_> {
                 id.as_uuid(),
                 user_id.as_uuid(),
             )
-        )?
-        .rows_affected()
-            == 1)
+        )
     }
 
     /// Revokes one of the account's credentials unconditionally. Returns
@@ -327,9 +321,9 @@ impl PasskeyRepository<'_> {
     ///
     /// Returns [`DatabaseError`] if the query fails.
     pub async fn revoke(&mut self, id: PasskeyId, user_id: UserId) -> Result<bool, DatabaseError> {
-        Ok(run!(
+        run!(
             self,
-            execute,
+            changed_one,
             sqlx::query!(
                 "UPDATE passkey_credentials
                 SET revoked_at = now()
@@ -339,9 +333,7 @@ impl PasskeyRepository<'_> {
                 id.as_uuid(),
                 user_id.as_uuid(),
             )
-        )?
-        .rows_affected()
-            == 1)
+        )
     }
 
     /// Stores the state of a started ceremony.

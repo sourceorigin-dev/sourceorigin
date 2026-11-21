@@ -34,16 +34,14 @@ impl AdministratorRepository<'_> {
     ///
     /// Returns [`DatabaseError`] if the insert fails, e.g. for an unknown account.
     pub async fn grant(&mut self, user_id: UserId) -> Result<bool, DatabaseError> {
-        Ok(run!(
+        run!(
             self,
-            execute,
+            changed_one,
             sqlx::query!(
                 "INSERT INTO administrators (user_id) VALUES ($1) ON CONFLICT DO NOTHING",
                 user_id.as_uuid(),
             )
-        )?
-        .rows_affected()
-            == 1)
+        )
     }
 
     /// Removes the account's administrator rights. Returns `false` if it had none.
@@ -53,16 +51,14 @@ impl AdministratorRepository<'_> {
     ///
     /// Returns [`DatabaseError`] if the query fails.
     pub async fn revoke(&mut self, user_id: UserId) -> Result<bool, DatabaseError> {
-        Ok(run!(
+        run!(
             self,
-            execute,
+            changed_one,
             sqlx::query!(
                 "DELETE FROM administrators WHERE user_id = $1",
                 user_id.as_uuid(),
             )
-        )?
-        .rows_affected()
-            == 1)
+        )
     }
 
     /// Reports whether the account is an administrator.

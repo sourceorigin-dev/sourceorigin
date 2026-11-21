@@ -190,18 +190,16 @@ impl RecoveryRepository<'_> {
     ///
     /// Returns [`DatabaseError`] if the update fails.
     pub async fn cancel_open(&mut self, user_id: UserId) -> Result<bool, DatabaseError> {
-        Ok(run!(
+        run!(
             self,
-            execute,
+            changed_one,
             sqlx::query!(
                 "UPDATE account_recoveries SET cancelled_at = clock_timestamp()
                 WHERE user_id = $1
                 AND completed_at IS NULL AND cancelled_at IS NULL AND undone_at IS NULL",
                 user_id.as_uuid(),
             )
-        )?
-        .rows_affected()
-            == 1)
+        )
     }
 
     /// The recovery whose link's token has SHA-256 `digest`, if the link still
@@ -247,9 +245,9 @@ impl RecoveryRepository<'_> {
         passkey_id: PasskeyId,
         probation: Duration,
     ) -> Result<bool, DatabaseError> {
-        Ok(run!(
+        run!(
             self,
-            execute,
+            changed_one,
             sqlx::query!(
                 "UPDATE account_recoveries
                 SET completed_at = clock_timestamp(), passkey_id = $3,
@@ -262,9 +260,7 @@ impl RecoveryRepository<'_> {
                 passkey_id.as_uuid(),
                 probation.num_seconds(),
             )
-        )?
-        .rows_affected()
-            == 1)
+        )
     }
 
     /// The account's newest recovery that was neither cancelled nor undone. If

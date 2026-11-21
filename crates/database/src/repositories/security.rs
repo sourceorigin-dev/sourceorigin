@@ -92,9 +92,9 @@ impl SecurityRepository<'_> {
     ///
     /// Returns [`DatabaseError`] if the query fails.
     pub async fn revoke_invitation(&mut self, id: TokenId) -> Result<bool, DatabaseError> {
-        Ok(run!(
+        run!(
             self,
-            execute,
+            changed_one,
             sqlx::query!(
                 "UPDATE invitations
                 SET revoked_at = now(), expires_at = LEAST(expires_at, now())
@@ -103,9 +103,7 @@ impl SecurityRepository<'_> {
                 AND revoked_at IS NULL",
                 id.as_uuid(),
             )
-        )?
-        .rows_affected()
-            == 1)
+        )
     }
 
     /// The open invitation whose link's token has the SHA-256 `digest`, as a
