@@ -20,16 +20,17 @@ const DURATION_BUCKETS: &[f64] = &[
 ];
 
 /// Methods the conventions name; any other is `_OTHER`, so methods stay bounded.
-const METHODS: [(Method, &str); 9] = [
-    (Method::GET, "GET"),
-    (Method::HEAD, "HEAD"),
-    (Method::POST, "POST"),
-    (Method::PUT, "PUT"),
-    (Method::DELETE, "DELETE"),
-    (Method::CONNECT, "CONNECT"),
-    (Method::OPTIONS, "OPTIONS"),
-    (Method::TRACE, "TRACE"),
-    (Method::PATCH, "PATCH"),
+/// A `static`, so the names it lends are `'static`.
+static METHODS: [Method; 9] = [
+    Method::GET,
+    Method::HEAD,
+    Method::POST,
+    Method::PUT,
+    Method::DELETE,
+    Method::CONNECT,
+    Method::OPTIONS,
+    Method::TRACE,
+    Method::PATCH,
 ];
 
 /// Stands for the path of a request that matched no route, in its access log
@@ -109,8 +110,8 @@ impl HttpTelemetry {
         let started = Instant::now();
         let method = METHODS
             .iter()
-            .find(|(known, _)| known == request.method())
-            .map_or("_OTHER", |(_, name)| name);
+            .find(|known| *known == request.method())
+            .map_or("_OTHER", Method::as_str);
         let route = request
             .extensions()
             .get::<MatchedPath>()
