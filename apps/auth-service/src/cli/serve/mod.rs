@@ -78,7 +78,7 @@ impl Command {
         };
         let jobs = async {
             // Fails only once `stop` is dropped, which also means stopping.
-            let _ = stop.subscribe().wait_for(|stopped| *stopped).await;
+            stop.subscribe().wait_for(|stopped| *stopped).await.ok();
             jobs.shutdown().await
         };
         let signal = async {

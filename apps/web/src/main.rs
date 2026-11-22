@@ -129,7 +129,8 @@ fn configuration_reference_is_current() {
             }],
             3,
             "the variables in `apps/web/src/main.rs`",
-        ),
+        )
+        .expect("rendered"),
     }
     .write_or_compare()
     .expect("current reference");

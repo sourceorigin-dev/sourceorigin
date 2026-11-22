@@ -5,7 +5,7 @@
 use super::Cli;
 use clap::{Arg, ArgAction, Command, CommandFactory};
 use sourceorigin_common::config::GeneratedFile;
-use std::fmt::Write as _;
+use std::fmt::{self, Write as _};
 
 /// The page's title and introduction, after the generated-file comment.
 const INTRO: &str = "\
@@ -28,7 +28,7 @@ struct Reference {
 
 impl Reference {
     /// Renders the page from the whole command tree.
-    fn render() -> String {
+    fn render() -> Result<String, fmt::Error> {
         let mut command = Cli::command().bin_name("auth-service");
         // Building fills in each subcommand's full name and its usage.
         command.build();
@@ -38,8 +38,8 @@ impl Reference {
                  `apps/auth-service/src/cli`. Do not edit it by hand. -->\n\n{INTRO}"
             ),
         };
-        reference.command(&command, "auth-service");
-        reference.page
+        reference.command(&command, "auth-service")?;
+        Ok(reference.page)
     }
 
     /// Adds `command`'s section: what it does, its usage, its arguments and
@@ -47,20 +47,20 @@ impl Reference {
     /// `invocation` is how to call it: its path with the arguments its parents
     /// take before it, such as `auth-service account <USER> name`, which clap's
     /// usage leaves out.
-    fn command(&mut self, command: &Command, invocation: &str) {
+    fn command(&mut self, command: &Command, invocation: &str) -> fmt::Result {
         let path = command.get_bin_name().unwrap_or(command.get_name());
-        let _ = writeln!(self.page, "\n## `{path}`\n");
+        writeln!(self.page, "\n## `{path}`\n")?;
         if let Some(about) = command.get_long_about().or(command.get_about()) {
-            let _ = writeln!(self.page, "{}\n", Self::sentence(&about.to_string()));
+            writeln!(self.page, "{}\n", Self::sentence(&about.to_string()))?;
         }
         let usage = command.clone().render_usage().to_string();
-        let _ = writeln!(
+        writeln!(
             self.page,
             "```text\n{}\n```",
             usage
                 .trim_start_matches("Usage: ")
                 .replacen(path, invocation, 1)
-        );
+        )?;
 
         let (positionals, options): (Vec<&Arg>, Vec<&Arg>) = command
             .get_arguments()
@@ -68,9 +68,9 @@ impl Reference {
             .partition(|argument| argument.is_positional());
         for (title, arguments) in [("Arguments", positionals), ("Options", options)] {
             if !arguments.is_empty() {
-                let _ = writeln!(self.page, "\n{title}:\n");
+                writeln!(self.page, "\n{title}:\n")?;
                 for argument in arguments {
-                    self.argument(argument);
+                    self.argument(argument)?;
                 }
             }
         }
@@ -81,32 +81,33 @@ impl Reference {
             .filter(|subcommand| !subcommand.is_hide_set() && subcommand.get_name() != "help")
             .collect();
         if !subcommands.is_empty() {
-            let _ = writeln!(self.page, "\nCommands:\n");
+            writeln!(self.page, "\nCommands:\n")?;
             for subcommand in &subcommands {
                 let name = format!("{path} {}", subcommand.get_name());
                 let about = subcommand
                     .get_about()
                     .map_or_default(|about| Self::sentence(&about.to_string()));
-                let _ = writeln!(
+                writeln!(
                     self.page,
                     "- [`{name}`](#{}): {about}",
                     name.replace(' ', "-")
-                );
+                )?;
             }
         }
         let mut arguments = String::new();
         for argument in command.get_positionals() {
-            let _ = write!(arguments, " {argument}");
+            write!(arguments, " {argument}")?;
         }
         for subcommand in subcommands {
             let invocation = format!("{invocation}{arguments} {}", subcommand.get_name());
-            self.command(subcommand, &invocation);
+            self.command(subcommand, &invocation)?;
         }
+        Ok(())
     }
 
     /// Adds one argument or option: how to write it, what it does, and its
     /// default and accepted values.
-    fn argument(&mut self, argument: &Arg) {
+    fn argument(&mut self, argument: &Arg) -> fmt::Result {
         let syntax = match (argument.get_short(), argument.get_long()) {
             (Some(short), Some(_)) => format!("-{short}, {argument}"),
             _ => argument.to_string(),
@@ -127,7 +128,7 @@ impl Reference {
             .filter(|value| value != "``")
             .collect();
         if takes_values && !defaults.is_empty() {
-            let _ = write!(text, " Default: {}.", defaults.join(", "));
+            write!(text, " Default: {}.", defaults.join(", "))?;
         }
         let values: Vec<String> = argument
             .get_possible_values()
@@ -139,9 +140,9 @@ impl Reference {
             })
             .collect();
         if takes_values && !values.is_empty() {
-            let _ = write!(text, " Values: {}.", values.join(", "));
+            write!(text, " Values: {}.", values.join(", "))?;
         }
-        let _ = writeln!(self.page, "- {}", text.trim_end());
+        writeln!(self.page, "- {}", text.trim_end())
     }
 
     /// Whether `argument` belongs on the page: not hidden, and not clap's own
@@ -175,7 +176,7 @@ fn cli_reference_is_current() {
             "/../../docs/dev/operations/cli-commands.md"
         )
         .into(),
-        text: Reference::render(),
+        text: Reference::render().expect("rendered"),
     }
     .write_or_compare()
     .expect("current reference");
