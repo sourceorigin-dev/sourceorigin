@@ -32,8 +32,8 @@ pub use notifications::{
 };
 pub use overview::{AccountOverview, OverviewLinks, account_overview};
 pub use profile::{
-    CROP_SIZE, CROP_X, CROP_Y, PICTURE_FIELD, PICTURE_TYPES, ProfileChange, ProfileDialog,
-    ProfilePages, ProfileState, profile_settings,
+    CROP_SIZE, CROP_X, CROP_Y, PICTURE_FIELD, ProfileChange, ProfileDialog, ProfilePages,
+    ProfileState, profile_settings,
 };
 pub use sessions::{DeviceChange, DeviceRow, devices, known_devices};
 pub use sign_in::{ProviderRow, SignInChange, SignInState, sign_in_methods};
