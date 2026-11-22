@@ -13,10 +13,13 @@ use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
-use serde_json::{Value, json};
+use serde_json::json;
 use sourceorigin_common::{
     events::Actor,
-    protocol::jwt::{Jwk, TokenType},
+    protocol::{
+        claims::IdTokenClaims,
+        jwt::{Jwk, TokenType},
+    },
 };
 use sourceorigin_crypto::KeyEncryptionKey;
 use sourceorigin_repository::{EventFilter, InsertSigningKey};
@@ -129,7 +132,7 @@ fn hint(keys: &KeySet) -> String {
     let now = Utc::now().timestamp();
     keys.sign(
         TokenType::Id,
-        &json!({"iss": ISSUER, "aud": "client", "iat": now - 600, "exp": now - 300}),
+        &json!({"iss": ISSUER, "sub": "user", "aud": "client", "iat": now - 600, "exp": now - 300}),
     )
     .expect("sign hint")
 }
@@ -139,7 +142,7 @@ fn access_token(keys: &KeySet) -> String {
     let now = Utc::now().timestamp();
     keys.sign(
         TokenType::Access,
-        &json!({"iss": ISSUER, "iat": now, "exp": now + 300}),
+        &json!({"iss": ISSUER, "sub": "user", "aud": "client", "iat": now, "exp": now + 300}),
     )
     .expect("sign token")
 }
@@ -223,7 +226,7 @@ async fn rotation_takes_each_step_once_on_schedule() {
     let keys = key_set(&store, &mut tx).await;
     assert_eq!(keys.signer().kid(), second.as_str());
     assert!(
-        keys.verify::<Value>(&first_token, TokenType::Access, ISSUER)
+        keys.verify::<IdTokenClaims>(&first_token, TokenType::Access, ISSUER, Utc::now())
             .is_ok(),
         "a retiring key's tokens verify"
     );
@@ -246,11 +249,12 @@ async fn rotation_takes_each_step_once_on_schedule() {
     let keys = key_set(&store, &mut tx).await;
     assert!(keys.jwks().keys.iter().all(|key| key.kid != first.as_str()));
     assert!(matches!(
-        keys.verify::<Value>(&first_token, TokenType::Access, ISSUER),
+        keys.verify::<IdTokenClaims>(&first_token, TokenType::Access, ISSUER, Utc::now()),
         Err(CryptoError::UnknownKey)
     ));
     assert!(
-        keys.verify_id_token_hint(&first_hint, ISSUER).is_ok(),
+        keys.verify_id_token_hint(&first_hint, ISSUER, Utc::now())
+            .is_ok(),
         "a retired key's hints verify"
     );
 
@@ -268,7 +272,7 @@ async fn rotation_takes_each_step_once_on_schedule() {
     assert!(matches!(
         key_set(&store, &mut tx)
             .await
-            .verify_id_token_hint(&first_hint, ISSUER),
+            .verify_id_token_hint(&first_hint, ISSUER, Utc::now()),
         Err(CryptoError::UnknownKey)
     ));
     let first_changes = [Generated, Activated, Retiring, Retired, Deleted];
@@ -350,11 +354,11 @@ async fn revoking_a_key_removes_it_and_replaces_the_signer() {
     let keys = key_set(&store, &mut tx).await;
     assert_eq!(keys.signer().kid(), replacement.as_str());
     assert!(matches!(
-        keys.verify::<Value>(&token, TokenType::Access, ISSUER),
+        keys.verify::<IdTokenClaims>(&token, TokenType::Access, ISSUER, Utc::now()),
         Err(CryptoError::UnknownKey)
     ));
     assert!(matches!(
-        keys.verify_id_token_hint(&revoked_hint, ISSUER),
+        keys.verify_id_token_hint(&revoked_hint, ISSUER, Utc::now()),
         Err(CryptoError::UnknownKey)
     ));
     assert_eq!(kids(&keys), [replacement.to_string()]);

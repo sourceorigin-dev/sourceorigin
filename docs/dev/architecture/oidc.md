@@ -266,12 +266,14 @@ it ([back-channel logout](sessions.md#back-channel-logout)).
 
 Authorization and logout read an `id_token_hint` the same way
 (`OidcApplication::id_token_hint`, in `src/oidc/hint.rs`). Auth must have signed
-it, with a published or retired key, as an ID token from its own issuer. Expiry
-doesn't count: an expired ID token still names its account, and RP-Initiated
-Logout §2 asks logout to accept one. It must still have a numeric `exp`, a
-client ID as its audience and an account ID as its `sub`; otherwise the request
-is refused with `invalid_request`. The two differ only on a hint auth can't
-verify: authorization refuses it, and logout goes on without it.
+it, with a published or retired key, as an ID token from its own issuer whose
+`nbf` and `iat` are not in the future, by the check every token auth reads passes
+(`protocol::registered` in `sourceorigin-common`). Expiry doesn't count: an
+expired ID token still names its account, and RP-Initiated Logout §2 asks logout
+to accept one. Its claims must still decode as an ID token's, a numeric `exp`
+included, with one client ID as its audience and an account ID as its `sub`;
+otherwise the request is refused with `invalid_request`. The two differ only on a
+hint auth can't verify: authorization refuses it, and logout goes on without it.
 
 ## Discovery
 

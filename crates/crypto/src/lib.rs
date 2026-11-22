@@ -23,6 +23,7 @@ use aws_lc_rs::{
 };
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use secrecy::{ExposeSecret, SecretBox, SecretString, zeroize::Zeroizing};
+use sourceorigin_common::protocol::registered::ClaimsError;
 use std::fmt;
 use thiserror::Error;
 
@@ -65,15 +66,18 @@ pub enum CryptoError {
     /// A JWT segment contains malformed JSON.
     #[error("invalid JWT JSON")]
     Json(#[from] serde_json::Error),
-    /// A token has invalid framing, headers or claims.
-    #[error("JWT framing, headers or claims are invalid")]
+    /// A token has invalid framing or headers.
+    #[error("JWT framing or headers are invalid")]
     InvalidToken,
     /// A JWT signature did not verify.
     #[error("JWT signature is invalid")]
     Signature,
-    /// A JWT has expired.
-    #[error("JWT has expired")]
-    Expired,
+    /// A signed JWT's claims are missing or have the wrong type.
+    #[error("JWT claims are invalid")]
+    InvalidClaims(#[source] serde_json::Error),
+    /// A signed JWT's issuer or times fail the shared check.
+    #[error("JWT claims are not accepted")]
+    Claims(#[from] ClaimsError),
     /// A JWT names a key outside the key set: unknown, revoked or deleted.
     #[error("JWT names a key outside the key set")]
     UnknownKey,

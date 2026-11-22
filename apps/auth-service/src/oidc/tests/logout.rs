@@ -4,7 +4,7 @@ use super::*;
 use crate::deliveries::{BackchannelLogoutSender, OutboundClient, Sender};
 use sourceorigin_common::SessionId;
 use sourceorigin_common::clients::{BackchannelLogoutUri, ClientOwner};
-use sourceorigin_common::protocol::claims::BACKCHANNEL_LOGOUT_EVENT;
+use sourceorigin_common::protocol::claims::{BACKCHANNEL_LOGOUT_EVENT, LogoutTokenClaims};
 use sourceorigin_repository::BackchannelLogout;
 use std::{collections::HashMap, sync::Mutex};
 
@@ -106,13 +106,14 @@ async fn logout_posts_a_logout_token_to_the_clients_of_the_session() {
     assert_eq!(client, told.id);
     let [token] = <[_; 1]>::try_from(posted.lock().expect("posted tokens").clone())
         .expect("one token posted");
-    let claims: Value = flow
+    let claims: LogoutTokenClaims = flow
         .app
         .keys
         .current()
         .expect("fresh keys")
-        .verify(&token, TokenType::Logout, &flow.app.issuer)
+        .verify(&token, TokenType::Logout, &flow.app.issuer, Utc::now())
         .expect("a logout token signed by auth");
+    let claims = serde_json::to_value(claims).expect("claims");
     let issued_at = claims["iat"].as_i64().expect("iat");
     assert!(
         (issued_at - Utc::now().timestamp()).abs() < 60,

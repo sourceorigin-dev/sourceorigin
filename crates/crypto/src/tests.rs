@@ -1,6 +1,10 @@
 //! Known vectors and boundary tests for each primitive.
 use super::*;
-use sourceorigin_common::protocol::jwt::TokenType;
+use chrono::Timelike;
+use sourceorigin_common::protocol::{
+    claims::{Audience, AuthenticationClaims, IdTokenClaims, ProfileClaims},
+    jwt::TokenType,
+};
 
 /// Random secrets round-trip and reject malformed encodings without exposing bytes.
 #[test]
@@ -135,13 +139,24 @@ fn jwt_persistence_and_trust_boundaries() {
     let pem = key.private_key_pem().expect("export PEM");
     let restored = Rs256Key::from_pem("persistent", &pem).expect("restore key");
     assert_eq!(key.jwks(), restored.jwks());
-    let now = chrono::Utc::now().timestamp();
-    let claims = serde_json::json!({"iss":"https://auth.example", "iat":now, "exp":now+300});
+    let now = chrono::Utc::now();
+    let claims = IdTokenClaims {
+        iss: "https://auth.example".into(),
+        sub: "user".into(),
+        aud: Audience::One("client".into()),
+        azp: None,
+        iat: now.with_nanosecond(0).expect("whole seconds"),
+        exp: now.with_nanosecond(0).expect("whole seconds") + chrono::TimeDelta::minutes(5),
+        nbf: None,
+        nonce: None,
+        authentication: AuthenticationClaims::default(),
+        profile: ProfileClaims::default(),
+    };
     let token = key.sign(TokenType::Id, &claims).expect("sign");
     let restored = KeySet::single(restored);
     assert_eq!(
         restored
-            .verify::<serde_json::Value>(&token, TokenType::Id, "https://auth.example")
+            .verify::<IdTokenClaims>(&token, TokenType::Id, "https://auth.example", now)
             .expect("verify"),
         claims
     );
@@ -153,7 +168,7 @@ fn jwt_persistence_and_trust_boundaries() {
     );
     assert!(
         unrelated
-            .verify::<serde_json::Value>(&token, TokenType::Id, "https://auth.example")
+            .verify::<IdTokenClaims>(&token, TokenType::Id, "https://auth.example", now)
             .is_err()
     );
     let key = KeySet::single(key);
@@ -164,24 +179,24 @@ fn jwt_persistence_and_trust_boundaries() {
         "x".repeat(16385),
     ] {
         assert!(
-            key.verify::<serde_json::Value>(&token, TokenType::Id, "https://auth.example")
+            key.verify::<IdTokenClaims>(&token, TokenType::Id, "https://auth.example", now)
                 .is_err()
         );
     }
     for (field, invalid) in [
-        ("iat", serde_json::json!(now + 60)),
+        ("iat", serde_json::json!(now.timestamp() + 60)),
         ("iat", serde_json::json!("not a timestamp")),
         ("iat", serde_json::Value::Null),
         ("exp", serde_json::json!("not a timestamp")),
         ("exp", serde_json::Value::Null),
     ] {
-        let mut invalid_claims = claims.clone();
+        let mut invalid_claims = serde_json::to_value(&claims).expect("claims");
         invalid_claims[field] = invalid;
         let token = key
             .sign(TokenType::Id, &invalid_claims)
             .expect("sign malformed claims");
         assert!(
-            key.verify::<serde_json::Value>(&token, TokenType::Id, "https://auth.example")
+            key.verify::<IdTokenClaims>(&token, TokenType::Id, "https://auth.example", now)
                 .is_err()
         );
     }

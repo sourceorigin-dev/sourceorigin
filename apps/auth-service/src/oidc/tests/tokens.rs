@@ -40,6 +40,7 @@ async fn confidential_refresh_keeps_its_token_logout_and_client_binding() {
                 .expect("token response contains an ID token"),
             TokenType::Id,
             &flow.app.issuer,
+            Utc::now(),
         )
         .expect("verify confidential client ID token");
     assert_eq!(
@@ -97,6 +98,7 @@ async fn confidential_refresh_keeps_its_token_logout_and_client_binding() {
                 .expect("refresh response contains an ID token"),
             TokenType::Id,
             &flow.app.issuer,
+            Utc::now(),
         )
         .expect("verify narrowed ID token");
     assert!(narrowed_claims.profile.email.is_none());

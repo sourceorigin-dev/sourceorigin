@@ -1,53 +1,93 @@
 //! JWT policy, tampering, protected-header trust boundaries and key selection.
 use super::*;
-use serde_json::json;
+use serde_json::{Value, json};
+use sourceorigin_common::protocol::registered::ClaimsError;
 
-/// Signing enforces token types, signatures, issuer and expiry, while logout permits expired hints.
+/// The issuer every token here names.
+const ISSUER: &str = "https://auth.example";
+
+/// The instant every check here runs at: long past, so a check reading the system
+/// clock would refuse every token.
+fn now() -> DateTime<Utc> {
+    DateTime::from_timestamp(1_767_225_600, 0).expect("time")
+}
+
+/// ID token claims, issued at [`now`] and valid for five minutes, with `changes`.
+fn claims(changes: &Value) -> Value {
+    let now = now().timestamp();
+    let mut claims = json!({"iss":ISSUER,"sub":"user","aud":"client","iat":now,"exp":now+300});
+    for (claim, value) in changes.as_object().expect("changes") {
+        claims[claim] = value.clone();
+    }
+    claims
+}
+
+/// Verification checks the type, signature and issuer, and the times at the time
+/// it is given: `exp` without leeway, except for hints, which may have expired,
+/// and `nbf` and `iat` with it.
 #[test]
-fn rsa_verifies_signatures_types_expiry_and_logout_hints() {
+fn verifies_types_signatures_issuers_and_times_at_the_given_time() {
     let keys = KeySet::single(Rs256Key::generate("test").expect("generate RSA test key"));
-    let now = Utc::now().timestamp();
-    let claims =
-        json!({"iss":"https://auth.example","sub":"user","aud":"client","iat":now-60,"exp":now-1});
-    let expired = keys
-        .sign(TokenType::Id, &claims)
-        .expect("sign expired ID token hint");
-    assert!(
-        keys.verify::<Value>(&expired, TokenType::Id, "https://auth.example")
-            .is_err()
-    );
-    assert!(
-        keys.verify_id_token_hint(&expired, "https://auth.example")
-            .is_ok()
-    );
-    assert!(
-        keys.verify_id_token_hint(&expired, "https://evil.example")
-            .is_err()
-    );
-    let mut valid = claims;
-    valid["exp"] = json!(now + 300);
+    let at = |seconds: i64| now() + chrono::TimeDelta::seconds(seconds);
+    let verify = |claims: &Value| {
+        let token = keys.sign(TokenType::Id, claims).expect("sign");
+        (
+            keys.verify::<IdTokenClaims>(&token, TokenType::Id, ISSUER, now()),
+            keys.verify_id_token_hint(&token, ISSUER, now()),
+        )
+    };
+    let (token, hint) = verify(&claims(&json!({})));
+    assert_eq!(token.expect("verify").sub, "user");
+    assert_eq!(hint.expect("hint").sub, "user");
+
+    // Expired a second ago: refused as a token, read as a hint.
+    let (token, hint) = verify(&claims(&json!({"exp": at(-1).timestamp()})));
+    assert!(matches!(
+        token,
+        Err(CryptoError::Claims(ClaimsError::Expired(exp))) if exp == at(-1)
+    ));
+    assert!(hint.is_ok());
+    for changes in [
+        json!({"iss": "https://evil.example"}),
+        json!({"nbf": at(31).timestamp()}),
+        json!({"iat": at(31).timestamp()}),
+    ] {
+        let (token, hint) = verify(&claims(&changes));
+        assert!(matches!(token, Err(CryptoError::Claims(_))), "{changes}");
+        assert!(matches!(hint, Err(CryptoError::Claims(_))), "{changes}");
+    }
+    for changes in [
+        json!({"nbf": at(30).timestamp()}),
+        json!({"iat": at(30).timestamp()}),
+    ] {
+        let (token, hint) = verify(&claims(&changes));
+        assert!(token.is_ok() && hint.is_ok(), "{changes} within the leeway");
+    }
+    let mut no_exp = claims(&json!({}));
+    no_exp.as_object_mut().expect("claims").remove("exp");
+    let (token, hint) = verify(&no_exp);
+    assert!(matches!(token, Err(CryptoError::InvalidClaims(_))));
+    assert!(matches!(hint, Err(CryptoError::InvalidClaims(_))));
+
     let token = keys
-        .sign(TokenType::Access, &valid)
+        .sign(TokenType::Access, &claims(&json!({})))
         .expect("sign access token");
     assert!(
-        keys.verify::<Value>(&token, TokenType::Access, "https://auth.example")
+        keys.verify::<IdTokenClaims>(&token, TokenType::Access, ISSUER, now())
             .is_ok()
     );
-    assert!(
-        keys.verify::<Value>(&token, TokenType::Id, "https://auth.example")
-            .is_err()
-    );
+    assert!(matches!(
+        keys.verify::<IdTokenClaims>(&token, TokenType::Id, ISSUER, now()),
+        Err(CryptoError::InvalidToken)
+    ));
     let mut bytes = token.into_bytes();
     let n = bytes.len();
     bytes[n - 10] = if bytes[n - 10] == b'A' { b'B' } else { b'A' };
-    assert!(
-        keys.verify::<Value>(
-            std::str::from_utf8(&bytes).expect("modified compact token remains ASCII"),
-            TokenType::Access,
-            "https://auth.example"
-        )
-        .is_err()
-    );
+    let tampered = std::str::from_utf8(&bytes).expect("modified compact token remains ASCII");
+    assert!(matches!(
+        keys.verify::<IdTokenClaims>(tampered, TokenType::Access, ISSUER, now()),
+        Err(CryptoError::Signature)
+    ));
 }
 
 /// Even correctly RSA-signed inputs cannot choose an algorithm, type, key or critical extension.
@@ -55,8 +95,7 @@ fn rsa_verifies_signatures_types_expiry_and_logout_hints() {
 fn rejects_algorithm_confusion_and_unrecognized_headers() {
     let keys = KeySet::single(Rs256Key::generate("headers").expect("RSA key"));
     let key = keys.signer();
-    let now = Utc::now().timestamp();
-    let claims = json!({"iss":"https://auth.example", "iat":now, "exp":now+300});
+    let claims = claims(&json!({}));
     for (field, value) in [
         ("alg", json!("none")),
         ("alg", json!("HS256")),
@@ -78,7 +117,7 @@ fn rejects_algorithm_confusion_and_unrecognized_headers() {
         let token = key.signed(&input).expect("signature");
         assert!(
             matches!(
-                keys.verify::<Value>(&token, TokenType::Id, "https://auth.example"),
+                keys.verify::<IdTokenClaims>(&token, TokenType::Id, ISSUER, now()),
                 Err(CryptoError::InvalidToken | CryptoError::UnknownKey | CryptoError::Json(_))
             ),
             "accepted {field}"
@@ -92,7 +131,7 @@ fn rejects_algorithm_confusion_and_unrecognized_headers() {
         crate::Digest::hmac(key.public_key().pem().as_bytes(), input.as_bytes()).encoded();
     let token = format!("{input}.{signature}");
     assert!(matches!(
-        keys.verify::<Value>(&token, TokenType::Id, "https://auth.example"),
+        keys.verify::<IdTokenClaims>(&token, TokenType::Id, ISSUER, now()),
         Err(CryptoError::Json(_))
     ));
 }
@@ -103,8 +142,7 @@ fn rejects_algorithm_confusion_and_unrecognized_headers() {
 fn key_set_verifies_by_kid_and_limits_retired_keys_to_hints() {
     let [retiring, active, retired, unknown] = ["retiring", "active", "retired", "unknown"]
         .map(|kid| Rs256Key::generate(kid).expect("key"));
-    let now = Utc::now().timestamp();
-    let claims = json!({"iss":"https://auth.example", "aud":"client", "iat":now, "exp":now+300});
+    let claims = claims(&json!({}));
     let [by_retiring, by_retired, by_unknown] =
         [&retiring, &retired, &unknown].map(|key| key.sign(TokenType::Id, &claims).expect("sign"));
     // A signer must be published, or verifiers could not check its tokens.
@@ -117,24 +155,21 @@ fn key_set_verifies_by_kid_and_limits_retired_keys_to_hints() {
     let by_active = keys.sign(TokenType::Id, &claims).expect("sign");
     for token in [&by_active, &by_retiring] {
         assert!(
-            keys.verify::<Value>(token, TokenType::Id, "https://auth.example")
+            keys.verify::<IdTokenClaims>(token, TokenType::Id, ISSUER, now())
                 .is_ok()
         );
-        assert!(
-            keys.verify_id_token_hint(token, "https://auth.example")
-                .is_ok()
-        );
+        assert!(keys.verify_id_token_hint(token, ISSUER, now()).is_ok());
     }
     assert!(matches!(
-        keys.verify::<Value>(&by_retired, TokenType::Id, "https://auth.example"),
+        keys.verify::<IdTokenClaims>(&by_retired, TokenType::Id, ISSUER, now()),
         Err(CryptoError::UnknownKey)
     ));
     assert!(
-        keys.verify_id_token_hint(&by_retired, "https://auth.example")
+        keys.verify_id_token_hint(&by_retired, ISSUER, now())
             .is_ok()
     );
     assert!(matches!(
-        keys.verify_id_token_hint(&by_unknown, "https://auth.example"),
+        keys.verify_id_token_hint(&by_unknown, ISSUER, now()),
         Err(CryptoError::UnknownKey)
     ));
     let kids: Vec<_> = keys

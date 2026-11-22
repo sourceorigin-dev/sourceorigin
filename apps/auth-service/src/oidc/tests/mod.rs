@@ -331,7 +331,7 @@ impl Flow {
     async fn id_token(&self, response: Response) -> (Value, Value) {
         assert_eq!(response.status(), StatusCode::OK);
         let tokens = json(response).await;
-        let claims = self
+        let claims: IdTokenClaims = self
             .app
             .keys
             .current()
@@ -340,9 +340,10 @@ impl Flow {
                 tokens["id_token"].as_str().expect("ID token"),
                 TokenType::Id,
                 &self.app.issuer,
+                Utc::now(),
             )
             .expect("verify ID token");
-        (tokens, claims)
+        (tokens, serde_json::to_value(claims).expect("claims"))
     }
     /// The scenario's account, as the owner of its browser session.
     async fn owner(&self) -> crate::account::Owner {

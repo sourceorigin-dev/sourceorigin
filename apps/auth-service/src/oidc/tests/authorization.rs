@@ -39,6 +39,7 @@ async fn public_consent_pkce_claim_scoping_and_replay() {
                 .expect("token response contains an ID token"),
             TokenType::Id,
             &flow.app.issuer,
+            Utc::now(),
         )
         .expect("verify scoped ID token");
     assert_eq!(claims.nonce.as_deref(), Some("test-nonce"));
