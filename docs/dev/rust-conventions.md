@@ -343,6 +343,8 @@ use `?` when a conversion already exists. Do not use `Result<_, ()>` or producti
 can quote personal data, and explain that exception in the code. Gate test helpers with `#[cfg(test)]`.
 Clippy enforces this: it denies `unwrap`, `todo!` and `unimplemented!`
 everywhere, and `expect`, `panic!` and `dbg!` outside tests (`clippy.toml`).
+The library crates in `crates/` never print (`print_stdout`, `print_stderr`): they
+return errors, and the application decides where output goes.
 
 Helpers return the feature's domain error. Browser handlers return `ApiError`
 through `From<DomainError>`; that exhaustive mapping owns public statuses and

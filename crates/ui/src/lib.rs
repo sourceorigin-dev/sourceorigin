@@ -33,6 +33,8 @@
 //! # Ok(())
 //! # }
 //! ```
+// A library leaves printing to its caller: it returns errors and logs through tracing.
+#![warn(clippy::print_stdout, clippy::print_stderr)]
 
 /// The admin dashboard, and auth's page handing administrators off to it.
 mod admin;

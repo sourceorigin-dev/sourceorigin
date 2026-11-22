@@ -16,6 +16,8 @@
 //! - `sqlx`: decoding identifiers and vocabularies from `PostgreSQL` columns.
 // docs.rs labels feature-gated items with the features they need.
 #![cfg_attr(docsrs, feature(doc_cfg))]
+// A library leaves printing to its caller: it returns errors and logs through tracing.
+#![warn(clippy::print_stdout, clippy::print_stderr)]
 
 /// Implements the conversions a text type's `#[serde(try_from = "String", into =
 /// "String")]` names: it reads owned text through its `FromStr`, and writes what its
