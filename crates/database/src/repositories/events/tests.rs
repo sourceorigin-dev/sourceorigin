@@ -83,7 +83,7 @@ async fn personal_data_is_stored_apart_and_erases() {
     record(&pool, user, linked()).await;
     let [stored] = <[StoredEvent; 1]>::try_from(history().await).expect("one event");
     assert_eq!(stored.event, RecordedEvent::Known(linked()));
-    assert_eq!(stored.actor, context(user).actor);
+    assert_eq!(stored.actor.known(), Some(&context(user).actor));
     assert_eq!(stored.origin, Personal::Value(context(user).origin));
     assert_eq!(stored.reason, context(user).reason);
     let (event_row, personal_row): (String, String) = sqlx::query_as(
@@ -195,6 +195,7 @@ async fn related_origins_are_personal_but_older_events_still_read() {
             "related_origin_approved",
             DomainEvent::FIRST_VERSION,
             &serde_json::json!({"client_id": client_id, "origin": origin}),
+            &serde_json::json!({"type": "anonymous"}),
         )
         .await
         .expect("sealed event");
@@ -250,12 +251,13 @@ async fn events_a_newer_release_wrote_read_as_unknown() {
     let user = UserRepository::from_pool(&pool).insert_named("event").await;
     let mut events = EventRepository::from_pool(&pool);
     let data = serde_json::json!({"client_id": "deleted"});
+    let anonymous = serde_json::json!({"type": "anonymous"});
     for (kind, version) in [
         ("from_a_newer_release", DomainEvent::FIRST_VERSION),
         ("passkey_added", DomainEvent::FIRST_VERSION + 1),
     ] {
         events
-            .insert_written_elsewhere(user, kind, version, &data)
+            .insert_written_elsewhere(user, kind, version, &data, &anonymous)
             .await
             .expect("event");
     }
@@ -281,9 +283,69 @@ async fn events_a_newer_release_wrote_read_as_unknown() {
     // Rolled back, so that consumers of every event never read it.
     let mut tx = DatabaseTransaction::new(pool.begin().await.expect("transaction"));
     tx.events()
-        .insert_written_elsewhere(user, "passkey_added", DomainEvent::FIRST_VERSION, &data)
+        .insert_written_elsewhere(
+            user,
+            "passkey_added",
+            DomainEvent::FIRST_VERSION,
+            &data,
+            &anonymous,
+        )
         .await
         .expect("malformed event");
+    assert!(matches!(
+        tx.events().history_for_user(user, 10).await,
+        Err(DatabaseError::InvalidStoredData { .. })
+    ));
+    tx.rollback().await.expect("rollback");
+}
+
+/// Actors a newer release recorded, of a type this one does not know or a known
+/// type naming a job it does not know, read as unknown with their JSON. A known
+/// type that does not decode still fails.
+#[tokio::test]
+#[ignore = "requires a disposable TEST_DATABASE_URL"]
+async fn actors_a_newer_release_wrote_read_as_unknown() {
+    let pool = Database::test_pool().await;
+    let user = UserRepository::from_pool(&pool).insert_named("event").await;
+    let mut events = EventRepository::from_pool(&pool);
+    let actors = [
+        serde_json::json!({"type": "from_a_newer_release"}),
+        serde_json::json!({"type": "system", "job": "from_a_newer_release"}),
+    ];
+    for actor in &actors {
+        events
+            .insert_written_elsewhere(
+                user,
+                "account_exported",
+                DomainEvent::FIRST_VERSION,
+                &serde_json::json!({}),
+                actor,
+            )
+            .await
+            .expect("event");
+    }
+    let read: Vec<_> = events
+        .history_for_user(user, 10)
+        .await
+        .expect("history")
+        .into_iter()
+        .map(|stored| stored.actor)
+        .collect();
+    let [older, newer] = actors.map(RecordedActor::Unknown);
+    assert_eq!(read, [newer, older]);
+
+    // Rolled back, so that consumers of every event never read it.
+    let mut tx = DatabaseTransaction::new(pool.begin().await.expect("transaction"));
+    tx.events()
+        .insert_written_elsewhere(
+            user,
+            "account_exported",
+            DomainEvent::FIRST_VERSION,
+            &serde_json::json!({}),
+            &serde_json::json!({"type": "user"}),
+        )
+        .await
+        .expect("malformed actor");
     assert!(matches!(
         tx.events().history_for_user(user, 10).await,
         Err(DatabaseError::InvalidStoredData { .. })

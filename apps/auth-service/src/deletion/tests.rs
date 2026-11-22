@@ -4,6 +4,7 @@
 use super::*;
 use crate::{
     AdminError, AdminService,
+    account::Viewer,
     jobs::AccountPurge,
     security::SessionError,
     tests::{
@@ -15,6 +16,7 @@ use axum::http::header;
 use serde_json::json;
 use sourceorigin_common::{
     AnnouncementId, AuthenticationMethod, PictureId, Provider, RecoveryId, TokenId,
+    admin::EventSearch,
     clients::{ClientKind, ClientOwner},
     events::{Actor, JobName, Platform, RequestOrigin, SignInFailure, UserAgentFamily},
     notifications::{EmailCategory, Notification, NotificationPreference},
@@ -55,7 +57,10 @@ impl Fixture {
             .await
             .expect("history")
             .into_iter()
-            .map(|stored| (stored.event.known().cloned().expect("known"), stored.actor))
+            .map(|stored| {
+                let actor = stored.actor.known().cloned().expect("known actor");
+                (stored.event.known().cloned().expect("known"), actor)
+            })
             .collect()
     }
 
@@ -377,6 +382,16 @@ fn holds(value: &serde_json::Value, path: &[&str]) -> bool {
     }
 }
 
+/// The document `export` streams.
+async fn download(export: AccountExport) -> String {
+    let mut body = Vec::new();
+    let mut chunks = export.stream();
+    while let Some(chunk) = chunks.next().await {
+        body.extend_from_slice(&chunk.expect("chunk"));
+    }
+    String::from_utf8(body).expect("UTF-8")
+}
+
 /// `browser`'s user, acting from it.
 const fn user(browser: &Browser) -> Actor {
     Actor::User {
@@ -420,12 +435,7 @@ async fn exports_hold_every_category_and_no_secret() {
     ));
     drop(second);
     // Its file name and the sections' shapes are checked in the export's own tests.
-    let mut body = Vec::new();
-    let mut chunks = export.stream();
-    while let Some(chunk) = chunks.next().await {
-        body.extend_from_slice(&chunk.expect("chunk"));
-    }
-    let text = String::from_utf8(body).expect("UTF-8");
+    let text = download(export).await;
     let export: serde_json::Value = serde_json::from_str(&text).expect("JSON");
     assert_eq!(
         export["profile"]["handle"],
@@ -487,6 +497,68 @@ async fn exports_hold_every_category_and_no_secret() {
         fixture.events(browser.user_id).await[0],
         (DomainEvent::AccountExported {}, user(&browser))
     );
+}
+
+/// Events whose actor a newer release recorded, of a type this one does not know
+/// or a known type naming a job it does not know, fail none of the pages that
+/// read them. The dashboard lists them with the actor as stored, which it shows as
+/// nobody recorded and the CLI as JSON. The owner's history and export name no
+/// actor.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL"]
+async fn actors_a_newer_release_wrote_are_read() {
+    let fixture = Fixture::new().await;
+    let browser = Browser::new_account(&fixture.database).await;
+    let actors = [
+        json!({"type": "from_a_newer_release"}),
+        json!({"type": "system", "job": "from_a_newer_release"}),
+    ];
+    for actor in &actors {
+        fixture
+            .database
+            .events()
+            .insert_written_elsewhere(
+                browser.user_id,
+                "passkey_renamed",
+                DomainEvent::FIRST_VERSION,
+                &json!({"passkey_id": PasskeyId::new()}),
+                actor,
+            )
+            .await
+            .expect("event");
+    }
+    let search = EventSearch {
+        user: Some(browser.user_id),
+        kind: Some("passkey_renamed".into()),
+        ..EventSearch::default()
+    };
+    let page = (fixture.admin.events(&operator(), search))
+        .await
+        .expect("events");
+    let listed: Vec<_> = page.events.iter().map(|event| &event.actor).collect();
+    assert_eq!(listed, [&actors[1], &actors[0]]);
+
+    let owner = browser.owner(&fixture.database).await;
+    let history = (fixture.account.history(&Viewer::from(&owner), None))
+        .await
+        .expect("history");
+    let history = serde_json::to_value(history.entries).expect("history");
+    let export = fixture.account.export(&owner).await.expect("export");
+    let export: serde_json::Value = serde_json::from_str(&download(export).await).expect("JSON");
+    for (surface, entries, kind) in [
+        ("history", &history, "passkey.renamed"),
+        ("export", &export["events"], "passkey_renamed"),
+    ] {
+        let renamed: Vec<_> = (entries.as_array().expect("entries").iter())
+            .filter(|entry| entry["kind"] == kind)
+            .map(|entry| &entry["actor"])
+            .collect();
+        assert_eq!(
+            renamed,
+            [&json!(null), &json!(null)],
+            "{surface}: {entries}"
+        );
+    }
 }
 
 /// Deleting needs the account's handle and a recent passkey confirmation. It signs

@@ -112,15 +112,15 @@ async fn deleted_clients_stay_deleted() {
         .await
         .expect("history");
     assert_eq!(
-        (history[0].event.known(), &history[0].actor),
+        (history[0].event.known(), history[0].actor.known()),
         (
             Some(&DomainEvent::ClientDeleted {
                 client_id: client_id.clone()
             }),
-            &Actor::User {
+            Some(&Actor::User {
                 user_id: alice.user_id,
                 session_id: Some(alice.session_id),
-            }
+            })
         )
     );
 

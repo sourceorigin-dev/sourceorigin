@@ -47,7 +47,7 @@ pub use repositories::{
         LogoutRecipient, NewDelivery, PendingAddress, PendingRecovery,
     },
     emails::{InsertUnverifiedEmail, InsertVerifiedEmail, PendingVerification, StoredEmail},
-    events::{EventCursor, EventFilter, RecordedEvent, StoredEvent, Verifications},
+    events::{EventCursor, EventFilter, RecordedActor, RecordedEvent, StoredEvent, Verifications},
     exports::{AnnouncementRecord, IdentityRecord, NotificationRecord, SessionRecord},
     federation::{
         ConsumedFederationTransaction, InsertExternalIdentity, InsertFederationTransaction,

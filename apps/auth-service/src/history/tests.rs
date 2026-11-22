@@ -228,7 +228,13 @@ async fn events_a_newer_release_wrote_are_hidden() {
     let unknown = harness
         .database
         .events()
-        .insert_written_elsewhere(alice.user_id, "from_a_newer_release", 1, &json!({}))
+        .insert_written_elsewhere(
+            alice.user_id,
+            "from_a_newer_release",
+            1,
+            &json!({}),
+            &json!({"type": "anonymous"}),
+        )
         .await
         .expect("event");
     let page = harness.page(&alice, None).await;
@@ -355,7 +361,7 @@ async fn reporting_ends_other_sessions_and_every_grant() {
         .into_iter()
         .map(|stored| {
             (
-                stored.actor,
+                stored.actor.known().cloned().expect("a known actor"),
                 stored.event.known().cloned().expect("a known event"),
             )
         })

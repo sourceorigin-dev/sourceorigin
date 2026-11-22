@@ -139,11 +139,11 @@ async fn signing_out_one_session_ends_only_that_one() {
         .expect("history")
         .remove(0);
     assert_eq!(
-        latest.actor,
-        Actor::User {
+        latest.actor.known(),
+        Some(&Actor::User {
             user_id: laptop.user_id,
             session_id: Some(laptop.session_id),
-        }
+        })
     );
     assert_eq!(
         latest.event.known(),

@@ -646,10 +646,10 @@ async fn the_verifier_verifies_when_no_verification_is_recent() {
         .expect("newest")
         .expect("recorded");
     assert_eq!(
-        newest.actor,
-        Actor::System {
+        newest.actor.known(),
+        Some(&Actor::System {
             job: JobName::AuditVerification
-        }
+        })
     );
     assert_eq!(verifier.pass(&mut lock).await.expect("pass"), None);
     lock.release().await.expect("release");

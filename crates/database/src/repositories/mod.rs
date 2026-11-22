@@ -136,14 +136,15 @@ repositories! {
     exports: ExportRepository;
 }
 
-/// How decoding `{"kind": …}` alone as a stored, `kind`-tagged enum fails, which
-/// tells whether this release knows the kind: a [`DomainEvent`], an [`Alert`] or a
-/// [`Notification`] a newer release wrote reads as unknown, not as corrupt. Only
-/// serde's derive knows the variant names, and it reports an unknown one through
-/// [`serde::de::Error::unknown_variant`].
+/// How decoding some of a stored value's strings alone fails, which tells whether
+/// this release knows the variants they name: a [`DomainEvent`], an [`Alert`], a
+/// [`Notification`] or an [`Actor`] a newer release wrote reads as unknown, not as
+/// corrupt. Only serde's derive knows the variant names, and it reports an unknown
+/// one through [`serde::de::Error::unknown_variant`].
 ///
 /// [`Alert`]: sourceorigin_common::alerts::Alert
 /// [`Notification`]: sourceorigin_common::notifications::Notification
+/// [`Actor`]: sourceorigin_common::events::Actor
 #[derive(Debug, thiserror::Error)]
 enum KindProbe {
     /// The kind is no variant of this release's enum.
@@ -167,11 +168,11 @@ impl serde::de::Error for KindProbe {
 }
 
 impl KindProbe {
-    /// Whether `kind` is the serde tag of a variant of this release's `T`.
-    fn knows<T: DeserializeOwned>(kind: &str) -> bool {
-        let tag =
-            serde::de::value::MapDeserializer::<_, Self>::new(std::iter::once(("kind", kind)));
-        !matches!(T::deserialize(tag), Err(Self::Unknown))
+    /// Whether this release's `T` knows every variant `fields` name, each a
+    /// field of a stored `T` and its string value, such as its serde tag.
+    fn knows<'a, T: DeserializeOwned>(fields: impl Iterator<Item = (&'a str, &'a str)>) -> bool {
+        let fields = serde::de::value::MapDeserializer::<_, Self>::new(fields);
+        !matches!(T::deserialize(fields), Err(Self::Unknown))
     }
 
     /// Decodes `tagged`, a stored `{"kind": …}` `T`, or returns `None` if this
@@ -180,8 +181,19 @@ impl KindProbe {
         let known = tagged
             .get("kind")
             .and_then(Value::as_str)
-            .is_some_and(Self::knows::<T>);
+            .is_some_and(|kind| Self::knows::<T>(std::iter::once(("kind", kind))));
         known.then(|| serde_json::from_value(tagged))
+    }
+
+    /// Decodes `flat`, a stored `T` whose fields are its tag and values beside
+    /// it, as an [`Actor`](sourceorigin_common::events::Actor)'s are, or returns
+    /// `None` if one of its strings names a variant this release does not know:
+    /// its tag, or a value such as the job of an `Actor::System`.
+    fn known_flat<T: DeserializeOwned>(flat: Value) -> Option<Result<T, serde_json::Error>> {
+        let strings = (flat.as_object().into_iter().flatten())
+            .filter_map(|(field, value)| Some((field.as_str(), value.as_str()?)));
+        let known = Self::knows::<T>(strings);
+        known.then(|| serde_json::from_value(flat))
     }
 
     /// Decodes `tagged`, a `T` stored at payload `version`, if this release writes

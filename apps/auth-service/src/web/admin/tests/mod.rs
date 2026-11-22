@@ -246,6 +246,6 @@ impl Harness {
         events
             .into_iter()
             .find(|stored| stored.event.known().is_some_and(&found))
-            .map(|stored| stored.actor)
+            .and_then(|stored| stored.actor.known().cloned())
     }
 }
