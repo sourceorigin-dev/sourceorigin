@@ -12,6 +12,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer, de::DeserializeOwn
 use sourceorigin_common::{
     ClientId,
     protocol::{
+        challenge::AuthScheme,
         claims::{IdTokenClaims, LogoutTokenClaims, UserInfo},
         jwt::TokenType,
         oauth::{
@@ -1038,7 +1039,7 @@ impl Client {
         nonce: Option<&str>,
         max_age: Option<u32>,
     ) -> Result<Tokens, OAuthError> {
-        if !response.token_type.eq_ignore_ascii_case("Bearer") {
+        if !AuthScheme::Bearer.matches(&response.token_type) {
             return Err(OAuthError::UnexpectedResponse {
                 endpoint: "token",
                 status: StatusCode::OK.as_u16(),

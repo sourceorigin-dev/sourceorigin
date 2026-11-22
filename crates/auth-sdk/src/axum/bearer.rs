@@ -11,7 +11,7 @@ use axum::{
 use serde::de::DeserializeOwned;
 use sourceorigin_common::{
     ErrorChain,
-    protocol::challenge::{BearerChallenge, BearerError},
+    protocol::challenge::{AuthScheme, BearerChallenge, BearerError},
 };
 use std::{
     future::Future,
@@ -151,8 +151,8 @@ where
                     Err(_) => Outcome::Malformed,
                     Ok(value) => {
                         let (scheme, credentials) = value.split_once(' ').unwrap_or((value, ""));
-                        match scheme
-                            .eq_ignore_ascii_case("Bearer")
+                        match AuthScheme::Bearer
+                            .matches(scheme)
                             .then(|| credentials.trim())
                         {
                             None => Outcome::Missing,

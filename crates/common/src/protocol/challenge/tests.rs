@@ -63,3 +63,19 @@ fn rejects_invalid_headers() {
         assert_eq!(header.parse::<BearerChallenge>(), Err(expected), "{header}");
     }
 }
+
+/// Checks case-insensitive scheme matching without changing credential bytes.
+#[test]
+fn authentication_schemes_are_case_insensitive() {
+    assert_eq!(AuthScheme::Bearer.credentials("bEaReR a.B"), Some("a.B"));
+    assert_eq!(AuthScheme::Basic.credentials("BASIC Zm9v"), Some("Zm9v"));
+    assert_eq!(AuthScheme::Basic.credentials("Bearer Zm9v"), None);
+    assert_eq!(AuthScheme::Bearer.credentials("Bearer"), None);
+}
+
+/// Checks that credentials may follow the scheme after more than one space (RFC 9110 §11.4).
+#[test]
+fn authentication_schemes_allow_several_spaces() {
+    assert_eq!(AuthScheme::Bearer.credentials("Bearer   a.B"), Some("a.B"));
+    assert_eq!(AuthScheme::Basic.credentials("Basic  Zm9v"), Some("Zm9v"));
+}

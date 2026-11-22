@@ -1,5 +1,6 @@
 //! `WWW-Authenticate: Bearer` challenges (RFC 6750 §3, RFC 9470 §3, RFC 9728 §5.1),
-//! produced by resource servers and parsed by clients.
+//! produced by resource servers and parsed by clients, and the authentication
+//! schemes (`AuthScheme`) `Authorization` headers name.
 //!
 //! Parameters are written in one fixed order (`error`, `error_description`, `scope`,
 //! `acr_values`, `max_age`, `resource_metadata`) with every value quoted, so every SDK
@@ -69,8 +70,44 @@ impl BearerError {
     }
 }
 
-/// The authentication scheme of every challenge here.
-const SCHEME: &str = "Bearer";
+crate::str_enum! {
+    /// HTTP authentication schemes (RFC 9110 §11): `Bearer` for access tokens, the
+    /// scheme of every challenge here, and `Basic` for a confidential client's ID
+    /// and secret at the token endpoint.
+    pub enum AuthScheme {
+        /// Client ID and secret, used by confidential clients at the token endpoint.
+        Basic = "Basic",
+        /// An access token (RFC 6750).
+        Bearer = "Bearer",
+    }
+}
+
+impl AuthScheme {
+    /// Whether `scheme` names this scheme. Scheme names are case-insensitive
+    /// (RFC 9110 §11.1).
+    #[must_use]
+    pub fn matches(self, scheme: &str) -> bool {
+        scheme.eq_ignore_ascii_case(self.as_str())
+    }
+
+    /// Returns the credentials of an `Authorization` value using this scheme, or
+    /// `None` for another scheme or a value without credentials. One or more
+    /// spaces separate the scheme from the credentials (RFC 9110 §11.4), which are
+    /// otherwise untouched.
+    ///
+    /// ```
+    /// use sourceorigin_common::protocol::challenge::AuthScheme;
+    ///
+    /// assert_eq!(AuthScheme::Bearer.credentials("bearer  a.B"), Some("a.B"));
+    /// assert_eq!(AuthScheme::Basic.credentials("Bearer Zm9v"), None);
+    /// ```
+    #[must_use]
+    pub fn credentials(self, value: &str) -> Option<&str> {
+        let (scheme, credentials) = value.split_once(' ')?;
+        self.matches(scheme)
+            .then(|| credentials.trim_start_matches(' '))
+    }
+}
 
 /// One `Bearer` challenge. Without `error` it means no token was sent (RFC 6750 §3.1).
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -217,7 +254,7 @@ impl BearerChallenge {
 impl fmt::Display for BearerChallenge {
     /// Writes the header value, parameters in their fixed order.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(SCHEME)?;
+        formatter.write_str(AuthScheme::Bearer.as_str())?;
         let mut first = true;
         if let Some(error) = &self.error {
             Self::write_parameter(formatter, &mut first, "error", error.as_str())?;
@@ -250,7 +287,7 @@ impl FromStr for BearerChallenge {
         Parser::new(value)
             .challenges()?
             .into_iter()
-            .find(|challenge| challenge.scheme.eq_ignore_ascii_case(SCHEME))
+            .find(|challenge| AuthScheme::Bearer.matches(&challenge.scheme))
             .ok_or(ChallengeError::NotBearer)
             .and_then(|challenge| Self::from_parameters(challenge.parameters))
     }
