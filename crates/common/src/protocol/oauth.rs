@@ -419,20 +419,7 @@ impl FromStr for ErrorDescription {
     }
 }
 
-impl TryFrom<String> for ErrorDescription {
-    type Error = InvalidDescription;
-    /// Same as `parse`.
-    fn try_from(text: String) -> Result<Self, Self::Error> {
-        text.parse()
-    }
-}
-
-impl From<ErrorDescription> for String {
-    /// The description text.
-    fn from(description: ErrorDescription) -> Self {
-        description.0
-    }
-}
+text_conversions!(ErrorDescription);
 
 impl fmt::Display for ErrorDescription {
     /// Writes the description.
