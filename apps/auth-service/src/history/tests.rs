@@ -234,6 +234,7 @@ async fn events_a_newer_release_wrote_are_hidden() {
             1,
             &json!({}),
             &json!({"type": "anonymous"}),
+            None,
         )
         .await
         .expect("event");

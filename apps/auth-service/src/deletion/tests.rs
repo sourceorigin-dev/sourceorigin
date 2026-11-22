@@ -503,7 +503,7 @@ async fn exports_hold_every_category_and_no_secret() {
 /// or a known type naming a job it does not know, fail none of the pages that
 /// read them. The dashboard lists them with the actor as stored, which it shows as
 /// nobody recorded and the CLI as JSON. The owner's history and export name no
-/// actor.
+/// actor, and show no IP address or device, as the actor may be an administrator.
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn actors_a_newer_release_wrote_are_read() {
@@ -513,20 +513,29 @@ async fn actors_a_newer_release_wrote_are_read() {
         json!({"type": "from_a_newer_release"}),
         json!({"type": "system", "job": "from_a_newer_release"}),
     ];
+    let origin = RequestOrigin {
+        client_ip: Some([192, 0, 2, 7].into()),
+        user_agent_family: Some(UserAgentFamily {
+            browser: sourceorigin_common::events::Browser::Firefox,
+            platform: Platform::Linux,
+        }),
+    };
+    // Personal data is only recorded in its event's transaction.
+    let mut tx = fixture.database.begin().await.expect("transaction");
     for actor in &actors {
-        fixture
-            .database
-            .events()
+        tx.events()
             .insert_written_elsewhere(
                 browser.user_id,
                 "passkey_renamed",
                 DomainEvent::FIRST_VERSION,
                 &json!({"passkey_id": PasskeyId::new()}),
                 actor,
+                Some(&origin),
             )
             .await
             .expect("event");
     }
+    tx.commit().await.expect("commit");
     let search = EventSearch {
         user: Some(browser.user_id),
         kind: Some("passkey_renamed".into()),
@@ -551,13 +560,10 @@ async fn actors_a_newer_release_wrote_are_read() {
     ] {
         let renamed: Vec<_> = (entries.as_array().expect("entries").iter())
             .filter(|entry| entry["kind"] == kind)
-            .map(|entry| &entry["actor"])
+            .map(|entry| (&entry["actor"], &entry["ip"], &entry["device"]))
             .collect();
-        assert_eq!(
-            renamed,
-            [&json!(null), &json!(null)],
-            "{surface}: {entries}"
-        );
+        let unnamed = (&json!(null), &json!(null), &json!(null));
+        assert_eq!(renamed, [unnamed, unnamed], "{surface}: {entries}");
     }
 }
 

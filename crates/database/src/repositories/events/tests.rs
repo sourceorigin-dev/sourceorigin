@@ -196,6 +196,7 @@ async fn related_origins_are_personal_but_older_events_still_read() {
             DomainEvent::FIRST_VERSION,
             &serde_json::json!({"client_id": client_id, "origin": origin}),
             &serde_json::json!({"type": "anonymous"}),
+            None,
         )
         .await
         .expect("sealed event");
@@ -257,7 +258,7 @@ async fn events_a_newer_release_wrote_read_as_unknown() {
         ("passkey_added", DomainEvent::FIRST_VERSION + 1),
     ] {
         events
-            .insert_written_elsewhere(user, kind, version, &data, &anonymous)
+            .insert_written_elsewhere(user, kind, version, &data, &anonymous, None)
             .await
             .expect("event");
     }
@@ -289,6 +290,7 @@ async fn events_a_newer_release_wrote_read_as_unknown() {
             DomainEvent::FIRST_VERSION,
             &data,
             &anonymous,
+            None,
         )
         .await
         .expect("malformed event");
@@ -320,6 +322,7 @@ async fn actors_a_newer_release_wrote_read_as_unknown() {
                 DomainEvent::FIRST_VERSION,
                 &serde_json::json!({}),
                 actor,
+                None,
             )
             .await
             .expect("event");
@@ -343,6 +346,7 @@ async fn actors_a_newer_release_wrote_read_as_unknown() {
             DomainEvent::FIRST_VERSION,
             &serde_json::json!({}),
             &serde_json::json!({"type": "user"}),
+            None,
         )
         .await
         .expect("malformed actor");

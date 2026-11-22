@@ -189,11 +189,10 @@ impl KindProbe {
     /// it, as an [`Actor`](sourceorigin_common::events::Actor)'s are, or returns
     /// `None` if one of its strings names a variant this release does not know:
     /// its tag, or a value such as the job of an `Actor::System`.
-    fn known_flat<T: DeserializeOwned>(flat: Value) -> Option<Result<T, serde_json::Error>> {
+    fn known_flat<T: DeserializeOwned>(flat: &Value) -> Option<Result<T, serde_json::Error>> {
         let strings = (flat.as_object().into_iter().flatten())
             .filter_map(|(field, value)| Some((field.as_str(), value.as_str()?)));
-        let known = Self::knows::<T>(strings);
-        known.then(|| serde_json::from_value(flat))
+        Self::knows::<T>(strings).then(|| T::deserialize(flat))
     }
 
     /// Decodes `tagged`, a `T` stored at payload `version`, if this release writes

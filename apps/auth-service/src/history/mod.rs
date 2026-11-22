@@ -77,11 +77,11 @@ pub(crate) struct HistoryItem<E = HistoryEntry> {
     /// The application involved, if any.
     pub(crate) client: Option<ClientView>,
     /// The request's IP address, while kept; never an administrator's or
-    /// operator's.
+    /// operator's, nor an actor's a newer release recorded.
     pub(crate) ip: Option<IpAddr>,
     /// The request's browser and platform, while kept; never an administrator's
-    /// or operator's. Entries recorded before platforms were have `other` for
-    /// theirs.
+    /// or operator's, nor an actor's a newer release recorded. Entries recorded
+    /// before platforms were have `other` for theirs.
     pub(crate) device: Option<UserAgentFamily>,
     /// Whether retention or a purge deleted the IP address and device.
     pub(crate) erased: bool,

@@ -416,10 +416,12 @@ release never writes an unknown one, and an actor of a known type that does not
 decode, such as a `user` with no `user_id`, is still
 `DatabaseError::InvalidStoredData`.
 
-Closed vocabularies stored in other columns, such as `AccountStatus`, have no
-such tolerance: a release fails to decode a value it does not know. Add the value in one release that never writes it, and
-start writing it in a later one, so the release a deploy or rollback runs beside
-always reads it.
+Closed vocabularies stored in other columns, such as `AccountStatus` and the
+actor in `alert_updates.author`, have no such tolerance: a release fails to
+decode a value it does not know
+([#701](https://github.com/sourceorigin-dev/sourceorigin/issues/701)). Add the
+value in one release that never writes it, and start writing it in a later one,
+so the release a deploy or rollback runs beside always reads it.
 
 ### Personal data
 

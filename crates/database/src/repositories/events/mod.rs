@@ -241,7 +241,7 @@ impl TryFrom<EventRow> for StoredEvent {
                 data: payload,
             },
         };
-        let actor = match KindProbe::known_flat(row.actor.clone()) {
+        let actor = match KindProbe::known_flat(&row.actor) {
             Some(actor) => RecordedActor::Known(actor.map_err(|source| invalid("actor", source))?),
             None => RecordedActor::Unknown(row.actor),
         };
@@ -346,7 +346,6 @@ impl EventRepository<'_> {
             serde_json::from_value(serde_json::to_value(event).map_err(serialization)?)
                 .map_err(serialization)?;
         let details = PersonalDetails::extract(&mut data);
-        let family = context.origin.user_agent_family;
         let id = EventId::new();
         run!(
             self,
@@ -373,6 +372,21 @@ impl EventRepository<'_> {
                 Telemetry::current_trace_id().map(String::from),
             )
         )?;
+        self.insert_personal(id, &context.origin, &details, context.reason.as_deref())
+            .await?;
+        Ok(id)
+    }
+
+    /// Writes the personal data of the event `id`: where its request came from,
+    /// its payload's personal values and its reason.
+    async fn insert_personal(
+        &mut self,
+        id: EventId,
+        origin: &RequestOrigin,
+        details: &PersonalDetails,
+        reason: Option<&str>,
+    ) -> Result<(), DatabaseError> {
+        let family = origin.user_agent_family;
         run!(
             self,
             execute,
@@ -381,14 +395,14 @@ impl EventRepository<'_> {
                     event_id, client_ip, user_agent_family, platform, details, reason
                 ) VALUES ($1, $2, $3, $4, $5, $6)",
                 id.as_uuid(),
-                context.origin.client_ip as _,
+                origin.client_ip as _,
                 family.map(|family| family.browser.as_str()),
                 family.map(|family| family.platform.as_str()),
-                Json(&details) as _,
-                context.reason.as_deref(),
+                Json(details) as _,
+                reason,
             )
         )?;
-        Ok(id)
+        Ok(())
     }
 
     /// Lists the events concerning an account, newest first, for its security history.
@@ -597,8 +611,9 @@ impl EventRepository<'_> {
     }
 
     /// Writes an event about `subject` as another release would, with any `kind`,
-    /// `version`, `payload` and `actor` and no personal data, for tests of what
-    /// this release reads back.
+    /// `version`, `payload` and `actor`, for tests of what this release reads
+    /// back. It keeps `origin` as its personal data, or none without one; personal
+    /// data is only recorded with its event, so pass `origin` in a transaction.
     ///
     /// # Errors
     ///
@@ -611,6 +626,7 @@ impl EventRepository<'_> {
         version: i16,
         payload: &Value,
         actor: &Value,
+        origin: Option<&RequestOrigin>,
     ) -> Result<EventId, DatabaseError> {
         let id = EventId::new();
         run!(
@@ -627,6 +643,9 @@ impl EventRepository<'_> {
                 subject.as_uuid(),
             )
         )?;
+        if let Some(origin) = origin {
+            (self.insert_personal(id, origin, &PersonalDetails::default(), None)).await?;
+        }
         Ok(id)
     }
 }

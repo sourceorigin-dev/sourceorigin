@@ -199,6 +199,7 @@ async fn events_a_newer_release_wrote_are_listed() {
             1,
             &data,
             &json!({"type": "anonymous"}),
+            None,
         )
         .await
         .expect("event");
