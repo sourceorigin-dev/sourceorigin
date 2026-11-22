@@ -289,6 +289,36 @@ pub struct Invitation {
     pub revoked_at: Option<DateTime<Utc>>,
 }
 
+impl Invitation {
+    /// Whether it can still be used, as of `now`.
+    #[must_use]
+    pub fn state(&self, now: DateTime<Utc>) -> InvitationState {
+        if self.redeemed_at.is_some() {
+            InvitationState::Redeemed
+        } else if self.revoked_at.is_some() {
+            InvitationState::Revoked
+        } else if self.expires_at <= now {
+            InvitationState::Expired
+        } else {
+            InvitationState::Open
+        }
+    }
+}
+
+/// Whether an invitation can still be used: the first that applies. The
+/// database finds and redeems only an open one, by the same rule in SQL.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum InvitationState {
+    /// An account was created with it.
+    Redeemed,
+    /// An administrator or operator revoked it.
+    Revoked,
+    /// Its link expired unused.
+    Expired,
+    /// Its link works.
+    Open,
+}
+
 /// The form creating an invitation.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CreateInvitation {
@@ -462,6 +492,45 @@ pub struct Recovery {
     pub state: RecoveryState,
     /// The passkey its link enrolled, if it did.
     pub passkey: Option<RecoveryPasskey>,
+}
+
+impl Recovery {
+    /// Where it stands, as people read it: its state, with why one ended.
+    #[must_use]
+    pub const fn standing(&self) -> RecoveryStanding {
+        match self.state {
+            RecoveryState::Open => RecoveryStanding::Unused,
+            RecoveryState::Probation { settles_at } => RecoveryStanding::Probation { settles_at },
+            RecoveryState::Settled => RecoveryStanding::Settled,
+            RecoveryState::Ended => match (self.undone_at, self.cancelled_at) {
+                (Some(at), _) => RecoveryStanding::Undone(at),
+                (None, Some(at)) => RecoveryStanding::Cancelled(at),
+                (None, None) => RecoveryStanding::Expired,
+            },
+        }
+    }
+}
+
+/// Where a recovery stands, as the dashboard and the CLI say it: its
+/// [`RecoveryState`], with an ended one split by why it ended.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RecoveryStanding {
+    /// Its link works, and was not used yet.
+    Unused,
+    /// Its link was used: its passkey signs in, confirms no change, and the
+    /// recovery can be undone until `settles_at`.
+    Probation {
+        /// When the probation ends.
+        settles_at: DateTime<Utc>,
+    },
+    /// Its probation ended.
+    Settled,
+    /// It was undone, after its link was used.
+    Undone(DateTime<Utc>),
+    /// It was cancelled before its link was used.
+    Cancelled(DateTime<Utc>),
+    /// Its link expired unused.
+    Expired,
 }
 
 /// The passkey a recovery's link enrolled.

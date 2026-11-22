@@ -11,7 +11,7 @@ use crate::{
 use clap::Subcommand;
 use sourceorigin_common::{
     PasskeyId,
-    admin::{Recovery, RecoveryState, UserDetail, UserPage},
+    admin::{Recovery, RecoveryStanding, RecoveryState, UserDetail, UserPage},
 };
 
 /// Accounts, in any status.
@@ -311,22 +311,17 @@ report!([Recovery], self, out, {
         ["RECOVERY", "STARTED", "STATE", "PASSKEY", "NAME", "ACTIVE"],
         "",
         self.iter().map(|recovery| {
-            let state = match recovery.state {
-                RecoveryState::Open => Cell::new("link not used").style(Style::Notice),
-                RecoveryState::Probation { settles_at } => {
+            let ended = |what: &str, at| Cell::new(format_args!("{what} {}", Time(at)));
+            let state = match recovery.standing() {
+                RecoveryStanding::Unused => Cell::new("link not used").style(Style::Notice),
+                RecoveryStanding::Probation { settles_at } => {
                     Cell::new(format_args!("in probation until {}", Time(settles_at)))
                         .style(Style::Notice)
                 }
-                RecoveryState::Settled => Cell::new("settled"),
-                RecoveryState::Ended => {
-                    let ended = |what: &str, at| Cell::new(format_args!("{what} {}", Time(at)));
-                    match (recovery.undone_at, recovery.cancelled_at) {
-                        (Some(at), _) => ended("undone", at),
-                        (None, Some(at)) => ended("cancelled", at),
-                        (None, None) => Cell::new("link expired"),
-                    }
-                    .style(Style::Muted)
-                }
+                RecoveryStanding::Settled => Cell::new("settled"),
+                RecoveryStanding::Undone(at) => ended("undone", at).style(Style::Muted),
+                RecoveryStanding::Cancelled(at) => ended("cancelled", at).style(Style::Muted),
+                RecoveryStanding::Expired => Cell::new("link expired").style(Style::Muted),
             };
             let passkey = recovery.passkey.as_ref();
             [

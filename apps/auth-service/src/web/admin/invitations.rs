@@ -6,7 +6,7 @@ use crate::{AdminError, InviteExpiry, Reason};
 use chrono::Utc;
 use sourceorigin_common::{
     TokenId,
-    admin::{CreateInvitation, CreatedInvitation},
+    admin::{CreateInvitation, CreatedInvitation, InvitationState},
     email::NormalizedEmail,
 };
 use sourceorigin_ui::{Action, Change, InvitationRow, Target};
@@ -30,16 +30,17 @@ pub(super) async fn list(cx: &Cx) -> Result<Response> {
     let rows: Vec<_> = invitations
         .iter()
         .map(|invitation| {
-            let open = invitation.redeemed_at.is_none() && invitation.revoked_at.is_none();
+            let state = invitation.state(now);
             let action = |href: String| Action { href, inline };
             InvitationRow {
                 invitation,
-                resend: (open
-                    && invitation.expires_at > now
+                resend: (state == InvitationState::Open
                     && invitation.email.is_some()
                     && app.service.mails())
                 .then(|| action(href!(resend, Invitation(invitation.id)).resolve(cx))),
-                revoke: open.then(|| action(href!(revoke, Invitation(invitation.id)).resolve(cx))),
+                // Until it is redeemed or revoked, expired or not.
+                revoke: matches!(state, InvitationState::Open | InvitationState::Expired)
+                    .then(|| action(href!(revoke, Invitation(invitation.id)).resolve(cx))),
             }
         })
         .collect();

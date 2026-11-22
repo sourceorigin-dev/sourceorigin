@@ -3,32 +3,11 @@
 
 use super::moment;
 use chrono::{DateTime, Utc};
-use sourceorigin_common::PasskeyId;
+use sourceorigin_common::{PasskeyId, admin::RecoveryStanding};
 use topcoat::{
     Result,
     view::{View, component, view},
 };
-
-/// Where a recovery stands.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum RecoveryStanding {
-    /// Its link works, and was not used yet.
-    Unused,
-    /// Its link was used: its passkey signs in, confirms no change, and the
-    /// recovery can be undone until `settles_at`.
-    Probation {
-        /// When the probation ends.
-        settles_at: DateTime<Utc>,
-    },
-    /// Its probation ended.
-    Settled,
-    /// It was undone, after its link was used.
-    Undone(DateTime<Utc>),
-    /// It was cancelled before its link was used.
-    Cancelled(DateTime<Utc>),
-    /// Its link expired unused.
-    Expired,
-}
 
 /// The passkey a recovery's link enrolled, named by its ID and when it was
 /// enrolled, never by its label, which whoever used the link may have changed to
