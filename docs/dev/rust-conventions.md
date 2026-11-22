@@ -391,8 +391,9 @@ Never `#[allow]`: an exception is `#[expect(lint, reason = "...")]` on the small
 item it applies to, so it fails once the code no longer needs it, and the reason
 says why the lint is wrong there, such as `reason = "One arm per operation, so a
 new one cannot skip the decision."`. Clippy enforces both (`allow_attributes`,
-`allow_attributes_without_reason`). The workspace forbids `unsafe`; were a crate
-ever to need it, every block would carry a `// SAFETY:` comment
+`allow_attributes_without_reason`). The workspace warns on `unsafe` (`unsafe_code`),
+which fails the lint job; a block that must stay is an `#[expect(unsafe_code, reason
+= "...")]` on the smallest item, with a `// SAFETY:` comment on every block
 (`undocumented_unsafe_blocks`).
 
 ## Documentation and tests
