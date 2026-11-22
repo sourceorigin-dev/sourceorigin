@@ -227,6 +227,13 @@ async fn signing_in_goes_on_to_the_path_asked_for() {
     let page = html(browser.visit(&replicas.a, &link(LOGIN, &passkey)).await).await;
     assert!(page.contains(&format!("Signed in as @{handle}.")), "{page}");
     assert!(page.contains(">Sign out</button>"), "{page}");
+    // A page saying why something failed stays, as for a provider's sign-in gone.
+    let gone = waiting(PendingDestination::Link, settings::SESSIONS);
+    let page = html(browser.visit(&replicas.a, &gone).await).await;
+    assert!(
+        page.contains("No provider sign-in is waiting in this browser. Please start again."),
+        "{page}"
+    );
 }
 
 /// Signing in for an application lets the page's forms redirect on to it, and its

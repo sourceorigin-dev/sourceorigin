@@ -43,6 +43,8 @@ test('the settings and sign-in pages fit every window size', async ({ browser })
       }
     }
   }
+  // Signed in, /login goes on to the settings: sign out to see it.
+  await page.context().clearCookies();
   await page.goto('/login');
   for (const viewport of viewports) {
     await page.setViewportSize(viewport);
