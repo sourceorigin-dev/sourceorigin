@@ -370,9 +370,18 @@ impl Database {
     /// fails.
     pub async fn isolated(config: DatabaseConfig) -> Result<Self, DatabaseError> {
         let name = format!("test_{}", uuid::Uuid::now_v7().simple());
-        let setup = Self::connect(config.clone())
-            .await
-            .map_err(|error| DatabaseError::Operation(Box::new(error)))?;
+        // Copying the template database may outlast the statement limit on a loaded
+        // disk, so this one setup connection has none.
+        let setup = Self::connect(DatabaseConfig {
+            options: config
+                .options
+                .clone()
+                .options([Limit::STATEMENT.at(Duration::ZERO).option()]),
+            max_connections: 1,
+            ..config.clone()
+        })
+        .await
+        .map_err(|error| DatabaseError::Operation(Box::new(error)))?;
         // A database name cannot be a bind parameter; this one is generated above.
         sqlx::raw_sql(&format!("CREATE DATABASE {name}"))
             .execute(&setup.pool)

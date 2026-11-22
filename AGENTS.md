@@ -51,12 +51,11 @@ can recognise a case it doesn't name.
   it with other credentials or tokens found on the machine: they grant what the
   owner chose not to give you.
 - **Databases:** `just db test` and `just coverage` make a scratch cluster and
-  delete it. Never point `TEST_DATABASE_URL` at a database that matters: the
-  tests migrate it and leave accounts in it, and they create databases and
-  create and drop roles, which belong to the whole cluster. `auth-service`
-  commands, `just auth` included, act on whatever database their
-  `AUTH_DATABASE_*` variables name:
-  run them on your preview
+  delete it. Never point `TEST_DATABASE_URL` at a database, or a server, that
+  matters: the tests migrate it and leave accounts in it, and they create
+  databases and create and drop roles, which belong to the whole cluster.
+  `auth-service` commands, `just auth` included, act on whatever database their
+  `AUTH_DATABASE_*` variables name: run them on your preview
   (`piquelctl preview exec sourceorigin <branch> auth -- auth-service --operator <you> …`).
 - **Processes:** stop only a process you started, by the PID you captured, or
   the one that owns your own port. Never kill by name or pattern (`pkill -f`,

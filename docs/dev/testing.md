@@ -78,6 +78,13 @@ server, so name only a server you can throw away, never one that holds real
 accounts, and connect as a role that may create databases. A TCP URL must
 include `sslmode=disable` or `sslmode=verify-full`.
 
+The databases a run creates are named `test_` and a random suffix, and the
+tests never drop them. Drop them when they pile up:
+
+```console
+psql "$TEST_DATABASE_URL" -Atc "SELECT format('DROP DATABASE %I;', datname) FROM pg_database WHERE datname LIKE 'test\_%'" | psql "$TEST_DATABASE_URL"
+```
+
 A new database test starts from the fixtures in `crates/database/src/fixtures.rs`.
 `Database::test()` connects with the limits every connection of the service has,
 and `Database::test_config` configures a pool of your own with them.

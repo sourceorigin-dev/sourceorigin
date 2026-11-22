@@ -655,7 +655,7 @@ async fn assert_personal_data_only_erases(runtime: &Database) {
 /// A checkpoint `runtime` inserts must sign a sealed event's hash, and an event it
 /// inserts must be JSON auth can read back, or sealing would fail on it.
 /// `personal_data_is_recorded_only_with_its_event` covers attaching personal data
-/// to an older event, which needs a committed event, so a schema of its own.
+/// to an older event, which needs a committed event, so a database of its own.
 async fn assert_history_is_never_forged(runtime: &Database) {
     for payload in [
         r#"{"n": 1e400}"#.to_owned(),
