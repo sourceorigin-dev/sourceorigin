@@ -3,7 +3,7 @@
 
 use super::*;
 use crate::security::RequestContext;
-use crate::tests::{Browser, Replicas, until_blocked};
+use crate::tests::{Browser, Replicas};
 use chrono::{Duration, Utc};
 use sourceorigin_common::{
     AccountStatus, AuthenticationMethod, Handle, Personal, SessionId, TokenId, UserId,

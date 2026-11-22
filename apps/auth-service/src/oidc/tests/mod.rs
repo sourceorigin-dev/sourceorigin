@@ -4,8 +4,7 @@ use super::*;
 use crate::config::TokenDigestKey;
 use crate::security::RequestContext;
 use crate::tests::{
-    AUTH_ORIGIN, Browser, Replicas, TlsListener, html, json, location, parameter, until_blocked,
-    verified_address,
+    AUTH_ORIGIN, Browser, Replicas, TlsListener, html, json, location, parameter, verified_address,
 };
 use crate::{AuthConfig, federation::FederationApplication, web::WebApplication};
 use axum::{

@@ -1,7 +1,7 @@
 //! Session lookup, passkey confirmation age and session locking against logout.
 
 use super::*;
-use crate::tests::{Browser, Replicas, until_blocked};
+use crate::tests::{Browser, Replicas};
 use sourceorigin_crypto::Secret;
 use sourceorigin_repository::InsertSession;
 
@@ -115,7 +115,7 @@ async fn confirmed_changes_serialize_with_logout() {
         }
     });
     // The logout waits for the change.
-    until_blocked(&mut change, 1).await;
+    change.until_blocked(1).await;
     change.commit().await.expect("commit change");
     assert_eq!(logout.await.expect("logout task").expect("logout"), [id]);
     let mut change = database.begin().await.expect("change transaction");

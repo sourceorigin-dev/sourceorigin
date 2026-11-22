@@ -145,7 +145,7 @@ async fn a_sign_in_racing_a_revocation_never_outlives_it() {
     let (revoked, ()) = tokio::join!(
         service.revoke_administrator(&cli, admin.user_id, reason()),
         async {
-            until_blocked(&mut redeeming, 1).await;
+            redeeming.until_blocked(1).await;
             let expires_at = Utc::now() + chrono::Duration::hours(1);
             (redeeming.dashboard())
                 .insert_session(b"in flight", admin.session_id, Utc::now(), expires_at)
@@ -178,7 +178,7 @@ async fn a_sign_in_racing_a_revocation_never_outlives_it() {
         sign_in.hand_off(&owner, &query, proof()),
         dashboard.visit(&harness.dashboard, code_url.as_str()),
         async {
-            until_blocked(&mut revoking, 2).await;
+            revoking.until_blocked(2).await;
             revoking.commit().await.expect("commit");
         }
     );

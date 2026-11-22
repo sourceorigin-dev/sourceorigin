@@ -3,7 +3,7 @@
 use super::*;
 use crate::{
     ClientRegistry,
-    tests::{change, operator, reason, register, until_blocked},
+    tests::{change, operator, reason, register},
 };
 use sourceorigin_common::{ClientId, clients::RelatedOrigin};
 
@@ -484,7 +484,7 @@ async fn removing_an_origin_during_a_sign_in_refuses_it() {
         json!({"ceremony_id":started["ceremony_id"],"credential":assertion}),
     );
     let (finished, ()) = tokio::join!(finish, async {
-        until_blocked(&mut removal, 1).await;
+        removal.until_blocked(1).await;
         removal.commit().await.expect("commit");
     });
     assert_eq!(finished.status(), StatusCode::BAD_REQUEST);

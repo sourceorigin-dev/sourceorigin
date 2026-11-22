@@ -241,7 +241,7 @@ async fn invitation_revocation_waits_for_signup() {
     let (result, ()) = tokio::join!(
         service.revoke_invitation(&operator, invitation.id, reason("Asked by email")),
         async {
-            until_blocked(&mut signup, 1).await;
+            signup.until_blocked(1).await;
             // The signup revokes the browser's session without a deadlock.
             admin.sign_out(&mut signup).await;
             signup.commit().await.expect("signup");

@@ -113,9 +113,9 @@ async fn a_failed_redemption_uses_the_code_up_for_one_waiting() {
         tokio::spawn(async move { flow.exchange(&code, verifier, None).await.status() })
     };
     let failed = exchange("wrong");
-    until_blocked(&mut holder, 1).await;
+    holder.until_blocked(1).await;
     let valid = exchange(Flow::verifier());
-    until_blocked(&mut holder, 2).await;
+    holder.until_blocked(2).await;
     holder.commit().await.expect("commit");
 
     assert_eq!(failed.await.expect("failed"), StatusCode::BAD_REQUEST);
@@ -258,7 +258,7 @@ async fn a_consent_whose_session_ended_while_waiting_is_not_saved() {
             .await;
         response.status()
     });
-    until_blocked(&mut holder, 1).await;
+    holder.until_blocked(1).await;
     let context = RequestContext::TEST.actor(Actor::Anonymous);
     holder
         .revoke_sessions(

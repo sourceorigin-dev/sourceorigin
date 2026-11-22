@@ -126,7 +126,7 @@ async fn an_exchange_waits_for_a_removal_and_finds_its_code_expired() {
         let response = exchanging.exchange(&code, Flow::verifier(), None).await;
         (response.status(), json(response).await)
     });
-    until_blocked(&mut removal, 1).await;
+    removal.until_blocked(1).await;
     removal
         .oidc()
         .expire_codes(flow.user_id, &flow.client.id)
