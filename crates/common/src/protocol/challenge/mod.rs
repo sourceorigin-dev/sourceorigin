@@ -73,7 +73,9 @@ impl BearerError {
 crate::str_enum! {
     /// HTTP authentication schemes (RFC 9110 §11): `Bearer` for access tokens, the
     /// scheme of every challenge here, and `Basic` for a confidential client's ID
-    /// and secret at the token endpoint.
+    /// and secret at the token endpoint. Parsing reads only the canonical spelling;
+    /// compare a header's scheme with [`AuthScheme::matches`] or
+    /// [`AuthScheme::credentials`], which ignore case as HTTP does.
     pub enum AuthScheme {
         /// Client ID and secret, used by confidential clients at the token endpoint.
         Basic = "Basic",
