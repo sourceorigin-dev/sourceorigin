@@ -74,23 +74,16 @@ impl SigningKeyRepository<'_> {
     ///
     /// # Errors
     ///
-    /// Returns [`DatabaseError`] if the query fails, or this repository is not
-    /// bound to a transaction, where the lock would end at once.
+    /// Returns [`DatabaseError::OutsideTransaction`] if this repository is not
+    /// bound to a transaction, where the lock would end at once, or another
+    /// [`DatabaseError`] if a query fails.
     pub async fn lock(&mut self) -> Result<(), DatabaseError> {
-        Self::require_transaction(&self.executor)?;
         run!(
             self,
             fetch_one,
             Limit::LOCK.at(Duration::ZERO).set(Scope::Transaction)
         )?;
-        run!(
-            self,
-            execute,
-            sqlx::query!(
-                "SELECT pg_advisory_xact_lock($1)",
-                LockKey::SigningKeys.id()
-            )
-        )?;
+        self.executor.lock(LockKey::SigningKeys).await?;
         run!(self, fetch_one, Limit::LOCK.set(Scope::Transaction))?;
         Ok(())
     }
@@ -99,28 +92,9 @@ impl SigningKeyRepository<'_> {
     ///
     /// # Errors
     ///
-    /// Returns [`DatabaseError`] if the query fails, or this repository is not
-    /// bound to a transaction.
+    /// As [`Self::lock`].
     pub async fn try_lock(&mut self) -> Result<bool, DatabaseError> {
-        Self::require_transaction(&self.executor)?;
-        run!(
-            self,
-            fetch_one,
-            sqlx::query_scalar!(
-                r#"SELECT pg_try_advisory_xact_lock($1) AS "locked!""#,
-                LockKey::SigningKeys.id()
-            )
-        )
-    }
-
-    /// Refuses to take a transaction-level lock outside a transaction.
-    fn require_transaction(executor: &RepositoryExecutor<'_>) -> Result<(), DatabaseError> {
-        match executor {
-            RepositoryExecutor::Pool(_) => Err(DatabaseError::Operation(
-                "the signing key lock requires a transaction".into(),
-            )),
-            RepositoryExecutor::Connection(_) => Ok(()),
-        }
+        self.executor.try_lock(LockKey::SigningKeys).await
     }
 
     /// Lists every key, oldest first.

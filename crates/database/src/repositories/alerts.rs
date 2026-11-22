@@ -104,13 +104,10 @@ impl AlertRepository<'_> {
     ///
     /// # Errors
     ///
-    /// Returns [`DatabaseError`] if a query fails or its payload does not decode.
+    /// Returns [`DatabaseError::OutsideTransaction`] outside a transaction, or
+    /// another [`DatabaseError`] if a query fails or its payload does not decode.
     pub async fn current(&mut self, kind: AlertKind) -> Result<Option<StoredAlert>, DatabaseError> {
-        run!(
-            self,
-            execute,
-            sqlx::query!("SELECT pg_advisory_xact_lock($1)", LockKey::Alerts.id())
-        )?;
+        self.executor.lock(LockKey::Alerts).await?;
         run!(
             self,
             fetch_optional,

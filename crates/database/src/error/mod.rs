@@ -51,6 +51,11 @@ pub enum DatabaseError {
     /// Any other driver, query, migration or event serialization failure.
     #[error("database operation failed")]
     Operation(#[source] Source),
+    /// An operation whose locks must last until its transaction ends, such as a
+    /// transaction-scoped advisory lock, ran outside a transaction, where they would
+    /// end with their statement. It is refused before any query runs.
+    #[error("the operation's locks need a transaction, and none is open")]
+    OutsideTransaction,
 }
 
 /// Why a stored value did not decode, without the value: a decoder's message can

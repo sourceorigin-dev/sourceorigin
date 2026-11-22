@@ -214,7 +214,8 @@ impl PasskeyApplication {
                 | DatabaseError::Cancelled(_)
                 | DatabaseError::LockUnavailable(_)
                 | DatabaseError::InvalidStoredData { .. }
-                | DatabaseError::Operation(_) => error.into(),
+                | DatabaseError::Operation(_)
+                | DatabaseError::OutsideTransaction => error.into(),
             })?;
         tx.record(
             context,

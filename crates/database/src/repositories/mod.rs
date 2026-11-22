@@ -6,7 +6,7 @@
 //! that checked queries decode into. Each submodule owns one repository together with the
 //! records it accepts and returns.
 
-use crate::{Database, DatabaseTransaction, ExclusiveConnection};
+use crate::{Database, DatabaseError, DatabaseTransaction, ExclusiveConnection, LockKey};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use sourceorigin_common::events::DomainEvent;
@@ -17,13 +17,17 @@ use sqlx::{
     types::Json,
 };
 
-/// Where a repository runs its queries: directly on the pool, or on the
-/// connection of an open transaction.
+/// Where a repository runs its queries: directly on the pool, on the connection of
+/// an open transaction, or on an [`ExclusiveConnection`]. Only a transaction keeps
+/// locks past the statement that takes them, so [`Self::lock`] tells them apart.
 pub(crate) enum RepositoryExecutor<'a> {
     /// Each operation borrows a connection from the shared pool.
     Pool(&'a PgPool),
     /// Every operation participates in one caller-owned transaction.
-    Connection(&'a mut PgConnection),
+    Transaction(&'a mut PgConnection),
+    /// Every operation runs on a locked [`ExclusiveConnection`], each statement in
+    /// a transaction of its own.
+    Exclusive(&'a mut PgConnection),
 }
 
 /// Declares each repository handle and its accessor on [`Database`],
@@ -48,8 +52,13 @@ macro_rules! repositories {
                 }
 
                 /// Binds this handle to a transaction connection for atomic operations.
-                pub(crate) fn from_connection(connection: &'a mut PgConnection) -> Self {
-                    Self { executor: RepositoryExecutor::Connection(connection) }
+                pub(crate) fn from_transaction(connection: &'a mut PgConnection) -> Self {
+                    Self { executor: RepositoryExecutor::Transaction(connection) }
+                }
+
+                /// Binds this handle to a locked [`ExclusiveConnection`]'s connection.
+                pub(crate) fn from_exclusive(connection: &'a mut PgConnection) -> Self {
+                    Self { executor: RepositoryExecutor::Exclusive(connection) }
                 }
             }
         )*
@@ -69,7 +78,7 @@ macro_rules! repositories {
             $(
                 #[doc = concat!("Returns a [`", stringify!($name), "`] bound to this transaction.")]
                 pub fn $accessor(&mut self) -> $name<'_> {
-                    $name::from_connection(&mut self.inner)
+                    $name::from_transaction(&mut self.inner)
                 }
             )*
         }
@@ -80,7 +89,7 @@ macro_rules! repositories {
                     "Returns a [`", stringify!($name), "`] bound to the locked connection."
                 )]
                 pub fn $accessor(&mut self) -> $name<'_> {
-                    $name::from_connection(&mut self.connection)
+                    $name::from_exclusive(&mut self.connection)
                 }
             )*
         }
@@ -212,25 +221,17 @@ impl KindProbe {
 /// whether it changed exactly one row, and `required` returns `()`, or
 /// [`DatabaseError::NotFound`](crate::DatabaseError::NotFound) if it changed none. A macro
 /// rather than a method because `&PgPool` and `&mut PgConnection` are different
-/// executor types.
+/// executor types. `run!(@on executor, ...)` runs on a [`RepositoryExecutor`] itself.
 macro_rules! run {
-    ($self:expr, changed_one, $query:expr) => {
-        run!($self, execute, $query).map(|done| done.rows_affected() == 1)
-    };
-    ($self:expr, required, $query:expr) => {
-        run!($self, execute, $query).and_then(|done| match done.rows_affected() {
-            0 => Err(crate::DatabaseError::NotFound),
-            _ => Ok(()),
-        })
-    };
-    ($self:expr, $method:ident, $query:expr) => {{
+    (@on $executor:expr, $method:ident, $query:expr) => {{
         let query = $query;
         let span = RepositoryExecutor::span(sqlx::Execute::sql(&query));
         let result = tracing::Instrument::instrument(
             async {
-                match &mut $self.executor {
+                match &mut $executor {
                     RepositoryExecutor::Pool(pool) => query.$method(*pool).await,
-                    RepositoryExecutor::Connection(connection) => {
+                    RepositoryExecutor::Transaction(connection)
+                    | RepositoryExecutor::Exclusive(connection) => {
                         query.$method(&mut **connection).await
                     }
                 }
@@ -241,6 +242,18 @@ macro_rules! run {
         .map_err(Into::<DatabaseError>::into);
         RepositoryExecutor::finish(&span, result)
     }};
+    ($self:expr, changed_one, $query:expr) => {
+        run!($self, execute, $query).map(|done| done.rows_affected() == 1)
+    };
+    ($self:expr, required, $query:expr) => {
+        run!($self, execute, $query).and_then(|done| match done.rows_affected() {
+            0 => Err(crate::DatabaseError::NotFound),
+            _ => Ok(()),
+        })
+    };
+    ($self:expr, $method:ident, $query:expr) => {
+        run!(@on $self.executor, $method, $query)
+    };
 }
 
 /// A checked `sqlx::query_as!` returning `$record`s, with their `$columns`
@@ -286,6 +299,50 @@ macro_rules! in_safe_order {
 }
 
 impl RepositoryExecutor<'_> {
+    /// Waits for `key`'s transaction-scoped advisory lock, held until the
+    /// transaction ends.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DatabaseError::OutsideTransaction`] outside a transaction, where
+    /// the lock would end with its statement, or another [`DatabaseError`] if the
+    /// query fails.
+    async fn lock(&mut self, key: LockKey) -> Result<(), DatabaseError> {
+        self.require_transaction()?;
+        run!(@on *self, execute, sqlx::query!("SELECT pg_advisory_xact_lock($1)", key.id()))?;
+        Ok(())
+    }
+
+    /// Takes the lock of [`Self::lock`] if no other transaction holds it, and
+    /// returns whether it did.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::lock`].
+    async fn try_lock(&mut self, key: LockKey) -> Result<bool, DatabaseError> {
+        self.require_transaction()?;
+        run!(
+            @on *self,
+            fetch_one,
+            sqlx::query_scalar!(r#"SELECT pg_try_advisory_xact_lock($1) AS "locked!""#, key.id())
+        )
+    }
+
+    /// Refuses work whose locks must last until its transaction ends, such as a
+    /// transaction-scoped advisory lock or `FOR UPDATE`, outside a transaction,
+    /// where they would end with the statement that takes them.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DatabaseError::OutsideTransaction`] on the pool or an
+    /// [`ExclusiveConnection`].
+    fn require_transaction(&self) -> Result<(), DatabaseError> {
+        match self {
+            Self::Transaction(_) => Ok(()),
+            Self::Pool(_) | Self::Exclusive(_) => Err(DatabaseError::OutsideTransaction),
+        }
+    }
+
     /// A client span for one query, recording its parameterized `sql` as
     /// `db.query.text`, never its bind values. A query outside any trace, such as an
     /// idle delivery worker's poll, gets none: each would be a trace of its own.
@@ -459,7 +516,7 @@ pub(crate) mod security;
 pub(crate) mod sessions;
 /// Signing keys, their lifecycle and its lock.
 pub(crate) mod signing_keys;
-/// Focused tests for the column types shared by every repository.
+/// Focused tests for the column types and the lock guard shared by every repository.
 #[cfg(test)]
 mod tests;
 /// Refresh-token grants, their redemption and replay revocation.

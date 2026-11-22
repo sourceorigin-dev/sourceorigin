@@ -221,7 +221,8 @@ impl OAuthError {
             | DatabaseError::Cancelled(_)
             | DatabaseError::LockUnavailable(_)
             | DatabaseError::InvalidStoredData { .. }
-            | DatabaseError::Operation(_) => Self::Database(error),
+            | DatabaseError::Operation(_)
+            | DatabaseError::OutsideTransaction => Self::Database(error),
         }
     }
 

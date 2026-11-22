@@ -13,7 +13,7 @@ use sourceorigin_common::{EmailId, UserId};
 async fn verified_email_updates_preserve_and_release_ownership() {
     let pool = Database::test_pool().await;
     let mut tx = pool.begin().await.expect("transaction");
-    let mut accounts = UserRepository::from_connection(&mut tx);
+    let mut accounts = UserRepository::from_transaction(&mut tx);
     let users = [
         accounts.insert_named("email").await,
         accounts.insert_named("email").await,

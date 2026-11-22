@@ -31,7 +31,7 @@ async fn account_locks_allow_foreign_key_checks() {
     let pool = Database::test_pool().await;
     let user = UserRepository::from_pool(&pool).insert_named("lock").await;
     let mut account = pool.begin().await.expect("account transaction");
-    UserRepository::from_connection(&mut account)
+    UserRepository::from_transaction(&mut account)
         .find_active_by_id_for_update(user)
         .await
         .expect("account lock")
@@ -59,7 +59,7 @@ async fn account_locks_do_not_wait_on_foreign_key_checks() {
     let mut account = pool.begin().await.expect("account transaction");
     tokio::time::timeout(
         Duration::from_secs(2),
-        SessionRepository::from_connection(&mut account)
+        SessionRepository::from_transaction(&mut account)
             .insert(&InsertSession::lasting(user, chrono::Duration::days(1))),
     )
     .await
@@ -96,7 +96,7 @@ async fn locked_session_lookup_waits_for_concurrent_logout() {
         .id;
     let mut logout = pool.begin().await.expect("logout transaction");
     assert_eq!(
-        SessionRepository::from_connection(&mut logout)
+        SessionRepository::from_transaction(&mut logout)
             .revoke(user, SessionScope::One(session))
             .await
             .expect("revoke"),
@@ -105,7 +105,7 @@ async fn locked_session_lookup_waits_for_concurrent_logout() {
     let mut exchange = pool.begin().await.expect("exchange transaction");
     let backend = Database::backend(&mut exchange).await;
     let exchange = tokio::spawn(async move {
-        SessionRepository::from_connection(&mut exchange)
+        SessionRepository::from_transaction(&mut exchange)
             .find_active_by_id_for_update(session)
             .await
             .expect("lookup")

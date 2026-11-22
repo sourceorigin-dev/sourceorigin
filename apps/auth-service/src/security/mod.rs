@@ -178,7 +178,8 @@ impl From<DatabaseError> for ApiError {
             | DatabaseError::Cancelled(_)
             | DatabaseError::LockUnavailable(_)
             | DatabaseError::InvalidStoredData { .. }
-            | DatabaseError::Operation(_)) => Self::internal(error),
+            | DatabaseError::Operation(_)
+            | DatabaseError::OutsideTransaction) => Self::internal(error),
         }
     }
 }
