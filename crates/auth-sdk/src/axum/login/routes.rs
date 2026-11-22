@@ -363,7 +363,9 @@ impl Login {
         let form = match form {
             Ok(Form(form)) => form,
             Err(rejection) => {
-                tracing::warn!(error = %ErrorChain(&rejection), "back-channel logout form rejected");
+                // The rejection's text already ends with its cause, which is also its
+                // source, so a chain would repeat it.
+                tracing::warn!(error = %rejection, "back-channel logout form rejected");
                 return invalid();
             }
         };
