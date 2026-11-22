@@ -134,9 +134,9 @@ impl Continuation {
     }
 
     /// Where a browser at `step` goes at once, without the page: the path, when it is
-    /// already signed in, as from sourceorigin.dev's Sign in link. `None` for a sign-in
-    /// its session falls short of: an authorization's, which sent it here for that,
-    /// or the class of authentication `target_acr` that the query asks for, as the
+    /// already signed in, as from sourceorigin.dev's Sign in link. `None` for an
+    /// authorization, which sends a browser here only when its session falls short,
+    /// and whenever the query asks for a class of authentication, `target_acr`, as the
     /// dashboard's handoff does.
     fn skipped(&self, step: &Step<'_>, target_acr: Option<Acr>) -> Option<&ReturnTo> {
         match (self, step, target_acr) {
@@ -387,7 +387,7 @@ impl WebApplication {
                 (see_other(next).into_response(cx)?, cookie)
             }
             // An explicit link goes back to where it started; an email match offers
-            // to sign in before going on.
+            // a signed-out browser to sign in before going on.
             LoginChange::CancelLink {} => {
                 let pending = visit
                     .pending

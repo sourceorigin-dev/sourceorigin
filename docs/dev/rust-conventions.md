@@ -199,8 +199,9 @@ every link to them; it
 parses field by field, so a bad value drops only itself, never the `transaction` or
 `return_to` it continues. One `Step` comes from the query, the pending social sign-in and the
 session: signing in, signing up, or linking a provider. A browser already signed in
-that `/login` would only ask to sign in again goes on to its path at once, unless an
-authorization or the query's `acr` asks more of its session. The server decides where a
+that `/login` would only ask to sign in again goes on to its path at once, unless the
+page says why something failed, or an authorization or the query's `acr` asks more of
+its session. The server decides where a
 sign-in continues, an authorization or a path, renders it into each form's action,
 and answers the form with it: an authorization continues in-process and goes on
 through the onward page when no policy can name its client. A provider's sign-in for
