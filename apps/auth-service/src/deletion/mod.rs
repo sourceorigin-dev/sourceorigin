@@ -20,7 +20,7 @@ mod export;
 #[cfg(test)]
 mod tests;
 
-pub use error::DeletionError;
+pub(crate) use error::DeletionError;
 pub(crate) use export::AccountExport;
 
 use crate::{

@@ -12,7 +12,7 @@ use topcoat::{
 pub const SOURCE: &str = "https://github.com/sourceorigin-dev/sourceorigin";
 
 /// Where SourceOrigin's users and developers write to.
-pub const SUPPORT_ADDRESS: &str = "support@sourceorigin.dev";
+pub(crate) const SUPPORT_ADDRESS: &str = "support@sourceorigin.dev";
 
 /// Where every page's footer links SourceOrigin's policies, which sourceorigin.dev serves.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

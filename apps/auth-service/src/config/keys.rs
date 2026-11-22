@@ -78,7 +78,7 @@ sourceorigin_common::variables! {
 /// open: the first accepts the next key, the second makes it current and accepts
 /// the old one. `auth-service keys rewrap` then seals every stored key under the
 /// current one, and the old one can go.
-pub struct KeyEncryptionKeys {
+pub(crate) struct KeyEncryptionKeys {
     /// Seals, and opens.
     current: KeyEncryptionKey,
     /// Only opens.
@@ -88,7 +88,7 @@ pub struct KeyEncryptionKeys {
 impl KeyEncryptionKeys {
     /// Seals with `current`, and opens with `accepted` too.
     #[must_use]
-    pub const fn new(current: KeyEncryptionKey, accepted: Option<KeyEncryptionKey>) -> Self {
+    pub(crate) const fn new(current: KeyEncryptionKey, accepted: Option<KeyEncryptionKey>) -> Self {
         Self { current, accepted }
     }
 
@@ -98,7 +98,7 @@ impl KeyEncryptionKeys {
     /// # Errors
     /// Names a missing or unreadable reference, or a value that is not 32 bytes
     /// in unpadded base64url.
-    pub fn from_environment() -> Result<Self, ConfigurationError> {
+    pub(crate) fn from_environment() -> Result<Self, ConfigurationError> {
         let current = Self::read(KEY_ENCRYPTION_KEY)?;
         let accepted = KEY_ENCRYPTION_KEY_ACCEPTED
             .optional()?
@@ -118,7 +118,7 @@ impl KeyEncryptionKeys {
     ///
     /// # Errors
     /// Preserves failures from the random source and the cryptographic provider.
-    pub fn seal(&self, plaintext: &[u8], aad: &[u8]) -> Result<Vec<u8>, CryptoError> {
+    pub(crate) fn seal(&self, plaintext: &[u8], aad: &[u8]) -> Result<Vec<u8>, CryptoError> {
         self.current.seal(plaintext, aad)
     }
 
@@ -126,7 +126,11 @@ impl KeyEncryptionKeys {
     ///
     /// # Errors
     /// Returns [`CryptoError::Unsealable`] when neither opens it.
-    pub fn open(&self, sealed: &[u8], aad: &[u8]) -> Result<Zeroizing<Vec<u8>>, CryptoError> {
+    pub(crate) fn open(
+        &self,
+        sealed: &[u8],
+        aad: &[u8],
+    ) -> Result<Zeroizing<Vec<u8>>, CryptoError> {
         // Opening fails only as `Unsealable`, so the attempts lose no detail.
         [Some(&self.current), self.accepted.as_ref()]
             .into_iter()
@@ -197,7 +201,7 @@ impl TokenDigestKey {
 /// change of key another one is accepted too. A change takes two deploys, so a
 /// release never issues a digest the release beside it cannot check: the first
 /// accepts the next key, the second makes it current and accepts the old one.
-pub struct TokenDigestKeys {
+pub(crate) struct TokenDigestKeys {
     /// Makes new digests.
     current: TokenDigestKey,
     /// Also accepted.
@@ -250,7 +254,7 @@ impl TokenDigestKeys {
     ///
     /// # Errors
     /// Names a missing or unreadable key, or one shorter than 32 bytes.
-    pub fn from_environment() -> Result<Self, ConfigurationError> {
+    pub(crate) fn from_environment() -> Result<Self, ConfigurationError> {
         let derive = |bytes: SecretBytes| TokenDigestKey::derive(bytes.expose_secret());
         let current = derive(Self::read(TOKEN_DIGEST_KEY)?);
         let accepted = TOKEN_DIGEST_KEY_ACCEPTED
@@ -321,7 +325,7 @@ impl TokenDigestKeys {
     /// Names the key a stored fingerprint belongs to: `current`, `accepted` or
     /// `unknown`.
     #[must_use]
-    pub fn name(&self, fingerprint: &str) -> &'static str {
+    pub(crate) fn name(&self, fingerprint: &str) -> &'static str {
         if fingerprint == self.current.fingerprint {
             "current"
         } else if self
@@ -394,7 +398,7 @@ impl LinkKeys {
 /// The key that signs audit checkpoints: an Ed25519 key of its own, so it rotates
 /// independently of the OIDC signing keys. See `docs/dev/security/audit-history.md`.
 #[derive(Clone)]
-pub struct AuditConfig {
+pub(crate) struct AuditConfig {
     /// Signs checkpoints as `<auth host>/audit`.
     pub(crate) key: Arc<NoteKey>,
     /// Verifies the checkpoints the sealer builds on and auth publishes as the
@@ -408,7 +412,7 @@ impl AuditConfig {
     /// # Errors
     /// Names the variable when it is missing, does not resolve, or does not hold a
     /// 32-byte seed in hex.
-    pub fn from_environment(origin: &Origin) -> Result<Self, ConfigurationError> {
+    pub(crate) fn from_environment(origin: &Origin) -> Result<Self, ConfigurationError> {
         let reference: SecretReference = AUDIT_KEY_PROVIDER.parse()?;
         let secret = reference.resolve().map_err(|source| {
             AUDIT_KEY_PROVIDER.error("must resolve to a 32-byte Ed25519 seed in hex", source)
@@ -446,7 +450,7 @@ impl AuditConfig {
     /// The name and public key that verify checkpoints, to commit to
     /// `docs/dev/security/audit-key.pub`.
     #[must_use]
-    pub fn verifier(&self) -> &NoteVerifier {
+    pub(crate) fn verifier(&self) -> &NoteVerifier {
         self.key.verifier()
     }
 }

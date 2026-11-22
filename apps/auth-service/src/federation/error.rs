@@ -154,7 +154,7 @@ impl From<FederationError> for ApiError {
 
 /// Provider startup failures with operator-facing configuration context and sources.
 #[derive(Debug, Error)]
-pub enum FederationConfigError {
+pub(crate) enum FederationConfigError {
     /// A configured provider secret could not be loaded or decoded.
     #[error(transparent)]
     Configuration(#[from] ConfigurationError),

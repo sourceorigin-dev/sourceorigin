@@ -6,7 +6,7 @@ use anyhow::{Context, Result, bail, ensure};
 use std::{fmt::Write as _, fs};
 
 /// A release of the workspace version, from `HEAD`.
-pub struct Release<'a> {
+pub(crate) struct Release<'a> {
     workspace: &'a Workspace,
     /// The workspace version, such as `0.2.0`.
     version: String,
@@ -16,7 +16,7 @@ pub struct Release<'a> {
 }
 
 impl<'a> Release<'a> {
-    pub fn new(workspace: &'a Workspace, dry_run: bool) -> Result<Self> {
+    pub(crate) fn new(workspace: &'a Workspace, dry_run: bool) -> Result<Self> {
         Ok(Self {
             workspace,
             version: workspace.version()?.to_owned(),
@@ -29,7 +29,7 @@ impl<'a> Release<'a> {
     /// release notes, publishes the SDKs, tags `HEAD` `v<version>`, pushes the
     /// tag, creates its GitHub release, and closes its minor version's
     /// milestone, such as `v0.2`.
-    pub fn run(&self) -> Result<()> {
+    pub(crate) fn run(&self) -> Result<()> {
         self.check()?;
         let previous = self.previous()?;
         let previous = previous.as_deref();

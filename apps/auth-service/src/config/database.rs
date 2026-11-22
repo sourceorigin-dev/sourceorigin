@@ -94,7 +94,7 @@ impl AuthConfig {
     ///
     /// # Errors
     /// Names invalid transport settings or unresolved password references.
-    pub fn database_from_environment() -> Result<DatabaseConfig, ConfigurationError> {
+    pub(crate) fn database_from_environment() -> Result<DatabaseConfig, ConfigurationError> {
         Ok(RUNTIME_DATABASE.read(&DATABASE_URL.required()?)?.0)
     }
 
@@ -104,7 +104,7 @@ impl AuthConfig {
     ///
     /// # Errors
     /// Names invalid transport settings or unresolved password references.
-    pub fn owner_database_from_environment() -> Result<DatabaseConfig, ConfigurationError> {
+    pub(crate) fn owner_database_from_environment() -> Result<DatabaseConfig, ConfigurationError> {
         Ok(match DATABASE_OWNER_URL.optional()? {
             Some(url) => OWNER_DATABASE.read(&url)?.0,
             None => Self::database_from_environment()?,
@@ -119,7 +119,7 @@ impl AuthConfig {
     /// # Errors
     /// Names invalid transport settings, unresolved password references, or a
     /// runtime role that cannot be provisioned.
-    pub fn migration_from_environment()
+    pub(crate) fn migration_from_environment()
     -> Result<(DatabaseConfig, Option<RuntimeRole>), ConfigurationError> {
         let (runtime, password) = RUNTIME_DATABASE.read(&DATABASE_URL.required()?)?;
         let Some(url) = DATABASE_OWNER_URL.optional()? else {

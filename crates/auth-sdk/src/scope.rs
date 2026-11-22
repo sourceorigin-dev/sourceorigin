@@ -148,7 +148,7 @@ macro_rules! scopes {
                 #[doc = ""]
                 $(#[$scope_meta])*
                 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-                pub enum $scope {}
+                pub(crate) enum $scope {}
 
                 impl $crate::Scope for $scope {
                     const NAME: &'static str = $name;
@@ -166,7 +166,7 @@ macro_rules! scopes {
 
             /// Every scope this module declares.
             #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-            pub enum All {}
+            pub(crate) enum All {}
 
             impl $crate::__private::Declared for All {
                 const NAMES: &'static [&'static str] = &[$($name),+];

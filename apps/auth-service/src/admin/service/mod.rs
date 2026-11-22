@@ -44,7 +44,7 @@ use sourceorigin_repository::{Database, DatabaseTransaction};
 /// active administrator: each asks `AdministratorRepository::is_last_active`
 /// under the administrator lock, so two such changes cannot both pass.
 #[derive(Clone)]
-pub struct AdminService {
+pub(crate) struct AdminService {
     /// Accounts, sessions, invitations, clients, events, deliveries and administrators.
     pub(super) database: Database,
     /// Whether email is enabled, so a recovery link or an invitation can be
@@ -56,7 +56,7 @@ impl AdminService {
     /// Operates on `database`, mailing recovery links and invitations if
     /// `mails`, as email is enabled.
     #[must_use]
-    pub const fn new(database: Database, mails: bool) -> Self {
+    pub(crate) const fn new(database: Database, mails: bool) -> Self {
         Self { database, mails }
     }
 

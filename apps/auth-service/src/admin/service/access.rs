@@ -156,7 +156,7 @@ impl AdminService {
     ///
     /// # Errors
     /// Fails when the operator may not read, or the query fails.
-    pub async fn list_administrators(
+    pub(crate) async fn list_administrators(
         &self,
         operator: &Operator,
     ) -> Result<Vec<Administrator>, AdminError> {
@@ -213,7 +213,7 @@ impl AdminService {
     /// # Errors
     /// Fails when the operator may not make changes, the account is not an
     /// administrator, or either rule forbids it.
-    pub async fn revoke_administrator(
+    pub(crate) async fn revoke_administrator(
         &self,
         operator: &Operator,
         user_id: UserId,

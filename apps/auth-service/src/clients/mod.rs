@@ -30,10 +30,10 @@ pub(crate) use owned::{
 };
 
 /// Live clients an account may manage at once. Deleting one frees its place.
-pub const MAX_OWNED_CLIENTS: u32 = 10;
+pub(crate) const MAX_OWNED_CLIENTS: u32 = 10;
 /// Clients an account may register a day, deleted ones included. A deleted client
 /// stays as a tombstone forever, so this bounds how many an account can leave.
-pub const MAX_DAILY_REGISTRATIONS: u32 = 20;
+pub(crate) const MAX_DAILY_REGISTRATIONS: u32 = 20;
 /// The window [`MAX_DAILY_REGISTRATIONS`] counts in.
 const REGISTRATION_WINDOW: chrono::Duration = chrono::Duration::days(1);
 /// The most distinct domains related origins may span. Browsers must honour at
@@ -44,7 +44,7 @@ pub(crate) const MAX_RELATED_ORIGIN_DOMAINS: usize = 5;
 /// Creates, updates, applies, enables, disables, rotates the secrets of and
 /// deletes clients, and approves their related origins, in one transaction,
 /// attributing each change to one actor.
-pub struct ClientRegistry<'a, 't> {
+pub(crate) struct ClientRegistry<'a, 't> {
     /// Where the changes and their events are written; the caller commits it.
     tx: &'a mut DatabaseTransaction<'t>,
     /// Who makes the changes, and where their request came from.
@@ -53,7 +53,7 @@ pub struct ClientRegistry<'a, 't> {
 
 /// Why a client change was refused.
 #[derive(Debug, Error)]
-pub enum ClientRegistryError {
+pub(crate) enum ClientRegistryError {
     /// Another client, registered or deleted, has this ID.
     #[error("client ID {id} is taken, by a registered or a deleted client")]
     Exists {
@@ -137,7 +137,7 @@ pub enum ClientRegistryError {
 
 /// What [`ClientRegistry::apply`] changed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Applied {
+pub(crate) enum Applied {
     /// The client was not registered yet.
     Registered,
     /// Its registration or secret changed.
@@ -159,7 +159,7 @@ impl ClientRegistryError {
 impl<'a, 't> ClientRegistry<'a, 't> {
     /// Changes registrations in `tx`, recording each change as made in `context`.
     #[must_use]
-    pub const fn new(tx: &'a mut DatabaseTransaction<'t>, context: EventContext) -> Self {
+    pub(crate) const fn new(tx: &'a mut DatabaseTransaction<'t>, context: EventContext) -> Self {
         Self { tx, context }
     }
 
@@ -171,7 +171,7 @@ impl<'a, 't> ClientRegistry<'a, 't> {
     /// # Errors
     /// Fails if the ID is taken, the owner's quota or daily limit is used up, a public client is
     /// given a secret, a secret cannot be generated or the database fails.
-    pub async fn create(
+    pub(crate) async fn create(
         &mut self,
         owner: ClientOwner,
         registration: &ClientRegistration,
@@ -242,7 +242,7 @@ impl<'a, 't> ClientRegistry<'a, 't> {
     /// # Errors
     /// Fails if the client does not exist or was deleted, `edit` fails or changes
     /// the ID or kind, or the database fails.
-    pub async fn update<E: From<ClientRegistryError>>(
+    pub(crate) async fn update<E: From<ClientRegistryError>>(
         &mut self,
         id: &ClientId,
         edit: impl FnOnce(&StoredOidcClient) -> Result<ClientRegistration, E>,
@@ -268,7 +268,7 @@ impl<'a, 't> ClientRegistry<'a, 't> {
     /// # Errors
     /// Fails if `secret` is missing for a confidential client or given for a public
     /// one, the client's kind differs, it was deleted, or the database fails.
-    pub async fn apply(
+    pub(crate) async fn apply(
         &mut self,
         registration: &ClientRegistration,
         secret: Option<ClientSecret>,
@@ -327,7 +327,7 @@ impl<'a, 't> ClientRegistry<'a, 't> {
     /// # Errors
     /// Fails if the client does not exist, was deleted or, to enable it, is
     /// suspended, or the database fails.
-    pub async fn set_enabled(
+    pub(crate) async fn set_enabled(
         &mut self,
         id: &ClientId,
         enabled: bool,
@@ -361,7 +361,7 @@ impl<'a, 't> ClientRegistry<'a, 't> {
     ///
     /// # Errors
     /// Fails if the client does not exist or was deleted, or the database fails.
-    pub async fn set_suspended(
+    pub(crate) async fn set_suspended(
         &mut self,
         id: &ClientId,
         suspended: bool,
@@ -386,7 +386,7 @@ impl<'a, 't> ClientRegistry<'a, 't> {
     /// # Errors
     /// Fails if the client does not exist, was deleted or is public, a secret
     /// cannot be generated or the database fails.
-    pub async fn rotate_secret(
+    pub(crate) async fn rotate_secret(
         &mut self,
         id: &ClientId,
         grace: GracePeriod,
@@ -410,7 +410,7 @@ impl<'a, 't> ClientRegistry<'a, 't> {
     /// # Errors
     /// Fails if the client does not exist or was already deleted, or the database
     /// fails.
-    pub async fn delete(&mut self, id: &ClientId) -> Result<(), ClientRegistryError> {
+    pub(crate) async fn delete(&mut self, id: &ClientId) -> Result<(), ClientRegistryError> {
         // Families before the client, in the order a refresh locks them.
         self.tx
             .tokens()
@@ -473,7 +473,7 @@ impl<'a, 't> ClientRegistry<'a, 't> {
     /// # Errors
     /// Fails if the client does not exist or breaks a rule above, the origin is
     /// already approved or the database fails.
-    pub async fn approve_origin(
+    pub(crate) async fn approve_origin(
         &mut self,
         id: &ClientId,
         origin: &RelatedOrigin,
@@ -527,7 +527,7 @@ impl<'a, 't> ClientRegistry<'a, 't> {
     /// # Errors
     /// Fails if the client is unknown or deleted, the origin is not approved for it,
     /// or the database fails.
-    pub async fn remove_origin(
+    pub(crate) async fn remove_origin(
         &mut self,
         id: &ClientId,
         origin: &RelatedOrigin,

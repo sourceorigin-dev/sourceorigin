@@ -12,7 +12,7 @@ const EXPORT_RETRY: Duration = Duration::from_secs(60);
 /// Why an account could not be deleted, restored or purged, from settings, the
 /// sign-in page, `AdminService`, the CLI or the purge job.
 #[derive(Debug, thiserror::Error)]
-pub enum DeletionError {
+pub(crate) enum DeletionError {
     /// The handle typed to confirm a deletion is not the account's.
     #[error("the handle does not match the account")]
     HandleMismatch,

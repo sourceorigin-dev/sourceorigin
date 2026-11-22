@@ -11,7 +11,7 @@ use std::process::Command;
 const LICENSE: &str = "Apache-2.0";
 
 /// A publish of the SDKs at their current versions.
-pub struct Publish<'a> {
+pub(crate) struct Publish<'a> {
     pub workspace: &'a Workspace,
     /// Packages and builds everything without uploading, even versions already
     /// published, so it checks the packages whatever the registries hold.
@@ -25,7 +25,7 @@ impl Publish<'_> {
     /// with `cargo publish --workspace`, which publishes them in dependency order
     /// and builds each from its package, then the npm package with `npm publish`,
     /// whose `prepack` script builds it.
-    pub fn run(&self) -> Result<()> {
+    pub(crate) fn run(&self) -> Result<()> {
         self.check()?;
         self.crates()?;
         self.npm()

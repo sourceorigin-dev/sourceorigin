@@ -7,7 +7,7 @@ use sourceorigin_repository::{Database, DatabaseError, DatabaseTransaction, Stor
 
 /// Refusals and their response mapping.
 mod error;
-pub use error::HandlesError;
+pub(crate) use error::HandlesError;
 
 /// How long a handle stays before its account may change it again. Every change,
 /// an operator's included, starts it; the handle chosen at signup has none.

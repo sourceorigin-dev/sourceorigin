@@ -25,9 +25,7 @@ pub use html::{PreferenceChange, Preferences, Sidebar, Theme, Title, document};
 pub use parts::{Pager, page_head};
 pub use search::{Destination, Group, Search, SearchPage, search_results};
 pub use sections::{AccountNav, Section, account, signed_out};
-pub use signed_in::{
-    Crumb, NavGroup, NavItem, PasskeySignal, Shell, Shortcut, ShortcutKind, Who, shell,
-};
+pub use signed_in::{Crumb, PasskeySignal, Shortcut, ShortcutKind, Who, shell};
 
 pub(crate) use parts::{
     Label, alert_notice, announcement_text, dialog, navigation, page_messages, pager,
@@ -35,3 +33,4 @@ pub(crate) use parts::{
 };
 pub(crate) use search::{Searchable, Spot};
 pub(crate) use signed_in::{AvatarSize, avatar};
+pub(crate) use signed_in::{NavGroup, NavItem, Shell};

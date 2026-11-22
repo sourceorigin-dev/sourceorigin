@@ -15,7 +15,7 @@ pub(crate) use federation::{FederationConfig, ProviderConfig};
 pub(crate) use keys::LinkKeys;
 #[cfg(test)]
 pub(crate) use keys::TokenDigestKey;
-pub use keys::{AuditConfig, KeyEncryptionKeys, TokenDigestKeys};
+pub(crate) use keys::{AuditConfig, KeyEncryptionKeys, TokenDigestKeys};
 
 use crate::{invitations::InvitationLinks, recovery::RecoveryLinks};
 use email::SMTP_URL;
@@ -153,7 +153,7 @@ impl PolicyLinks {
 /// The admin dashboard, which auth serves on a listener of its own, for its own
 /// origin.
 #[derive(Clone)]
-pub struct DashboardConfig {
+pub(crate) struct DashboardConfig {
     /// Address bound by the admin listener, which only a private route may reach.
     pub listener: SocketAddr,
     /// The dashboard's origin, which auth's handoff page sends administrators to.
@@ -181,7 +181,7 @@ impl DashboardConfig {
 }
 
 /// Validated service configuration combining one section per application.
-pub struct AuthConfig {
+pub(crate) struct AuthConfig {
     /// Address bound by the HTTP listener behind piqueld.
     pub public_listener: SocketAddr,
     /// The admin dashboard, if auth serves it.
@@ -210,7 +210,7 @@ impl AuthConfig {
     ///
     /// # Errors
     /// Names invalid or missing variables and retains safe underlying sources.
-    pub fn from_environment() -> Result<Self, ConfigurationError> {
+    pub(crate) fn from_environment() -> Result<Self, ConfigurationError> {
         if CLIENTS_FILE.optional()?.is_some() {
             return Err(CLIENTS_FILE.invalid(
                 "was removed; clients live in the database. See `auth-service client --help`.",

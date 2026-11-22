@@ -43,7 +43,7 @@ const COMMITTED_KEYS: &str = include_str!("../../../../docs/dev/security/audit-k
 
 /// Why sealing, signing, verifying or pruning failed.
 #[derive(Debug, Error)]
-pub enum AuditError {
+pub(crate) enum AuditError {
     /// A database operation failed.
     #[error("audit chain database operation failed")]
     Database(#[from] DatabaseError),
@@ -224,7 +224,7 @@ impl CheckpointText {
 
 /// The keys checkpoint signatures are verified against, and where they came from.
 #[derive(Clone)]
-pub struct AuditKeys {
+pub(crate) struct AuditKeys {
     /// The verifier keys.
     verifiers: NoteVerifiers,
     /// Where they came from, as the verification reports it.
@@ -239,7 +239,7 @@ impl AuditKeys {
     /// # Errors
     /// Returns [`AuditError::Keys`] if the file is malformed, or
     /// [`AuditError::NoCommittedKey`] if no key has this environment's name.
-    pub fn committed(origin: &Origin) -> Result<Self, AuditError> {
+    pub(crate) fn committed(origin: &Origin) -> Result<Self, AuditError> {
         let name = Self::name(origin);
         let verifiers = NoteVerifiers::parse(COMMITTED_KEYS)
             .map_err(AuditError::Keys)?
@@ -295,7 +295,7 @@ impl AuditKeys {
     /// # Errors
     /// Returns [`AuditError::Keys`] if a line is malformed, or
     /// [`AuditError::NoKeys`] if none is given.
-    pub fn given(lines: &str) -> Result<Self, AuditError> {
+    pub(crate) fn given(lines: &str) -> Result<Self, AuditError> {
         let verifiers = NoteVerifiers::parse(lines).map_err(AuditError::Keys)?;
         if verifiers.is_empty() {
             return Err(AuditError::NoKeys);

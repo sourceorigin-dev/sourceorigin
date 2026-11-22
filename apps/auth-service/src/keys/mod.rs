@@ -58,7 +58,7 @@ const KEY_ID_LENGTH: usize = 22;
 
 /// Failures of signing key storage and rotation, keeping their causes.
 #[derive(Debug, Error)]
-pub enum KeyError {
+pub(crate) enum KeyError {
     /// The database failed.
     #[error("signing key storage failed")]
     Database(#[from] DatabaseError),
@@ -103,7 +103,7 @@ pub(crate) struct StaleKeys {
 /// The key set this replica signs and verifies with. Clones share it, and a reload
 /// replaces it for all of them at once.
 #[derive(Clone)]
-pub struct SigningKeys(Arc<RwLock<Loaded>>);
+pub(crate) struct SigningKeys(Arc<RwLock<Loaded>>);
 
 /// A key set, and when it was loaded.
 struct Loaded {
@@ -168,7 +168,7 @@ impl SigningKeys {
 /// The signing keys in the database, sealed with the key-encryption keys. The
 /// `keys` commands use it without the HTTP service.
 #[derive(Clone)]
-pub struct KeyStore {
+pub(crate) struct KeyStore {
     /// Holds the keys.
     database: Database,
     /// Seal and open their private keys.
@@ -179,7 +179,7 @@ impl KeyStore {
     /// The keys in `database`, sealed with `kek`'s current key, and opened with
     /// either of its keys.
     #[must_use]
-    pub const fn new(database: Database, kek: Arc<KeyEncryptionKeys>) -> Self {
+    pub(crate) const fn new(database: Database, kek: Arc<KeyEncryptionKeys>) -> Self {
         Self { database, kek }
     }
 
@@ -187,7 +187,7 @@ impl KeyStore {
     ///
     /// # Errors
     /// Returns the database failure.
-    pub async fn list(&self) -> Result<Vec<StoredSigningKey>, KeyError> {
+    pub(crate) async fn list(&self) -> Result<Vec<StoredSigningKey>, KeyError> {
         Ok(self.database.signing_keys().list().await?)
     }
 
@@ -198,7 +198,7 @@ impl KeyStore {
     /// # Errors
     /// Returns database and key generation failures, and refuses to make a `next`
     /// key sign if its private key cannot be opened or does not match it.
-    pub async fn rotate(
+    pub(crate) async fn rotate(
         &self,
         operator: &Operator,
         reason: &Reason,
@@ -220,7 +220,7 @@ impl KeyStore {
     /// # Errors
     /// Returns [`KeyError::Unknown`] for an unknown key, or the database or key
     /// generation failure.
-    pub async fn revoke(
+    pub(crate) async fn revoke(
         &self,
         operator: &Operator,
         reason: &Reason,
@@ -240,7 +240,7 @@ impl KeyStore {
     /// # Errors
     /// Refuses, changing nothing, when a stored key opens under neither key or
     /// does not match its public key: revoke it first.
-    pub async fn rewrap(
+    pub(crate) async fn rewrap(
         &self,
         operator: &Operator,
         reason: &Reason,
@@ -256,7 +256,7 @@ impl KeyStore {
     ///
     /// # Errors
     /// Returns database, generation and loading failures.
-    pub async fn start(&self) -> Result<SigningKeys, KeyError> {
+    pub(crate) async fn start(&self) -> Result<SigningKeys, KeyError> {
         self.change(None, None, async |change| change.advance().await)
             .await?;
         Ok(SigningKeys::new(self.key_set(&self.list().await?)?))

@@ -414,7 +414,7 @@ impl From<sourceorigin_repository::RefreshRedemptionError> for OAuthError {
 
 /// Failure to build the provider's public documents at startup.
 #[derive(Debug, Error)]
-pub enum OidcConfigError {
+pub(crate) enum OidcConfigError {
     /// The documentation link is not an absolute URL.
     #[error("the service documentation link is not a URL")]
     Documentation(#[source] url::ParseError),
