@@ -179,9 +179,9 @@ that regenerates it.
   loads or a command exits 0 proves little and still has to be maintained.
 - **Don't test that a removed feature stays removed.** Once the code is gone,
   there is nothing left to break.
-- **Keep browser tests few.** Each spec says at its top what it covers. Auth's
-  pages share one request budget a minute, which the whole suite spends, so test
-  what a lower layer can't.
+- **Cover in the browser whatever needs a browser.** Each spec says at its top
+  what it covers. CI's deployment of auth has no request limit, so a suite can be
+  as large as the behaviour needs.
 
 ## Recipes
 
