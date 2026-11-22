@@ -114,7 +114,7 @@ Checks run in this order, and the first failure is reported. Each failure is an
    for ID and logout tokens. An ID or logout token's `aud` must name no other
    client, since the SDK trusts no other audience (OIDC Core §3.1.3.7)
    (`wrong_audience`).
-10. Time, with a 30-second leeway, matching auth's own `iat` skew:
+10. Time, with a 30-second leeway, matching auth's skew on `nbf` and `iat`:
    - expired when `now >= exp + 30` (`expired`);
    - not yet valid when `nbf > now + 30`, for both token types (`not_yet_valid`);
    - issued in the future when `iat > now + 30` (`issued_in_future`).
