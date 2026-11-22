@@ -75,8 +75,8 @@ pub enum CryptoError {
     /// A signed JWT's claims are missing or have the wrong type.
     #[error("JWT claims are invalid")]
     InvalidClaims(#[source] serde_json::Error),
-    /// A signed JWT's issuer or times fail the shared check.
-    #[error("JWT claims are not accepted")]
+    /// A signed JWT's issuer or times fail the shared check, which names the claim.
+    #[error(transparent)]
     Claims(#[from] ClaimsError),
     /// A JWT names a key outside the key set: unknown, revoked or deleted.
     #[error("JWT names a key outside the key set")]
