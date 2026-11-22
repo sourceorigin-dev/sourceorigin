@@ -24,8 +24,8 @@ fn the_form_names_one_account_per_line() {
     ]);
     let letter = Letter::new("Incident", "Text").expect("a letter");
     assert_eq!(
-        AnnouncementDraft::try_from(&form).ok(),
-        AnnouncementDraft::new(letter, recipients, false).ok()
+        AnnouncementDraft::try_from(&form).expect("a draft"),
+        AnnouncementDraft::new(letter, recipients, false).expect("a draft")
     );
 }
 

@@ -1,6 +1,11 @@
 //! The views of administration: what the admin dashboard shows, and what the
 //! CLI's `--json` prints. Auth's service returns them, and its
-//! database crate decodes some straight into them.
+//! database crate decodes some straight into them. It also holds the searches
+//! the service takes, such as [`EventSearch`](crate::admin::EventSearch). The
+//! dashboard's forms are not here; two of its page queries,
+//! [`UserSearch`](crate::admin::UserSearch) and
+//! [`SendAnnouncement`](crate::admin::SendAnnouncement), still are, until they
+//! move to `sourceorigin-ui` with them.
 //!
 //! Bodies the account settings also return come from [`crate::protocol::api`]
 //! and are re-exported here, as is the
@@ -316,23 +321,6 @@ pub enum InvitationState {
     Expired,
     /// Its link works.
     Open,
-}
-
-/// The form creating an invitation.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CreateInvitation {
-    /// The address to mail the link to, which the account created with it starts
-    /// with, verified. Without one, the link is shown once to pass on.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub email: Option<String>,
-    /// How long the link stays valid: 1 hour to 365 days, a number followed by `m`,
-    /// `h` or `d`, e.g. `24h`.
-    /// Seven days when absent.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expires_in: Option<String>,
-    /// Why: 1 to 500 characters, without control characters.
-    #[serde(default)]
-    pub reason: String,
 }
 
 /// A new invitation, and how its link reaches the person it invites.
@@ -653,13 +641,6 @@ pub struct Administrator {
     pub picture: Option<PictureId>,
     /// When the rights were granted.
     pub granted_at: DateTime<Utc>,
-}
-
-/// The form granting administrator rights.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct GrantAdministrator {
-    /// The active account to make an administrator.
-    pub user_id: UserId,
 }
 
 /// An announcement to accounts, such as a security incident or a change to the
