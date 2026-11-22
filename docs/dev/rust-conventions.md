@@ -52,7 +52,7 @@ Keep implementations simple. Follow neighbouring modules and share repeated logi
   such as a rotation form's `Grace` into the service's `GracePeriod`. Outside
   `src/web`, only what answers a browser or renders an email names ui: a
   redirect to a page writes that page's query, as federation's callback and the
-  OIDC flows write `LoginQuery`; the security layer renders its error page,
+  OIDC flows write `LoginQuery`; the security layer renders its error page and keeps the preference and notice cookies,
   `assets` serves ui's files, the email deliverer renders each email's bodies,
   and the configuration finds sourceorigin.dev's policies at the
   `Policies::PATHS` that site serves them at. `layout` holds

@@ -89,6 +89,16 @@ pub struct InvalidLifetime {
 }
 
 impl<const MIN: i64, const MAX: i64> Lifetime<MIN, MAX> {
+    /// A lifetime of `minutes`, for a constant: one outside the bounds fails to
+    /// compile.
+    const fn within(minutes: i64) -> Self {
+        assert!(
+            MIN <= minutes && minutes <= MAX,
+            "a lifetime outside its bounds"
+        );
+        Self(Minutes(minutes))
+    }
+
     /// The lifetime as a duration.
     #[must_use]
     pub const fn duration(self) -> Duration {
@@ -105,15 +115,15 @@ impl Default for InviteExpiry {
 
 impl GracePeriod {
     /// None: earlier secrets stop at once.
-    pub const NONE: Self = Self(Minutes(0));
+    pub const NONE: Self = Self::within(0);
     /// An hour.
-    pub const HOUR: Self = Self(Minutes(MINUTES_PER_HOUR));
+    pub const HOUR: Self = Self::within(MINUTES_PER_HOUR);
     /// A day, when none is given.
-    pub const DAY: Self = Self(Minutes(MINUTES_PER_DAY));
+    pub const DAY: Self = Self::within(MINUTES_PER_DAY);
     /// A week.
-    pub const WEEK: Self = Self(Minutes(7 * MINUTES_PER_DAY));
+    pub const WEEK: Self = Self::within(7 * MINUTES_PER_DAY);
     /// 30 days, the longest.
-    pub const MONTH: Self = Self(Minutes(30 * MINUTES_PER_DAY));
+    pub const MONTH: Self = Self::within(30 * MINUTES_PER_DAY);
 }
 
 impl Default for GracePeriod {

@@ -76,8 +76,11 @@ the recovery pages and the admin dashboard's handoff), `settings`, `developers`,
 and `admin`, the admin dashboard, whose views are in `crates/ui/src/admin`.
 `src/admin` is not a page module: it holds `AdminService` and the operator rules
 that the dashboard and the CLI share. Services never depend on
-`sourceorigin-ui`: the pages convert between ui's types and the services'. [Rust conventions](../rust-conventions.md)
-explains how applications, routes and services fit together.
+`sourceorigin-ui`: the pages convert between ui's types and the services'. The
+exceptions are the code that redirects to a page or renders one, which the
+[crates' conventions](../rust-conventions.md#crates) list.
+[Rust conventions](../rust-conventions.md) explains how applications, routes and
+services fit together.
 
 ## Crates
 
