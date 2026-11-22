@@ -351,10 +351,16 @@ impl From<AdminError> for ApiError {
             | AdminError::HandleReserved
             | AdminError::AnnouncementSent
             | AdminError::AnnouncementChanged
+            | AdminError::SigningKey(KeyError::Mismatched(_) | KeyError::NoActiveKey) => {
+                Self::conflict(message)
+            }
             // A stored key that cannot sign is refused, and the form says which.
-            | AdminError::SigningKey(
-                KeyError::Stored { .. } | KeyError::Mismatched(_) | KeyError::NoActiveKey,
-            ) => Self::conflict(message),
+            // Why it cannot, such as a key-encryption key no longer accepted, is
+            // only for the log.
+            error @ AdminError::SigningKey(KeyError::Stored { .. }) => {
+                Self::log_error(&error);
+                Self::conflict(message)
+            }
             AdminError::Database(error) | AdminError::SigningKey(KeyError::Database(error)) => {
                 error.into()
             }

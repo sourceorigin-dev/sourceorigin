@@ -10,6 +10,7 @@ use crate::{
     },
 };
 use serde::Deserialize;
+use sourceorigin_common::ErrorChain;
 use sourceorigin_ui::{
     Audience, EmailChange, EmailRow, EmailsState, Messages, Notice, Section, Tab, Title,
 };
@@ -46,7 +47,9 @@ impl Verification {
             Self::Link { link } => link,
         };
         let token = Url::parse(link.trim())
-            .inspect_err(|error| tracing::debug!(%error, "pasted verification link rejected"))
+            .inspect_err(|error| {
+                tracing::debug!(error = %ErrorChain(error), "pasted verification link rejected");
+            })
             .ok()
             .and_then(|link| {
                 form_urlencoded::parse(link.fragment()?.as_bytes())

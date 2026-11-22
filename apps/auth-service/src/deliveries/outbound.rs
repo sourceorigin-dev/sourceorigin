@@ -13,7 +13,7 @@ use reqwest::{
     dns::{Addrs, Name, Resolve, Resolving},
     redirect,
 };
-use sourceorigin_common::net::PublicAddress;
+use sourceorigin_common::{ErrorChain, net::PublicAddress};
 use sourceorigin_telemetry::SendTraced;
 use std::{
     error::Error as StdError,
@@ -124,10 +124,7 @@ impl OutboundClient {
             .await?;
         let mut body = Vec::new();
         while body.len() < limit
-            && let Some(chunk) = response
-                .chunk()
-                .await
-                .map_err(|error| Self::transport_error(&error))?
+            && let Some(chunk) = response.chunk().await.map_err(Self::transport_error)?
         {
             let room = limit - body.len();
             body.extend_from_slice(&chunk[..chunk.len().min(room)]);
@@ -146,7 +143,7 @@ impl OutboundClient {
         let response = request(self.client.request(method, url))
             .send_traced()
             .await
-            .map_err(|error| Self::transport_error(&error))?;
+            .map_err(Self::transport_error)?;
         Self::check_status(response.status(), response.headers(), Utc::now())?;
         Ok(response)
     }
@@ -169,9 +166,19 @@ impl OutboundClient {
         Ok(url)
     }
 
-    /// Classifies a request that got no response. A refused address is found in
-    /// the error's sources, where the resolver's error ends up.
-    fn transport_error(error: &reqwest::Error) -> DeliveryError {
+    /// Classifies a request that got no response, and logs why as a warning: the
+    /// classification alone becomes the delivery's `last_error`. A refused address
+    /// is found in the error's sources, where the resolver's error ends up.
+    fn transport_error(error: reqwest::Error) -> DeliveryError {
+        let classified = Self::classify(&error);
+        // The URL can name a person, as a provider's picture URL does.
+        let error = error.without_url();
+        tracing::warn!(error = %ErrorChain(&error), failure = %classified, "outbound request got no response");
+        classified
+    }
+
+    /// The failure [`Self::transport_error`] reports for `error`.
+    fn classify(error: &reqwest::Error) -> DeliveryError {
         let mut source: Option<&(dyn StdError + 'static)> = Some(error);
         while let Some(current) = source {
             if let Some(refused) = current.downcast_ref::<ResolutionError>() {
