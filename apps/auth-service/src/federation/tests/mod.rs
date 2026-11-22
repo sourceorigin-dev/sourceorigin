@@ -150,7 +150,7 @@ impl TestApp {
             .await
             .expect("start")
         else {
-            unreachable!("starting a sign-in sets the flow's cookie")
+            panic!("starting a sign-in sets the flow's cookie")
         };
         let state = url
             .query_pairs()
