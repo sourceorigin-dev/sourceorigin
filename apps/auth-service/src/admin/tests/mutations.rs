@@ -34,6 +34,8 @@ async fn mutations_recheck_the_confirmation_after_waiting() {
                 "the mutation waits while its caller is still confirmed"
             );
             let expired = auth_time + window + Duration::milliseconds(10) - Utc::now();
+            // wall-clock: the confirmation ends by the system clock, which paused
+            // tokio time doesn't move.
             tokio::time::sleep(expired.to_std().unwrap_or_default()).await;
             logout.commit().await.expect("logout");
         }

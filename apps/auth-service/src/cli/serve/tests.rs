@@ -3,7 +3,10 @@
 use super::*;
 use axum::routing::get;
 use std::net::SocketAddr;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    sync::mpsc,
+};
 
 /// A listener on a free local port, serving `router` until the returned sender is
 /// set, and the port's address.
@@ -38,15 +41,25 @@ async fn a_connection_that_never_finishes_its_headers_is_closed() {
 /// then cuts off a request that never ends.
 #[tokio::test(start_paused = true)]
 async fn a_stop_cuts_off_requests_after_the_grace_period() {
-    let router = Router::new().route("/", get(std::future::pending::<()>));
+    let (reached, mut arrivals) = mpsc::unbounded_channel();
+    let handler = move || {
+        let reached = reached.clone();
+        async move {
+            reached.send(()).expect("the test listens");
+            std::future::pending::<()>().await;
+        }
+    };
+    let router = Router::new().route("/", get(handler));
     let (address, stop, mut server) = serving(router).await;
     let mut client = TcpStream::connect(address).await.expect("connect");
     client
         .write_all(b"GET / HTTP/1.1\r\nHost: auth\r\n\r\n")
         .await
         .expect("request");
-    // Let the request reach its handler before stopping.
-    tokio::task::yield_now().await;
+    arrivals
+        .recv()
+        .await
+        .expect("the request reaches its handler");
     let started = Instant::now();
     stop.send_replace(true);
     server

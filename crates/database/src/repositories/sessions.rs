@@ -329,6 +329,24 @@ impl SessionRepository<'_> {
         )
     }
 
+    /// Makes session `id` expire now: a fixture for expiry.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DatabaseError`] if the update fails.
+    #[cfg(any(test, feature = "test-util"))]
+    pub async fn expire(&mut self, id: SessionId) -> Result<(), DatabaseError> {
+        run!(
+            self,
+            execute,
+            sqlx::query!(
+                "UPDATE sessions SET expires_at = clock_timestamp() WHERE id = $1",
+                id.as_uuid(),
+            )
+        )?;
+        Ok(())
+    }
+
     /// Revokes the active `scope` sessions of `user_id`, with the refresh token
     /// families issued from every `scope` session, and returns the IDs of the
     /// sessions it revoked. Sessions and families of other accounts are never
