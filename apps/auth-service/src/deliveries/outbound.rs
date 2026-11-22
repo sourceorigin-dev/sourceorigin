@@ -22,6 +22,7 @@ use std::{
     time::Duration,
 };
 use thiserror::Error;
+use tracing::Level;
 use url::{Host, Url};
 
 /// The longest connecting to a destination may take.
@@ -100,7 +101,11 @@ impl OutboundClient {
         destination: &str,
         request: impl FnOnce(RequestBuilder) -> RequestBuilder,
     ) -> Result<(), DeliveryError> {
-        self.request(method, destination, request).await.map(drop)
+        // A delivery's worker logs only the failure, so the cause is a warning
+        // beside it.
+        self.request(method, destination, request, Level::WARN)
+            .await
+            .map(drop)
     }
 
     /// Fetches `destination` with `GET`, as [`Self::send`] sends, asking for the
@@ -117,14 +122,22 @@ impl OutboundClient {
         accept: &str,
         limit: usize,
     ) -> Result<Vec<u8>, DeliveryError> {
+        // The caller warns of the failure, so the cause is only for debugging.
+        let cause = Level::DEBUG;
         let mut response = self
-            .request(Method::GET, destination, |request| {
-                request.header(ACCEPT, accept)
-            })
+            .request(
+                Method::GET,
+                destination,
+                |request| request.header(ACCEPT, accept),
+                cause,
+            )
             .await?;
         let mut body = Vec::new();
         while body.len() < limit
-            && let Some(chunk) = response.chunk().await.map_err(Self::transport_error)?
+            && let Some(chunk) = response
+                .chunk()
+                .await
+                .map_err(|error| Self::transport_error(error, cause))?
         {
             let room = limit - body.len();
             body.extend_from_slice(&chunk[..chunk.len().min(room)]);
@@ -132,18 +145,20 @@ impl OutboundClient {
         Ok(body)
     }
 
-    /// [`Self::send`], returning the successful response with its body unread.
+    /// [`Self::send`], returning the successful response with its body unread,
+    /// and logging a transport failure's cause at `cause`.
     async fn request(
         &self,
         method: Method,
         destination: &str,
         request: impl FnOnce(RequestBuilder) -> RequestBuilder,
+        cause: Level,
     ) -> Result<reqwest::Response, DeliveryError> {
         let url = self.check(destination)?;
         let response = request(self.client.request(method, url))
             .send_traced()
             .await
-            .map_err(Self::transport_error)?;
+            .map_err(|error| Self::transport_error(error, cause))?;
         Self::check_status(response.status(), response.headers(), Utc::now())?;
         Ok(response)
     }
@@ -166,18 +181,24 @@ impl OutboundClient {
         Ok(url)
     }
 
-    /// Classifies a request that got no response, and logs why as a warning: the
-    /// classification alone becomes the delivery's `last_error`. A refused address
-    /// is found in the error's sources, where the resolver's error ends up.
-    fn transport_error(error: reqwest::Error) -> DeliveryError {
-        let classified = Self::classify(&error);
+    /// Classifies a request that failed in transport, before or while its
+    /// response arrived, and logs why at `level` (`WARN` or `DEBUG`): the
+    /// classification alone becomes the delivery's `last_error`.
+    fn transport_error(error: reqwest::Error, level: Level) -> DeliveryError {
+        let failure = Self::classify(&error);
         // The URL can name a person, as a provider's picture URL does.
         let error = error.without_url();
-        tracing::warn!(error = %ErrorChain(&error), failure = %classified, "outbound request got no response");
-        classified
+        let error = ErrorChain(&error);
+        if level == Level::WARN {
+            tracing::warn!(%error, %failure, "outbound request failed");
+        } else {
+            tracing::debug!(%error, %failure, "outbound request failed");
+        }
+        failure
     }
 
-    /// The failure [`Self::transport_error`] reports for `error`.
+    /// The failure [`Self::transport_error`] reports for `error`. A refused
+    /// address is found in the error's sources, where the resolver's error ends up.
     fn classify(error: &reqwest::Error) -> DeliveryError {
         let mut source: Option<&(dyn StdError + 'static)> = Some(error);
         while let Some(current) = source {
