@@ -69,10 +69,10 @@ impl Channel for Recorder {
         let Some(subject) = subject else {
             return Ok(vec![]);
         };
-        let handle = sqlx::query_scalar(
+        let handle = sqlx::query_scalar!(
             "SELECT handle FROM handles WHERE user_id = $1 AND released_at IS NULL",
+            subject.as_uuid(),
         )
-        .bind(subject.as_uuid())
         .fetch_one(&mut *tx.inner)
         .await?;
         Ok(vec![NewDelivery {

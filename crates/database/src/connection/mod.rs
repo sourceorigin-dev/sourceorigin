@@ -442,7 +442,7 @@ impl Database {
     /// The server process of `connection`, to watch its lock waits with
     /// [`Self::wait_for_lock`].
     pub(crate) async fn backend(connection: &mut PgConnection) -> i32 {
-        sqlx::query_scalar("SELECT pg_backend_pid()")
+        sqlx::query_scalar!(r#"SELECT pg_backend_pid() AS "pid!""#)
             .fetch_one(connection)
             .await
             .expect("backend pid")
@@ -451,12 +451,12 @@ impl Database {
     /// Waits until the server process `backend` is blocked on a lock.
     pub(crate) async fn wait_for_lock(pool: &PgPool, backend: i32) {
         tokio::time::timeout(Duration::from_secs(10), async {
-            while !sqlx::query_scalar::<_, bool>(
-                "SELECT EXISTS (
+            while !sqlx::query_scalar!(
+                r#"SELECT EXISTS (
                     SELECT FROM pg_stat_activity WHERE pid = $1 AND wait_event_type = 'Lock'
-                )",
+                ) AS "blocked!""#,
+                backend,
             )
-            .bind(backend)
             .fetch_one(pool)
             .await
             .expect("wait state")

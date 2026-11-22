@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT handle_skeleton($1) AS \"skeleton!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "skeleton!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "31e11264c6d13d806bbc9fbe9f587db45240ee29a304d46444e453bcb9d6c1a8"
+}

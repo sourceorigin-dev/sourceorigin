@@ -59,9 +59,9 @@ fn authentication() -> SessionAuthentication {
 /// earlier transactions' rows not flushed to the statistics yet, so only its
 /// change within a transaction shows what that transaction wrote.
 async fn written(connection: &mut PgConnection) -> i64 {
-    sqlx::query_scalar(
-        "SELECT coalesce(sum(n_tup_ins + n_tup_upd + n_tup_del), 0)::BIGINT
-        FROM pg_stat_xact_user_tables",
+    sqlx::query_scalar!(
+        r#"SELECT coalesce(sum(n_tup_ins + n_tup_upd + n_tup_del), 0)::BIGINT AS "written!"
+        FROM pg_stat_xact_user_tables"#,
     )
     .fetch_one(connection)
     .await
@@ -272,13 +272,13 @@ async fn replay_revokes_family_despite_invalid_scopes() {
             "{redemption:?}: {result:?}"
         );
         tx.commit().await.expect("commit");
-        let revoked: bool = sqlx::query_scalar(
-            "SELECT f.revoked_at IS NOT NULL
+        let revoked = sqlx::query_scalar!(
+            r#"SELECT f.revoked_at IS NOT NULL AS "revoked!"
             FROM refresh_token_families f
             JOIN refresh_tokens t ON t.family_id = f.id
-            WHERE t.id = $1",
+            WHERE t.id = $1"#,
+            token.as_uuid(),
         )
-        .bind(token.as_uuid())
         .fetch_one(&pool)
         .await
         .expect("family");
@@ -298,11 +298,13 @@ async fn a_kept_token_writes_nothing_and_holds_its_locks_until_commit() {
     let (token, digest) = grant
         .family(&mut TokenRepository::from_pool(&pool), &client)
         .await;
-    let family: TokenId = sqlx::query_scalar("SELECT family_id FROM refresh_tokens WHERE id = $1")
-        .bind(token.as_uuid())
-        .fetch_one(&pool)
-        .await
-        .expect("family");
+    let family = sqlx::query_scalar!(
+        r#"SELECT family_id AS "family_id!: TokenId" FROM refresh_tokens WHERE id = $1"#,
+        token.as_uuid(),
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("family");
     // Whether another transaction can take each lock a refresh needs exclusively.
     let available = async || {
         let mut free = Vec::new();
@@ -614,10 +616,10 @@ async fn session_revocation_ends_its_families_and_only_its_owners() {
     mine.family(&mut tokens, &client).await;
     theirs.family(&mut tokens, &client).await;
     let family_revoked = |grant: &Grant| {
-        sqlx::query_scalar::<_, bool>(
-            "SELECT revoked_at IS NOT NULL FROM refresh_token_families WHERE session_id = $1",
+        sqlx::query_scalar!(
+            r#"SELECT revoked_at IS NOT NULL AS "revoked!" FROM refresh_token_families WHERE session_id = $1"#,
+            grant.session.as_uuid(),
         )
-        .bind(grant.session.as_uuid())
         .fetch_one(&pool)
     };
     let mut sessions = SessionRepository::from_pool(&pool);
@@ -681,10 +683,10 @@ async fn logout_revokes_a_family_committed_while_it_waited() {
     Database::wait_for_lock(&pool, logout_backend).await;
     exchange.commit().await.expect("commit exchange");
     assert_eq!(logout_task.await.expect("logout task"), [session]);
-    let revoked: bool = sqlx::query_scalar(
-        "SELECT revoked_at IS NOT NULL FROM refresh_token_families WHERE session_id = $1",
+    let revoked = sqlx::query_scalar!(
+        r#"SELECT revoked_at IS NOT NULL AS "revoked!" FROM refresh_token_families WHERE session_id = $1"#,
+        session.as_uuid(),
     )
-    .bind(session.as_uuid())
     .fetch_one(&pool)
     .await
     .expect("family");

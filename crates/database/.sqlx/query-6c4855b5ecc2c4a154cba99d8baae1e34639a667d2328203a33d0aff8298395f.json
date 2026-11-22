@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT count(*) AS \"count!\" FROM deliveries\n        WHERE channel = 'announcement' AND recipient = to_jsonb($1::text)\n        AND payload = to_jsonb($2::text)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "6c4855b5ecc2c4a154cba99d8baae1e34639a667d2328203a33d0aff8298395f"
+}

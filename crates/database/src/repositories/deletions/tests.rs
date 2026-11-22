@@ -367,22 +367,23 @@ async fn purge_leaves_nothing_that_references_or_identifies_the_account() {
     assert_eq!(latest[0].origin, Personal::Erased);
 
     // Its email deliveries copied its addresses; a logout token still goes out.
-    let channels: Vec<String> = sqlx::query_scalar(
+    let channels = sqlx::query_scalar!(
         "SELECT channel FROM deliveries WHERE recipient = to_jsonb($1::text) ORDER BY channel",
+        user.to_string(),
     )
-    .bind(user.to_string())
     .fetch_all(&pool)
     .await
     .expect("deliveries");
     assert_eq!(channels, ["backchannel_logout"]);
 
     // An announcement to the account alone may concern it, so it went with it.
-    let kept: Vec<uuid::Uuid> =
-        sqlx::query_scalar("SELECT id FROM announcements WHERE id = ANY($1) ORDER BY id")
-            .bind([alone, shared, everyone].map(TokenId::as_uuid))
-            .fetch_all(&pool)
-            .await
-            .expect("announcements");
+    let kept = sqlx::query_scalar!(
+        "SELECT id FROM announcements WHERE id = ANY($1) ORDER BY id",
+        &[alone, shared, everyone].map(TokenId::as_uuid)[..],
+    )
+    .fetch_all(&pool)
+    .await
+    .expect("announcements");
     assert_eq!(kept, [shared.as_uuid(), everyone.as_uuid()]);
 }
 
@@ -494,10 +495,10 @@ async fn an_alert_raised_during_a_purge_leaves_no_email() {
     raising.commit().await.expect("commit");
     assert!(purging.await.expect("purge task"));
 
-    let emails: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM deliveries WHERE channel = 'email' AND recipient = to_jsonb($1::text)",
+    let emails = sqlx::query_scalar!(
+        r#"SELECT count(*) AS "count!" FROM deliveries WHERE channel = 'email' AND recipient = to_jsonb($1::text)"#,
+        user.to_string(),
     )
-    .bind(user.to_string())
     .fetch_one(&pool)
     .await
     .expect("deliveries");

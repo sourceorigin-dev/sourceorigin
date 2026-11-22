@@ -17,4 +17,5 @@ disallowed-methods = [
     { path = "std::env::var_os", reason = "read the environment through `Variable`" },
     { path = "std::env::vars", reason = "read the environment through `Variable`" },
     { path = "sqlx::query_as", reason = "use the checked `sqlx::query_as!`, or `query!`" },
+    { path = "sqlx::query_scalar", reason = "use the checked `sqlx::query_scalar!`" },
 ]

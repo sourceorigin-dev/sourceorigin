@@ -39,10 +39,10 @@ async fn verified_email_updates_preserve_and_release_ownership() {
             .execute(&mut *tx)
             .await
             .expect("update verification");
-        let owner: uuid::Uuid = sqlx::query_scalar(
+        let owner = sqlx::query_scalar!(
             "SELECT user_id FROM verified_email_ownership WHERE normalized_email=$1",
+            &address,
         )
-        .bind(&address)
         .fetch_one(&mut *tx)
         .await
         .expect("ownership retained");
@@ -74,10 +74,10 @@ async fn verified_email_updates_preserve_and_release_ownership() {
     .execute(&mut *tx)
     .await
     .expect("move address and owner");
-    let old_exists: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM verified_email_ownership WHERE normalized_email=$1)",
+    let old_exists = sqlx::query_scalar!(
+        r#"SELECT EXISTS(SELECT 1 FROM verified_email_ownership WHERE normalized_email=$1) AS "exists!""#,
+        &address,
     )
-    .bind(&address)
     .fetch_one(&mut *tx)
     .await
     .expect("old ownership");
@@ -87,12 +87,13 @@ async fn verified_email_updates_preserve_and_release_ownership() {
         .execute(&mut *tx)
         .await
         .expect("unverify");
-    let count: i64 =
-        sqlx::query_scalar("SELECT count(*) FROM verified_email_ownership WHERE user_id=ANY($1)")
-            .bind(users.map(UserId::as_uuid).as_slice())
-            .fetch_one(&mut *tx)
-            .await
-            .expect("ownership count");
+    let count = sqlx::query_scalar!(
+        r#"SELECT count(*) AS "count!" FROM verified_email_ownership WHERE user_id=ANY($1)"#,
+        &users.map(UserId::as_uuid)[..],
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .expect("ownership count");
     assert_eq!(count, 0);
     sqlx::query("UPDATE user_emails SET verified_at=now(),is_primary=true WHERE id=$1")
         .bind(email)
@@ -104,12 +105,13 @@ async fn verified_email_updates_preserve_and_release_ownership() {
         .execute(&mut *tx)
         .await
         .expect("delete");
-    let count: i64 =
-        sqlx::query_scalar("SELECT count(*) FROM verified_email_ownership WHERE user_id=ANY($1)")
-            .bind(users.map(UserId::as_uuid).as_slice())
-            .fetch_one(&mut *tx)
-            .await
-            .expect("ownership count");
+    let count = sqlx::query_scalar!(
+        r#"SELECT count(*) AS "count!" FROM verified_email_ownership WHERE user_id=ANY($1)"#,
+        &users.map(UserId::as_uuid)[..],
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .expect("ownership count");
     assert_eq!(count, 0);
     sqlx::query("SET CONSTRAINTS ALL IMMEDIATE")
         .execute(&mut *tx)

@@ -18,11 +18,13 @@ async fn the_schema_computes_the_rust_skeleton() {
         "plain",
     ] {
         let handle = Handle::parse(handle).expect("handle");
-        let stored: String = sqlx::query_scalar("SELECT handle_skeleton($1)")
-            .bind(handle.as_str())
-            .fetch_one(&pool)
-            .await
-            .expect("skeleton");
+        let stored = sqlx::query_scalar!(
+            r#"SELECT handle_skeleton($1) AS "skeleton!""#,
+            handle.as_str()
+        )
+        .fetch_one(&pool)
+        .await
+        .expect("skeleton");
         assert_eq!(stored, handle.skeleton().as_str(), "{handle}");
     }
 }

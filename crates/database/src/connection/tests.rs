@@ -157,11 +157,13 @@ async fn cleanup_skips_rows_locked_by_requests() {
     .await
     .expect("cleanup must not wait on a locked row")
     .expect("purge");
-    let remaining: i64 = sqlx::query_scalar("SELECT count(*) FROM request_limits WHERE bucket=$1")
-        .bind(&bucket)
-        .fetch_one(&pool)
-        .await
-        .expect("count");
+    let remaining = sqlx::query_scalar!(
+        r#"SELECT count(*) AS "count!" FROM request_limits WHERE bucket=$1"#,
+        &bucket,
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("count");
     assert_eq!(remaining, 1);
     request.rollback().await.expect("rollback request");
 }
@@ -209,10 +211,10 @@ async fn cleanup_keeps_redeemed_codes_while_their_session_is_live() {
     .await
     .expect("redeemed grant");
     let link = || async {
-        sqlx::query_scalar::<_, Option<Uuid>>(
+        sqlx::query_scalar!(
             "SELECT authorization_code_id FROM refresh_token_families WHERE id = $1",
+            family,
         )
-        .bind(family)
         .fetch_one(&pool)
         .await
         .expect("family link")
@@ -405,11 +407,11 @@ async fn provisioning_resets_what_it_does_not_grant() {
     let name = format!("sourceorigin_auth_{}", Uuid::now_v7().simple());
     let role = RuntimeRole::new(&config_for(&name), "password").expect("role");
     owner.provision(&role).await.expect("create");
-    let database: String = sqlx::query_scalar("SELECT current_database()::text")
+    let database = sqlx::query_scalar!(r#"SELECT current_database()::text AS "database!""#)
         .fetch_one(&owner.pool)
         .await
         .expect("database");
-    let object: i64 = sqlx::query_scalar("SELECT lo_create(0)::text::bigint")
+    let object = sqlx::query_scalar!(r#"SELECT lo_create(0)::text::bigint AS "object!""#)
         .fetch_one(&owner.pool)
         .await
         .expect("large object");
@@ -445,7 +447,7 @@ async fn provisioning_resets_what_it_does_not_grant() {
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn provisioning_refuses_roles_that_could_do_more() {
     let owner = Database::test().await;
-    let owner_name = sqlx::query_scalar::<_, String>("SELECT current_user::text")
+    let owner_name = sqlx::query_scalar!(r#"SELECT current_user::text AS "owner!""#)
         .fetch_one(&owner.pool)
         .await
         .expect("owner");
@@ -487,13 +489,13 @@ async fn provisioning_refuses_roles_that_could_do_more() {
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn functions_pin_their_search_path() {
     let pool = Database::test_pool().await;
-    let unpinned: Vec<String> = sqlx::query_scalar(
-        "SELECT proname::text FROM pg_proc
+    let unpinned = sqlx::query_scalar!(
+        r#"SELECT proname::text AS "name!" FROM pg_proc
         WHERE pronamespace = 'public'::regnamespace
         AND NOT EXISTS (
             SELECT FROM unnest(proconfig) setting
             WHERE setting LIKE 'search_path=%' AND setting LIKE '%, pg_temp'
-        )",
+        )"#,
     )
     .fetch_all(&pool)
     .await
@@ -507,14 +509,14 @@ async fn functions_pin_their_search_path() {
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn functions_running_as_their_owner_are_not_executable_by_others() {
     let pool = Database::test_pool().await;
-    let executable: Vec<String> = sqlx::query_scalar(
-        "SELECT proname::text FROM pg_proc
+    let executable = sqlx::query_scalar!(
+        r#"SELECT proname::text AS "name!" FROM pg_proc
         WHERE pronamespace = 'public'::regnamespace
         AND prosecdef
         AND EXISTS (
             SELECT FROM aclexplode(coalesce(proacl, acldefault('f', proowner))) privilege
             WHERE privilege.grantee <> proowner AND privilege.privilege_type = 'EXECUTE'
-        )",
+        )"#,
     )
     .fetch_all(&pool)
     .await
@@ -535,11 +537,11 @@ async fn statements_and_lock_waits_past_their_limits_fail() {
     let database = Database::connect(Database::test_config(2))
         .await
         .expect("connect");
-    let settings: Vec<String> = sqlx::query_scalar(
-        "SELECT current_setting(name) FROM unnest(ARRAY[
+    let settings = sqlx::query_scalar!(
+        r#"SELECT current_setting(name) AS "setting!" FROM unnest(ARRAY[
             'statement_timeout', 'lock_timeout', 'idle_in_transaction_session_timeout',
             'transaction_timeout'
-        ]) AS name",
+        ]) AS name"#,
     )
     .fetch_all(&database.pool)
     .await
@@ -604,7 +606,7 @@ async fn refusal(runtime: &Database, query: Query<'_, Postgres, PgArguments>) ->
 
 /// Inserts an event as auth does, in `connection`'s transaction, and returns its ID.
 async fn insert_event(connection: &mut PgConnection) -> Uuid {
-    sqlx::query_scalar(
+    sqlx::query_scalar!(
         "INSERT INTO domain_events (id, kind, version, payload, actor)
         VALUES (uuidv7(), 'test', 1, '{}', '{}') RETURNING id",
     )
