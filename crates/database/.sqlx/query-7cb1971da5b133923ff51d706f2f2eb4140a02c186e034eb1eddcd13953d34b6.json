@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO sessions(id,user_id,authentication_methods,authenticated_at,expires_at,last_seen_at)\n        VALUES($1,$2,'[\"unknown\"]',now(),now()+interval '1 day',now())",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7cb1971da5b133923ff51d706f2f2eb4140a02c186e034eb1eddcd13953d34b6"
+}

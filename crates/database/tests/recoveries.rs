@@ -52,23 +52,25 @@ impl Owner {
 
     /// Makes recovery `id`'s unused link expire now.
     async fn expire(&self, id: RecoveryId) {
-        sqlx::query("UPDATE account_recoveries SET expires_at = clock_timestamp() WHERE id = $1")
-            .bind(id.as_uuid())
-            .execute(&self.pool)
-            .await
-            .expect("expire");
+        sqlx::query!(
+            "UPDATE account_recoveries SET expires_at = clock_timestamp() WHERE id = $1",
+            id.as_uuid()
+        )
+        .execute(&self.pool)
+        .await
+        .expect("expire");
     }
 
     /// Ends recovery `id`'s probation now, as if its link had been used
     /// [`PROBATION`] ago.
     async fn settle(&self, id: RecoveryId) {
-        sqlx::query(
+        sqlx::query!(
             "UPDATE account_recoveries
             SET completed_at = completed_at - interval '15 days',
                 settles_at = clock_timestamp()
             WHERE id = $1",
+            id.as_uuid()
         )
-        .bind(id.as_uuid())
         .execute(&self.pool)
         .await
         .expect("settle");

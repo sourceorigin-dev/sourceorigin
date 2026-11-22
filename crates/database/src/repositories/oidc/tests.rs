@@ -239,8 +239,7 @@ async fn purging_an_owner_needs_its_live_clients_deleted() {
         .await
         .expect("create");
     let purge = async || {
-        sqlx::query("DELETE FROM users WHERE id = $1")
-            .bind(owner.as_uuid())
+        sqlx::query!("DELETE FROM users WHERE id = $1", owner.as_uuid())
             .execute(&pool)
             .await
     };

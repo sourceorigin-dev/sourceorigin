@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO domain_events (id, kind, version, payload, actor)\n        VALUES (uuidv7(), 'test', 1, '{}', '{}')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "8073bb847af49b76c2acd3fe9c21b78f99747df3e307b57f01f6344105311626"
+}

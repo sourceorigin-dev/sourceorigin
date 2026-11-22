@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "ROLLBACK TO duplicate_email",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "7b3f682402c23d9fa1c4713a95d09c9e42640d524355bfaf2145c638654714c5"
+}

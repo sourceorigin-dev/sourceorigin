@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO passkey_credentials(id,credential_id,user_id,credential,friendly_name)\n        VALUES($1,$2,$3,'{}','Lock test')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bytea",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0920716a061cb8f2ea998f118eeec650e2270f3d8b0237eeeaceb59febfb4562"
+}

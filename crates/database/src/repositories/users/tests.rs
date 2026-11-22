@@ -12,13 +12,13 @@ use std::{net::IpAddr, time::Duration};
 
 /// Inserts a passkey row, which references the account through a foreign key.
 async fn insert_reference(connection: &mut sqlx::PgConnection, user: UserId) {
-    sqlx::query(
+    sqlx::query!(
         "INSERT INTO passkey_credentials(id,credential_id,user_id,credential,friendly_name)
         VALUES($1,$2,$3,'{}','Lock test')",
+        uuid::Uuid::now_v7(),
+        uuid::Uuid::now_v7().as_bytes().to_vec(),
+        user.as_uuid()
     )
-    .bind(uuid::Uuid::now_v7())
-    .bind(uuid::Uuid::now_v7().as_bytes().to_vec())
-    .bind(user.as_uuid())
     .execute(connection)
     .await
     .expect("reference");
@@ -67,13 +67,13 @@ async fn account_locks_do_not_wait_on_foreign_key_checks() {
     .expect("session");
     tokio::time::timeout(
         Duration::from_secs(2),
-        sqlx::query(
+        sqlx::query!(
             "INSERT INTO user_emails (id, user_id, normalized_email, verified_at)
             VALUES ($1, $2, $3, now())",
+            uuid::Uuid::now_v7(),
+            user.as_uuid(),
+            format!("{user}@example.com")
         )
-        .bind(uuid::Uuid::now_v7())
-        .bind(user.as_uuid())
-        .bind(format!("{user}@example.com"))
         .execute(&mut *account),
     )
     .await
@@ -146,12 +146,14 @@ async fn touch_records_activity_at_most_once_per_interval() {
         "a fresh session is not written"
     );
 
-    sqlx::query("UPDATE sessions SET last_seen_at = $2 WHERE id = $1")
-        .bind(session.id.as_uuid())
-        .bind(Utc::now() - LAST_SEEN_INTERVAL - chrono::Duration::seconds(1))
-        .execute(pool)
-        .await
-        .expect("age session");
+    sqlx::query!(
+        "UPDATE sessions SET last_seen_at = $2 WHERE id = $1",
+        session.id.as_uuid(),
+        Utc::now() - LAST_SEEN_INTERVAL - chrono::Duration::seconds(1)
+    )
+    .execute(pool)
+    .await
+    .expect("age session");
     sessions.touch(session.id, elsewhere).await.expect("touch");
     let (at, ip) = last_seen(session.id).await;
     assert!(at > session.last_seen_at);

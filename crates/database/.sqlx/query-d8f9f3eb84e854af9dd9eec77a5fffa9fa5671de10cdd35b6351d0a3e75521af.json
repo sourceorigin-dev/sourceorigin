@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO oidc_clients (\n            id, display_name, allowed_scopes, allowed_audiences, allow_refresh\n        ) VALUES ($1, 'Lock test', '[\"openid\"]', '[\"test\"]', true)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d8f9f3eb84e854af9dd9eec77a5fffa9fa5671de10cdd35b6351d0a3e75521af"
+}

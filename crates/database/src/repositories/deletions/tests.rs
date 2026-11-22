@@ -36,12 +36,12 @@ async fn restore_tokens_expire_and_end_with_the_deletion() {
 
     let (old, new, expired) = ([1; 32], [2; 32], [3; 32]);
     let passkey = PasskeyId::new();
-    sqlx::query(
+    sqlx::query!(
         "INSERT INTO passkey_credentials (id, credential_id, user_id, credential, friendly_name)
         VALUES ($1, uuid_send($1), $2, '{}', 'Restore test')",
+        passkey.as_uuid(),
+        user.as_uuid()
     )
-    .bind(passkey.as_uuid())
-    .bind(user.as_uuid())
     .execute(&pool)
     .await
     .expect("passkey");
@@ -64,11 +64,13 @@ async fn restore_tokens_expire_and_end_with_the_deletion() {
             passkey_id: passkey
         })
     );
-    sqlx::query("UPDATE passkey_credentials SET revoked_at = now() WHERE id = $1")
-        .bind(passkey.as_uuid())
-        .execute(&pool)
-        .await
-        .expect("revoke");
+    sqlx::query!(
+        "UPDATE passkey_credentials SET revoked_at = now() WHERE id = $1",
+        passkey.as_uuid()
+    )
+    .execute(&pool)
+    .await
+    .expect("revoke");
     assert_eq!(
         deletions
             .find_by_restore_token(&new)

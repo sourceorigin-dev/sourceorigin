@@ -20,16 +20,20 @@ async fn verified_email_updates_preserve_and_release_ownership() {
     ];
     let email = uuid::Uuid::now_v7();
     let address = format!("{email}@example.test");
-    sqlx::query(
+    sqlx::query!(
         "INSERT INTO user_emails (id, user_id, normalized_email, verified_at, is_primary)
         VALUES ($1, $2, $3, now(), true)",
+        email,
+        users[0].as_uuid(),
+        &address
     )
-    .bind(email)
-    .bind(users[0].as_uuid())
-    .bind(&address)
     .execute(&mut *tx)
     .await
     .expect("email");
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "The `SET` clause is the loop's variable"
+    )]
     for update in [
         "verified_at=verified_at",
         "verified_at=now()+interval '1 second'",
@@ -48,29 +52,29 @@ async fn verified_email_updates_preserve_and_release_ownership() {
         .expect("ownership retained");
         assert_eq!(owner, users[0].as_uuid());
     }
-    sqlx::query("SAVEPOINT duplicate_email")
+    sqlx::query!("SAVEPOINT duplicate_email")
         .execute(&mut *tx)
         .await
         .expect("savepoint");
-    sqlx::query(
+    sqlx::query!(
         "INSERT INTO user_emails (id, user_id, normalized_email, verified_at, is_primary)
             VALUES ($1, $2, $3, now(), true)",
+        uuid::Uuid::now_v7(),
+        users[1].as_uuid(),
+        &address
     )
-    .bind(uuid::Uuid::now_v7())
-    .bind(users[1].as_uuid())
-    .bind(&address)
     .execute(&mut *tx)
     .await
     .expect_err("should be rejected");
-    sqlx::query("ROLLBACK TO duplicate_email")
+    sqlx::query!("ROLLBACK TO duplicate_email")
         .execute(&mut *tx)
         .await
         .expect("rollback duplicate");
-    sqlx::query(
+    sqlx::query!(
         "UPDATE user_emails SET normalized_email=normalized_email||'.new',user_id=$2 WHERE id=$1",
+        email,
+        users[1].as_uuid()
     )
-    .bind(email)
-    .bind(users[1].as_uuid())
     .execute(&mut *tx)
     .await
     .expect("move address and owner");
@@ -82,11 +86,13 @@ async fn verified_email_updates_preserve_and_release_ownership() {
     .await
     .expect("old ownership");
     assert!(!old_exists);
-    sqlx::query("UPDATE user_emails SET verified_at=NULL,is_primary=false WHERE id=$1")
-        .bind(email)
-        .execute(&mut *tx)
-        .await
-        .expect("unverify");
+    sqlx::query!(
+        "UPDATE user_emails SET verified_at=NULL,is_primary=false WHERE id=$1",
+        email
+    )
+    .execute(&mut *tx)
+    .await
+    .expect("unverify");
     let count = sqlx::query_scalar!(
         r#"SELECT count(*) AS "count!" FROM verified_email_ownership WHERE user_id=ANY($1)"#,
         &users.map(UserId::as_uuid)[..],
@@ -95,13 +101,14 @@ async fn verified_email_updates_preserve_and_release_ownership() {
     .await
     .expect("ownership count");
     assert_eq!(count, 0);
-    sqlx::query("UPDATE user_emails SET verified_at=now(),is_primary=true WHERE id=$1")
-        .bind(email)
-        .execute(&mut *tx)
-        .await
-        .expect("reverify");
-    sqlx::query("DELETE FROM user_emails WHERE id=$1")
-        .bind(email)
+    sqlx::query!(
+        "UPDATE user_emails SET verified_at=now(),is_primary=true WHERE id=$1",
+        email
+    )
+    .execute(&mut *tx)
+    .await
+    .expect("reverify");
+    sqlx::query!("DELETE FROM user_emails WHERE id=$1", email)
         .execute(&mut *tx)
         .await
         .expect("delete");
@@ -113,7 +120,7 @@ async fn verified_email_updates_preserve_and_release_ownership() {
     .await
     .expect("ownership count");
     assert_eq!(count, 0);
-    sqlx::query("SET CONSTRAINTS ALL IMMEDIATE")
+    sqlx::query!("SET CONSTRAINTS ALL IMMEDIATE")
         .execute(&mut *tx)
         .await
         .expect("primary invariants");

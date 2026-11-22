@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH account AS (INSERT INTO users(id,display_name) VALUES($1,'Decode test'))\n        INSERT INTO handles(handle,user_id) VALUES($2,$1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "15b28682406fbe0e952e26f948efce63c3a32ea69d24383bfef430c37edb38b2"
+}

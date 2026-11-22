@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO users(id,display_name) VALUES($1,'Decode test')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8578e65b20c82f23a2bff6cec514af7ebff1fa55f683fee715760bf41c22babd"
+}

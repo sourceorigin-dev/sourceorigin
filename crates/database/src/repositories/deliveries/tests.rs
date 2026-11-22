@@ -85,8 +85,7 @@ impl Channel for Recorder {
 
 /// Deletes the deliveries a previous run left on `C`.
 async fn clear<C: Channel>(pool: &PgPool) {
-    sqlx::query("DELETE FROM deliveries WHERE channel = $1")
-        .bind(C::NAME)
+    sqlx::query!("DELETE FROM deliveries WHERE channel = $1", C::NAME)
         .execute(pool)
         .await
         .expect("clear channel");
@@ -128,11 +127,13 @@ async fn finish<C: Channel>(
 
 /// Ends the lease of delivery `id`'s attempt now, as if it ran out.
 async fn expire_lease(pool: &PgPool, id: DeliveryId) {
-    sqlx::query("UPDATE deliveries SET leased_until = clock_timestamp() WHERE id = $1")
-        .bind(id.as_uuid())
-        .execute(pool)
-        .await
-        .expect("expire the lease");
+    sqlx::query!(
+        "UPDATE deliveries SET leased_until = clock_timestamp() WHERE id = $1",
+        id.as_uuid()
+    )
+    .execute(pool)
+    .await
+    .expect("expire the lease");
 }
 
 /// A permanent failure.
@@ -427,11 +428,13 @@ async fn an_older_release_leaves_a_delivery_it_cannot_decode_to_a_newer_one() {
 
     // The new release claims it once it is due again.
     assert!(claim::<NewRelease>(&pool, LEASE).await.is_none());
-    sqlx::query("UPDATE deliveries SET next_attempt_at = now() WHERE id = $1")
-        .bind(added.as_uuid())
-        .execute(&pool)
-        .await
-        .expect("due");
+    sqlx::query!(
+        "UPDATE deliveries SET next_attempt_at = now() WHERE id = $1",
+        added.as_uuid()
+    )
+    .execute(&pool)
+    .await
+    .expect("due");
     let new = claim::<NewRelease>(&pool, LEASE)
         .await
         .expect("the new release sends it");
@@ -490,8 +493,7 @@ async fn revoking_a_session_queues_a_logout_token_for_each_client_to_tell() {
     ] {
         // Each client gets a code from the session, which it redeems as every
         // release does, the previous one included.
-        sqlx::query(
-            "WITH client AS (
+        sqlx::query!("WITH client AS (
                 INSERT INTO oidc_clients(id,display_name,allowed_scopes,allowed_audiences,backchannel_logout_uri)
                 VALUES($1,'Logout test','[]','[]',$2) RETURNING id
             )
@@ -500,21 +502,18 @@ async fn revoking_a_session_queues_a_logout_token_for_each_client_to_tell() {
             SELECT gen_random_uuid(),uuid_send(gen_random_uuid()),id,$3,$4,
                 'https://app.example/callback','challenge','[]',id,now()+interval '1 minute','{}',
                 'test'
-            FROM client",
-        )
-        .bind(&client)
-        .bind(uri)
-        .bind(user.as_uuid())
-        .bind(session.as_uuid())
+            FROM client", &client, uri, user.as_uuid(), session.as_uuid())
         .execute(&pool)
         .await
         .expect("client and code");
-        sqlx::query("UPDATE authorization_codes SET consumed_at=now() WHERE client_id=$1 AND $2")
-            .bind(&client)
-            .bind(redeemed)
-            .execute(&pool)
-            .await
-            .expect("redeem");
+        sqlx::query!(
+            "UPDATE authorization_codes SET consumed_at=now() WHERE client_id=$1 AND $2",
+            &client,
+            redeemed
+        )
+        .execute(&pool)
+        .await
+        .expect("redeem");
     }
     let revoke = async |commit: bool| {
         let mut tx = DatabaseTransaction::new(pool.begin().await.expect("transaction"));

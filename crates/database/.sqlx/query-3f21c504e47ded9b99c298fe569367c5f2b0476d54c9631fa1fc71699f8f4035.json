@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DO $$ BEGIN\n                    IF current_database() NOT LIKE 'test\\_%' THEN\n                        RAISE EXCEPTION 'add_update_written_elsewhere runs only on Database::isolated';\n                    END IF;\n                    ALTER TABLE alert_updates DROP CONSTRAINT IF EXISTS alert_updates_author_check;\n                END $$",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "3f21c504e47ded9b99c298fe569367c5f2b0476d54c9631fa1fc71699f8f4035"
+}
