@@ -1,7 +1,9 @@
 //! Handles: the reserved list, the accounts holding a reserved handle, and the
 //! released handles, with reserving, unreserving and releasing one.
 
-use super::{AdminApplication as App, ReasonForm, ReasonPage, settings, users::Account};
+use super::{
+    AdminApplication as App, Administered, ReasonForm, ReasonPage, settings, users::Account,
+};
 use crate::{Reason, handles::HandlesError};
 use serde::{Deserialize, Serialize};
 use sourceorigin_common::{Handle, handle::RESERVED};
@@ -25,14 +27,11 @@ struct HandleQuery {
 
 impl Query for HandleQuery {}
 
-/// The form reserving a handle.
+/// The form reserving a handle, whose reason says who or what it is kept for.
 #[derive(Clone, Deserialize)]
 struct Reservation {
     /// The handle to reserve.
     handle: String,
-    /// Who or what it is kept for.
-    #[serde(default)]
-    reason: String,
 }
 
 /// `/handles`: the reserved list, with the built-in names; the accounts whose
@@ -98,12 +97,15 @@ pub(super) async fn check(cx: &Cx) -> Result<Response> {
 
 /// `/handles/reserve`: reserves a handle, saying who or what it is kept for.
 #[route([GET, POST] "/handles/reserve")]
-pub(super) async fn reserve(cx: &Cx, form: Option<Form<Reservation>>) -> Result<Response> {
+pub(super) async fn reserve(
+    cx: &Cx,
+    form: Option<Form<Administered<Reservation>>>,
+) -> Result<Response> {
     let admin = App::confirmed(cx).await?;
     let service = &App::of(cx).service;
     let back = href!(check).resolve(cx);
-    let refused = App::submit(cx, form, back.clone(), |input: Reservation| async move {
-        let handle = Handle::parse(&input.handle).map_err(HandlesError::from)?;
+    let refused = App::submit(cx, form, back.clone(), |input| async move {
+        let handle = Handle::parse(&input.change.handle).map_err(HandlesError::from)?;
         let reason = Reason::parse(input.reason)?;
         service
             .reserve_handle(&admin.operator, handle, reason)
@@ -111,7 +113,7 @@ pub(super) async fn reserve(cx: &Cx, form: Option<Form<Reservation>>) -> Result<
     })
     .await?;
     let (typed, reason) = refused.as_ref().map_or(("", ""), |refused| {
-        (refused.form.handle.as_str(), refused.form.reason.as_str())
+        (refused.form.change.handle.as_str(), refused.reason())
     });
     let refusal = refused.as_deref();
     let page = view! { cx =>

@@ -9,7 +9,7 @@
 //! the reason with each change, which the owner sees in their history. Nothing
 //! here adds a way in or an address: those are the owner's alone.
 
-use super::{AdminApplication as App, Refusal, Refused, users::Account};
+use super::{AdminApplication as App, Administered, Refusal, Refused, users::Account};
 use crate::{
     Reason,
     account::{Subject, Viewer},
@@ -43,25 +43,11 @@ use topcoat::{
     view::{Child, View, view},
 };
 
-/// A settings change an administrator posts: the owner's change, and why.
-#[derive(Clone, Deserialize)]
-struct Administered<C> {
-    /// The change, as the owner's form names it.
-    #[serde(flatten)]
-    change: C,
-    /// Why, recorded with the change and shown to the owner in their history.
-    #[serde(default)]
-    reason: String,
-}
-
 /// The form giving an account a new handle.
 #[derive(Clone, Deserialize)]
 struct NewHandle {
     /// The handle.
     handle: String,
-    /// Why, recorded with the change and shown to the owner in their history.
-    #[serde(default)]
-    reason: String,
     /// Whether a reserved handle, or one that looks like another, is allowed.
     #[serde(default)]
     allow_reserved: Checkbox,
@@ -72,9 +58,6 @@ struct NewHandle {
 struct NewDisplayName {
     /// The name.
     display_name: String,
-    /// Why, recorded with the change and shown to the owner in their history.
-    #[serde(default)]
-    reason: String,
 }
 
 /// The query of [`history`]: the entry the page starts after, if not the newest.
@@ -90,10 +73,10 @@ struct HistoryQuery {
 pub(super) async fn sign_in(cx: &Cx, body: Body) -> Result<Response> {
     let (admin, user) = App::settings(cx).await?;
     let form = App::posted::<Administered<SignInChange>>(cx, body).await?;
-    let refused = App::submit(cx, form, App::here(cx), |posted| async move {
-        let subject = App::subject(user, admin, posted.reason)?;
+    let refused = App::submit_reason(cx, form, App::here(cx), |change, reason| async move {
+        let subject = App::subject(user, admin, reason);
         let account = &App::of(cx).account;
-        match posted.change {
+        match change {
             SignInChange::Rename { id, friendly_name } => {
                 Ok(account.rename_passkey(&subject, id, friendly_name).await?)
             }
@@ -150,9 +133,9 @@ pub(super) async fn sign_in(cx: &Cx, body: Body) -> Result<Response> {
 pub(super) async fn profile(cx: &Cx, body: Body) -> Result<Response> {
     let (admin, user) = App::settings(cx).await?;
     let form = App::posted::<Administered<ProfileChange>>(cx, body).await?;
-    let refused = App::submit(cx, form, App::here(cx), |posted| async move {
-        let subject = App::subject(user, admin, posted.reason)?;
-        match posted.change {
+    let refused = App::submit_reason(cx, form, App::here(cx), |change, reason| async move {
+        let subject = App::subject(user, admin, reason);
+        match change {
             ProfileChange::Remove => Ok(App::of(cx).account.remove_picture(&subject).await?),
             // An administrator changes the name and the handle on their own pages,
             // which take no cooldown.
@@ -169,9 +152,7 @@ pub(super) async fn profile(cx: &Cx, body: Body) -> Result<Response> {
     // Stored in any status; shown only while the account is active.
     let stored = account.picture(&viewer).await?.is_some();
     let picture = App::picture(cx, profile.picture);
-    let reason = refused
-        .as_ref()
-        .map_or("", |refused| refused.form.reason.as_str());
+    let reason = refused.as_ref().map_or("", Refused::reason);
     let page = &App::here(cx);
     let who = Who {
         name: &profile.display_name,
@@ -213,10 +194,10 @@ pub(super) async fn profile(cx: &Cx, body: Body) -> Result<Response> {
 pub(super) async fn emails(cx: &Cx, body: Body) -> Result<Response> {
     let (admin, user) = App::settings(cx).await?;
     let form = App::posted::<Administered<EmailChange>>(cx, body).await?;
-    let refused = App::submit(cx, form, App::here(cx), |posted| async move {
-        let subject = App::subject(user, admin, posted.reason)?;
+    let refused = App::submit_reason(cx, form, App::here(cx), |change, reason| async move {
+        let subject = App::subject(user, admin, reason);
         let account = &App::of(cx).account;
-        match posted.change {
+        match change {
             EmailChange::Primary { id } => Ok(account.make_primary_email(&subject, id).await?),
             EmailChange::Remove { id } => Ok(account.remove_email(&subject, id).await?),
             EmailChange::Add { .. } => Err(App::owners()),
@@ -248,9 +229,9 @@ pub(super) async fn emails(cx: &Cx, body: Body) -> Result<Response> {
 pub(super) async fn apps(cx: &Cx, body: Body) -> Result<Response> {
     let (admin, user) = App::settings(cx).await?;
     let form = App::posted::<Administered<ConnectedAppChange>>(cx, body).await?;
-    let refused = App::submit(cx, form, App::here(cx), |posted| async move {
-        let subject = App::subject(user, admin, posted.reason)?;
-        let ConnectedAppChange::Remove { client_id } = posted.change;
+    let refused = App::submit_reason(cx, form, App::here(cx), |change, reason| async move {
+        let subject = App::subject(user, admin, reason);
+        let ConnectedAppChange::Remove { client_id } = change;
         let account = &App::of(cx).account;
         account
             .remove_app(&subject, &client_id)
@@ -358,11 +339,14 @@ pub(super) async fn notifications(cx: &Cx) -> Result<Response> {
 /// one only when the form allows it. It leads back to the account's Profile tab,
 /// which shows the handle.
 #[route([GET, POST] "/users/{account}/handle")]
-pub(super) async fn handle(cx: &Cx, form: Option<Form<NewHandle>>) -> Result<Response> {
+pub(super) async fn handle(
+    cx: &Cx,
+    form: Option<Form<Administered<NewHandle>>>,
+) -> Result<Response> {
     let (admin, user) = App::settings(cx).await?;
     let back = href!(profile, Account(user)).resolve(cx);
-    let refused = App::submit(cx, form, back.clone(), |input: NewHandle| async move {
-        let handle = Handle::parse(&input.handle).map_err(HandlesError::from)?;
+    let refused = App::submit(cx, form, back.clone(), |input| async move {
+        let handle = Handle::parse(&input.change.handle).map_err(HandlesError::from)?;
         let reason = Reason::parse(input.reason)?;
         App::of(cx)
             .service
@@ -371,16 +355,16 @@ pub(super) async fn handle(cx: &Cx, form: Option<Form<NewHandle>>) -> Result<Res
                 user,
                 handle,
                 reason,
-                input.allow_reserved.0,
+                input.change.allow_reserved.0,
             )
             .await
     })
     .await?;
     let (typed, reason, allow_reserved) = refused.as_ref().map_or(("", "", false), |refused| {
         (
-            refused.form.handle.as_str(),
-            refused.form.reason.as_str(),
-            refused.form.allow_reserved.0,
+            refused.form.change.handle.as_str(),
+            refused.reason(),
+            refused.form.change.allow_reserved.0,
         )
     });
     let refused = refused.as_deref();
@@ -406,23 +390,23 @@ pub(super) async fn handle(cx: &Cx, form: Option<Form<NewHandle>>) -> Result<Res
 /// owner's own operation. It leads back to the account's Profile tab, which shows
 /// the name.
 #[route([GET, POST] "/users/{account}/name")]
-pub(super) async fn display_name(cx: &Cx, form: Option<Form<NewDisplayName>>) -> Result<Response> {
+pub(super) async fn display_name(
+    cx: &Cx,
+    form: Option<Form<Administered<NewDisplayName>>>,
+) -> Result<Response> {
     let (admin, user) = App::settings(cx).await?;
     let back = href!(profile, Account(user)).resolve(cx);
-    let refused = App::submit(cx, form, back.clone(), |input: NewDisplayName| async move {
-        let subject = App::subject(user, admin, input.reason)?;
+    let refused = App::submit_reason(cx, form, back.clone(), |new, reason| async move {
+        let subject = App::subject(user, admin, reason);
         App::of(cx)
             .account
-            .change_display_name(&subject, input.display_name)
+            .change_display_name(&subject, new.display_name)
             .await
             .map_err(Refusal::from)
     })
     .await?;
     let (typed, reason) = refused.as_ref().map_or(("", ""), |refused| {
-        (
-            refused.form.display_name.as_str(),
-            refused.form.reason.as_str(),
-        )
+        (refused.form.change.display_name.as_str(), refused.reason())
     });
     let refused = refused.as_deref();
     let target = App::target(cx).await;
@@ -474,10 +458,7 @@ impl App {
         refused: Option<&'a Refused<Administered<P::Change>>>,
     ) -> (P::Row, &'a str) {
         match refused {
-            Some(refused) => (
-                P::reopened(&refused.form.change),
-                refused.form.reason.as_str(),
-            ),
+            Some(refused) => (P::reopened(&refused.form.change), refused.reason()),
             None => (parse_query_params(cx).unwrap_or_default(), ""),
         }
     }
@@ -488,9 +469,8 @@ impl App {
     }
 
     /// `admin` changing `user`'s settings, for `reason`.
-    fn subject(user: UserId, admin: &SignedInAdmin, reason: String) -> Result<Subject, Refusal> {
-        let reason = Reason::parse(reason)?;
-        Ok(Subject::operator(user, admin.operator.clone(), reason))
+    fn subject(user: UserId, admin: &SignedInAdmin, reason: Reason) -> Subject {
+        Subject::operator(user, admin.operator.clone(), reason)
     }
 
     /// Why a change only the owner makes, such as adding a way in, is refused.

@@ -380,7 +380,7 @@ impl AccountChange {
         let app = App::of(cx);
         let id = *path_param::<Account>(cx)?;
         let back = App::account(cx, id);
-        let refused = App::submit_reason(cx, form, back.clone(), async |reason| {
+        let refused = App::submit_reason(cx, form, back.clone(), async |(), reason| {
             self.make(app, admin, id, reason).await
         })
         .await?;
