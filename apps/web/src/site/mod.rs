@@ -10,6 +10,7 @@ use axum::{
     routing::get,
 };
 use sourceorigin_common::{
+    ErrorChain,
     config::Origin,
     protocol::headers::{self, ReferrerPolicy},
 };
@@ -142,7 +143,7 @@ impl Site {
             )
                 .into_response(),
             Err(error) => {
-                tracing::error!(error = %error, page = page.path(), "page could not be rendered");
+                tracing::error!(error = %ErrorChain(&*error), page = page.path(), "page could not be rendered");
                 StatusCode::INTERNAL_SERVER_ERROR.into_response()
             }
         }
