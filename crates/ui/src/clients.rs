@@ -10,6 +10,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sourceorigin_common::{
     ClientId,
+    admin::{ClientDetail, SecretLifetime},
     clients::{ClientField, ClientKind, ClientStatus},
     protocol::oauth::Scope,
 };
@@ -46,6 +47,26 @@ pub struct ClientRow<'a> {
     pub last_used_at: Option<DateTime<Utc>>,
 }
 
+impl<'a> From<&'a ClientDetail> for ClientRow<'a> {
+    /// The client as the dashboard reads it.
+    fn from(detail: &'a ClientDetail) -> Self {
+        let client = &detail.client;
+        Self {
+            id: &client.id,
+            name: &client.display_name,
+            kind: detail.kind,
+            status: client.status(),
+            redirect_uris: &client.redirect_uris,
+            post_logout_uris: &client.post_logout_uris,
+            allowed_scopes: &client.allowed_scopes,
+            allow_refresh: client.allow_refresh,
+            require_pushed_authorization_requests: client.require_pushed_authorization_requests,
+            backchannel_logout_uri: client.backchannel_logout_uri.as_deref(),
+            last_used_at: client.last_used_at,
+        }
+    }
+}
+
 impl ClientRow<'_> {
     /// What its kind means for its owner.
     pub(crate) const fn kind_name(&self) -> &'static str {
@@ -64,6 +85,16 @@ pub struct SecretRow {
     pub created_at: DateTime<Utc>,
     /// When a rotation made it stop working, if one did.
     pub expires_at: Option<DateTime<Utc>>,
+}
+
+impl From<&SecretLifetime> for SecretRow {
+    /// The secret's lifetime, as the dashboard reads it.
+    fn from(secret: &SecretLifetime) -> Self {
+        Self {
+            created_at: secret.created_at,
+            expires_at: secret.expires_at,
+        }
+    }
 }
 
 /// Where a client's `OpenID` Connect library finds Origin Auth.

@@ -570,8 +570,9 @@ Each alert says what to look at. Auth raises these:
   read only the lines that start with `{`. A usage error is clap's own text.
   A result has the shape of the view the dashboard shows, as defined in
   `sourceorigin_common::admin`: `user search` (`UserPage`), `user show`
-  (`UserDetail`), `audit list` (`EventPage`), `client list`, `invite list`,
-  `admin list`, `announcement list`, `announcement show`
+  (`UserDetail`), `audit list` (`EventPage`), `client list`, `client show`
+  (`ClientDetail`: a listed client with its kind, dates and secrets),
+  `invite list`, `admin list`, `announcement list`, `announcement show`
   (`AnnouncementDetail`), `audit verify`'s result, and `alerts list`
   (`AlertDetail`, from `sourceorigin_common::alerts`). A single value is an
   object with one key, such as `{"link":"…"}`.

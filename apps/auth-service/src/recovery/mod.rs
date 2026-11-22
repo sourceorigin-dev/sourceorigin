@@ -40,13 +40,14 @@ use chrono::{DateTime, Duration, Utc};
 use serde::Serialize;
 use sourceorigin_common::{
     AccountStatus, Handle, PasskeyId, RecoveryId, UserId,
+    admin::RecoveryState,
     config::Origin,
     events::{DomainEvent, EventContext, RevocationReason},
     protocol::api::Passkey,
 };
 use sourceorigin_crypto::Secret;
 use sourceorigin_repository::{
-    DatabaseError, DatabaseTransaction, RecoveryState, SessionScope, StoredPasskey, StoredRecovery,
+    DatabaseError, DatabaseTransaction, SessionScope, StoredPasskey, StoredRecovery,
 };
 use url::Url;
 

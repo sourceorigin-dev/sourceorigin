@@ -9,9 +9,8 @@ use crate::{
 };
 use sourceorigin_common::{
     AccountStatus, PictureId, SessionId, UserId,
-    admin::{EventSearch, MessageIntent, MessageUser, User, UserSearch},
+    admin::{EventSearch, MessageIntent, MessageUser, Recovery, RecoveryState, User, UserSearch},
 };
-use sourceorigin_repository::{RecentRecovery, RecoveryState};
 use sourceorigin_ui::{
     AccountPages, Action, Change, Crumb, MessagePreview, Pager, Query, RecoveryKey, RecoveryRow,
     RecoveryStanding, SessionRow, Target, UserRow,
@@ -424,7 +423,7 @@ impl AccountChange {
 
 impl App {
     /// `recent` recoveries as the recovery pages list them.
-    fn recovery_rows(recent: &[RecentRecovery]) -> Vec<RecoveryRow> {
+    fn recovery_rows(recent: &[Recovery]) -> Vec<RecoveryRow> {
         recent
             .iter()
             .map(|recovery| RecoveryRow {

@@ -19,7 +19,7 @@ use super::{
     origins::{self, OriginQuery},
 };
 use crate::{
-    AdminError, AdminService, ClientDetails, ClientRegistryError, Operator, Reason,
+    AdminError, AdminService, ClientRegistryError, Operator, Reason,
     admin::SignedInAdmin,
     clients::{ClientSettings, InvalidSetting, OperatorSettings},
     security::ApiError,
@@ -28,9 +28,9 @@ use chrono::Utc;
 use serde::Deserialize;
 use sourceorigin_common::{
     ClientId,
+    admin::ClientDetail,
     clients::{ClientKind, ClientRegistration, ClientStatus},
 };
-use sourceorigin_repository::StoredOidcClient;
 use sourceorigin_ui::{
     Action, AdminClientRow, Change, ClientChanges, ClientDraft, ClientPage, ClientRow, Crumb,
     NewClientForm, OperatorDraft, Query, Registration, Revealed, SecretRow, SecretsChange,
@@ -74,19 +74,12 @@ pub(super) async fn detail(cx: &Cx) -> Result<Response> {
         };
         return App::render(cx, StatusCode::OK, "Client registered", page).await;
     }
-    let details = service.client_details(&admin.operator, &id).await?;
+    let found = service.client_detail(&admin.operator, &id).await?;
     let approved = service.list_related_origins(&admin.operator).await?;
-    let stored = &details.client;
-    let client = App::client_row(stored);
+    let stored = &found.client;
+    let client = ClientRow::from(&found);
     let page = || Client(id.clone());
-    let secrets: Vec<_> = details
-        .secrets
-        .iter()
-        .map(|secret| SecretRow {
-            created_at: secret.created_at,
-            expires_at: secret.expires_at,
-        })
-        .collect();
+    let secrets: Vec<_> = found.secrets.iter().map(SecretRow::from).collect();
     let origins = approved
         .iter()
         .filter(|approved| approved.client_id == id)
@@ -123,8 +116,7 @@ pub(super) async fn detail(cx: &Cx) -> Result<Response> {
             }
         }),
         delete: action(href!(delete, page()).resolve(cx)),
-        secret: (stored.kind == ClientKind::Confidential)
-            .then(|| href!(rotate, page()).resolve(cx)),
+        secret: (found.kind == ClientKind::Confidential).then(|| href!(rotate, page()).resolve(cx)),
     });
     let shown = ClientPage {
         client,
@@ -133,8 +125,8 @@ pub(super) async fn detail(cx: &Cx) -> Result<Response> {
         owner: stored
             .owner_id
             .map(|owner| (owner, App::account(cx, owner))),
-        created_at: stored.created_at,
-        updated_at: stored.updated_at,
+        created_at: found.created_at,
+        updated_at: found.updated_at,
         secrets: &secrets,
         origins,
         approve,
@@ -148,7 +140,7 @@ pub(super) async fn detail(cx: &Cx) -> Result<Response> {
     Box::pin(App::render(
         cx,
         StatusCode::OK,
-        Crumb::Name(App::title(stored)),
+        Crumb::Name(App::title(&found)),
         page,
     ))
     .await
@@ -199,8 +191,8 @@ pub(super) async fn create(cx: &Cx, form: Option<Form<NewClientForm>>) -> Result
 pub(super) async fn edit(cx: &Cx, form: Option<Form<OperatorDraft>>) -> Result<Response> {
     let admin = App::confirmed(cx).await?;
     let service = &App::of(cx).service;
-    let stored = App::changing(cx, admin).await?.client;
-    let id = stored.id.clone();
+    let found = App::changing(cx, admin).await?;
+    let id = found.client.id.clone();
     let back = href!(detail, Client(id.clone())).resolve(cx);
     let refusal = App::submit(cx, form, back.clone(), async |draft: OperatorDraft| {
         let reason = Reason::parse(draft.reason.clone())?;
@@ -216,10 +208,10 @@ pub(super) async fn edit(cx: &Cx, form: Option<Form<OperatorDraft>>) -> Result<R
     .await?;
     let shown = match &refusal {
         Some(refused) => refused.form.clone(),
-        None => OperatorDraft::of(&App::client_row(&stored), stored.trusted),
+        None => OperatorDraft::of(&ClientRow::from(&found), found.client.trusted),
     };
     let registration = Registration::Edit {
-        name: App::title(&stored),
+        name: App::title(&found),
     };
     Box::pin(App::registration_page(
         cx,
@@ -242,9 +234,9 @@ pub(super) async fn rotate(cx: &Cx, form: Option<Form<Rotation>>) -> Result<Resp
         App::confirm(cx, admin)?;
     }
     let service = &App::of(cx).service;
-    let details = App::changing(cx, admin).await?;
-    let id = details.client.id.clone();
-    if details.client.kind == ClientKind::Public {
+    let found = App::changing(cx, admin).await?;
+    let id = found.client.id.clone();
+    if found.kind == ClientKind::Public {
         return Err(AdminError::from(ClientRegistryError::Public(id)).into());
     }
     let here = href!(rotate, Client(id.clone())).resolve(cx);
@@ -283,17 +275,10 @@ pub(super) async fn rotate(cx: &Cx, form: Option<Form<Rotation>>) -> Result<Resp
             None,
         ),
     };
-    let secrets: Vec<_> = details
-        .secrets
-        .iter()
-        .map(|secret| SecretRow {
-            created_at: secret.created_at,
-            expires_at: secret.expires_at,
-        })
-        .collect();
+    let secrets: Vec<_> = found.secrets.iter().map(SecretRow::from).collect();
     let (here, name, secrets, state, reason, refusal) = (
         &here,
-        App::title(&details.client),
+        App::title(&found),
         &secrets,
         &state,
         &reason,
@@ -466,16 +451,16 @@ impl App {
     /// The client the path names, for a page that changes it. A deleted client
     /// changes no more, so each of its change pages answers at once with the
     /// registry's refusal, as its form would once posted.
-    pub(super) async fn changing(cx: &Cx, admin: &SignedInAdmin) -> Result<ClientDetails> {
+    pub(super) async fn changing(cx: &Cx, admin: &SignedInAdmin) -> Result<ClientDetail> {
         let id = path_param::<Client>(cx)?;
-        let details = Self::of(cx)
+        let found = Self::of(cx)
             .service
-            .client_details(&admin.operator, id)
+            .client_detail(&admin.operator, id)
             .await?;
-        if details.client.deleted_at.is_some() {
+        if found.client.deleted_at.is_some() {
             return Err(AdminError::from(ClientRegistryError::Deleted(id.clone())).into());
         }
-        Ok(details)
+        Ok(found)
     }
 
     /// `clients` as a list shows them, each linking its page.
@@ -492,30 +477,14 @@ impl App {
             .collect()
     }
 
-    /// The client `stored`, as the console's pieces show it.
-    fn client_row(stored: &StoredOidcClient) -> ClientRow<'_> {
-        ClientRow {
-            id: &stored.id,
-            name: &stored.display_name,
-            kind: stored.kind,
-            status: ClientStatus::of(stored.enabled, stored.suspended_at, stored.deleted_at),
-            redirect_uris: &stored.redirect_uris,
-            post_logout_uris: &stored.post_logout_uris,
-            allowed_scopes: &stored.allowed_scopes,
-            allow_refresh: stored.allow_refresh,
-            require_pushed_authorization_requests: stored.require_pushed_authorization_requests,
-            backchannel_logout_uri: stored.backchannel_logout_uri.as_deref(),
-            last_used_at: stored.last_used_at,
-        }
-    }
-
-    /// The name of client `stored`'s pages: its own, or its ID once deleted, which
-    /// erases its name.
-    pub(super) fn title(stored: &StoredOidcClient) -> &str {
-        if stored.display_name.is_empty() {
-            stored.id.as_str()
+    /// The name of client `found`'s pages: its own, or its ID once deleted,
+    /// which erases its name.
+    pub(super) fn title(found: &ClientDetail) -> &str {
+        let client = &found.client;
+        if client.display_name.is_empty() {
+            client.id.as_str()
         } else {
-            &stored.display_name
+            &client.display_name
         }
     }
 

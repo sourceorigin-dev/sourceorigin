@@ -45,7 +45,7 @@ impl AdminOperation {
             ],
             Self::ViewClient => vec![
                 service
-                    .client_details(operator, &client.parse().expect("client ID"))
+                    .client_detail(operator, &client.parse().expect("client ID"))
                     .await
                     .map(drop),
             ],

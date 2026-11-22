@@ -7,10 +7,11 @@
 )]
 
 use chrono::{DateTime, Duration, Utc};
-use sourceorigin_common::{AuthenticationMethod, PasskeyId, RecoveryId, SessionId, UserId};
+use sourceorigin_common::{
+    AuthenticationMethod, PasskeyId, RecoveryId, SessionId, UserId, admin::RecoveryState,
+};
 use sourceorigin_repository::{
-    Database, DatabaseConfig, InsertPasskey, InsertRecovery, InsertSession, RecoveryState,
-    StoredRecovery,
+    Database, DatabaseConfig, InsertPasskey, InsertRecovery, InsertSession, StoredRecovery,
 };
 
 /// How long a probation lasts in these tests.

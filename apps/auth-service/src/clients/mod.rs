@@ -9,16 +9,13 @@
 //! Nothing is cached: every request reads the registration it needs from the
 //! database, so a change applies to the next request on every replica.
 
-use serde::Serialize;
 use sourceorigin_common::{
     ClientId, UserId,
     clients::{ClientField, ClientKind, ClientOwner, ClientRegistration, RelatedOrigin},
     events::{DomainEvent, EventContext},
 };
 use sourceorigin_crypto::{ClientSecret, CryptoError};
-use sourceorigin_repository::{
-    DatabaseError, DatabaseTransaction, StoredClientSecret, StoredOidcClient,
-};
+use sourceorigin_repository::{DatabaseError, DatabaseTransaction, StoredOidcClient};
 use std::collections::BTreeSet;
 use thiserror::Error;
 use url::Url;
@@ -147,17 +144,6 @@ pub enum Applied {
     Updated,
     /// It was already as given; nothing was recorded.
     Unchanged,
-}
-
-/// A client's registration and the lifetimes of its secrets, as `client show`
-/// shows them.
-#[derive(Serialize)]
-pub struct ClientDetails {
-    /// The registration.
-    #[serde(flatten)]
-    pub client: StoredOidcClient,
-    /// Its secrets, oldest first; never their values.
-    pub secrets: Vec<StoredClientSecret>,
 }
 
 impl ClientRegistryError {
