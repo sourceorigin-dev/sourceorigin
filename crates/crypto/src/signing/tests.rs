@@ -1,7 +1,7 @@
 //! JWT policy, tampering, protected-header trust boundaries and key selection.
 use super::*;
 use serde_json::{Value, json};
-use sourceorigin_common::protocol::registered::ClaimsError;
+use sourceorigin_common::protocol::{claims::AccessTokenClaims, registered::ClaimsError};
 
 /// The issuer every token here names.
 const ISSUER: &str = "https://auth.example";
@@ -13,9 +13,11 @@ fn now() -> DateTime<Utc> {
 }
 
 /// ID token claims, issued at [`now`] and valid for five minutes, with `changes`.
+/// They also hold the claims an access token needs, so they sign one too.
 fn claims(changes: &Value) -> Value {
     let now = now().timestamp();
-    let mut claims = json!({"iss":ISSUER,"sub":"user","aud":"client","iat":now,"exp":now+300});
+    let mut claims = json!({"iss":ISSUER,"sub":"user","aud":"client","iat":now,"exp":now+300,
+        "client_id":"client","jti":"01936f3e-8c00-7000-8000-000000000003","scope":"openid"});
     for (claim, value) in changes.as_object().expect("changes") {
         claims[claim] = value.clone();
     }
@@ -73,7 +75,7 @@ fn verifies_types_signatures_issuers_and_times_at_the_given_time() {
         .sign(TokenType::Access, &claims(&json!({})))
         .expect("sign access token");
     assert!(
-        keys.verify::<IdTokenClaims>(&token, TokenType::Access, ISSUER, now())
+        keys.verify::<AccessTokenClaims>(&token, TokenType::Access, ISSUER, now())
             .is_ok()
     );
     assert!(matches!(
@@ -85,7 +87,7 @@ fn verifies_types_signatures_issuers_and_times_at_the_given_time() {
     bytes[n - 10] = if bytes[n - 10] == b'A' { b'B' } else { b'A' };
     let tampered = std::str::from_utf8(&bytes).expect("modified compact token remains ASCII");
     assert!(matches!(
-        keys.verify::<IdTokenClaims>(tampered, TokenType::Access, ISSUER, now()),
+        keys.verify::<AccessTokenClaims>(tampered, TokenType::Access, ISSUER, now()),
         Err(CryptoError::Signature)
     ));
 }

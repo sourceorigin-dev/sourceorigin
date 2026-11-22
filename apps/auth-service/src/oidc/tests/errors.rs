@@ -3,6 +3,7 @@
 //! and auth's page for a request whose redirect URI isn't verified yet.
 
 use super::*;
+use chrono::Timelike;
 
 /// The scenario's authorization request with `pairs` set, replacing any of the
 /// same name, and those named in `removed` left out.
@@ -153,37 +154,46 @@ async fn token_endpoint_errors_follow_rfc_6749() {
 }
 
 /// An access token without the `openid` scope is refused at `UserInfo` with
-/// `insufficient_scope`, at 403, naming the scope it needs.
+/// `insufficient_scope`, at 403, naming the scope it needs. An expired one is
+/// refused with `invalid_token`, and the description names when it expired.
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL"]
-async fn userinfo_needs_the_openid_scope() {
+async fn userinfo_needs_the_openid_scope_and_an_unexpired_token() {
     let flow = Flow::new(false, true).await;
     let keys = flow.app.keys.current().expect("keys");
-    let token = keys
-        .sign(
-            TokenType::Access,
-            &sourceorigin_common::protocol::claims::AccessTokenClaims {
-                iss: flow.app.issuer.clone(),
-                sub: flow.user_id.to_string(),
-                aud: sourceorigin_common::protocol::claims::Audience::One("api".into()),
-                client_id: flow.client.id.clone(),
-                jti: sourceorigin_common::TokenId::new(),
-                scope: "profile".parse().expect("scopes"),
-                iat: Utc::now(),
-                exp: Utc::now() + chrono::Duration::minutes(5),
-                nbf: None,
-                authentication:
-                    sourceorigin_common::protocol::claims::AuthenticationClaims::default(),
-                act: None,
-                cnf: None,
-                profile: sourceorigin_common::protocol::claims::ProfileClaims::default(),
-                extra: (),
-            },
-        )
-        .expect("access token");
-    let bearer = format!("{} {token}", AuthScheme::Bearer);
+    let now = Utc::now().with_nanosecond(0).expect("whole seconds");
+    let access_token = |scope: &str, exp| {
+        let token = keys
+            .sign(
+                TokenType::Access,
+                &sourceorigin_common::protocol::claims::AccessTokenClaims {
+                    iss: flow.app.issuer.clone(),
+                    sub: flow.user_id.to_string(),
+                    aud: sourceorigin_common::protocol::claims::Audience::One("api".into()),
+                    client_id: flow.client.id.clone(),
+                    jti: sourceorigin_common::TokenId::new(),
+                    scope: scope.parse().expect("scopes"),
+                    iat: now - chrono::Duration::minutes(10),
+                    exp,
+                    nbf: None,
+                    authentication:
+                        sourceorigin_common::protocol::claims::AuthenticationClaims::default(),
+                    act: None,
+                    cnf: None,
+                    profile: sourceorigin_common::protocol::claims::ProfileClaims::default(),
+                    extra: (),
+                },
+            )
+            .expect("access token");
+        format!("{} {token}", AuthScheme::Bearer)
+    };
     let response = flow
-        .request(Method::GET, routes::oidc::USERINFO, &[], Some(&bearer))
+        .request(
+            Method::GET,
+            routes::oidc::USERINFO,
+            &[],
+            Some(&access_token("profile", now + chrono::Duration::minutes(5))),
+        )
         .await;
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
     assert_eq!(
@@ -193,5 +203,22 @@ async fn userinfo_needs_the_openid_scope() {
     assert_eq!(
         json(response).await["error"],
         OAuthCode::InsufficientScope.as_str()
+    );
+
+    let expired = now - chrono::Duration::minutes(1);
+    let response = flow
+        .request(
+            Method::GET,
+            routes::oidc::USERINFO,
+            &[],
+            Some(&access_token(Scope::OpenId.as_str(), expired)),
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    let body = json(response).await;
+    assert_eq!(body["error"], OAuthCode::InvalidToken.as_str());
+    assert_eq!(
+        body["error_description"],
+        format!("access token is invalid: token expired at {expired}")
     );
 }

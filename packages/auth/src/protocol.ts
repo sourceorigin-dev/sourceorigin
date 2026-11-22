@@ -97,6 +97,10 @@ email_verified?: boolean, };
 
 /**
  * Claims of an ID token (OIDC Core §2), signed with `typ: JWT`.
+ *
+ * Decoding must stay backward-compatible: auth reads every `id_token_hint` it
+ * signed as these claims, even expired or signed by a retired key, so a field
+ * made stricter would refuse every older hint at authorization and logout.
  */
 export type IdTokenClaims = {
 /**

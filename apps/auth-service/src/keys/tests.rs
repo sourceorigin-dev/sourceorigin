@@ -17,7 +17,7 @@ use serde_json::json;
 use sourceorigin_common::{
     events::Actor,
     protocol::{
-        claims::IdTokenClaims,
+        claims::AccessTokenClaims,
         jwt::{Jwk, TokenType},
     },
 };
@@ -142,7 +142,9 @@ fn access_token(keys: &KeySet) -> String {
     let now = Utc::now().timestamp();
     keys.sign(
         TokenType::Access,
-        &json!({"iss": ISSUER, "sub": "user", "aud": "client", "iat": now, "exp": now + 300}),
+        &json!({"iss": ISSUER, "sub": "user", "aud": "client", "client_id": "client",
+            "jti": "01936f3e-8c00-7000-8000-000000000003", "scope": "openid", "iat": now,
+            "exp": now + 300}),
     )
     .expect("sign token")
 }
@@ -226,7 +228,7 @@ async fn rotation_takes_each_step_once_on_schedule() {
     let keys = key_set(&store, &mut tx).await;
     assert_eq!(keys.signer().kid(), second.as_str());
     assert!(
-        keys.verify::<IdTokenClaims>(&first_token, TokenType::Access, ISSUER, Utc::now())
+        keys.verify::<AccessTokenClaims>(&first_token, TokenType::Access, ISSUER, Utc::now())
             .is_ok(),
         "a retiring key's tokens verify"
     );
@@ -249,7 +251,7 @@ async fn rotation_takes_each_step_once_on_schedule() {
     let keys = key_set(&store, &mut tx).await;
     assert!(keys.jwks().keys.iter().all(|key| key.kid != first.as_str()));
     assert!(matches!(
-        keys.verify::<IdTokenClaims>(&first_token, TokenType::Access, ISSUER, Utc::now()),
+        keys.verify::<AccessTokenClaims>(&first_token, TokenType::Access, ISSUER, Utc::now()),
         Err(CryptoError::UnknownKey)
     ));
     assert!(
@@ -354,7 +356,7 @@ async fn revoking_a_key_removes_it_and_replaces_the_signer() {
     let keys = key_set(&store, &mut tx).await;
     assert_eq!(keys.signer().kid(), replacement.as_str());
     assert!(matches!(
-        keys.verify::<IdTokenClaims>(&token, TokenType::Access, ISSUER, Utc::now()),
+        keys.verify::<AccessTokenClaims>(&token, TokenType::Access, ISSUER, Utc::now()),
         Err(CryptoError::UnknownKey)
     ));
     assert!(matches!(

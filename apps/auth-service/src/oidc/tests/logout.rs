@@ -348,9 +348,10 @@ async fn a_hint_naming_another_account_says_so() {
 }
 
 /// Authorization and logout read an `id_token_hint` alike: both refuse one auth
-/// signed without a numeric `exp`, or whose `sub` is no account ID. Logout still
-/// accepts an expired one, as RP-Initiated Logout §2 asks, and goes back to the
-/// application it names.
+/// signed whose claims don't decode as an ID token's, such as one without a
+/// numeric `exp` or `iat` or with a `sid` that is no session ID, or whose `sub` is
+/// no account ID. Logout still accepts an expired one, as RP-Initiated Logout §2
+/// asks, and goes back to the application it names.
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn authorization_and_logout_read_a_hint_alike() {
@@ -367,9 +368,18 @@ async fn authorization_and_logout_read_a_hint_alike() {
     };
     let mut no_exp = expired.clone();
     no_exp.as_object_mut().expect("claims").remove("exp");
+    let mut no_iat = expired.clone();
+    no_iat.as_object_mut().expect("claims").remove("iat");
+    let mut no_session = expired.clone();
+    no_session["sid"] = json!("not-a-session");
     let mut no_account = expired.clone();
     no_account["sub"] = json!("not-an-account");
-    for claims in [no_exp, no_account] {
+    for (claims, description) in [
+        (no_exp, "id_token_hint claims are invalid"),
+        (no_iat, "id_token_hint claims are invalid"),
+        (no_session, "id_token_hint claims are invalid"),
+        (no_account, "id_token_hint sub claim is not an account ID"),
+    ] {
         let hint = sign(&claims);
         let authorized = flow
             .authorize_with(
@@ -379,9 +389,14 @@ async fn authorization_and_logout_read_a_hint_alike() {
                 &[("id_token_hint", &hint)],
             )
             .await;
+        let redirect = flow.client_redirect(&authorized);
         assert_eq!(
-            parameter(&flow.client_redirect(&authorized), "error"),
+            parameter(&redirect, "error"),
             OAuthCode::InvalidRequest.as_str(),
+            "{claims}"
+        );
+        assert!(
+            parameter(&redirect, "error_description").starts_with(description),
             "{claims}"
         );
         let logout = flow
