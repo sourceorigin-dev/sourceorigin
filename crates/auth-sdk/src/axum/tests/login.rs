@@ -21,7 +21,7 @@ fn return_to_vectors() {
 /// not redeem it: the login routes take confidential clients only.
 #[tokio::test]
 async fn login_routes_refuse_public_clients() {
-    let endpoint = TokenEndpoint::start(Duration::ZERO).await;
+    let endpoint = TokenEndpoint::start().await;
     let public = endpoint.issuer(&clock()).client(ClientConfig {
         client_id: CLIENT.parse().expect("client ID"),
         credentials: Credentials::None,
@@ -39,7 +39,7 @@ async fn login_routes_refuse_public_clients() {
 /// redirect to auth would fail its CORS check.
 #[tokio::test]
 async fn signed_in_redirects_only_navigations() {
-    let endpoint = TokenEndpoint::start(Duration::ZERO).await;
+    let endpoint = TokenEndpoint::start().await;
     let app = login_app(&endpoint.issuer(&clock()));
     let response = get_with(&app, "/app/notes?page=2", &[]).await;
     assert_eq!(
@@ -61,7 +61,7 @@ async fn signed_in_redirects_only_navigations() {
 /// the 401 instead of a redirect.
 #[tokio::test]
 async fn step_ups_in_nested_routers_keep_their_prefix() {
-    let endpoint = TokenEndpoint::start(Duration::ZERO).await;
+    let endpoint = TokenEndpoint::start().await;
     let issuer = endpoint.issuer(&clock());
     let key = CookieKey::generate().expect("cookie key");
     let auth = LoginRoutes::new(client(&issuer), key).expect("a confidential client");
@@ -101,7 +101,7 @@ async fn step_ups_in_nested_routers_keep_their_prefix() {
 /// start at once, a browser holds at most three cookies, one per slot.
 #[tokio::test]
 async fn logins_in_several_tabs_complete() {
-    let endpoint = TokenEndpoint::start(Duration::ZERO).await;
+    let endpoint = TokenEndpoint::start().await;
     let app = login_app(&endpoint.issuer(&clock()));
     // Start logins until every slot is used: random `state`s land in all three
     // within 200 but for a chance of about 1 in 10^35.
@@ -154,7 +154,7 @@ async fn logins_in_several_tabs_complete() {
 /// it returns home instead, and to the root when the home path is too long as well.
 #[tokio::test]
 async fn pending_cookies_fit_their_slots() {
-    let endpoint = TokenEndpoint::start(Duration::ZERO).await;
+    let endpoint = TokenEndpoint::start().await;
     let issuer = endpoint.issuer(&clock());
     // Quotes double in JSON, so 2048 of them would seal to some 6 KB.
     let quotes = format!("%2F{}", "%22".repeat(2047));
@@ -218,7 +218,7 @@ async fn send_from(
 /// Logout is accepted only from the app's own pages.
 #[tokio::test]
 async fn logout_refuses_other_origins() {
-    let endpoint = TokenEndpoint::start(Duration::ZERO).await;
+    let endpoint = TokenEndpoint::start().await;
     let app = login_app(&endpoint.issuer(&clock()));
     let session = sign_in(&app, USER).await;
     for (fetch_site, origin, own) in ORIGINS {
@@ -242,7 +242,7 @@ async fn logout_refuses_other_origins() {
 /// [`CrossOrigin`] skip the check.
 #[tokio::test]
 async fn signed_in_refuses_unsafe_requests_from_other_origins() {
-    let endpoint = TokenEndpoint::start(Duration::ZERO).await;
+    let endpoint = TokenEndpoint::start().await;
     let app = login_app(&endpoint.issuer(&clock()));
     let cookie = sign_in(&app, USER).await;
     let signed_in =
@@ -286,7 +286,7 @@ const OTHER: &str = "01936f3e-8c00-7000-8000-000000000009";
 /// accounts.
 #[tokio::test]
 async fn step_ups_stay_on_the_signed_in_account() {
-    let endpoint = TokenEndpoint::start(Duration::ZERO).await;
+    let endpoint = TokenEndpoint::start().await;
     let app = login_app(&endpoint.issuer(&clock()));
     let session = sign_in(&app, USER).await;
     let step_up = "%2F&step_up=true";
@@ -350,7 +350,7 @@ async fn step_ups_stay_on_the_signed_in_account() {
 /// names; another user's grant is revoked as it is refused.
 #[tokio::test]
 async fn hinted_logins_complete_only_for_the_hinted_user() {
-    let endpoint = TokenEndpoint::start(Duration::ZERO).await;
+    let endpoint = TokenEndpoint::start().await;
     let client = client(&endpoint.issuer(&clock()));
     let claims = serde_json::from_value(id_claims(USER)).expect("ID token claims");
     let hint = crate::IdToken::unchecked(claims, "id-0");

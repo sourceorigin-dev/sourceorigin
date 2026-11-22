@@ -27,12 +27,9 @@ use ::axum::{
 use chrono::Utc;
 use serde_json::json;
 use sourceorigin_common::protocol::jwt::TokenType;
-use std::{
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicBool, AtomicUsize, Ordering},
-    },
-    time::Duration,
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 use tower::ServiceExt;
 use url::Url;
@@ -122,7 +119,7 @@ struct TokenEndpoint {
     revocations_fail: Arc<AtomicBool>,
     /// Tokens whose revocation fails, while others' succeeds.
     refused: Arc<Mutex<Vec<String>>>,
-    /// Whether revocations hang for an hour before answering, as a stuck auth would.
+    /// Whether revocations never answer, as a stuck auth would.
     revocations_hang: Arc<AtomicBool>,
 }
 
@@ -130,11 +127,10 @@ struct TokenEndpoint {
 type Form = std::collections::HashMap<String, String>;
 
 impl TokenEndpoint {
-    /// Serves endpoints whose `n`th refresh answers, after `delay`, `access-n` and no
-    /// refresh token, as auth answers a confidential client.
-    async fn start(delay: Duration) -> Self {
+    /// Serves endpoints whose `n`th refresh answers `access-n` and no refresh
+    /// token, as auth answers a confidential client.
+    async fn start() -> Self {
         Self::refreshing(move |call| async move {
-            tokio::time::sleep(delay).await;
             ::axum::Json(Self::tokens(&format!("access-{call}"))).into_response()
         })
         .await
@@ -199,7 +195,7 @@ impl TokenEndpoint {
         let revoke = move |::axum::Form(form): ::axum::Form<Form>| async move {
             received.fetch_add(1, Ordering::SeqCst);
             if hanging.load(Ordering::SeqCst) {
-                tokio::time::sleep(Duration::from_secs(3600)).await;
+                std::future::pending::<()>().await;
             }
             let token = &form["token"];
             if failing.load(Ordering::SeqCst) || refusing.lock().expect("refused").contains(token) {

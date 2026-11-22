@@ -13,7 +13,7 @@ use chrono::TimeDelta;
 /// the shape they write, or none.
 #[tokio::test]
 async fn session_cookie_vectors() {
-    let endpoint = TokenEndpoint::start(Duration::ZERO).await;
+    let endpoint = TokenEndpoint::start().await;
     for case in Case::all("sessions") {
         let client = endpoint.issuer(&case.clock()).client(ClientConfig {
             client_id: case.text("client_id").parse().expect("client ID"),
@@ -96,7 +96,21 @@ async fn home(app: &Router, session: &str) -> (StatusCode, String, Option<String
 /// session twice refreshes once.
 #[tokio::test]
 async fn concurrent_refreshes_all_succeed() {
-    let endpoint = TokenEndpoint::start(Duration::from_millis(100)).await;
+    // Auth answers a refresh only once two are in flight, so the first two overlap:
+    // a lease between them would leave the first unanswered.
+    let arrived = tokio::sync::watch::Sender::new(0_usize);
+    let endpoint = TokenEndpoint::refreshing(move |call| {
+        let arrived = arrived.clone();
+        async move {
+            let mut both = arrived.subscribe();
+            arrived.send_modify(|count| *count += 1);
+            both.wait_for(|&count| count >= 2)
+                .await
+                .expect("the endpoint holds a sender");
+            ::axum::Json(TokenEndpoint::tokens(&format!("access-{call}"))).into_response()
+        }
+    })
+    .await;
     let clock = clock();
     let app = login_app(&endpoint.issuer(&clock));
     let session = sign_in(&app, USER).await;
@@ -164,7 +178,7 @@ async fn refresh_failures_end_the_session_only_when_auth_refuses() {
 /// response clears it.
 #[tokio::test]
 async fn ended_sessions_are_cleared() {
-    let endpoint = TokenEndpoint::start(Duration::ZERO).await;
+    let endpoint = TokenEndpoint::start().await;
     let clock = clock();
     let app = login_app(&endpoint.issuer(&clock));
     let session = sign_in(&app, USER).await;
@@ -186,7 +200,7 @@ async fn ended_sessions_are_cleared() {
 /// cookie stays, for the user to try again.
 #[tokio::test]
 async fn logout_revokes_the_refresh_token() {
-    let endpoint = TokenEndpoint::start(Duration::ZERO).await;
+    let endpoint = TokenEndpoint::start().await;
     let app = login_app(&endpoint.issuer(&clock()));
     let session = sign_in(&app, USER).await;
     let logout = || async {
@@ -232,7 +246,7 @@ async fn logout_revokes_the_refresh_token() {
 /// sign in again.
 #[tokio::test]
 async fn sign_ins_revoke_the_session_they_replace() {
-    let endpoint = TokenEndpoint::start(Duration::ZERO).await;
+    let endpoint = TokenEndpoint::start().await;
     let clock = clock();
     let app = login_app(&endpoint.issuer(&clock));
     let first = sign_in(&app, USER).await;
@@ -329,7 +343,7 @@ fn worst_case_tokens(access_bytes: usize) -> Tokens {
 /// would drop.
 #[tokio::test]
 async fn sessions_fit_in_a_cookie() {
-    let endpoint = TokenEndpoint::start(Duration::ZERO).await;
+    let endpoint = TokenEndpoint::start().await;
     let routes = LoginRoutes::new(
         client(&endpoint.issuer(&clock())),
         CookieKey::generate().expect("cookie key"),
@@ -368,14 +382,14 @@ fn sessions_without_a_refresh_token_end_with_their_access_token() {
 /// replacing the session answers 502 too, so neither hangs.
 #[tokio::test]
 async fn revocations_give_up_after_their_deadline() {
-    let endpoint = TokenEndpoint::start(Duration::ZERO).await;
+    let endpoint = TokenEndpoint::start().await;
     // An injected client without a timeout of its own.
     let http = Http::plain(reqwest::Client::builder());
     let app = login_app(&endpoint.issuer_with(&clock(), http));
     let session = sign_in(&app, USER).await;
     endpoint.revocations_hang.store(true, Ordering::SeqCst);
-    // Waiting out the hour the revocation hangs takes no time, but the deadline
-    // must end it first.
+    // The revocation never answers: the SDK's deadline ends it, which paused
+    // time reaches at once.
     tokio::time::pause();
     let logout = Request::post("/auth/logout")
         .header(header::COOKIE, &session)
