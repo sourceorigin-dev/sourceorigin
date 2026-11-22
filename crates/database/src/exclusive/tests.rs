@@ -22,16 +22,14 @@ async fn locks_exclude_other_sessions_until_their_connection_ends() {
     });
     job.abort();
     assert!(job.await.expect_err("cancelled job").is_cancelled());
-    let freed = tokio::time::timeout(Duration::from_secs(5), async {
-        loop {
-            if let Some(holder) = lock().await.expect("lock") {
-                break holder;
-            }
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
-    })
+    // PostgreSQL grants the waiting lock once the dropped holder's session ends.
+    let freed = tokio::time::timeout(
+        Duration::from_secs(5),
+        database.exclusive(LockKey::LockTest),
+    )
     .await
-    .expect("dropping the holder frees the lock");
+    .expect("dropping the holder frees the lock")
+    .expect("lock");
     freed.release().await.expect("release");
 }
 

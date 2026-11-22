@@ -97,6 +97,25 @@ impl Database {
             Ok(None)
         }
     }
+
+    /// Opens a connection with the pool's settings and takes `key`'s lock,
+    /// waiting while another session holds it, so a test takes its turn with
+    /// the job or test that holds it.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DatabaseError::Timeout`] if connecting takes longer than the
+    /// pool's acquire timeout, or another [`DatabaseError`] if a query fails, as
+    /// when the statement timeout ends the wait.
+    #[cfg(any(test, feature = "test-util"))]
+    pub async fn exclusive(&self, key: LockKey) -> Result<ExclusiveConnection, DatabaseError> {
+        let mut connection = self.connect_dedicated(&self.pool.connect_options()).await?;
+        sqlx::query("SELECT pg_advisory_lock($1)")
+            .bind(key.id())
+            .execute(&mut connection)
+            .await?;
+        Ok(ExclusiveConnection { connection, key })
+    }
 }
 
 impl ExclusiveConnection {

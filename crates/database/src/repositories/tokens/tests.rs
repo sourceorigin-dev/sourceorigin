@@ -700,16 +700,14 @@ async fn removal_expires_codes_an_earlier_exchange_still_sees_live() {
     let pool = Database::test_pool().await;
     let client = client(&pool).await;
     let grant = Grant::new(&pool, &client).await;
-    sqlx::query(
-        "UPDATE authorization_codes SET expires_at = now() + interval '1 second' WHERE id = $1",
-    )
-    .bind(grant.code.as_uuid())
-    .execute(&pool)
-    .await
-    .expect("expire soon");
-    // `now()` is fixed when a transaction begins.
+    // `now()` is fixed when a transaction begins, so the code expires after the
+    // exchange began and before the removal does.
     let mut exchange = DatabaseTransaction::new(pool.begin().await.expect("exchange"));
-    tokio::time::sleep(Wait::from_millis(1200)).await;
+    sqlx::query("UPDATE authorization_codes SET expires_at = clock_timestamp() WHERE id = $1")
+        .bind(grant.code.as_uuid())
+        .execute(&pool)
+        .await
+        .expect("expire");
     let mut removal = DatabaseTransaction::new(pool.begin().await.expect("removal"));
     removal
         .oidc()

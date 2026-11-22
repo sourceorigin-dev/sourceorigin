@@ -272,7 +272,7 @@ async fn a_link_that_expires_while_finishing_does_not_complete() {
     let owner = Owner::new().await;
     let db = &owner.db;
     let user = db.users().insert_named("recover").await;
-    let id = start(db, user, Duration::milliseconds(500)).await;
+    let id = start(db, user, Duration::hours(1)).await;
 
     let mut tx = db.begin().await.expect("transaction");
     tx.users()
@@ -280,7 +280,7 @@ async fn a_link_that_expires_while_finishing_does_not_complete() {
         .await
         .expect("lock")
         .expect("user");
-    tokio::time::sleep(std::time::Duration::from_millis(700)).await;
+    owner.expire(id).await;
     let completed = tx
         .recoveries()
         .complete(user, id, PasskeyId::new(), PROBATION)
