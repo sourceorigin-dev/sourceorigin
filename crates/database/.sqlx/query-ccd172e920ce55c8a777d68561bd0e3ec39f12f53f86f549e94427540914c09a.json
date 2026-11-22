@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT handle, (released_at > now() - interval '1 minute') AS \"recent!\" FROM handles\n        WHERE handle LIKE 'purged-' || right($1::text, 12)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "handle",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "recent!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "ccd172e920ce55c8a777d68561bd0e3ec39f12f53f86f549e94427540914c09a"
+}

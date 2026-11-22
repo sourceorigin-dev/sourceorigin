@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT current_setting('transaction_isolation') AS \"isolation!\",\n            current_setting('transaction_read_only') AS \"read_only!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "isolation!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "read_only!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "1b57b19c750035ac02c6299907e570b33b8f8e89ed2ca1423088f9f6b69225f1"
+}

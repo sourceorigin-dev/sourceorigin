@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT destination AS \"destination!\", recipient FROM deliveries\n            WHERE channel = $1 AND recipient->>'sid' = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "destination!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "recipient",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "111b89cb6a430cf19f34b900a964242078c1e82ef0f73e5acab20a6483f8865c"
+}

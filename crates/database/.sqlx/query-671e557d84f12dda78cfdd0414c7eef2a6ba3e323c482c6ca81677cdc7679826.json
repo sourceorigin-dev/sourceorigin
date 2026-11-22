@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n            (SELECT count(*) FROM pg_db_role_setting s JOIN pg_roles r ON r.oid = s.setrole\n            WHERE r.rolname = $1) AS \"settings!\",\n            (has_database_privilege($1, current_database(), 'CREATE')\n            OR has_schema_privilege($1, 'public', 'CREATE')) AS \"create!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "settings!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "create!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Name"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "671e557d84f12dda78cfdd0414c7eef2a6ba3e323c482c6ca81677cdc7679826"
+}

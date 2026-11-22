@@ -52,13 +52,17 @@ async fn locked_transactions_read_committed_data() {
     .await
     .expect("session defaults");
     let mut tx = holder.begin().await.expect("transaction");
-    let settings: (String, String) = sqlx::query_as(
-        "SELECT current_setting('transaction_isolation'), current_setting('transaction_read_only')",
+    let settings = sqlx::query!(
+        r#"SELECT current_setting('transaction_isolation') AS "isolation!",
+            current_setting('transaction_read_only') AS "read_only!""#
     )
     .fetch_one(&mut *tx.inner)
     .await
     .expect("settings");
-    assert_eq!(settings, ("read committed".into(), "off".into()));
+    assert_eq!(
+        (settings.isolation.as_str(), settings.read_only.as_str()),
+        ("read committed", "off")
+    );
     tx.rollback().await.expect("rollback");
     holder.release().await.expect("release");
 }

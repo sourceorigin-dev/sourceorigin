@@ -9,8 +9,12 @@ doc-valid-idents = ["SourceOrigin", ".."]
 
 # Environment reads go through `Variable` (`sourceorigin_common::config`), which
 # names the variable, parses it and keeps secrets out of errors.
+#
+# SQL is compiled against the schema with the checked macros, which `just db
+# prepare` caches. A statement built at run time takes an `#[expect]` saying why.
 disallowed-methods = [
     { path = "std::env::var", reason = "read the environment through `Variable`" },
     { path = "std::env::var_os", reason = "read the environment through `Variable`" },
     { path = "std::env::vars", reason = "read the environment through `Variable`" },
+    { path = "sqlx::query_as", reason = "use the checked `sqlx::query_as!`, or `query!`" },
 ]

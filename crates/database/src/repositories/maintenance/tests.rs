@@ -53,15 +53,15 @@ async fn ended_records_go_after_their_retention() {
     .execute(&pool)
     .await
     .expect("ended records");
-    let handle: (String, bool) = sqlx::query_as(
-        "SELECT handle, released_at > now() - interval '1 minute' FROM handles
-        WHERE handle LIKE 'purged-' || right($1::text, 12)",
+    let handle = sqlx::query!(
+        r#"SELECT handle, (released_at > now() - interval '1 minute') AS "recent!" FROM handles
+        WHERE handle LIKE 'purged-' || right($1::text, 12)"#,
+        purged.to_string(),
     )
-    .bind(purged.to_string())
     .fetch_one(&pool)
     .await
     .expect("purged handle");
-    assert!(handle.1, "the purge released {}", handle.0);
+    assert!(handle.recent, "the purge released {}", handle.handle);
 
     // Other tests' announcements to everyone reach this account too, so only its
     // own rows count.
@@ -83,7 +83,7 @@ async fn ended_records_go_after_their_retention() {
             ORDER BY 1",
         )
         .bind(user.as_uuid())
-        .bind(&handle.0)
+        .bind(&handle.handle)
         .fetch_all(&pool)
         .await
         .expect("remaining")
@@ -111,7 +111,7 @@ async fn ended_records_go_after_their_retention() {
         .expect("find")
         .expect("kept");
     assert!(!kept.recipients_kept);
-    let purged_handle = format!("handle {}", handle.0);
+    let purged_handle = format!("handle {}", handle.handle);
     assert_eq!(
         remaining().await,
         [
@@ -127,7 +127,7 @@ async fn ended_records_go_after_their_retention() {
         ]
     );
     sqlx::query("UPDATE handles SET released_at = now() - interval '366 days' WHERE handle = $1")
-        .bind(&handle.0)
+        .bind(&handle.handle)
         .execute(&pool)
         .await
         .expect("a year on");

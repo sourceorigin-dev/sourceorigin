@@ -173,15 +173,18 @@ async fn deliveries_commit_with_their_event() {
         }
     };
     let stored = async || -> Vec<(Uuid, Value, String)> {
-        sqlx::query_as(
-            "SELECT event_id, recipient, status FROM deliveries
-            WHERE channel = $1 AND recipient = to_jsonb($2::text)",
+        sqlx::query!(
+            r#"SELECT event_id AS "event_id!", recipient, status FROM deliveries
+            WHERE channel = $1 AND recipient = to_jsonb($2::text)"#,
+            Recorder::NAME,
+            &username,
         )
-        .bind(Recorder::NAME)
-        .bind(&username)
         .fetch_all(&pool)
         .await
         .expect("deliveries")
+        .into_iter()
+        .map(|row| (row.event_id, row.recipient, row.status))
+        .collect()
     };
 
     record(false).await;
@@ -535,15 +538,18 @@ async fn revoking_a_session_queues_a_logout_token_for_each_client_to_tell() {
         }
     };
     let queued = async || -> Vec<(String, Value)> {
-        sqlx::query_as(
-            "SELECT destination, recipient FROM deliveries
-            WHERE channel = $1 AND recipient->>'sid' = $2",
+        sqlx::query!(
+            r#"SELECT destination AS "destination!", recipient FROM deliveries
+            WHERE channel = $1 AND recipient->>'sid' = $2"#,
+            BackchannelLogout::NAME,
+            session.to_string(),
         )
-        .bind(BackchannelLogout::NAME)
-        .bind(session.to_string())
         .fetch_all(&pool)
         .await
         .expect("deliveries")
+        .into_iter()
+        .map(|row| (row.destination, row.recipient))
+        .collect()
     };
 
     revoke(false).await;
