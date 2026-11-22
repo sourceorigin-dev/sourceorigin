@@ -59,11 +59,11 @@ impl Harness {
         }
     }
 
-    /// Connects to a schema of its own, for a scenario that must know every
+    /// Connects to a database of its own, for a scenario that must know every
     /// administrator, which the shared database's other tests keep adding, or
     /// every alert, or that holds a lock other tests' changes would queue behind.
     pub(crate) async fn isolated() -> Self {
-        let database = Database::isolated(Replicas::database_config(5))
+        let database = Database::isolated(Database::test_config(5))
             .await
             .expect("isolated database");
         Self { database }

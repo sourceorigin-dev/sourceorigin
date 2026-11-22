@@ -73,12 +73,14 @@ which fails if the committed query cache doesn't match the migrated schema
 exactly.
 
 To use a database of your own instead, set `TEST_DATABASE_URL` to it. The tests
-create accounts in it and leave it migrated, so name only a database you can
-throw away, never one that holds real accounts. A TCP URL must include
-`sslmode=disable` or `sslmode=verify-full`.
+create accounts in it and leave it migrated, and create more databases on its
+server, so name only a server you can throw away, never one that holds real
+accounts, and connect as a role that may create databases. A TCP URL must
+include `sslmode=disable` or `sslmode=verify-full`.
 
 A new database test starts from the fixtures in `crates/database/src/fixtures.rs`.
-`Database::test()` connects with the limits every connection of the service has.
+`Database::test()` connects with the limits every connection of the service has,
+and `Database::test_config` configures a pool of your own with them.
 `insert_named` creates an account, `InsertSession::lasting` describes a session,
 `known_history` lists an account's events, and `test_channels!` declares channels
 whose deliveries a test inserts itself.
@@ -86,17 +88,27 @@ Another crate's tests get them through the `test-util` feature. A test in
 `crates/database` that inserts rows with plain SQL connects through
 `Database::test_pool()` instead, and auth-service's tests use `Replicas`,
 `Browser`, and the `html`, `json` and `reply` readers in
-`apps/auth-service/src/tests.rs`. A test that needs a migrated schema no other
-test shares, such as the audit chain's verification tests, gets one from
-`Database::isolated`.
+`apps/auth-service/src/tests.rs`. A test that needs a migrated database no other
+test shares gets one from `Database::isolated`.
 
-The tests share one database, so they share its advisory locks too, even in a
-schema of their own. A test that holds a database-wide lock belongs in that
-lock's test group in `.config/nextest.toml`: `signing-keys` for the signing key
-lock, `audit` for the audit chain and verification locks. Each group runs its
-tests one at a time. Otherwise they queue for the lock under a timeout, the
-15-second statement timeout or the test's own, and on a busy machine the last
-one fails.
+The other tests share one database, its rows and its advisory locks, and run
+under the service's own time limits: 15 seconds a statement, 5 seconds a lock
+wait and 30 seconds idle in a transaction. Give a test a database of its own
+when it:
+
+- needs history or state the whole database shares, such as the audit chain's
+  tests, or every administrator or alert;
+- holds a lock the other tests take, for longer than they wait under those
+  limits. The signing key tests do: they hold the signing key lock while they
+  generate keys, and every replica a test starts waits for that lock. On a busy
+  machine, a key takes seconds to generate.
+
+A test waits longer than the service does only for what it needs to get going,
+never for what it asserts. Its pools wait up to a minute for a connection
+(`Database::TEST_ACQUIRE_TIMEOUT`), and the audit tests up to two minutes for
+their events to be sealed, which every older transaction on the server holds
+back. nextest ends a test that runs five minutes as hung, as
+`.config/nextest.toml` sets.
 
 ### SDK test vectors
 

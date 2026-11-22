@@ -1,11 +1,12 @@
 //! Sealing order, verification of tampered history, and pruning. Each test uses a
-//! schema of its own, since the chain covers every event of its database.
+//! database of its own, since the chain covers every event of its database, and
+//! its locks are the database's.
 use super::*;
 use crate::{
     AdminError, AdminService, AuthConfig,
     alerts::Alerts,
     config::AuditConfig,
-    tests::{Replicas, operator, reason},
+    tests::{operator, reason},
 };
 use chrono::{SubsecRound, TimeDelta};
 use sourceorigin_common::alerts::{Alert, AlertKind};
@@ -21,8 +22,14 @@ use sourceorigin_repository::{
 };
 use std::{sync::Arc, time::Duration};
 
-/// A migrated schema of its own on `TEST_DATABASE_URL`, with a sealer that signs
-/// a checkpoint on every pass with new events.
+/// Longest a test waits for its events to be sealed. Sealing waits for every
+/// older transaction on the cluster to end, even in another database, such as a
+/// signing key test's, which generates keys in one transaction and on a loaded
+/// machine lasts a minute or more.
+const SEALED_WITHIN: Duration = Duration::from_mins(2);
+
+/// A migrated database of its own on `TEST_DATABASE_URL`'s server, with a sealer
+/// that signs a checkpoint on every pass with new events.
 struct Fixture {
     /// The isolated database.
     database: Database,
@@ -38,11 +45,11 @@ struct Fixture {
 }
 
 impl Fixture {
-    /// Creates the schema and a fresh audit key.
+    /// Creates the database and a fresh audit key.
     async fn new() -> Self {
         // Two connections: a test holds at most a transaction and a read at once,
         // and every fixture's pool is one more on the server the suite shares.
-        let database = Database::isolated(Replicas::database_config(2))
+        let database = Database::isolated(Database::test_config(2))
             .await
             .expect("isolated database");
         let key = NoteKey::generate("auth.example/audit").expect("audit key");
@@ -62,8 +69,8 @@ impl Fixture {
         "https://auth.example".parse().expect("origin")
     }
 
-    /// The whole service over the fixture's schema and audit key, whose security
-    /// layer sets every response's caching. The schema is the fixture's own, so no
+    /// The whole service over the fixture's database and audit key, whose security
+    /// layer sets every response's caching. The database is the fixture's own, so no
     /// other test shares its rate budgets.
     async fn router(&self) -> axum::Router {
         let mut config = AuthConfig::test(&Self::origin());
@@ -116,7 +123,7 @@ impl Fixture {
 
     /// Seals, holding the sealer's `lock`, until every committed event is sealed.
     async fn seal_with(&self, lock: &mut ExclusiveConnection) {
-        tokio::time::timeout(Duration::from_secs(30), async {
+        tokio::time::timeout(SEALED_WITHIN, async {
             while self.unsealed().await > 0 {
                 if self.sealer.seal(lock).await.expect("seal") == 0 {
                     tokio::time::sleep(Duration::from_millis(20)).await;
@@ -127,24 +134,14 @@ impl Fixture {
         .expect("every committed event is sealed");
     }
 
-    /// Takes the sealer's lock. Advisory locks are per database, not per schema, so
-    /// the other tests' fixtures take turns with it.
+    /// Takes the sealer's lock, which is the fixture's own: advisory locks are per
+    /// database.
     async fn lock(&self) -> ExclusiveConnection {
-        tokio::time::timeout(Duration::from_secs(30), async {
-            loop {
-                if let Some(lock) = self
-                    .database
-                    .try_exclusive(LockKey::AuditChain)
-                    .await
-                    .expect("lock")
-                {
-                    return lock;
-                }
-                tokio::time::sleep(Duration::from_millis(20)).await;
-            }
-        })
-        .await
-        .expect("the sealer lock")
+        self.database
+            .try_exclusive(LockKey::AuditChain)
+            .await
+            .expect("lock")
+            .expect("the sealer lock is free")
     }
 
     /// Counts the events not sealed yet.
@@ -233,8 +230,8 @@ impl Fixture {
 async fn events_are_sealed_in_safe_order_and_checkpointed() {
     let mut fixture = Fixture::new().await;
     let database = fixture.database.clone();
-    // The open transaction holds back sealing in every schema of the cluster, so
-    // it stays open only while this test holds the lock other tests seal under.
+    // The open transaction holds back sealing in every database of the cluster,
+    // so other tests' fixtures wait for it as they seal.
     let mut lock = fixture.lock().await;
     let mut open = database.begin().await.expect("transaction");
     fixture.record_in(&mut open).await;
@@ -1056,7 +1053,7 @@ async fn sealing_goes_on_when_a_checkpoint_fails() {
     // Events are sealed only once every older transaction has ended, and other
     // tests' transactions can delay that, so passes that seal nothing don't count.
     let mut sealing = 0;
-    tokio::time::timeout(Duration::from_secs(30), async {
+    tokio::time::timeout(SEALED_WITHIN, async {
         while let unsealed @ 1.. = fixture.unsealed().await {
             let pass = fixture.sealer.pass(&mut lock, None).await;
             assert!(matches!(pass, Err(AuditError::Broken(_))), "{pass:?}");
@@ -1148,7 +1145,7 @@ async fn checkpoints_keep_their_interval_while_batches_stay_full() {
     }
     tx.commit().await.expect("commit");
     let mut lock = fixture.lock().await;
-    tokio::time::timeout(Duration::from_secs(30), async {
+    tokio::time::timeout(SEALED_WITHIN, async {
         while fixture.unsealed().await > 0 {
             fixture.sealer.pass(&mut lock, None).await.expect("pass");
             tokio::time::sleep(Duration::from_millis(20)).await;

@@ -182,7 +182,7 @@ async fn runners_never_overlap_and_a_dropped_holder_hands_over() {
 }
 
 /// A purge run raises the alert of accounts that keep failing to be purged, and
-/// a run with none clears it. The schema is its own, since the count is every
+/// a run with none clears it. The database is its own, since the count is every
 /// account's.
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL"]

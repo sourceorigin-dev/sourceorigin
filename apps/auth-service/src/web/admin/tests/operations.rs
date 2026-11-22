@@ -173,7 +173,9 @@ async fn deliveries_are_cancelled_and_retried_from_the_dashboard() {
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn signing_keys_are_rotated_and_revoked_from_the_dashboard() {
-    let harness = Harness::new().await;
+    // Generating a key holds the signing key lock, which the replicas of other
+    // tests on the shared database wait for as they start.
+    let harness = Harness::isolated().await;
     let admin = harness.admin().await;
     let dashboard = harness.confirmed(&admin, "/keys/rotate", Utc::now()).await;
     let post = async |path: &str| {

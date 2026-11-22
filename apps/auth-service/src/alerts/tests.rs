@@ -1,5 +1,5 @@
 //! How raising, clearing and acknowledging change the current alert of a kind,
-//! and what they record. Each test uses a schema of its own, since an alert
+//! and what they record. Each test uses a database of its own, since an alert
 //! concerns the whole database.
 use super::*;
 use crate::{

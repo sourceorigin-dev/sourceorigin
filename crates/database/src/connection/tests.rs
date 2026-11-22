@@ -392,7 +392,7 @@ fn config_for(user: &str) -> DatabaseConfig {
         .expect("test URL");
     url.set_username(user).expect("user");
     url.set_password(None).expect("password");
-    DatabaseConfig::new(url.as_str(), 1, Duration::from_secs(5)).expect("config")
+    DatabaseConfig::new(url.as_str(), 1, Database::TEST_ACQUIRE_TIMEOUT).expect("config")
 }
 
 /// Provisioning resets what an existing role holds beyond its grants: settings,
@@ -533,9 +533,9 @@ async fn functions_running_as_their_owner_are_not_executable_by_others() {
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn statements_and_lock_waits_past_their_limits_fail() {
     Database::test_pool().await;
-    let url = std::env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL");
-    let config = DatabaseConfig::new(&url, 2, Duration::from_secs(5)).expect("configuration");
-    let database = Database::connect(config).await.expect("connect");
+    let database = Database::connect(Database::test_config(2))
+        .await
+        .expect("connect");
     let settings: Vec<String> = sqlx::query_scalar(
         "SELECT current_setting(name) FROM unnest(ARRAY[
             'statement_timeout', 'lock_timeout', 'idle_in_transaction_session_timeout',

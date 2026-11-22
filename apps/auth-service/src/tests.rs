@@ -36,9 +36,9 @@ use sourceorigin_common::{
 };
 use sourceorigin_crypto::{ClientSecret, KeyEncryptionKey, NoteKey, Secret};
 use sourceorigin_repository::{
-    Database, DatabaseConfig, DatabaseError, DatabaseTransaction, InsertAuthorizationCode,
-    InsertPasskey, InsertRefreshFamily, InsertRefreshToken, InsertUser, InsertVerifiedEmail,
-    PendingFederation, SessionAuthentication, SessionScope,
+    Database, DatabaseError, DatabaseTransaction, InsertAuthorizationCode, InsertPasskey,
+    InsertRefreshFamily, InsertRefreshToken, InsertUser, InsertVerifiedEmail, PendingFederation,
+    SessionAuthentication, SessionScope,
 };
 use std::{
     collections::BTreeMap,
@@ -149,7 +149,7 @@ impl Replicas {
         }
     }
 
-    /// Builds both replicas from `config` over `database`, such as a schema of
+    /// Builds both replicas from `config` over `database`, such as a database of
     /// a fixture's own.
     pub(crate) async fn over(config: &AuthConfig, database: &Database) -> Self {
         let peer = Self::peer();
@@ -203,16 +203,6 @@ impl Replicas {
     /// Connects a new pool to the migrated test database.
     pub(crate) async fn database() -> Database {
         Database::test().await
-    }
-
-    /// A pool of up to `connections` to the test database, such as a fixture
-    /// passes to [`Database::isolated`] for a schema of its own.
-    pub(crate) fn database_config(connections: u32) -> DatabaseConfig {
-        let url = sourceorigin_common::config::Variable::new("TEST_DATABASE_URL")
-            .required()
-            .expect("TEST_DATABASE_URL must name an isolated PostgreSQL database");
-        DatabaseConfig::new(&url, connections, std::time::Duration::from_secs(5))
-            .expect("database configuration")
     }
 }
 

@@ -358,26 +358,28 @@ impl Database {
 
 #[cfg(any(test, feature = "test-util"))]
 impl Database {
-    /// Connects to `config`'s database in a schema of its own, created and migrated
-    /// for this call, so a test can change history that the whole database shares,
-    /// like the audit chain, without disturbing other tests. The schema is left
-    /// behind; test databases are disposable.
+    /// Connects to a database of its own on `config`'s server, created and migrated
+    /// for this call, so a test can change history the whole database shares, like
+    /// the audit chain, or hold one of its advisory locks, like the signing key
+    /// lock, without disturbing other tests. The database is left behind; test
+    /// servers are disposable.
     ///
     /// # Errors
     ///
-    /// Returns [`DatabaseError`] if connecting, creating the schema or migrating fails.
+    /// Returns [`DatabaseError`] if connecting, creating the database or migrating
+    /// fails.
     pub async fn isolated(config: DatabaseConfig) -> Result<Self, DatabaseError> {
-        let schema = format!("test_{}", uuid::Uuid::now_v7().simple());
+        let name = format!("test_{}", uuid::Uuid::now_v7().simple());
         let setup = Self::connect(config.clone())
             .await
             .map_err(|error| DatabaseError::Operation(Box::new(error)))?;
-        // A schema name cannot be a bind parameter; this one is generated above.
-        sqlx::raw_sql(&format!("CREATE SCHEMA {schema}"))
+        // A database name cannot be a bind parameter; this one is generated above.
+        sqlx::raw_sql(&format!("CREATE DATABASE {name}"))
             .execute(&setup.pool)
             .await?;
         setup.pool.close().await;
         let config = DatabaseConfig {
-            options: config.options.options([("search_path", schema.as_str())]),
+            options: config.options.database(&name),
             ..config
         };
         let database = Self::connect(config)
@@ -390,11 +392,16 @@ impl Database {
 
 #[cfg(test)]
 impl Database {
-    /// Connects to `TEST_DATABASE_URL` and applies the schema. In-crate database
-    /// tests get the raw pool so they can insert fixtures with plain SQL.
+    /// Connects to `TEST_DATABASE_URL`, waiting [`Self::TEST_ACQUIRE_TIMEOUT`] for
+    /// each connection, and applies the schema. In-crate database tests get the raw
+    /// pool so they can insert fixtures with plain SQL.
     pub(crate) async fn test_pool() -> PgPool {
         let url = std::env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL");
-        let pool = PgPool::connect(&url).await.expect("connect");
+        let pool = PgPoolOptions::new()
+            .acquire_timeout(Self::TEST_ACQUIRE_TIMEOUT)
+            .connect(&url)
+            .await
+            .expect("connect");
         Self { pool: pool.clone() }
             .run_migrations()
             .await
