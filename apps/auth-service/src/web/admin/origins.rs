@@ -7,8 +7,8 @@ use super::{
     clients::{self, Client},
 };
 use crate::{Reason, clients::MAX_RELATED_ORIGIN_DOMAINS, security::ApiError};
-use serde::Serialize;
-use sourceorigin_common::{admin::ApproveOrigin, clients::RelatedOrigin};
+use serde::{Deserialize, Serialize};
+use sourceorigin_common::clients::RelatedOrigin;
 use sourceorigin_ui::{Change, Query, Target};
 use topcoat::{
     Result,
@@ -18,6 +18,17 @@ use topcoat::{
     },
     view::view,
 };
+
+/// The form approving an origin for a client's pages: the origin as typed, which
+/// the dashboard checks, so a malformed one is explained beside the form.
+#[derive(Clone, Deserialize)]
+struct ApproveOrigin {
+    /// The origin, as browsers send it, e.g. `https://notes.example`.
+    origin: String,
+    /// Why: 1 to 500 characters, without control characters.
+    #[serde(default)]
+    reason: String,
+}
 
 /// The query of [`remove`]: the approved origin to remove.
 #[query_params(error = bad_request)]

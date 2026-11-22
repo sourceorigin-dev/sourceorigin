@@ -1,5 +1,5 @@
-//! The views of administration: what the admin dashboard shows and posts, and
-//! what the CLI's `--json` prints. Auth's service returns them, and its
+//! The views of administration: what the admin dashboard shows, and what the
+//! CLI's `--json` prints. Auth's service returns them, and its
 //! database crate decodes some straight into them.
 //!
 //! Bodies the account settings also return come from [`crate::protocol::api`]
@@ -13,7 +13,6 @@ use crate::{
     AccountStatus, AnnouncementId, AuthenticationMethod, ClientId, ClientSecretId, DeliveryId,
     EventId, Handle, PasskeyId, PictureId, RecoveryId, SessionId, TokenId, TraceId, UserId,
     clients::{ClientKind, ClientStatus, RelatedOrigin},
-    form::Checkbox,
     protocol::{jwt::KeyId, oauth::ClientAuthMethod},
 };
 use chrono::{DateTime, Utc};
@@ -642,17 +641,6 @@ pub struct ApprovedOrigin {
     pub approved_at: DateTime<Utc>,
 }
 
-/// The form approving an origin for a client's pages: the origin as typed, which
-/// the dashboard checks, so a malformed one is explained beside the form.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ApproveOrigin {
-    /// The origin, as browsers send it, e.g. `https://notes.example`.
-    pub origin: String,
-    /// Why: 1 to 500 characters, without control characters.
-    #[serde(default)]
-    pub reason: String,
-}
-
 /// An administrator account.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Administrator {
@@ -789,125 +777,6 @@ pub struct AnnouncementEmails {
 pub struct SendAnnouncement {
     /// The draft's revision, as its page showed it.
     pub revision: u64,
-}
-
-/// The form sending an account a message, as typed: the dashboard checks it,
-/// so a mistake is explained beside the form.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MessageUser {
-    /// The email's subject: one line, up to 150 characters.
-    #[serde(default)]
-    pub subject: String,
-    /// Its text: up to 20,000 characters, paragraphs separated by blank lines.
-    #[serde(default)]
-    pub body: String,
-    /// What the button pressed asks for.
-    #[serde(default)]
-    pub intent: MessageIntent,
-}
-
-/// What a message form's button asks for.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum MessageIntent {
-    /// Show the email as it will be sent, which needs no confirmation.
-    #[default]
-    Preview,
-    /// Change the text again, keeping what was typed.
-    Edit,
-    /// Send it, which needs the dashboard's recent passkey confirmation.
-    Send,
-}
-
-/// Whom an announcement goes to, as its form chooses.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AnnouncementAudience {
-    /// Every account, as of its sending.
-    #[default]
-    Everyone,
-    /// The accounts the form lists.
-    Accounts,
-}
-
-/// The form drafting an announcement, or changing a draft, as typed: the
-/// dashboard checks it, so a mistake is explained beside the form.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DraftAnnouncement {
-    /// The email's subject: one line, up to 150 characters.
-    #[serde(default)]
-    pub subject: String,
-    /// Its text: up to 20,000 characters, paragraphs separated by blank lines.
-    #[serde(default)]
-    pub body: String,
-    /// Whom it goes to.
-    #[serde(default)]
-    pub audience: AnnouncementAudience,
-    /// For [`AnnouncementAudience::Accounts`], the accounts, one per line, each by
-    /// handle, verified email or ID.
-    #[serde(default)]
-    pub accounts: String,
-    /// Whether it is emailed to every recipient, whatever their preference.
-    #[serde(default, skip_serializing_if = "Checkbox::is_off")]
-    pub essential: Checkbox,
-    /// What the button pressed asks for.
-    #[serde(default)]
-    pub intent: DraftIntent,
-    /// The accounts search, as typed.
-    #[serde(default)]
-    pub find: String,
-    /// The handle a search result's button adds to the accounts.
-    #[serde(default)]
-    pub add: Option<String>,
-}
-
-impl DraftAnnouncement {
-    /// Whether the form only looks accounts up, or adds one: nothing is saved,
-    /// and it shows again as typed.
-    #[must_use]
-    pub const fn composes(&self) -> bool {
-        matches!(self.intent, DraftIntent::Find) || self.add.is_some()
-    }
-
-    /// Whether the accounts list `handle`, with or without its `@`, ignoring
-    /// ASCII case as [`Handle::parse`] does.
-    #[must_use]
-    pub fn lists(&self, handle: &str) -> bool {
-        self.accounts.lines().map(str::trim).any(|line| {
-            line.strip_prefix('@')
-                .unwrap_or(line)
-                .eq_ignore_ascii_case(handle)
-        })
-    }
-
-    /// Adds the account the pressed button names, by handle, to the accounts,
-    /// unless they list it already, and sends the announcement to the accounts.
-    pub fn add_chosen(&mut self) {
-        let Some(handle) = self.add.take() else {
-            return;
-        };
-        self.audience = AnnouncementAudience::Accounts;
-        if self.lists(&handle) {
-            return;
-        }
-        if !self.accounts.trim_end().is_empty() {
-            self.accounts = format!("{}\n", self.accounts.trim_end());
-        }
-        self.accounts.push_str(&handle);
-    }
-}
-
-/// What a draft's form asks for, by the button pressed.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DraftIntent {
-    /// Save it as a draft.
-    #[default]
-    Save,
-    /// Save it, then send it as saved.
-    Send,
-    /// Look accounts up to add, saving nothing.
-    Find,
 }
 
 /// The result of verifying the audit chain, as `auth-service audit verify` prints

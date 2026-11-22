@@ -69,30 +69,6 @@ fn announcements_go_to_bounded_accounts() {
     assert!(matches!(draft(1_001), Err(AdminError::TooManyRecipients)));
 }
 
-/// The form lists one account per line, by handle, `@handle` as the dashboard
-/// writes it, verified email or ID.
-#[test]
-fn the_form_names_one_account_per_line() {
-    let id = UserId::new();
-    let form = DraftAnnouncement {
-        subject: "Incident".into(),
-        body: "Text".into(),
-        audience: AnnouncementAudience::Accounts,
-        accounts: format!("ada\r\n\r\n  grace@example.com \n{id}\n@lin\n"),
-        ..DraftAnnouncement::default()
-    };
-    let draft = AnnouncementDraft::try_from(&form).expect("a draft");
-    assert_eq!(
-        draft.recipients,
-        AnnouncementRecipients::Accounts(vec![
-            UserRef::Handle("ada".into()),
-            UserRef::Email("grace@example.com".into()),
-            UserRef::Id(id),
-            UserRef::Handle("lin".into()),
-        ])
-    );
-}
-
 /// Reasons count Unicode characters and reject blank or control input.
 #[test]
 fn reasons_are_bounded_visible_text() {

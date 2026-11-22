@@ -1,6 +1,33 @@
 //! Announcements: drafting, checking and sending them.
 
 use super::*;
+use crate::{AnnouncementDraft, AnnouncementRecipients, Letter, UserRef};
+use sourceorigin_ui::{AnnouncementAudience, DraftAnnouncement};
+
+/// The form lists one account per line, by handle, `@handle` as the dashboard
+/// writes it, verified email or ID.
+#[test]
+fn the_form_names_one_account_per_line() {
+    let id = UserId::new();
+    let form = DraftAnnouncement {
+        subject: "Incident".into(),
+        body: "Text".into(),
+        audience: AnnouncementAudience::Accounts,
+        accounts: format!("ada\r\n\r\n  grace@example.com \n{id}\n@lin\n"),
+        ..DraftAnnouncement::default()
+    };
+    let recipients = AnnouncementRecipients::Accounts(vec![
+        UserRef::Handle("ada".into()),
+        UserRef::Email("grace@example.com".into()),
+        UserRef::Id(id),
+        UserRef::Handle("lin".into()),
+    ]);
+    let letter = Letter::new("Incident", "Text").expect("a letter");
+    assert_eq!(
+        AnnouncementDraft::try_from(&form).ok(),
+        AnnouncementDraft::new(letter, recipients, false).ok()
+    );
+}
 
 /// The draft form finds accounts to add, saving nothing; each result adds itself
 /// to the list, which also takes pasted accounts. "Send" saves the draft and

@@ -3,10 +3,7 @@
 use super::AdminError;
 use chrono::Duration;
 use serde::{Deserialize, Serialize};
-use sourceorigin_common::{
-    Handle, HandleError, UserId,
-    admin::{AnnouncementAudience, DraftAnnouncement, MessageUser},
-};
+use sourceorigin_common::{Handle, HandleError, UserId};
 use std::{fmt, str::FromStr};
 use thiserror::Error;
 
@@ -270,14 +267,6 @@ impl Letter {
     }
 }
 
-impl TryFrom<&MessageUser> for Letter {
-    type Error = AdminError;
-    /// Reads the dashboard's message form.
-    fn try_from(form: &MessageUser) -> Result<Self, Self::Error> {
-        Self::new(&form.subject, &form.body)
-    }
-}
-
 /// An announcement's draft, as an operator writes it: its subject and text, and
 /// whom it goes to.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -324,33 +313,6 @@ impl AnnouncementDraft {
             recipients,
             essential,
         })
-    }
-}
-
-impl TryFrom<&DraftAnnouncement> for AnnouncementDraft {
-    type Error = AdminError;
-    /// Reads the dashboard's form: one account per line of its list, blank lines
-    /// skipped.
-    fn try_from(form: &DraftAnnouncement) -> Result<Self, Self::Error> {
-        let recipients = match form.audience {
-            AnnouncementAudience::Everyone => AnnouncementRecipients::Everyone,
-            AnnouncementAudience::Accounts => AnnouncementRecipients::Accounts(
-                form.accounts
-                    .lines()
-                    .map(str::trim)
-                    .filter(|line| !line.is_empty())
-                    .map(|line| match line.parse() {
-                        Ok(user) => user,
-                        Err(never) => match never {},
-                    })
-                    .collect(),
-            ),
-        };
-        Self::new(
-            Letter::new(&form.subject, &form.body)?,
-            recipients,
-            form.essential.0,
-        )
     }
 }
 
