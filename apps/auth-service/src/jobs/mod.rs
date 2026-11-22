@@ -53,6 +53,11 @@ pub(crate) trait ExclusiveJob: Send + Sync + 'static {
         connection: &mut ExclusiveConnection,
         shutdown: &Shutdown,
     ) -> impl Future<Output = Result<(), Self::Error>> + Send;
+
+    /// Called each time this replica finds another one running the job, so a
+    /// test can await a run keeping the other runner out.
+    #[cfg(test)]
+    fn excluded(&self) {}
 }
 
 /// Tells running jobs that the service is shutting down.
@@ -221,7 +226,11 @@ impl Jobs {
                             .instrument(span)
                             .await;
                     }
-                    Ok(None) => tracing::debug!(job = J::NAME, "another replica runs this job"),
+                    Ok(None) => {
+                        #[cfg(test)]
+                        job.excluded();
+                        tracing::debug!(job = J::NAME, "another replica runs this job");
+                    }
                     Err(error) => {
                         tracing::error!(error = %ErrorChain(&error), job = J::NAME, "could not take job lock");
                     }

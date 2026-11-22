@@ -2,13 +2,9 @@
 //! of failing purges.
 use super::*;
 use crate::tests::Replicas;
-use std::sync::{
-    Mutex,
-    atomic::{AtomicU32, Ordering},
-};
 
 /// Panics on its first run and counts every run.
-struct PanicsOnce(Arc<AtomicU32>);
+struct PanicsOnce(watch::Sender<u32>);
 
 impl ExclusiveJob for PanicsOnce {
     const NAME: &'static str = "panics-once";
@@ -21,7 +17,8 @@ impl ExclusiveJob for PanicsOnce {
         _: &mut ExclusiveConnection,
         _: &Shutdown,
     ) -> impl Future<Output = Result<(), DatabaseError>> + Send {
-        assert_ne!(self.0.fetch_add(1, Ordering::SeqCst), 0, "first run panics");
+        self.0.send_modify(|runs| *runs += 1);
+        assert_ne!(*self.0.borrow(), 1, "first run panics");
         std::future::ready(Ok(()))
     }
 }
@@ -31,65 +28,79 @@ impl ExclusiveJob for PanicsOnce {
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn a_panicking_run_releases_its_lock_and_the_job_runs_again() {
-    let runs = Arc::new(AtomicU32::new(0));
+    let runs = watch::Sender::new(0);
+    let mut counted = runs.subscribe();
     let mut jobs = Jobs::new();
-    jobs.exclusive(PanicsOnce(Arc::clone(&runs)), Replicas::database().await);
-    tokio::time::timeout(Duration::from_secs(5), async {
-        while runs.load(Ordering::SeqCst) < 2 {
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
-    })
-    .await
-    .expect("the job runs again after panicking");
+    jobs.exclusive(PanicsOnce(runs), Replicas::database().await);
+    tokio::time::timeout(Duration::from_secs(5), counted.wait_for(|&runs| runs >= 2))
+        .await
+        .expect("the job runs again after panicking")
+        .expect("the job lives until shutdown");
     jobs.shutdown().await.expect("no job loop panicked");
 }
 
 /// A run of [`Held`] by the runner it names starting, finishing or being
-/// cancelled.
-#[derive(Clone, Debug)]
+/// cancelled, or the runner finding the other one running it.
+#[derive(Clone, Debug, PartialEq, Eq)]
 enum Event {
     Started(usize),
     Finished(usize),
     Cancelled(usize),
+    Excluded(usize),
 }
 
 /// Every [`Event`] of the runners sharing it, in order.
 #[derive(Default)]
-struct Log(Mutex<Vec<Event>>);
+struct Log(watch::Sender<Vec<Event>>);
 
 impl Log {
-    fn push(&self, event: Event) {
-        self.0.lock().expect("log").push(event);
+    /// Appends `event`, and returns its position.
+    fn push(&self, event: Event) -> usize {
+        let mut position = 0;
+        self.0.send_modify(|events| {
+            position = events.len();
+            events.push(event);
+        });
+        position
     }
 
-    fn events(&self) -> Vec<Event> {
-        self.0.lock().expect("log").clone()
+    /// The runs' events so far, without the exclusions.
+    fn runs(&self) -> Vec<Event> {
+        Self::runs_of(&self.0.borrow())
+    }
+
+    /// The runs' events among `events`.
+    fn runs_of(events: &[Event]) -> Vec<Event> {
+        events
+            .iter()
+            .filter(|event| !matches!(event, Event::Excluded(_)))
+            .cloned()
+            .collect()
     }
 
     /// Waits until `found` returns something for the events so far.
+    async fn until<T>(&self, found: impl Fn(&[Event]) -> Option<T>) -> T {
+        let mut events = self.0.subscribe();
+        let events = events
+            .wait_for(|events| found(events).is_some())
+            .await
+            .expect("the log outlives its waiters");
+        found(&events).expect("found")
+    }
+
+    /// [`Self::until`], failing after five seconds.
     async fn wait_for<T>(&self, found: impl Fn(&[Event]) -> Option<T>) -> T {
-        tokio::time::timeout(Duration::from_secs(5), async {
-            loop {
-                if let Some(found) = found(&self.0.lock().expect("log")) {
-                    break found;
-                }
-                tokio::time::sleep(Duration::from_millis(5)).await;
-            }
-        })
-        .await
-        .unwrap_or_else(|_| panic!("the awaited events never happened: {:?}", self.events()))
+        tokio::time::timeout(Duration::from_secs(5), self.until(found))
+            .await
+            .unwrap_or_else(|_| panic!("the awaited events never happened: {:?}", *self.0.borrow()))
     }
 }
 
-/// Holds its lock for [`Self::HOLD`], several periods, logging when each run
-/// of `runner` starts and how it ends.
+/// Holds its lock until the other runner finds it held, or shutdown, logging
+/// when each run of `runner` starts and how it ends.
 struct Held {
     runner: usize,
     log: Arc<Log>,
-}
-
-impl Held {
-    const HOLD: Duration = Duration::from_millis(100);
 }
 
 /// Logs how a [`Held`] run ended when dropped, so a cancelled run is logged
@@ -116,21 +127,33 @@ impl ExclusiveJob for Held {
     const EVERY: Duration = Duration::from_millis(20);
     type Error = DatabaseError;
 
-    async fn run(&self, _: &mut ExclusiveConnection, _: &Shutdown) -> Result<(), DatabaseError> {
-        self.log.push(Event::Started(self.runner));
+    async fn run(
+        &self,
+        _: &mut ExclusiveConnection,
+        shutdown: &Shutdown,
+    ) -> Result<(), DatabaseError> {
+        let started = self.log.push(Event::Started(self.runner));
         let mut running = Running {
             job: self,
             finished: false,
         };
-        tokio::time::sleep(Self::HOLD).await;
+        let other = Event::Excluded(1 - self.runner);
+        let excluded = self
+            .log
+            .until(|events| events[started..].contains(&other).then_some(()));
+        shutdown.unless(excluded).await;
         running.finished = true;
         Ok(())
     }
+
+    fn excluded(&self) {
+        self.log.push(Event::Excluded(self.runner));
+    }
 }
 
-/// Two runners, as two replicas, never run the same exclusive job at once,
-/// and dropping the one mid-run cancels its run, freeing the lock for the
-/// other's next tick.
+/// Two runners, as two replicas, never run the same exclusive job at once: each
+/// run lasts until the other runner finds it running. Dropping the one mid-run
+/// cancels its run, freeing the lock for the other's next tick.
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn runners_never_overlap_and_a_dropped_holder_hands_over() {
@@ -144,15 +167,15 @@ async fn runners_never_overlap_and_a_dropped_holder_hands_over() {
     });
     // A few runs in, cancel whichever runner is mid-run.
     let holder = log
-        .wait_for(|events| match events {
-            [.., Event::Started(holder)] if events.len() > 6 => Some(*holder),
+        .wait_for(|events| match Log::runs_of(events).as_slice() {
+            runs @ [.., Event::Started(holder)] if runs.len() > 6 => Some(*holder),
             _ => None,
         })
         .await;
     drop(runners[holder].take());
     let other = 1 - holder;
     log.wait_for(|events| {
-        events
+        Log::runs_of(events)
             .windows(2)
             .any(|pair| {
                 matches!(
@@ -170,7 +193,7 @@ async fn runners_never_overlap_and_a_dropped_holder_hands_over() {
         .shutdown()
         .await
         .expect("no job loop panicked");
-    let events = log.events();
+    let events = log.runs();
     assert!(
         events.chunks(2).all(|run| matches!(
             run,
@@ -225,7 +248,7 @@ async fn failing_purges_raise_their_alert_until_none_fail() {
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn cleanup_that_keeps_falling_behind_raises_its_alert() {
     let database = crate::admin::tests::Harness::isolated().await.database;
-    let mut lock = cleanup_lock(&database).await;
+    let mut lock = database.exclusive(LockKey::Cleanup).await.expect("lock");
     let shutdown = Shutdown(watch::Sender::new(false).subscribe());
     // Out of time as soon as it deletes anything.
     let cleanup = Cleanup {
@@ -318,7 +341,7 @@ fn a_streak_raises_its_alert_once() {
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn cleanup_that_keeps_failing_raises_its_alert() {
     let database = crate::admin::tests::Harness::isolated().await.database;
-    let mut lock = cleanup_lock(&database).await;
+    let mut lock = database.exclusive(LockKey::Cleanup).await.expect("lock");
     let shutdown = Shutdown(watch::Sender::new(false).subscribe());
     let cleanup = Cleanup::new();
     let current = async || current_alert(&database, AlertKind::CleanupFailing).await;
@@ -331,25 +354,6 @@ async fn cleanup_that_keeps_failing_raises_its_alert() {
     cleanup.run(&mut lock, &shutdown).await.expect("run");
     assert_eq!(current().await, None);
     lock.release().await.expect("release");
-}
-
-/// Takes cleanup's lock on `database`, waiting while another cleanup test,
-/// running at once on the same cluster, holds it.
-async fn cleanup_lock(database: &Database) -> ExclusiveConnection {
-    tokio::time::timeout(Duration::from_secs(30), async {
-        loop {
-            if let Some(lock) = database
-                .try_exclusive(LockKey::Cleanup)
-                .await
-                .expect("lock")
-            {
-                return lock;
-            }
-            tokio::time::sleep(Duration::from_millis(20)).await;
-        }
-    })
-    .await
-    .expect("the cleanup lock")
 }
 
 /// What the current alert of `kind` on `database` says, if one is current.
