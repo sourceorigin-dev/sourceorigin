@@ -16,24 +16,24 @@ impl EmbeddedAssets {
     pub(crate) const STYLESHEET: Asset = sourceorigin_ui::STYLESHEET;
     /// The passkey script, which runs the pages' passkey ceremonies.
     pub(crate) const SCRIPT: Asset =
-        Asset::script("passkey", include_bytes!("../assets/passkey.js"));
+        Asset::script("passkey", include_bytes!("../../assets/passkey.js"));
     /// The picture script, which lets the profile's picture form choose its crop.
     pub(crate) const PICTURE_SCRIPT: Asset =
-        Asset::script("picture", include_bytes!("../assets/picture.js"));
+        Asset::script("picture", include_bytes!("../../assets/picture.js"));
     /// The search script, which ranks the top bar's results as the user types and
     /// refreshes a live form's results; auth's pages and the dashboard's both
     /// load it.
     pub(crate) const SEARCH_SCRIPT: Asset =
-        Asset::script("search", include_bytes!("../assets/search.js"));
+        Asset::script("search", include_bytes!("../../assets/search.js"));
     /// The copy script, whose buttons, and the values beside them, copy a value
     /// to the clipboard; auth's pages and the dashboard's both load it.
     pub(crate) const COPY_SCRIPT: Asset =
-        Asset::script("copy", include_bytes!("../assets/copy.js"));
+        Asset::script("copy", include_bytes!("../../assets/copy.js"));
     /// The client form script, which switches a new client's scopes and refresh
     /// tokens to the defaults of the kind chosen; auth's pages and the
     /// dashboard's both load it.
     pub(crate) const CLIENT_FORM_SCRIPT: Asset =
-        Asset::script("client-form", include_bytes!("../assets/client-form.js"));
+        Asset::script("client-form", include_bytes!("../../assets/client-form.js"));
     /// The scripts every page of auth's own loads.
     pub(crate) const SCRIPTS: [Asset; 5] = [
         Self::SCRIPT,
@@ -45,7 +45,7 @@ impl EmbeddedAssets {
     /// The admin dashboard's script, which confirms it with a passkey in a
     /// dialog on its page. Auth's own pages never load it.
     pub(crate) const DASHBOARD_SCRIPT: Asset =
-        Asset::script("dashboard", include_bytes!("../assets/dashboard.js"));
+        Asset::script("dashboard", include_bytes!("../../assets/dashboard.js"));
     /// The scripts every dashboard page loads.
     pub(crate) const DASHBOARD_SCRIPTS: [Asset; 4] = [
         Self::DASHBOARD_SCRIPT,
@@ -77,47 +77,6 @@ impl EmbeddedAssets {
     }
 }
 
+/// Focused coverage of embedded file serving.
 #[cfg(test)]
-mod tests {
-    //! Focused coverage of embedded file serving.
-    use super::*;
-
-    /// The pages' stylesheet, typefaces and scripts are served at the paths
-    /// naming their content or version, as their own type, so they are cached
-    /// forever.
-    #[test]
-    fn the_pages_files_are_immutable() {
-        for (asset, content_type) in [
-            (EmbeddedAssets::STYLESHEET, "text/css; charset=utf-8"),
-            (EmbeddedAssets::SCRIPT, "text/javascript; charset=utf-8"),
-            (
-                EmbeddedAssets::PICTURE_SCRIPT,
-                "text/javascript; charset=utf-8",
-            ),
-            (
-                EmbeddedAssets::DASHBOARD_SCRIPT,
-                "text/javascript; charset=utf-8",
-            ),
-            (
-                EmbeddedAssets::SEARCH_SCRIPT,
-                "text/javascript; charset=utf-8",
-            ),
-            (
-                EmbeddedAssets::COPY_SCRIPT,
-                "text/javascript; charset=utf-8",
-            ),
-            (
-                EmbeddedAssets::CLIENT_FORM_SCRIPT,
-                "text/javascript; charset=utf-8",
-            ),
-            (sourceorigin_ui::FONTS[0], "font/woff2"),
-        ] {
-            let response = EmbeddedAssets::serve(&asset.path()).expect("found");
-            assert_eq!(response.headers()[header::CONTENT_TYPE], content_type);
-            assert_eq!(
-                response.extensions().get::<CacheClass>(),
-                Some(&CacheClass::Immutable)
-            );
-        }
-    }
-}
+mod tests;
