@@ -1,7 +1,15 @@
 //! Advisory locks that let one replica at a time run a job.
 
+#[cfg(any(test, feature = "test-util"))]
+use crate::connection::{Limit, Scope};
 use crate::{Database, DatabaseError, DatabaseTransaction};
 use sqlx::{Connection, PgConnection};
+#[cfg(any(test, feature = "test-util"))]
+use std::time::Duration;
+
+/// Longest [`Database::exclusive`] waits for a lock another session holds.
+#[cfg(any(test, feature = "test-util"))]
+const EXCLUSIVE_WAIT: Duration = Duration::from_secs(30);
 
 /// Advisory lock keys: session-level ones, one per exclusive job, and
 /// transaction-level ones that serialize a kind of change. The values are stable
@@ -99,20 +107,22 @@ impl Database {
     }
 
     /// Opens a connection with the pool's settings and takes `key`'s lock,
-    /// waiting while another session holds it, so a test takes its turn with
-    /// the job or test that holds it.
+    /// waiting up to 30 seconds while another session holds it, so a
+    /// test takes its turn with the job or test that holds it. The connection
+    /// then has the pool's limits again.
     ///
     /// # Errors
     ///
     /// Returns [`DatabaseError::Timeout`] if connecting takes longer than the
-    /// pool's acquire timeout, or another [`DatabaseError`] if a query fails, as
-    /// when the statement timeout ends the wait.
+    /// pool's acquire timeout, [`DatabaseError::Cancelled`] if the lock is
+    /// still held after 30 seconds, or another [`DatabaseError`] if a query
+    /// fails.
     #[cfg(any(test, feature = "test-util"))]
     pub async fn exclusive(&self, key: LockKey) -> Result<ExclusiveConnection, DatabaseError> {
-        let mut connection = self.connect_dedicated(&self.pool.connect_options()).await?;
-        sqlx::query("SELECT pg_advisory_lock($1)")
-            .bind(key.id())
-            .execute(&mut connection)
+        let mut connection = self.lock_dedicated(key, EXCLUSIVE_WAIT).await?;
+        Limit::STATEMENT
+            .set(Scope::Session)
+            .fetch_one(&mut connection)
             .await?;
         Ok(ExclusiveConnection { connection, key })
     }
