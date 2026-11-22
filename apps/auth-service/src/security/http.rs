@@ -80,7 +80,10 @@ pub(crate) enum CacheClass {
     Immutable,
     /// Public, credential-free data, the same for every caller and readable from any
     /// origin. Its route must accept any `Origin` and never read the session.
-    Public { max_age: StdDuration },
+    Public {
+        /// How long a cache may keep it.
+        max_age: StdDuration,
+    },
 }
 
 impl CacheClass {

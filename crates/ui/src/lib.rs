@@ -39,8 +39,6 @@
     unreachable_pub,
     reason = "`#[component]` makes a public props struct beside each public component, which the crate never exports"
 )]
-// Every private item, a component's parameters included, says what it takes and does.
-#![warn(clippy::missing_docs_in_private_items)]
 
 /// The admin dashboard, and auth's page handing administrators off to it.
 mod admin;

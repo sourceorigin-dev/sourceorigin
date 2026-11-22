@@ -16,13 +16,16 @@ use std::{
 /// The TypeScript SDK's directory, relative to the workspace root.
 const NPM_PACKAGE: &str = "packages/auth";
 
+/// The command line.
 #[derive(Parser)]
 #[command(about = "Development tasks for the SourceOrigin workspace")]
 struct Cli {
+    /// The task to run.
     #[command(subcommand)]
     task: Task,
 }
 
+/// The development tasks.
 #[derive(Subcommand)]
 enum Task {
     /// Publish the SDKs: the Rust crates to crates.io, in dependency order, then
@@ -73,8 +76,11 @@ struct Workspace {
 /// The fields of a crate's `cargo metadata` this reads.
 #[derive(Deserialize)]
 struct Package {
+    /// The crate's name.
     name: String,
+    /// Its version.
     version: String,
+    /// Its license, if it declares one.
     license: Option<String>,
     /// The registries it may be published to: empty for `publish = false`.
     publish: Option<Vec<String>>,
@@ -83,17 +89,21 @@ struct Package {
 /// The TypeScript SDK's `package.json`, as far as this reads it.
 #[derive(Deserialize)]
 struct NpmPackage {
+    /// The package's name.
     name: String,
+    /// Its version.
     version: String,
 }
 
 /// The fields of `cargo metadata` this reads.
 #[derive(Deserialize)]
 struct Metadata {
+    /// The workspace's crates.
     packages: Vec<Package>,
 }
 
 impl Workspace {
+    /// The workspace the command runs in, from `git` and `cargo metadata`.
     fn current() -> Result<Self> {
         let root = PathBuf::from(
             Command::new("git")

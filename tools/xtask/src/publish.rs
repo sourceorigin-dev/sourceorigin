@@ -12,6 +12,7 @@ const LICENSE: &str = "Apache-2.0";
 
 /// A publish of the SDKs at their current versions.
 pub(crate) struct Publish<'a> {
+    /// The workspace whose SDKs are published.
     pub workspace: &'a Workspace,
     /// Packages and builds everything without uploading, even versions already
     /// published, so it checks the packages whatever the registries hold.

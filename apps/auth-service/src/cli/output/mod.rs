@@ -38,8 +38,8 @@ pub(super) trait Report {
     fn human(&self, out: &mut HumanWriter<'_>) -> io::Result<()>;
 }
 
-// Implements `Report` for a type, with its JSON the value itself and the block
-// as `human`: `report!(Type, self, out, { ... })`.
+/// Implements `Report` for a type, with its JSON the value itself and the block
+/// as `human`: `report!(Type, self, out, { ... })`.
 macro_rules! report {
     ($ty:ty, $this:ident, $out:ident, $body:block) => {
         impl $crate::cli::output::Report for $ty {
