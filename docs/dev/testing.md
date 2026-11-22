@@ -190,13 +190,15 @@ that regenerates it.
 - **Wait for events, not time.** No `thread::sleep` or `tokio::time::sleep` to
   let something happen, no assertions on how much real time passed, and no
   retries: await the channel, notification or state change that marks the
-  milestone, such as a `watch` the test's fake sends on, or `until_blocked` for a
-  transaction queued behind a lock. Move tokio's clock with
-  `#[tokio::test(start_paused = true)]` or `tokio::time::advance`, and end an
-  expiry PostgreSQL judges at once, as `SessionRepository::expire` and
-  `RecoveryRepository::expire` do. A wait on a real subprocess or network peer
-  that has nothing to await says why on the line above: `// wall-clock: <why>`.
-  A `cargo xtask test-waits` check is coming to enforce this.
+  milestone, such as a `watch` the test's fake sends on, or take a lock with
+  `Database::exclusive` to wait for its holder. Move tokio's clock with
+  `#[tokio::test(start_paused = true)]`, or with `pause`, `advance` and `resume`
+  between database calls, so the clock is never paused across database I/O,
+  and end an expiry PostgreSQL judges at once, as `SessionRepository::expire`
+  and `RecoveryRepository::expire` do. When nothing signals the milestone, as for a
+  real subprocess or network peer, a lock wait PostgreSQL shows only in its
+  catalog views (`until_blocked`), or production code that reads the system
+  clock, poll or sleep and say why on the line above: `// wall-clock: <why>`.
 - **Don't test that a removed feature stays removed.** Once the code is gone,
   there is nothing left to break.
 - **Cover in the browser whatever needs a browser.** Each spec says at its top
