@@ -2,8 +2,11 @@
 //! auth runs on its own tokens and Google's, and the SDKs on auth's.
 //!
 //! The leeway policy: `nbf` and `iat` always allow [`LEEWAY`], since the issuer's
-//! clock may run ahead of the verifier's. `exp` allows it only where [`Expiry`] says,
-//! since lenience there only extends a token's life.
+//! clock may run ahead of the verifier's. `exp` allows it only where [`Expiry`]
+//! says, since lenience there only extends a token's life.
+//!
+//! [`LEEWAY`]: crate::protocol::constants::LEEWAY
+//! [`Expiry`]: crate::protocol::registered::Expiry
 //!
 //! ```
 //! use chrono::{TimeDelta, Utc};
