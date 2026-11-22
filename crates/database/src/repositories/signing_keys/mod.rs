@@ -78,6 +78,7 @@ impl SigningKeyRepository<'_> {
     /// bound to a transaction, where the lock would end at once, or another
     /// [`DatabaseError`] if a query fails.
     pub async fn lock(&mut self) -> Result<(), DatabaseError> {
+        self.executor.require_transaction()?;
         run!(
             self,
             fetch_one,

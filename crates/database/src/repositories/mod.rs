@@ -11,7 +11,7 @@ use serde::de::DeserializeOwned;
 use serde_json::Value;
 use sourceorigin_common::events::DomainEvent;
 use sqlx::{
-    Decode, PgConnection, PgPool, Postgres, Type,
+    Decode, PgConnection, PgPool, Postgres, Transaction, Type,
     error::BoxDynError,
     postgres::{PgTypeInfo, PgValueRef},
     types::Json,
@@ -51,9 +51,9 @@ macro_rules! repositories {
                     Self { executor: RepositoryExecutor::Pool(pool) }
                 }
 
-                /// Binds this handle to a transaction connection for atomic operations.
-                pub(crate) fn from_transaction(connection: &'a mut PgConnection) -> Self {
-                    Self { executor: RepositoryExecutor::Transaction(connection) }
+                /// Binds this handle to a transaction for atomic operations.
+                pub(crate) fn from_transaction(transaction: &'a mut Transaction<'_, Postgres>) -> Self {
+                    Self { executor: RepositoryExecutor::Transaction(&mut **transaction) }
                 }
 
                 /// Binds this handle to a locked [`ExclusiveConnection`]'s connection.
