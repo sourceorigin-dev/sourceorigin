@@ -14,7 +14,7 @@ fn client_ids_are_bounded_identifiers() {
     ] {
         assert_eq!(value.parse::<ClientId>().is_ok(), valid, "{value}");
     }
-    assert!(serde_json::from_str::<ClientId>("\"bad id\"").is_err());
+    serde_json::from_str::<ClientId>("\"bad id\"").expect_err("should be rejected");
     assert_eq!(
         "bad id".parse::<ClientId>().expect_err("space").to_string(),
         "client ID \"bad id\" must be 1 to 64 characters from A-Z, a-z, 0-9, '.', '_' and '-'"
@@ -132,16 +132,23 @@ fn related_origins_are_bare_https_domain_origins() {
     ] {
         assert_eq!(value.parse::<RelatedOrigin>(), Err(expected), "{value}");
     }
-    assert!(serde_json::from_str::<RelatedOrigin>("\"https://notes.example/\"").is_err());
+    serde_json::from_str::<RelatedOrigin>("\"https://notes.example/\"")
+        .expect_err("should be rejected");
 }
 
 /// Display names are nonblank and count characters, not bytes; scopes are tokens.
 #[test]
 fn names_and_scopes_are_bounded() {
-    assert!("é".repeat(80).parse::<DisplayName>().is_ok());
-    assert!("é".repeat(81).parse::<DisplayName>().is_err());
-    assert!("  ".parse::<DisplayName>().is_err());
-    assert!("Web\x1b[2J".parse::<DisplayName>().is_err());
+    "é".repeat(80)
+        .parse::<DisplayName>()
+        .expect("should be accepted");
+    "é".repeat(81)
+        .parse::<DisplayName>()
+        .expect_err("should be rejected");
+    "  ".parse::<DisplayName>().expect_err("should be rejected");
+    "Web\x1b[2J"
+        .parse::<DisplayName>()
+        .expect_err("should be rejected");
     for (value, valid) in [
         ("notes:read", true),
         ("", false),
@@ -167,7 +174,7 @@ fn bounded_lists_count_distinct_values() {
             found: 0
         })
     );
-    assert!(PostLogoutUris::new([]).is_ok());
+    PostLogoutUris::new([]).expect("should be accepted");
 }
 
 /// Generated client IDs are valid IDs with the `c_` prefix and 20 base32

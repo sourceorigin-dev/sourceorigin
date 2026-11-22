@@ -4,7 +4,9 @@ use super::*;
 /// Origins reject every insecure or ambiguous component.
 #[test]
 fn urls_validate_once() {
-    assert!("https://auth.sourceorigin.dev".parse::<Origin>().is_ok());
+    "https://auth.sourceorigin.dev"
+        .parse::<Origin>()
+        .expect("should be accepted");
     for value in [
         "http://localhost",
         "https://user@auth.sourceorigin.dev",
@@ -15,7 +17,9 @@ fn urls_validate_once() {
     ] {
         assert!(value.parse::<Origin>().is_err(), "accepted {value}");
     }
-    assert!("https://[::1]".parse::<Origin>().is_ok());
+    "https://[::1]"
+        .parse::<Origin>()
+        .expect("should be accepted");
 }
 
 /// References and resolved bytes redact secrets in all diagnostic formatting.
@@ -30,11 +34,11 @@ fn secrets_are_redacted() {
         "https://example.com/key",
         "env://HAS SPACE",
     ] {
-        assert!(SecretReference::parse(value).is_err());
+        SecretReference::parse(value).expect_err("should be rejected");
     }
     let secret = |bytes: &[u8]| SecretBytes(Zeroizing::new(bytes.to_vec()));
     assert!(!format!("{:?}", secret(b"private")).contains("private"));
-    assert!(secret(&[255]).text().is_err());
+    secret(&[255]).text().expect_err("should be rejected");
     // One trailing line ending goes, as a file written by a shell or an editor ends;
     // anything else is the secret's own.
     for (bytes, text) in [

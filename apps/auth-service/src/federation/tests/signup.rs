@@ -37,31 +37,27 @@ async fn onboarding_commits_only_with_first_key_and_browser_and_never_claims_exi
         .expect("pending signup");
     let user = test.user(None, false).await;
     let mut tx = test.app.database.begin().await.expect("tx");
-    assert!(
-        test.attach(
-            &mut tx,
-            RequestContext::TEST.client_ip,
-            pending.id,
-            &headers,
-            user
-        )
-        .await
-        .is_err()
-    );
+    test.attach(
+        &mut tx,
+        RequestContext::TEST.client_ip,
+        pending.id,
+        &headers,
+        user,
+    )
+    .await
+    .expect_err("should be rejected");
     tx.rollback().await.expect("rollback");
     let mut tx = test.app.database.begin().await.expect("tx");
     test.key(&mut tx, user).await;
-    assert!(
-        test.attach(
-            &mut tx,
-            RequestContext::TEST.client_ip,
-            pending.id,
-            &HeaderMap::new(),
-            user
-        )
-        .await
-        .is_err()
-    );
+    test.attach(
+        &mut tx,
+        RequestContext::TEST.client_ip,
+        pending.id,
+        &HeaderMap::new(),
+        user,
+    )
+    .await
+    .expect_err("should be rejected");
     test.attach(
         &mut tx,
         RequestContext::TEST.client_ip,
@@ -87,17 +83,15 @@ async fn onboarding_commits_only_with_first_key_and_browser_and_never_claims_exi
     test.user(Some(&email), true).await;
     let (pending, headers) = test.pending(None, Some(&email)).await;
     let mut tx = test.app.database.begin().await.expect("tx");
-    assert!(
-        test.attach(
-            &mut tx,
-            RequestContext::TEST.client_ip,
-            pending.id,
-            &headers,
-            user
-        )
-        .await
-        .is_err()
-    );
+    test.attach(
+        &mut tx,
+        RequestContext::TEST.client_ip,
+        pending.id,
+        &headers,
+        user,
+    )
+    .await
+    .expect_err("should be rejected");
     tx.rollback().await.expect("rollback");
 }
 

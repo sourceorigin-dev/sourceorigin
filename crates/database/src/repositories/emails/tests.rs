@@ -52,18 +52,16 @@ async fn verified_email_updates_preserve_and_release_ownership() {
         .execute(&mut *tx)
         .await
         .expect("savepoint");
-    assert!(
-        sqlx::query(
-            "INSERT INTO user_emails (id, user_id, normalized_email, verified_at, is_primary)
-            VALUES ($1, $2, $3, now(), true)"
-        )
-        .bind(uuid::Uuid::now_v7())
-        .bind(users[1].as_uuid())
-        .bind(&address)
-        .execute(&mut *tx)
-        .await
-        .is_err()
-    );
+    sqlx::query(
+        "INSERT INTO user_emails (id, user_id, normalized_email, verified_at, is_primary)
+            VALUES ($1, $2, $3, now(), true)",
+    )
+    .bind(uuid::Uuid::now_v7())
+    .bind(users[1].as_uuid())
+    .bind(&address)
+    .execute(&mut *tx)
+    .await
+    .expect_err("should be rejected");
     sqlx::query("ROLLBACK TO duplicate_email")
         .execute(&mut *tx)
         .await

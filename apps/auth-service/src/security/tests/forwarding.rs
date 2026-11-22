@@ -24,7 +24,10 @@ async fn forwarded_addresses_require_an_explicit_trusted_peer() {
         "192.0.2.7".parse::<IpAddr>().expect("IP")
     );
     request.headers_mut().remove("x-forwarded-for");
-    assert!(fixture.policy.client_ip(&request).is_err());
+    fixture
+        .policy
+        .client_ip(&request)
+        .expect_err("should be rejected");
 }
 
 /// Forwarded addresses accept one IP and retain diagnostics for malformed header text or syntax.

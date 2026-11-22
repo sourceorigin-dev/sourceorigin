@@ -8,7 +8,7 @@ use super::*;
 /// `tests/sdk-vectors/return-to` pins.
 #[test]
 fn return_destinations_and_browser_bindings_are_strict() {
-    assert!(ReturnTo::parse(Some("https://evil.test")).is_err());
+    ReturnTo::parse(Some("https://evil.test")).expect_err("should be rejected");
     let path = "/oauth/authorize?request=abc";
     assert_eq!(ReturnTo::parse(Some(path)).expect(path).0, path);
     assert_eq!(

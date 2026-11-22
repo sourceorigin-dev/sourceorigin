@@ -17,8 +17,8 @@ fn prompts_enforce_interaction_policy() {
     let interactive = interaction("login consent select_account login");
     assert_eq!(interactive.ok(), Some(Interaction::LoginAndConsent));
     assert_eq!(interaction("").ok(), Some(Interaction::AsNeeded));
-    assert!(interaction("none login").is_err());
-    assert!(interaction("unrecognized").is_err());
+    interaction("none login").expect_err("should be rejected");
+    interaction("unrecognized").expect_err("should be rejected");
 }
 
 /// `max_age` holds up to its boundary at authorize too. `0` needs a sign-in after

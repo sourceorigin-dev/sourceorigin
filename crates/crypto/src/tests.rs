@@ -19,9 +19,9 @@ fn secrets_round_trip() {
     assert_eq!(first.encoded().len(), 43);
     assert_eq!(first.digest(), Digest::sha256(first.as_bytes()));
     for value in ["", "short", "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"] {
-        assert!(Secret::parse(value).is_err());
+        Secret::parse(value).expect_err("should be rejected");
     }
-    assert!(Secret::parse(&(first.encoded() + "=")).is_err());
+    Secret::parse(&(first.encoded() + "=")).expect_err("should be rejected");
     assert_eq!(format!("{first:?}"), "Secret(REDACTED)");
 }
 
@@ -54,7 +54,7 @@ fn client_secret_contract() {
     let secret = ClientSecret::generate().expect("secret");
     let (prefix, random) = secret.expose().split_at(CLIENT_SECRET_PREFIX.len());
     assert_eq!(prefix, CLIENT_SECRET_PREFIX);
-    assert!(Secret::parse(random).is_ok());
+    Secret::parse(random).expect("should be accepted");
     assert_eq!(
         secret.digest(),
         ClientSecret::digest_presented(secret.expose())
@@ -84,12 +84,12 @@ fn pkce_matches_rfc() {
     let verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
     let challenge = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
     assert_eq!(Pkce::challenge(verifier).expect("challenge"), challenge);
-    assert!(Pkce::verify(verifier, challenge).is_ok());
+    Pkce::verify(verifier, challenge).expect("should be accepted");
     assert!(Pkce::verify(verifier, "incorrect").is_err());
     assert!(Pkce::valid_challenge(challenge));
     assert!(!Pkce::valid_challenge("short"));
     for verifier in ["short".to_owned(), "x".repeat(129), "!".repeat(43)] {
-        assert!(Pkce::challenge(&verifier).is_err());
+        Pkce::challenge(&verifier).expect_err("should be rejected");
     }
 }
 
@@ -166,11 +166,9 @@ fn jwt_persistence_and_trust_boundaries() {
     let unrelated = KeySet::single(
         Rs256Key::generate("persistent").expect("different RSA key with the same ID"),
     );
-    assert!(
-        unrelated
-            .verify::<IdTokenClaims>(&token, TokenType::Id, "https://auth.example", now)
-            .is_err()
-    );
+    unrelated
+        .verify::<IdTokenClaims>(&token, TokenType::Id, "https://auth.example", now)
+        .expect_err("should be rejected");
     let key = KeySet::single(key);
     for token in [
         String::new(),
@@ -178,10 +176,8 @@ fn jwt_persistence_and_trust_boundaries() {
         "a.b.c.d".to_owned(),
         "x".repeat(16385),
     ] {
-        assert!(
-            key.verify::<IdTokenClaims>(&token, TokenType::Id, "https://auth.example", now)
-                .is_err()
-        );
+        key.verify::<IdTokenClaims>(&token, TokenType::Id, "https://auth.example", now)
+            .expect_err("should be rejected");
     }
     for (field, invalid) in [
         ("iat", serde_json::json!(now.timestamp() + 60)),
@@ -195,10 +191,8 @@ fn jwt_persistence_and_trust_boundaries() {
         let token = key
             .sign(TokenType::Id, &invalid_claims)
             .expect("sign malformed claims");
-        assert!(
-            key.verify::<IdTokenClaims>(&token, TokenType::Id, "https://auth.example", now)
-                .is_err()
-        );
+        key.verify::<IdTokenClaims>(&token, TokenType::Id, "https://auth.example", now)
+            .expect_err("should be rejected");
     }
 }
 
@@ -303,7 +297,7 @@ fn notes_open_only_with_a_valid_listed_signature() {
 #[test]
 fn note_keys_reject_malformed_seeds_and_names() {
     let seed = "00".repeat(32);
-    assert!(NoteKey::from_hex_seed("audit", &seed).is_ok());
+    NoteKey::from_hex_seed("audit", &seed).expect("should be accepted");
     for bad in [
         String::new(),
         "00".repeat(31),

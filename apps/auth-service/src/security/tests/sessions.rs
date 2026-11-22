@@ -63,7 +63,7 @@ fn confirmation_age_is_fixed_from_its_timestamp() {
             last_seen_ip: None,
         }
     };
-    assert!(Confirmed::<CONFIRMATION_MAX_AGE>::check(&session(Some(290))).is_ok());
+    Confirmed::<CONFIRMATION_MAX_AGE>::check(&session(Some(290))).expect("should be accepted");
     for age in [None, Some(310), Some(86_400)] {
         assert!(matches!(
             Confirmed::<CONFIRMATION_MAX_AGE>::check(&session(age)),

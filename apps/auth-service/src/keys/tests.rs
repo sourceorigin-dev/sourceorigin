@@ -674,5 +674,5 @@ async fn a_replica_that_cannot_reload_turns_unready() {
     assert!(keys.current().is_err(), "a stale key set is not used");
     store.reload(&keys).await;
     assert_eq!(ready().await, StatusCode::NO_CONTENT);
-    assert!(keys.current().is_ok());
+    keys.current().expect("should be accepted");
 }

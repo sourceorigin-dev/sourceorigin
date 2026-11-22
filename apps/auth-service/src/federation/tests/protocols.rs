@@ -192,7 +192,7 @@ async fn google_signed_tokens_are_verified() {
             .downcast_ref::<ClaimsError>()
             .cloned()
     };
-    assert!(verify(&valid).await.is_ok());
+    verify(&valid).await.expect("should be accepted");
     let untrusted = Rs256Key::generate("google-test").expect("untrusted key");
     let token = untrusted.sign(TokenType::Id, &valid).expect("signed token");
     assert_eq!(
@@ -263,7 +263,7 @@ async fn google_signed_tokens_are_verified() {
     }
     let mut claims = valid.clone();
     claims["aud"] = serde_json::json!(["client"]);
-    assert!(verify(&claims).await.is_ok());
+    verify(&claims).await.expect("should be accepted");
     claims["iss"] = serde_json::json!("https://untrusted.example");
     assert!(verify(&claims).await.is_err());
     claims = valid;
