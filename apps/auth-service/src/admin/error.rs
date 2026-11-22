@@ -200,7 +200,7 @@ pub enum AdminError {
     Event(#[from] serde_json::Error),
     /// A link could not be written.
     #[error("could not write a link")]
-    Link(#[from] sourceorigin_ui::QueryError),
+    Link(#[from] serde_urlencoded::ser::Error),
     /// The audit chain could not be verified or pruned.
     #[error(transparent)]
     Audit(#[from] crate::AuditError),

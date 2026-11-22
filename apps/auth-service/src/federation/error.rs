@@ -8,7 +8,6 @@ use sourceorigin_common::{
 };
 use sourceorigin_crypto::CryptoError;
 use sourceorigin_repository::DatabaseError;
-use sourceorigin_ui::{CallbackError, QueryError};
 use thiserror::Error;
 
 /// Federation failures that reach the browser, mapped to HTTP once in `From<FederationError>`.
@@ -71,7 +70,7 @@ pub(crate) enum FederationError {
     Url(#[from] url::ParseError),
     /// The sign-in page's address could not be written.
     #[error("the sign-in page's address could not be written")]
-    PageAddress(#[from] QueryError),
+    PageAddress(#[from] serde_urlencoded::ser::Error),
     /// A database operation failed.
     #[error(transparent)]
     Database(#[from] DatabaseError),
@@ -87,23 +86,6 @@ pub(crate) enum FederationError {
     /// A generated cookie is not a valid HTTP header value.
     #[error("federation cookie header is invalid")]
     CookieHeader(#[from] InvalidHeaderValue),
-}
-
-impl FederationError {
-    /// What the sign-in page says of a provider's callback that failed with this,
-    /// when the browser can start again: `None` for the service's own failures.
-    pub(super) const fn callback_error(&self) -> Option<CallbackError> {
-        Some(match self {
-            Self::FlowBrowserMissing | Self::InvalidAttempt => CallbackError::Expired,
-            Self::SessionChanged | Self::Session(SessionError::Missing) => {
-                CallbackError::SessionChanged
-            }
-            Self::IdentityAlreadyLinked => CallbackError::AlreadyLinked,
-            Self::LinkedAccountUnavailable => CallbackError::AccountUnavailable,
-            Self::Session(SessionError::PasskeyRequired) => CallbackError::PasskeyRequired,
-            _ => return None,
-        })
-    }
 }
 
 impl From<FederationError> for ApiError {

@@ -350,17 +350,28 @@ impl FederationApplication {
     }
 
     /// The answer to a callback that failed with `error`: the sign-in page saying
-    /// why, going on to `return_to`, or the error itself when the browser cannot
-    /// do anything about it.
+    /// why, going on to `return_to`, when the browser can start again, or the error
+    /// itself for the service's own failures.
     fn refused(
         &self,
         error: FederationError,
         return_to: Option<&str>,
     ) -> Result<Response, ApiError> {
-        match error.callback_error() {
-            Some(reason) => Ok(self.failed_callback(reason, return_to)?),
-            None => Err(error.into()),
-        }
+        let reason = match error {
+            FederationError::FlowBrowserMissing | FederationError::InvalidAttempt => {
+                CallbackError::Expired
+            }
+            FederationError::SessionChanged | FederationError::Session(SessionError::Missing) => {
+                CallbackError::SessionChanged
+            }
+            FederationError::IdentityAlreadyLinked => CallbackError::AlreadyLinked,
+            FederationError::LinkedAccountUnavailable => CallbackError::AccountUnavailable,
+            FederationError::Session(SessionError::PasskeyRequired) => {
+                CallbackError::PasskeyRequired
+            }
+            error => return Err(error.into()),
+        };
+        Ok(self.failed_callback(reason, return_to)?)
     }
 
     /// Consumes the flow the callback names, bound to this browser, before
