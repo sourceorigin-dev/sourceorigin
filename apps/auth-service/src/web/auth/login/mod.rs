@@ -131,6 +131,22 @@ impl Continuation {
         }
     }
 
+    /// Whether a browser at `step` goes on at once, without the page: it is already
+    /// signed in, as from sourceorigin.dev's Sign in link, and goes on to a path.
+    /// The page stays for a sign-in its session falls short of: an authorization's,
+    /// which sent it here for that, or the class of authentication `target_acr`
+    /// that the query asks for, as the dashboard's handoff does.
+    fn skips(&self, step: &Step<'_>, target_acr: Option<Acr>) -> bool {
+        matches!(
+            step,
+            Step::SignIn {
+                signed_in: Some(_),
+                ..
+            }
+        ) && matches!(self, Self::Path(_))
+            && target_acr.is_none()
+    }
+
     /// The pending authorization it continues, if any, as the sign-in page sees it.
     async fn authorization(
         &self,
@@ -689,6 +705,12 @@ impl WebApplication {
                 android,
             },
         };
+        // The page stays when it says why something failed.
+        if refused.is_none() && query.error.is_none() && continuation.skips(&step, target_acr) {
+            return self
+                .go_on(cx, page, continuation, RecoveryQuestion::Unanswered)
+                .await;
+        }
         let status = refused
             .as_ref()
             .map_or(StatusCode::OK, |error| error.public().0);
