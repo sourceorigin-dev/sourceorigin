@@ -292,10 +292,10 @@ When an administrator or operator acts:
   changes to accounts, and to clients, keys, invitations, handles, deliveries,
   alerts and the audit history too. `AdminService` takes it by type, so no
   change records an event without one. A dashboard change posted without one,
-  or with a blank one, is refused on its page, which asks for it again. It is
-  stored with each event as personal data, and the owner of an account it
-  changes sees it in their security history, next to "By a SourceOrigin
-  administrator". The owner never sees who that administrator is, or the IP
+  or with a blank one, is refused on its page, which asks for it again. The
+  reason is stored with each event as personal data, and the owner of an
+  account it changes sees it in their security history, next to "By a
+  SourceOrigin administrator". The owner never sees who that administrator is, or the IP
   address and device of their request: only the dashboard's event lists and
   `audit list` show them. Announcements and messages to one account ask for
   none: their text says why, so sending one records "See message contents",
