@@ -87,7 +87,10 @@ The workspace has one cryptographic library, `aws-lc-rs`: the crypto crate
 builds on it, and it is rustls's provider for every TLS client (reqwest, SQLx
 and lettre). Don't add another, such as `ring`, `openssl`, `sha2` or `rand`.
 OpenSSL is in the tree only because webauthn-rs needs it, and auth-service names
-it only to build it vendored. `cargo tree -i ring` should print nothing.
+it only to build it vendored. `deny.toml` bans these crates and lists the only
+dependencies that may bring `sha2`, `rand`, `openssl` and `aws-lc-rs`, and the only
+crates that may use `sqlx`; `just audit` fails on any other path to them, and on
+`ring` entirely.
 
 Hold a secret in a type that zeroizes it when dropped: the crypto crate's
 `Secret` and `ClientSecret`, `SecretBytes` for configured secrets, `secrecy`'s

@@ -205,7 +205,7 @@ expressions included.
 | Any command against a scratch cluster | `just db scratch -- psql` |
 | Browser tests, against a running deployment | `just web test-browser` |
 | Register the browser tests' clients with auth on `localhost` | `just web browser-client` |
-| Dependency audits: cargo-deny's advisories, licenses, `*` requirements and sources other than crates.io, and pnpm's | `just audit` (`just rust audit` / `just web audit`) |
+| Dependency audits: cargo-deny's advisories, licenses, `*` requirements, banned crates and sources other than crates.io, and pnpm's | `just audit` (`just rust audit` / `just web audit`) |
 | Validate the piqueld manifests with piquelctl, and the telemetry configs with the images that run them (needs Docker) | `just infra check` |
 | Regenerate the query cache, the SDK vectors, the TypeScript SDK's wire types and shared constants, or the generated documentation | `just db prepare` / `just sdk-vectors` / `just sdk-types` / `just docs reference` |
 | Build the book and check its links | `just docs` |
