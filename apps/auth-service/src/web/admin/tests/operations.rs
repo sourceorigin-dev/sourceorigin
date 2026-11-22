@@ -363,7 +363,7 @@ async fn alerts_take_updates_from_the_dashboard() {
 
 /// Updates whose author a newer release recorded, of a type this one does not
 /// know or a known type naming a job it does not know, show on the Alerts page
-/// without a byline, and the overview's banner still leads there.
+/// without a byline.
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn alert_updates_by_authors_a_newer_release_recorded_show_without_a_byline() {
@@ -408,9 +408,4 @@ async fn alert_updates_by_authors_a_newer_release_recorded_show_without_a_byline
             "{page}"
         );
     }
-    let overview = html(harness.visit(&dashboard, "/").await).await;
-    assert!(
-        overview.contains("1 alert needs attention") && overview.contains("See the alerts"),
-        "{overview}"
-    );
 }

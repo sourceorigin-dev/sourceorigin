@@ -418,9 +418,13 @@ decode, such as a `user` with no `user_id`, is still
 
 An [alert update](#alerts)'s author is an actor too, and is read by the same
 rule. The alerts read returns `AlertUpdate.author` as `None` for an author this
-release does not know, and the dashboard's **Alerts** page shows that update
-without a byline. An administrator or operator that does not decode, or a known
-actor of another type, is still `DatabaseError::InvalidStoredData`.
+release does not know: the dashboard's **Alerts** page shows that update
+without a byline, and `auth-service alerts list --json` prints its
+`"author": null`. An administrator or operator that does not decode, or a known
+actor of another type, is still `DatabaseError::InvalidStoredData`. The
+column's `CHECK` allows only `admin` and `cli` authors, so a release that writes
+another type widens it in a migration first. Migrations aren't reverted, so
+after a rollback the older release reads that author as unknown.
 
 Closed vocabularies stored in other columns, such as `AccountStatus`, have no
 such tolerance: a release fails to decode a value it does not know. Add the

@@ -346,12 +346,12 @@ impl AlertRepository<'_> {
     /// Adds an update on alert `id` as a newer release would, with any `author`
     /// and no note, for tests of what this release reads back. That release
     /// widened the column's check to the authors it writes, so this drops the
-    /// check: run it on a schema of its own, from
+    /// check, and only on a schema of its own, from
     /// [`Database::isolated`](crate::Database::isolated).
     ///
     /// # Errors
     ///
-    /// Returns [`DatabaseError`] if a query fails.
+    /// Returns [`DatabaseError`] outside such a schema, or if a query fails.
     #[cfg(any(test, feature = "test-util"))]
     pub async fn add_update_written_elsewhere(
         &mut self,
@@ -363,7 +363,12 @@ impl AlertRepository<'_> {
             self,
             execute,
             sqlx::query(
-                "ALTER TABLE alert_updates DROP CONSTRAINT IF EXISTS alert_updates_author_check"
+                r"DO $$ BEGIN
+                    IF current_schema() NOT LIKE 'test\_%' THEN
+                        RAISE EXCEPTION 'add_update_written_elsewhere runs only on Database::isolated';
+                    END IF;
+                    ALTER TABLE alert_updates DROP CONSTRAINT IF EXISTS alert_updates_author_check;
+                END $$"
             )
         )?;
         run!(
