@@ -20,14 +20,14 @@ impl Checkbox {
 
 impl Serialize for Checkbox {
     /// Writes `on` when checked, as browsers send it.
-    fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         self.0.then_some("on").serialize(serializer)
     }
 }
 
 impl<'de> Deserialize<'de> for Checkbox {
     /// Checked, whatever the value: an unchecked box is not sent at all.
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         IgnoredAny::deserialize(deserializer).map(|_| Self(true))
     }
 }

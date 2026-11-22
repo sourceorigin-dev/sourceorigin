@@ -334,7 +334,7 @@ impl AccountOperation {
             Self::ListNotifications => service.notifications(viewer, None).await.map(drop),
             // Checked before it looks the notification up, so any ID will do.
             Self::ViewNotification => service
-                .notification(viewer, sourceorigin_common::NotificationId::new())
+                .notification(viewer, NotificationId::new())
                 .await
                 .map(drop),
             Self::ViewNotificationPreferences => {

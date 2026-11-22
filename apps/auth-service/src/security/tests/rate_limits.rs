@@ -305,7 +305,7 @@ fn the_dashboard_search_has_its_own_budget() {
     ] {
         let mut request = HttpRequest::get(path);
         if live {
-            request = request.header(crate::security::endpoint::LIVE_HEADER, "1");
+            request = request.header(endpoint::LIVE_HEADER, "1");
         }
         let request = request.body(Body::empty()).expect("request");
         assert_eq!(

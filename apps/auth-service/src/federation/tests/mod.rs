@@ -50,7 +50,7 @@ impl Drop for TestApp {
 impl TestApp {
     /// The federation routes and the shared settings, as the public listener
     /// serves them.
-    fn routes(&self) -> axum::Router {
+    fn routes(&self) -> Router {
         self.app
             .clone()
             .routes()
@@ -64,9 +64,7 @@ impl TestApp {
     async fn with_email(email: Option<&str>) -> Self {
         let database = crate::tests::Replicas::database().await;
         let subject = u64::from_be_bytes(
-            sourceorigin_crypto::Secret::generate()
-                .expect("random")
-                .as_bytes()[..8]
+            Secret::generate().expect("random").as_bytes()[..8]
                 .try_into()
                 .expect("eight bytes"),
         )
@@ -108,7 +106,7 @@ impl TestApp {
             database,
             &FederationConfig {
                 origin: "https://auth.sourceorigin.dev/"
-                    .parse::<sourceorigin_common::config::Origin>()
+                    .parse::<Origin>()
                     .expect("origin"),
                 providers: BTreeMap::from([(Provider::GitHub, config)]),
             },
@@ -252,7 +250,7 @@ impl TestApp {
         if confirmed {
             database
                 .sessions()
-                .confirm_passkey(browser.session_id, PasskeyId::new(), chrono::Utc::now())
+                .confirm_passkey(browser.session_id, PasskeyId::new(), Utc::now())
                 .await
                 .expect("confirm");
         }
@@ -276,7 +274,7 @@ impl TestApp {
             .to_str()
             .expect("location");
         let target = Url::parse(location).expect("target");
-        assert_eq!(target.path(), crate::routes::page::LOGIN);
+        assert_eq!(target.path(), routes::page::LOGIN);
         assert!(
             target
                 .query_pairs()
@@ -296,7 +294,7 @@ impl TestApp {
         body: &serde_json::Value,
     ) -> Request<Body> {
         let mut request = Request::builder()
-            .extension(crate::security::RequestContext::TEST)
+            .extension(RequestContext::TEST)
             .method(method)
             .uri(path)
             .header(header::CONTENT_TYPE, "application/json");

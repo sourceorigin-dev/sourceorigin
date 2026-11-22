@@ -71,7 +71,7 @@ async fn backchannel_logout_hands_tokens_to_the_handler() {
     );
 
     let received = Arc::new(Mutex::new(Vec::new()));
-    let fail = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let fail = Arc::new(AtomicBool::new(false));
     let app = login_app_with(&issuer, |routes| {
         let (received, fail) = (received.clone(), fail.clone());
         routes.on_backchannel_logout(move |token: crate::LogoutToken| {

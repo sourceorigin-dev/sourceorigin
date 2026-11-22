@@ -67,11 +67,11 @@ impl LoginApp {
         let api = Router::new()
             .route(
                 "/settings",
-                axum::routing::get(|_: RequireAuthentication<RecentPasskey>| async { "settings" }),
+                get(|_: RequireAuthentication<RecentPasskey>| async { "settings" }),
             )
             .route(
                 "/stubborn",
-                axum::routing::get(|| async {
+                get(|| async {
                     let challenge = BearerChallenge::step_up(StepUpRequirement::default());
                     (
                         StatusCode::UNAUTHORIZED,
@@ -117,12 +117,12 @@ impl LoginApp {
         let app = Router::new()
             .route(
                 "/notes",
-                axum::routing::get(|user: SignedIn| async move {
-                    user.login().access_token().expose().to_owned()
-                }),
+                get(
+                    |user: SignedIn| async move { user.login().access_token().expose().to_owned() },
+                ),
             )
-            .route("/settings", axum::routing::get(call_api("/settings")))
-            .route("/stubborn", axum::routing::get(call_api("/stubborn")))
+            .route("/settings", get(call_api("/settings")))
+            .route("/stubborn", get(call_api("/stubborn")))
             .nest("/auth", auth.router())
             .layer(auth.layer());
         Self { flow, app, clock }

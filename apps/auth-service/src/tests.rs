@@ -838,7 +838,7 @@ impl TlsListener {
             tcp,
             acceptor: tokio_rustls::TlsAcceptor::from(Arc::new(config)),
         };
-        let router = router.layer(axum::Extension(crate::security::RequestContext::TEST));
+        let router = router.layer(Extension(RequestContext::TEST));
         tokio::spawn(async move { axum::serve(listener, router).await });
         reqwest::Certificate::from_der(certified.cert.der()).expect("trusted certificate")
     }
@@ -846,7 +846,7 @@ impl TlsListener {
 
 impl axum::serve::Listener for TlsListener {
     type Io = tokio_rustls::server::TlsStream<tokio::net::TcpStream>;
-    type Addr = std::net::SocketAddr;
+    type Addr = SocketAddr;
 
     /// Retries until a connection completes its handshake.
     async fn accept(&mut self) -> (Self::Io, Self::Addr) {

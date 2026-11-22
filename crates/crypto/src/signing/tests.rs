@@ -129,8 +129,7 @@ fn rejects_algorithm_confusion_and_unrecognized_headers() {
     let header = URL_SAFE_NO_PAD.encode(br#"{"alg":"HS256","kid":"headers","typ":"JWT"}"#);
     let payload = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&claims).expect("claims"));
     let input = format!("{header}.{payload}");
-    let signature =
-        crate::Digest::hmac(key.public_key().pem().as_bytes(), input.as_bytes()).encoded();
+    let signature = Digest::hmac(key.public_key().pem().as_bytes(), input.as_bytes()).encoded();
     let token = format!("{input}.{signature}");
     assert!(matches!(
         keys.verify::<IdTokenClaims>(&token, TokenType::Id, ISSUER, now()),

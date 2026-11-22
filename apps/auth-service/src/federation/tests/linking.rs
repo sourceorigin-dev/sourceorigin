@@ -13,7 +13,7 @@ impl TestApp {
     ) -> Result<String, AccountError> {
         let account = AccountService::new(self.app.database.clone());
         let owner = account
-            .owner(security::RequestContext::TEST, &Self::cookies(cookie))
+            .owner(RequestContext::TEST, &Self::cookies(cookie))
             .await
             .expect("session lookup")
             .expect("signed in");
@@ -76,7 +76,7 @@ async fn linking_requires_target_confirmation_and_unlink_releases_subject_withou
     test.app
         .database
         .sessions()
-        .confirm_passkey(target_session, PasskeyId::new(), chrono::Utc::now())
+        .confirm_passkey(target_session, PasskeyId::new(), Utc::now())
         .await
         .expect("confirm");
     let return_to = test

@@ -29,6 +29,7 @@ version = "0.1.0"
 unsafe_code = "warn"
 missing_docs = "warn"
 unreachable_pub = "warn"
+unused_qualifications = "warn"
 
 # Every Clippy warning fails CI: `just rust lint` runs Clippy with `-D warnings`.
 # The groups sit at priority -1 so the single lints below can override them.

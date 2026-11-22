@@ -261,9 +261,7 @@ fn one_event_per_kind() -> Vec<events::DomainEvent> {
         },
         DomainEvent::EmailAdded {
             email_id: EmailId::new(),
-            address: Personal::Value(
-                email::NormalizedEmail::parse("a@example.com").expect("email"),
-            ),
+            address: Personal::Value(NormalizedEmail::parse("a@example.com").expect("email")),
             provider: None,
         },
         DomainEvent::EmailVerified {
@@ -332,8 +330,8 @@ fn one_event_per_kind() -> Vec<events::DomainEvent> {
             alert_id: AlertId::new(),
             alert,
         },
-        DomainEvent::NotificationPreferenceChanged(crate::notifications::NotificationPreference {
-            category: crate::notifications::EmailCategory::Announcements,
+        DomainEvent::NotificationPreferenceChanged(notifications::NotificationPreference {
+            category: notifications::EmailCategory::Announcements,
             email: false,
         }),
     ]
@@ -350,14 +348,14 @@ fn one_event_per_kind_covers_every_variant() {
     /// Captures the variant names serde expects when it reads an unknown tag.
     #[derive(Debug)]
     struct Tags(&'static [&'static str]);
-    impl std::fmt::Display for Tags {
-        fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    impl fmt::Display for Tags {
+        fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
             write!(formatter, "{:?}", self.0)
         }
     }
     impl std::error::Error for Tags {}
     impl serde::de::Error for Tags {
-        fn custom<T: std::fmt::Display>(message: T) -> Self {
+        fn custom<T: fmt::Display>(message: T) -> Self {
             panic!("expected an unknown variant, not: {message}")
         }
         fn unknown_variant(_: &str, expected: &'static [&'static str]) -> Self {

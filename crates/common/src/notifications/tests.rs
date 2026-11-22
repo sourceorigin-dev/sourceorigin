@@ -238,7 +238,7 @@ fn sessionless_steps_and_known_browsers_alert_no_one() {
         session_id: None,
     };
     let added = DomainEvent::PasskeyAdded {
-        passkey_id: crate::PasskeyId::new(),
+        passkey_id: PasskeyId::new(),
     };
     assert_eq!(added.notification(&signing_up), None);
     assert_eq!(added.notification(&Actor::Anonymous), None);

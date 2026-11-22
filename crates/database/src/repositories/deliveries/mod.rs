@@ -229,10 +229,7 @@ impl DeliveryRepository<'_> {
     ///
     /// Returns [`DatabaseError`] if the query fails.
     #[cfg(any(test, feature = "test-util"))]
-    pub async fn payloads(
-        &mut self,
-        destination: &str,
-    ) -> Result<Vec<serde_json::Value>, DatabaseError> {
+    pub async fn payloads(&mut self, destination: &str) -> Result<Vec<Value>, DatabaseError> {
         run!(
             self,
             fetch_all,

@@ -215,7 +215,7 @@ impl IntoResponse for ApiError {
             }),
         )
             .into_response();
-        response.extensions_mut().insert(page::Explanation(message));
+        response.extensions_mut().insert(Explanation(message));
         if let Some(retry_after) = self.retry_after {
             response.headers_mut().insert(
                 header::RETRY_AFTER,

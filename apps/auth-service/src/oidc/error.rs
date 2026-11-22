@@ -148,7 +148,7 @@ pub(crate) enum OAuthError {
     Url(#[from] url::ParseError),
     /// A generated cookie could not be represented as an HTTP header.
     #[error("OIDC cookie header is invalid")]
-    CookieHeader(#[from] axum::http::header::InvalidHeaderValue),
+    CookieHeader(#[from] header::InvalidHeaderValue),
     /// The address of the page the browser goes on to could not be written.
     #[error("a page's address could not be written")]
     PageAddress(#[from] serde_urlencoded::ser::Error),

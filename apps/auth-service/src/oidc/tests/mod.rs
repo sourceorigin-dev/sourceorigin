@@ -45,7 +45,7 @@ struct Flow {
     app: OidcApplication,
     /// Where requests go: the OIDC routes and their pages, or a replica of the whole
     /// service.
-    router: axum::Router,
+    router: Router,
     /// The scenario's client, registered through [`ClientRegistry`](crate::ClientRegistry).
     client: ClientRegistration,
     /// The secret of a confidential scenario client.
@@ -89,9 +89,7 @@ impl Flow {
                 base64::engine::general_purpose::STANDARD.encode(format!("{}:{secret}", client.id))
             )
         });
-        let origin = origin
-            .parse::<sourceorigin_common::config::Origin>()
-            .expect("issuer");
+        let origin = origin.parse::<Origin>().expect("issuer");
         let config = AuthConfig::test(&origin);
         let federation =
             FederationApplication::new(db.clone(), &config.federation).expect("federation");
@@ -121,7 +119,7 @@ impl Flow {
         }
     }
     /// The same scenario, sending its requests to `router`, such as one of [`Replicas`].
-    fn on(&self, router: &axum::Router) -> Self {
+    fn on(&self, router: &Router) -> Self {
         Self {
             router: router.clone(),
             ..self.clone()
@@ -347,7 +345,7 @@ impl Flow {
     }
     /// The scenario's account, as the owner of its browser session.
     async fn owner(&self) -> crate::account::Owner {
-        let mut headers = axum::http::HeaderMap::new();
+        let mut headers = HeaderMap::new();
         headers.insert(header::COOKIE, self.cookie.parse().expect("cookie"));
         crate::account::AccountService::new(self.app.database.clone())
             .owner(RequestContext::TEST, &headers)

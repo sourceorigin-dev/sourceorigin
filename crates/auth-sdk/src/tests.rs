@@ -562,7 +562,7 @@ fn cache_control_is_read_like_a_cache() {
     let max_age = |value: &str| {
         let mut headers = header::HeaderMap::new();
         headers.insert(header::CACHE_CONTROL, value.parse().expect("header"));
-        crate::http::Reply::max_age(&headers)
+        http::Reply::max_age(&headers)
     };
     assert_eq!(max_age("public, max-age=600"), Some(600));
     assert_eq!(max_age(r#"Max-Age="60""#), Some(60));
@@ -584,7 +584,7 @@ async fn hanging_servers_time_out() {
         .expect("URL");
     let http = Http::plain(reqwest::Client::builder());
     assert!(matches!(
-        http.get(&url, crate::http::Authorization::None).await,
+        http.get(&url, http::Authorization::None).await,
         Err(NetworkError::TimedOut { .. })
     ));
 }
@@ -620,7 +620,7 @@ async fn redirects_are_refused_whatever_the_client() {
         .post_form(
             &url,
             &[("refresh_token", "prt_v1_secret")],
-            crate::http::Authorization::None,
+            http::Authorization::None,
         )
         .await;
     assert!(matches!(
@@ -840,7 +840,7 @@ async fn userinfo_must_name_the_signed_in_user() {
         credentials: Credentials::None,
         redirect_uri: "https://client.example.com/callback".parse().expect("URL"),
     });
-    let claims: crate::IdTokenClaims = serde_json::from_value(claims).expect("ID token claims");
+    let claims: IdTokenClaims = serde_json::from_value(claims).expect("ID token claims");
     let info = client
         .userinfo(&BearerToken::new("mine".into()), &claims)
         .await

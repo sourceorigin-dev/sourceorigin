@@ -219,7 +219,7 @@ async fn oauth_failures_preserve_sources_and_statuses() {
     assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
     let error = OAuthCode::InvalidGrant.reject_with(
         "code is \"malformed\" \u{2014} retry",
-        sourceorigin_crypto::CryptoError::SecretLength,
+        CryptoError::SecretLength,
     );
     assert!(error.source().is_some());
     let response = error.into_response();

@@ -376,15 +376,15 @@ impl RepositoryExecutor<'_> {
     /// missing row or a conflict, which callers expect.
     fn finish<T>(
         span: &tracing::Span,
-        result: Result<T, crate::DatabaseError>,
-    ) -> Result<T, crate::DatabaseError> {
+        result: Result<T, DatabaseError>,
+    ) -> Result<T, DatabaseError> {
         if let Err(
-            crate::DatabaseError::Refused(_)
-            | crate::DatabaseError::Timeout(_)
-            | crate::DatabaseError::Cancelled(_)
-            | crate::DatabaseError::LockUnavailable(_)
-            | crate::DatabaseError::InvalidStoredData { .. }
-            | crate::DatabaseError::Operation(_),
+            DatabaseError::Refused(_)
+            | DatabaseError::Timeout(_)
+            | DatabaseError::Cancelled(_)
+            | DatabaseError::LockUnavailable(_)
+            | DatabaseError::InvalidStoredData { .. }
+            | DatabaseError::Operation(_),
         ) = &result
         {
             span.record("otel.status_code", "ERROR");
@@ -444,10 +444,10 @@ impl Unsigned {
     ///
     /// # Errors
     ///
-    /// Returns [`DatabaseError::Operation`](crate::DatabaseError::Operation) for a
+    /// Returns [`DatabaseError::Operation`](DatabaseError::Operation) for a
     /// value above `i64::MAX`, which no stored value reaches.
-    fn bind(value: u64) -> Result<i64, crate::DatabaseError> {
-        i64::try_from(value).map_err(|error| crate::DatabaseError::Operation(Box::new(error)))
+    fn bind(value: u64) -> Result<i64, DatabaseError> {
+        i64::try_from(value).map_err(|error| DatabaseError::Operation(Box::new(error)))
     }
 }
 
