@@ -75,7 +75,8 @@ its routes, and `src/routes.rs` declares every path. Pages live in `src/web`, gr
 the recovery pages and the admin dashboard's handoff), `settings`, `developers`,
 and `admin`, the admin dashboard, whose views are in `crates/ui/src/admin`.
 `src/admin` is not a page module: it holds `AdminService` and the operator rules
-that the dashboard and the CLI share. [Rust conventions](../rust-conventions.md)
+that the dashboard and the CLI share. Services never depend on
+`sourceorigin-ui`: the pages convert between ui's types and the services'. [Rust conventions](../rust-conventions.md)
 explains how applications, routes and services fit together.
 
 ## Crates
@@ -86,7 +87,7 @@ explains how applications, routes and services fit together.
 | `sourceorigin-crypto` (`crates/crypto`) | Every cryptographic primitive, on `aws-lc-rs`: secrets, digests, HMAC, PKCE, RS256 signing and key sets, AES-256-GCM sealing, Ed25519 signed notes and SCRAM verifiers |
 | `sourceorigin-repository` (`crates/database`) | The only crate that runs SQL: connections, migrations, repositories, transactions, events and the delivery queue's storage |
 | `sourceorigin-telemetry` (`crates/telemetry`) | Logs, traces and metrics, and the HTTP layer every router uses |
-| `sourceorigin-ui` (`crates/ui`) | The Topcoat components of auth's pages and the admin dashboard, and the bodies of its emails, which know nothing of the database or HTTP |
+| `sourceorigin-ui` (`crates/ui`) | The Topcoat components of auth's pages and the admin dashboard, and the bodies of its emails, which know nothing of the database or HTTP. It uses `sourceorigin-common`'s types, never the other way round |
 | `sourceorigin-auth` (`crates/auth-sdk`) | The Rust SDK, which depends only on `sourceorigin-common` and `sourceorigin-crypto` |
 
 The SDK and the two crates it depends on are published to crates.io, under the
