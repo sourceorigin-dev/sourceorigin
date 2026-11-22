@@ -174,8 +174,8 @@ impl DatabaseTransaction<'_> {
     pub async fn until_blocked(&mut self, waiters: i64) {
         tokio::time::timeout(Duration::from_secs(10), async {
             while self.blocked_transactions().await.expect("lock waits") < waiters {
-                // wall-clock: PostgreSQL shows a lock wait only in `pg_locks`, and
-                // signals nothing when one starts.
+                // wall-clock: PostgreSQL shows lock waits only in its catalog views,
+                // and signals nothing when one starts.
                 tokio::time::sleep(Duration::from_millis(10)).await;
             }
         })

@@ -440,8 +440,8 @@ impl Database {
             .await
             .expect("wait state")
             {
-                // wall-clock: PostgreSQL shows a lock wait only in
-                // `pg_stat_activity`, and signals nothing when one starts.
+                // wall-clock: PostgreSQL shows lock waits only in its catalog views,
+                // and signals nothing when one starts.
                 tokio::time::sleep(Duration::from_millis(10)).await;
             }
         })
