@@ -72,10 +72,15 @@ pub struct EmailRow<'a> {
 /// email.
 #[component]
 pub async fn addresses<'a>(
+    /// Where the page is, which its changes post to.
     page: &'a str,
+    /// The account's addresses, primary first.
     emails: &'a [EmailRow<'a>],
+    /// Which row is open, and what the last attempt said.
     state: &'a EmailsState,
+    /// Whom the page is shown to.
     audience: Audience<'a>,
+    /// Whether the service can send email.
     sends: bool,
 ) -> Result<impl View> {
     // The primary address can be removed only while no other verified one could
@@ -144,11 +149,17 @@ pub async fn addresses<'a>(
 /// a new link only when SourceOrigin `sends` email.
 #[component]
 async fn address_row<'a>(
+    /// Where the page is, which its changes post to.
     page: &'a str,
+    /// The address.
     email: EmailRow<'a>,
+    /// Whether another verified address can replace it as primary.
     replaceable: bool,
+    /// Which row is open, and what the last attempt said.
     state: &'a EmailsState,
+    /// Whom the page is shown to.
     audience: Audience<'a>,
+    /// Whether the service can send email.
     sends: bool,
 ) -> Result<impl View> {
     let id = email.id;
@@ -249,9 +260,13 @@ pub const PASTE_WHOLE_LINK: &str =
 /// Its links lead to the addresses at `emails`.
 #[component]
 pub async fn verify<'a>(
+    /// Where the form posts.
     action: &'a str,
+    /// Where the addresses are listed.
     emails: &'a str,
-    #[default] alert: Option<&'a str>,
+    /// Why the last attempt failed, if it did.
+    #[default]
+    alert: Option<&'a str>,
 ) -> Result<impl View> {
     Ok(view! {
         <h1>"Confirm your email address"</h1>
@@ -289,7 +304,14 @@ pub async fn verify<'a>(
 /// The address now confirmed, and whether it became the `primary` one; its link
 /// leads to the addresses at `emails`.
 #[component]
-pub async fn verified<'a>(address: &'a str, primary: bool, emails: &'a str) -> Result<impl View> {
+pub async fn verified<'a>(
+    /// The address.
+    address: &'a str,
+    /// Whether it became the primary one.
+    primary: bool,
+    /// Where the addresses are listed.
+    emails: &'a str,
+) -> Result<impl View> {
     Ok(view! {
         <h1>"Address confirmed"</h1>
         <p class="lead">

@@ -359,8 +359,11 @@ pub struct HistoryPage<'a> {
 /// owner reports.
 #[component]
 pub async fn history<'a>(
+    /// The entries, newest first.
     rows: &'a [HistoryRow<'a>],
+    /// What the account holds.
     holds: Holdings<'a>,
+    /// What the page shows around the entries.
     page: HistoryPage<'a>,
 ) -> Result<impl View> {
     let before = page.shown.before;
@@ -441,7 +444,9 @@ pub async fn history<'a>(
 /// overview shows them: each with its day and time.
 #[component]
 pub(crate) async fn activity_feed<'a>(
+    /// The newest entries.
     rows: &'a [HistoryRow<'a>],
+    /// What the account holds.
     holds: &'a Holdings<'a>,
 ) -> Result<impl View> {
     Ok(view! {
@@ -464,9 +469,13 @@ pub(crate) async fn activity_feed<'a>(
 /// it, whose confirmation goes back to `back` and takes the focus once open.
 #[component]
 async fn entry<'a>(
+    /// The entry.
     row: &'a HistoryRow<'a>,
+    /// What the account holds.
     holds: &'a Holdings<'a>,
+    /// The page it is shown on.
     page: &'a HistoryPage<'a>,
+    /// Where the report's confirmation goes back to.
     back: &'a str,
 ) -> Result<impl View> {
     let before = page.shown.before;
@@ -505,10 +514,15 @@ async fn entry<'a>(
 /// takes the focus once open.
 #[component]
 pub(crate) async fn report_form<'a>(
+    /// The entry reported.
     row: &'a HistoryRow<'a>,
+    /// Where the report posts.
     action: &'a str,
+    /// The entry the page started after, if any.
     before: Option<EventId>,
+    /// The notification it was reached from, if any.
     notification: Option<NotificationId>,
+    /// Where cancelling goes.
     cancel: &'a str,
 ) -> Result<impl View> {
     Ok(view! {

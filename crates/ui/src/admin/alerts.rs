@@ -54,7 +54,12 @@ fn byline(author: &AlertAuthor) -> String {
 /// The current alerts, `cards`, newest first, each with posting an update on
 /// it, and a link to the alerts that cleared, at `previous`.
 #[component]
-pub async fn alert_list<'a>(cards: &'a [AlertCard<'a>], previous: &'a str) -> Result<impl View> {
+pub async fn alert_list<'a>(
+    /// The alerts, newest first.
+    cards: &'a [AlertCard<'a>],
+    /// Where the cleared alerts are listed.
+    previous: &'a str,
+) -> Result<impl View> {
     Ok(view! {
         page_head(
             title: "Alerts",
@@ -74,8 +79,11 @@ pub async fn alert_list<'a>(cards: &'a [AlertCard<'a>], previous: &'a str) -> Re
 /// `limit`, and a link back to the current ones, at `current`.
 #[component]
 pub async fn previous_alerts<'a>(
+    /// The cleared alerts, most recently cleared first.
     cards: &'a [AlertCard<'a>],
+    /// Where the current alerts are listed.
     current: &'a str,
+    /// The most alerts shown.
     limit: u32,
 ) -> Result<impl View> {
     let full = u32::try_from(cards.len()).is_ok_and(|shown| shown >= limit);
@@ -100,7 +108,10 @@ pub async fn previous_alerts<'a>(
 /// One alert: what it says, when it was raised, last seen and cleared, the
 /// updates posted on it, newest first, and posting one while it is current.
 #[component]
-async fn alert_card<'a>(card: &'a AlertCard<'a>) -> Result<impl View> {
+async fn alert_card<'a>(
+    /// The alert shown.
+    card: &'a AlertCard<'a>,
+) -> Result<impl View> {
     let detail = card.detail;
     let alert = &detail.alert;
     let subject = alert.alert.as_ref().map_or(Alert::UNKNOWN, Alert::subject);
@@ -157,8 +168,11 @@ async fn alert_card<'a>(card: &'a AlertCard<'a>) -> Result<impl View> {
 pub async fn alert_update_fields<'a>(
     #[into]
     #[default]
+    /// The status the form holds, if a refused update set one.
     status: Option<AlertStatus>,
-    #[default] note: &'a str,
+    /// The note the form holds.
+    #[default]
+    note: &'a str,
 ) -> Result<impl View> {
     Ok(view! {
         <label>

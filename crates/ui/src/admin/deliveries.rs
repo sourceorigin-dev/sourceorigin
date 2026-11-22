@@ -34,14 +34,19 @@ const fn status_badge(status: DeliveryStatus) -> Badge {
 /// `action` by `GET`.
 #[component]
 pub async fn delivery_list<'a>(
+    /// Where the filter form posts.
     action: &'a str,
     #[into]
     #[default]
+    /// The status chosen, if any.
     status: Option<DeliveryStatus>,
     #[into]
     #[default]
+    /// The channel chosen, if any.
     channel: Option<&'a str>,
+    /// The deliveries, newest first.
     rows: &'a [DeliveryRow<'a>],
+    /// The most deliveries shown.
     limit: u32,
 ) -> Result<impl View> {
     let full = u32::try_from(rows.len()).is_ok_and(|shown| shown >= limit);

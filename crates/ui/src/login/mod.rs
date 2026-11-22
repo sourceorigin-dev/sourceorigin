@@ -353,13 +353,21 @@ impl<'a> Step<'a> {
 /// `policies`, which it agrees to.
 #[component]
 pub async fn sign_in<'a>(
+    /// The step the browser is at.
     step: Step<'a>,
+    /// Where the page is.
     page: &'a str,
+    /// Where the browser goes on to.
     query: &'a LoginQuery,
+    /// Where signing in is.
     login: &'a str,
+    /// Where signing up is.
     register: &'a str,
+    /// The policies the status bar links.
     policies: Policies<'a>,
-    #[default] alert: Option<&'a str>,
+    /// Why the last attempt failed, if it did.
+    #[default]
+    alert: Option<&'a str>,
 ) -> Result<impl View> {
     let action = query.on(page)?;
     let (title, lead) = step.wording();
@@ -431,9 +439,13 @@ pub async fn sign_in<'a>(
 /// The forms of `step`, posting to `action`, on the sign-in `page` with `query`.
 #[component]
 async fn step_forms<'a>(
+    /// The step the browser is at.
     step: Step<'a>,
+    /// Where the forms post.
     action: &'a str,
+    /// Where the page is.
     page: &'a str,
+    /// Where the browser goes on to.
     query: &'a LoginQuery,
 ) -> Result<impl View> {
     Ok(view! {
@@ -480,12 +492,19 @@ async fn step_forms<'a>(
 /// `signed_in`, signing it out first.
 #[component]
 async fn sign_in_forms<'a>(
+    /// Where the forms post.
     action: &'a str,
+    /// Where the page is.
     page: &'a str,
+    /// Where the browser goes on to.
     query: &'a LoginQuery,
+    /// Whether the application asks for a passkey alone.
     passkey_only: bool,
+    /// Whether the form asks for a handle.
     handle_open: bool,
+    /// The social sign-in providers offered.
     providers: &'a [Provider],
+    /// Whether the browser is already signed in.
     signed_in: bool,
 ) -> Result<impl View> {
     Ok(view! {
@@ -533,11 +552,17 @@ pub enum Invited<'a> {
 /// Android, it offers Google Password Manager.
 #[component]
 async fn sign_up_form<'a>(
+    /// Where the form posts.
     action: &'a str,
+    /// The social evidence the account gets, if any.
     social: Option<(Provider, TokenId)>,
+    /// The invitation being used, if any.
     invitation: Option<&'a str>,
+    /// What was found of the invitation the link names.
     invited: Invited<'a>,
+    /// Whether signing up needs an invitation.
     invite_required: bool,
+    /// Whether the browser is on Android.
     android: bool,
 ) -> Result<impl View> {
     Ok(view! {
@@ -582,7 +607,10 @@ async fn sign_up_form<'a>(
 /// The forms of [`Step::Restore`], posting to `action`: restoring the account and
 /// signing in, or leaving it scheduled for deletion.
 #[component]
-async fn restore_forms<'a>(action: &'a str) -> Result<impl View> {
+async fn restore_forms<'a>(
+    /// Where the forms post.
+    action: &'a str,
+) -> Result<impl View> {
     Ok(view! {
         change_form(
             action: action,
@@ -605,11 +633,17 @@ async fn restore_forms<'a>(action: &'a str) -> Result<impl View> {
 /// cancelling. Signing in opens `page` with `query` to ask for a handle.
 #[component]
 async fn link_forms<'a>(
+    /// Where the forms post.
     action: &'a str,
+    /// Where the page is.
     page: &'a str,
+    /// Where the browser goes on to.
     query: &'a LoginQuery,
+    /// Why the sign-in must be linked rather than create an account.
     kind: LinkKind,
+    /// Who is signed in, if anyone.
     signed_in: Option<&'a SignedIn>,
+    /// Whether the form asks for a handle.
     handle_open: bool,
 ) -> Result<impl View> {
     let label = "Verify passkey and add provider";
@@ -650,8 +684,11 @@ async fn link_forms<'a>(
 /// `class`. The consent page offers it too.
 #[component]
 pub(crate) async fn switch_account<'a>(
+    /// Where signing out posts.
     action: &'a str,
+    /// What the button says.
     label: &'a str,
+    /// The button's CSS class.
     class: &'a str,
 ) -> Result<impl View> {
     Ok(view! {
@@ -670,11 +707,18 @@ pub(crate) async fn switch_account<'a>(
 /// opens `page` with `query` asking for it.
 #[component]
 async fn passkey_sign_in<'a>(
+    /// Where the form posts.
     action: &'a str,
+    /// Where the page is.
     page: &'a str,
+    /// Where the browser goes on to.
     query: &'a LoginQuery,
-    #[into] change: Fields,
+    /// The change posted once the passkey is proved.
+    #[into]
+    change: Fields,
+    /// What the form is labelled.
     label: &'a str,
+    /// Whether the form asks for a handle.
     handle_open: bool,
 ) -> Result<impl View> {
     Ok(view! {

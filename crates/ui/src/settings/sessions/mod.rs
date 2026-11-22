@@ -137,7 +137,10 @@ impl DeviceRow<'_> {
 /// The browsers the account knows, `known`: a sign-in from any other one alerts
 /// the owner.
 #[component]
-pub async fn known_devices<'a>(known: &'a [KnownDevice]) -> Result<impl View> {
+pub async fn known_devices<'a>(
+    /// The browsers the account knows.
+    known: &'a [KnownDevice],
+) -> Result<impl View> {
     Ok(view! {
         <section class="card" aria-labelledby=(Part::KnownBrowsers.id())>
             <header>
@@ -172,9 +175,13 @@ pub async fn known_devices<'a>(known: &'a [KnownDevice]) -> Result<impl View> {
 /// every browser it knows. Signing one out, or every other one, posts to `page`.
 #[component]
 pub async fn devices<'a>(
+    /// Where the page is, which its changes post to.
     page: &'a str,
+    /// The signed-in browsers.
     rows: &'a [DeviceRow<'a>],
+    /// The browsers the account knows.
     known: &'a [KnownDevice],
+    /// The time sessions are judged at.
     now: DateTime<Utc>,
 ) -> Result<impl View> {
     let others = rows.iter().any(|row| !row.current);

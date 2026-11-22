@@ -134,25 +134,44 @@ impl AccountNav<'_> {
 /// `head`, such as an app's tabs, its `messages`, and the page as `child`.
 #[component]
 pub async fn account<'a>(
+    /// The sidebar's links.
     nav: AccountNav<'a>,
+    /// Who is signed in.
     who: Who<'a>,
+    /// What the passkey script tells the password manager.
     signal: PasskeySignal<'a>,
-    #[default] trail: &'a [(Crumb<'a>, &'a str)],
+    /// The pages the current one is under.
+    #[default]
+    trail: &'a [(Crumb<'a>, &'a str)],
+    /// The current page, in the crumb.
     title: Crumb<'a>,
+    /// Where the home page is.
     home: &'a str,
+    /// Where signing out goes.
     sign_out: &'a str,
+    /// The theme and sidebar the browser prefers.
     preferences: Preferences,
+    /// Where the preferences post.
     preferences_action: &'a str,
+    /// The page's own address.
     here: &'a str,
+    /// The policies the status bar links.
     policies: Policies<'a>,
-    #[default] reference: Option<TraceId>,
+    /// The trace of the request, if it has one.
+    #[default]
+    reference: Option<TraceId>,
     #[into]
     #[default]
+    /// What the account's recovery asks, if one can be undone.
     recovery: Child<'_>,
     #[into]
     #[default]
+    /// What sits above the page, such as an app's tabs.
     head: Child<'_>,
-    #[default] messages: Messages<'a>,
+    /// The failure and the notice to show.
+    #[default]
+    messages: Messages<'a>,
+    /// The page.
     child: Child<'_>,
 ) -> Result<impl View> {
     let tabs: Vec<_> = nav
@@ -255,7 +274,12 @@ pub async fn account<'a>(
 /// What `section`'s pages show a browser that is not signed in: a link to sign
 /// in, at `sign_in`, which comes back to the page.
 #[component]
-pub async fn signed_out(section: Section, sign_in: &str) -> Result<impl View> {
+pub async fn signed_out(
+    /// The section the page belongs to.
+    section: Section,
+    /// Where to sign in.
+    sign_in: &str,
+) -> Result<impl View> {
     let (title, why) = section.sign_in();
     Ok(view! {
         <h1>(title)</h1>

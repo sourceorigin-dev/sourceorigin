@@ -393,7 +393,10 @@ const fn scope_description(scope: Scope) -> &'static str {
 
 /// A client's kind, then a warning when it does not sign users in, as badges.
 #[component]
-pub(crate) async fn client_status<'a>(client: ClientRow<'a>) -> Result<impl View> {
+pub(crate) async fn client_status<'a>(
+    /// The client.
+    client: ClientRow<'a>,
+) -> Result<impl View> {
     Ok(view! {
         <span class="badge neutral">(client.kind_name())</span>
         match client.status {
@@ -415,7 +418,12 @@ pub(crate) async fn client_status<'a>(client: ClientRow<'a>) -> Result<impl View
 /// screen readers, after the status saying whether it did. It starts hidden; the
 /// copy script shows it once it can write to the clipboard.
 #[component]
-pub(crate) async fn copy<'a>(target: &'a str, label: &'a str) -> Result<impl View> {
+pub(crate) async fn copy<'a>(
+    /// The ID of the element whose text is copied.
+    target: &'a str,
+    /// What the button is named for screen readers.
+    label: &'a str,
+) -> Result<impl View> {
     Ok(view! {
         <span class="copy">
             <span class="help" role="status"></span>
@@ -429,7 +437,14 @@ pub(crate) async fn copy<'a>(target: &'a str, label: &'a str) -> Result<impl Vie
 /// `value` as code, the element `id`, beside a button copying it, named `label`.
 /// Clicking the code copies it too.
 #[component]
-pub(crate) async fn copyable<'a>(id: &'a str, label: &'a str, value: &'a str) -> Result<impl View> {
+pub(crate) async fn copyable<'a>(
+    /// The code element's ID.
+    id: &'a str,
+    /// What the copy button is named for screen readers.
+    label: &'a str,
+    /// The text shown and copied.
+    value: &'a str,
+) -> Result<impl View> {
     Ok(view! {
         <div class="code-line">
             <code id=(id)>(value)</code>
@@ -442,7 +457,9 @@ pub(crate) async fn copyable<'a>(id: &'a str, label: &'a str, value: &'a str) ->
 /// `connection`, each value with a button copying it, then its redirect URIs.
 #[component]
 pub(crate) async fn client_facts<'a>(
+    /// The client.
     client: ClientRow<'a>,
+    /// Where a client library finds the service.
     connection: Connection<'a>,
 ) -> Result<impl View> {
     let mut facts: Vec<(&str, &str, Cow<'_, str>)> = vec![
@@ -483,7 +500,12 @@ pub(crate) async fn client_facts<'a>(
 
 /// Help with the input `of`, below it.
 #[component]
-async fn help<'a>(of: &'a Described<'a>, child: Child<'_>) -> Result<impl View> {
+async fn help<'a>(
+    /// The input described.
+    of: &'a Described<'a>,
+    /// The help text.
+    child: Child<'_>,
+) -> Result<impl View> {
     Ok(view! {
         <small class="field-help" id=(of.help())>(child)</small>
     })
@@ -491,7 +513,10 @@ async fn help<'a>(of: &'a Described<'a>, child: Child<'_>) -> Result<impl View> 
 
 /// Why the service refused the setting of the input `of`, if it did, below it.
 #[component]
-async fn refusal<'a>(of: &'a Described<'a>) -> Result<impl View> {
+async fn refusal<'a>(
+    /// The input whose setting was refused.
+    of: &'a Described<'a>,
+) -> Result<impl View> {
     Ok(view! {
         if let Some(message) = of.refusal {
             <p class="field-error" id=(of.error())>(message)</p>
@@ -508,13 +533,25 @@ async fn refusal<'a>(of: &'a Described<'a>) -> Result<impl View> {
 /// row; switches inside a `choices` element share one box.
 #[component]
 pub(crate) async fn choice<'a>(
+    /// The name the switch or the radio group posts under.
     name: &'a str,
-    #[default] value: Option<&'a str>,
+    /// What a radio button posts; none makes a switch.
+    #[default]
+    value: Option<&'a str>,
+    /// Whether the choice is on.
     checked: bool,
-    #[default] autofocus: bool,
-    #[default] defaults: Option<String>,
-    #[into] label: Child<'_>,
-    #[into] detail: Child<'_>,
+    /// Whether the choice starts focused.
+    #[default]
+    autofocus: bool,
+    /// The switches choosing a radio button turns on.
+    #[default]
+    defaults: Option<String>,
+    /// What the choice is called.
+    #[into]
+    label: Child<'_>,
+    /// What the choice does.
+    #[into]
+    detail: Child<'_>,
 ) -> Result<impl View> {
     let input =
         Described::new(value.map_or_else(|| name.to_owned(), |value| format!("{name}-{value}")));
@@ -541,7 +578,10 @@ pub(crate) async fn choice<'a>(
 /// switches its kind starts with on, so the client form script turns them on
 /// when it is chosen.
 #[component]
-async fn kind_question(chosen: ClientKind) -> Result<impl View> {
+async fn kind_question(
+    /// The kind checked.
+    chosen: ClientKind,
+) -> Result<impl View> {
     Ok(view! {
         <fieldset>
             <legend>"Does your app have a backend that can keep a secret?"</legend>
@@ -573,7 +613,12 @@ async fn kind_question(chosen: ClientKind) -> Result<impl View> {
 /// A switch for each standard scope, those of `chosen` checked, and why the
 /// service refused them, as `scopes` says, if it did.
 #[component]
-async fn scope_choices<'a>(chosen: ScopeChoice, scopes: &'a Described<'a>) -> Result<impl View> {
+async fn scope_choices<'a>(
+    /// The scopes checked.
+    chosen: ScopeChoice,
+    /// The input of the scopes, with why they were refused if they were.
+    scopes: &'a Described<'a>,
+) -> Result<impl View> {
     Ok(view! {
         <fieldset aria-describedby=(scopes.refused().then(|| scopes.error()))>
             <legend>"Scopes"</legend>
@@ -603,17 +648,31 @@ async fn scope_choices<'a>(chosen: ScopeChoice, scopes: &'a Described<'a>) -> Re
 /// `head` after the name, and `child` after the rest.
 #[component]
 pub(crate) async fn client_form<'a>(
+    /// Where the form posts.
     action: &'a str,
-    #[into] change: Fields,
+    /// The change the form makes.
+    #[into]
+    change: Fields,
+    /// The values the inputs hold.
     draft: &'a ClientDraft,
-    #[default] kind: Option<ClientKind>,
+    /// The kind chosen, when the form asks for a new client's kind.
+    #[default]
+    kind: Option<ClientKind>,
+    /// What the button says.
     label: &'a str,
-    #[default] error: Option<FieldError<'a>>,
-    #[default] confirm: bool,
+    /// Why the service refused a setting, if it did.
+    #[default]
+    error: Option<FieldError<'a>>,
+    /// Whether a passkey confirms the change first.
+    #[default]
+    confirm: bool,
     #[into]
     #[default]
+    /// The inputs only operators fill in, after the name.
     head: Child<'_>,
-    #[default] child: Child<'_>,
+    /// The inputs only operators fill in, after the rest.
+    #[default]
+    child: Child<'_>,
 ) -> Result<impl View> {
     let unplaced = error.filter(|error| !error.placed());
     let name = Described::of(error, &ClientField::DisplayName);
@@ -706,7 +765,12 @@ pub(crate) async fn client_form<'a>(
 /// The input of a client's back-channel logout URI, showing `uri`, described as
 /// `of` says.
 #[component]
-async fn backchannel_input<'a>(uri: &'a str, of: &'a Described<'a>) -> Result<impl View> {
+async fn backchannel_input<'a>(
+    /// The URI the input shows.
+    uri: &'a str,
+    /// The input described.
+    of: &'a Described<'a>,
+) -> Result<impl View> {
     Ok(view! {
         <label>
             "Back-channel logout URI"
@@ -732,7 +796,9 @@ async fn backchannel_input<'a>(uri: &'a str, of: &'a Described<'a>) -> Result<im
 /// made, and when it stops or stopped working.
 #[component]
 pub(crate) async fn secrets_list<'a>(
+    /// The client's secrets, oldest first.
     secrets: &'a [SecretRow],
+    /// The time lifetimes are counted from.
     now: DateTime<Utc>,
 ) -> Result<impl View> {
     Ok(view! {
@@ -767,8 +833,11 @@ pub(crate) async fn secrets_list<'a>(
 /// `next`.
 #[component]
 pub(crate) async fn secret_panel<'a>(
+    /// The secret just made.
     secret: &'a Revealed,
+    /// The page the panel is on.
     page: &'a str,
+    /// Where saving the secret leads.
     next: &'a str,
 ) -> Result<impl View> {
     Ok(view! {

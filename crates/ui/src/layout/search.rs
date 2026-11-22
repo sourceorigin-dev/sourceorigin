@@ -199,7 +199,10 @@ const RESULTS: &str = "search-results";
 /// the script fills from its `<template>` and shows as the user types, ending
 /// with its page's, if it has one.
 #[component]
-pub(crate) async fn search_box<'a>(search: Search<'a>) -> Result<impl View> {
+pub(crate) async fn search_box<'a>(
+    /// The search the box belongs to.
+    search: Search<'a>,
+) -> Result<impl View> {
     let page = search.page;
     Ok(view! {
         <form
@@ -255,7 +258,10 @@ pub(crate) async fn search_box<'a>(search: Search<'a>) -> Result<impl View> {
 /// first appears. The top bar lists the page's own; the `suggest` URL of a
 /// [`Search`] answers with the rest, in this same markup.
 #[component]
-pub async fn search_results<'a>(found: &'a [Destination<'a>]) -> Result<impl View> {
+pub async fn search_results<'a>(
+    /// The results.
+    found: &'a [Destination<'a>],
+) -> Result<impl View> {
     let mut groups: Vec<Group> = Vec::new();
     for destination in found {
         if !groups.contains(&destination.group) {

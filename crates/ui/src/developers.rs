@@ -281,7 +281,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {{
 /// `limit` it may have, a link to register one at `new` while it may, and where
 /// to learn more.
 #[component]
-pub async fn apps<'a>(links: &'a [AppLink<'a>], limit: u32, new: &'a str) -> Result<impl View> {
+pub async fn apps<'a>(
+    /// The apps, each with its page.
+    links: &'a [AppLink<'a>],
+    /// The most apps the account may have.
+    limit: u32,
+    /// Where an app is registered.
+    new: &'a str,
+) -> Result<impl View> {
     let count = links.len();
     let room = u32::try_from(count).is_ok_and(|count| count < limit);
     Ok(view! {
@@ -343,7 +350,10 @@ pub async fn apps<'a>(links: &'a [AppLink<'a>], limit: u32, new: &'a str) -> Res
 
 /// The link back to the console's `home`, the account's apps.
 #[component]
-pub async fn back_to_apps(home: &str) -> Result<impl View> {
+pub async fn back_to_apps(
+    /// Where the console's home is.
+    home: &str,
+) -> Result<impl View> {
     Ok(view! {
         <p><a href=(home)>"← Your apps"</a></p>
     })
@@ -355,12 +365,19 @@ pub async fn back_to_apps(home: &str) -> Result<impl View> {
 /// app is registered, its secret instead, once.
 #[component]
 pub async fn new_app<'a>(
+    /// The page the form is on.
     page: &'a str,
+    /// Where the console's home is.
     home: &'a str,
+    /// The kind chosen, and what the last attempt said.
     state: &'a NewAppState,
+    /// The values the form holds.
     draft: &'a ClientDraft,
+    /// Whether a passkey confirmed the change.
     confirmed: bool,
-    #[default] error: Option<FieldError<'a>>,
+    /// Why the service refused a setting, if it did.
+    #[default]
+    error: Option<FieldError<'a>>,
 ) -> Result<impl View> {
     Ok(view! {
         if let Some(registered) = &state.registered {
@@ -388,9 +405,13 @@ pub async fn new_app<'a>(
 /// name and status, and its `tabs`, `current` among them.
 #[component]
 pub async fn app_header<'a>(
+    /// Where the console's home is.
     home: &'a str,
+    /// The app.
     client: ClientRow<'a>,
+    /// The app's tabs, each with its page.
     tabs: &'a [(AppTab, String)],
+    /// The tab shown.
     current: AppTab,
 ) -> Result<impl View> {
     let tabs: Vec<_> = tabs
@@ -414,9 +435,13 @@ pub async fn app_header<'a>(
 /// secrets page.
 #[component]
 pub async fn overview<'a>(
+    /// The app.
     client: ClientRow<'a>,
+    /// Where a client library finds the service.
     connection: Connection<'a>,
-    #[default] secrets: Option<&'a str>,
+    /// Where the secrets are, if the app is confidential.
+    #[default]
+    secrets: Option<&'a str>,
 ) -> Result<impl View> {
     let confidential = client.kind == ClientKind::Confidential;
     let example = confidential.then(|| client.rust_example(connection.issuer));
@@ -490,11 +515,17 @@ pub async fn overview<'a>(
 /// Each change needs a passkey confirmation unless `confirmed`.
 #[component]
 pub async fn app_settings<'a>(
+    /// The page the form is on.
     page: &'a str,
+    /// The app.
     client: ClientRow<'a>,
+    /// What the failed save was given, or what the last attempt said.
     state: &'a AppSettingsState,
+    /// Whether a passkey confirmed the change.
     confirmed: bool,
-    #[default] error: Option<FieldError<'a>>,
+    /// Why the service refused a setting, if it did.
+    #[default]
+    error: Option<FieldError<'a>>,
 ) -> Result<impl View> {
     let shown = state
         .draft
@@ -587,13 +618,19 @@ pub async fn app_settings<'a>(
 /// asks nothing.
 #[component]
 pub async fn app_secrets<'a>(
+    /// The page the secrets are on.
     page: &'a str,
+    /// The app's secrets.
     secrets: &'a [SecretRow],
+    /// The time lifetimes are counted from.
     now: DateTime<Utc>,
+    /// The secret a rotation just made, if any.
     state: &'a SecretsState,
+    /// Whether a passkey confirmed the change.
     confirmed: bool,
     #[into]
     #[default]
+    /// Why the last attempt was refused, if it was.
     reason: Option<&'a str>,
 ) -> Result<impl View> {
     let chosen = state.grace.unwrap_or_default();

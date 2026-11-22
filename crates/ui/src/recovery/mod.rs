@@ -212,9 +212,13 @@ pub enum RecoverStep<'a> {
 /// never posts the link's form again.
 #[component]
 pub async fn recover<'a>(
+    /// Where the page is, which its forms post to.
     action: &'a str,
+    /// The step the browser is at.
     step: RecoverStep<'a>,
-    #[default] alert: Option<&'a str>,
+    /// Why the last attempt failed, if it did.
+    #[default]
+    alert: Option<&'a str>,
 ) -> Result<impl View> {
     let title = match step {
         RecoverStep::Open => Title::Recover.as_str().to_owned(),
@@ -288,9 +292,13 @@ pub enum UndoStep<'a> {
 /// post to `action`, and `alert` says why the link's form was refused.
 #[component]
 pub async fn undo_recovery<'a>(
+    /// Where the page is, which its forms post to.
     action: &'a str,
+    /// The step the browser is at.
     step: UndoStep<'a>,
-    #[default] alert: Option<&'a str>,
+    /// Why the last attempt failed, if it did.
+    #[default]
+    alert: Option<&'a str>,
 ) -> Result<impl View> {
     Ok(view! {
         <h1>(Title::UndoRecovery.as_str())</h1>
@@ -337,8 +345,11 @@ pub async fn undo_recovery<'a>(
 /// before it. Without one, only support can.
 #[component]
 async fn undoing<'a>(
+    /// Where the form posts.
     action: &'a str,
+    /// The recovery undone.
     recovery: &'a Recovery,
+    /// The account's handle, if the page names it.
     handle: Option<&'a str>,
 ) -> Result<impl View> {
     let account = handle.map_or_else(|| "your account".to_owned(), |handle| format!("@{handle}"));
@@ -415,9 +426,13 @@ async fn incomplete() -> Result<impl View> {
 /// holds back meanwhile, and who can undo it.
 #[component]
 pub async fn recovery_banner<'a>(
+    /// The recovery that can still be undone.
     recovery: &'a Recovery,
+    /// The session the banner is shown to.
     session: SessionId,
+    /// Whether a passkey has confirmed the session.
     confirmed: bool,
+    /// Where the recovery is undone.
     undo: &'a str,
 ) -> Result<impl View> {
     let key = recovery.dismiss_key(session, confirmed);
@@ -452,8 +467,11 @@ pub async fn recovery_banner<'a>(
 /// pages still ask.
 #[component]
 pub async fn recovery_prompt<'a>(
+    /// The recovery that can still be undone.
     recovery: &'a Recovery,
+    /// Where the answer posts.
     action: &'a str,
+    /// Where the recovery is undone.
     undo: &'a str,
 ) -> Result<impl View> {
     let href = recovery.undo_href(undo);

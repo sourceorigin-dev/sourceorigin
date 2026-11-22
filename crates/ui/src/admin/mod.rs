@@ -356,7 +356,9 @@ pub struct Confirmation<'a> {
 /// service's health; then the page as `child`.
 #[component]
 pub async fn dashboard_frame<'a>(
+    /// The dashboard the page belongs to.
     dashboard: &'a Dashboard<'a>,
+    /// The page.
     child: Child<'_>,
 ) -> Result<impl View> {
     let items: Vec<_> = dashboard
@@ -915,18 +917,25 @@ impl Target<'_> {
 /// passkey before showing it.
 #[component]
 pub async fn dashboard_change<'a>(
+    /// The change the page makes.
     change: Change,
+    /// Where the page goes back to.
     back: &'a str,
     #[into]
     #[default]
+    /// The account or client the change is made to, if it has one.
     target: Option<Target<'a>>,
     #[into]
     #[default]
+    /// Why the last attempt was refused, if it was.
     refusal: Option<&'a str>,
     #[into]
     #[default]
+    /// What the reason field holds.
     reason: Option<&'a str>,
-    #[default] child: Child<'_>,
+    /// The change's inputs.
+    #[default]
+    child: Child<'_>,
 ) -> Result<impl View> {
     let named = target.map(Target::text);
     let confirming = change.confirming(named.as_deref());
@@ -957,9 +966,11 @@ pub async fn dashboard_change<'a>(
 /// The reason input of `change`'s form, if it asks why, holding `value`.
 #[component]
 async fn reason_field<'a>(
+    /// The change the form makes.
     change: Change,
     #[into]
     #[default]
+    /// What the field holds.
     value: Option<&'a str>,
 ) -> Result<impl View> {
     Ok(view! {
@@ -974,11 +985,15 @@ async fn reason_field<'a>(
 /// (`autofocus`); a longer form, which it ends, starts at its first field.
 #[component]
 pub(crate) async fn reason_input<'a>(
+    /// What the input is labelled.
     label: &'a str,
     #[into]
     #[default]
+    /// What the input holds.
     value: Option<&'a str>,
-    #[default] autofocus: bool,
+    /// Whether the input starts focused.
+    #[default]
+    autofocus: bool,
 ) -> Result<impl View> {
     Ok(view! {
         <label>
@@ -993,9 +1008,13 @@ pub(crate) async fn reason_input<'a>(
 /// (`autofocus`).
 #[component]
 async fn message_fields<'a>(
+    /// What the subject holds.
     subject: &'a str,
+    /// What the text holds.
     body: &'a str,
-    #[default] autofocus: bool,
+    /// Whether the subject starts focused.
+    #[default]
+    autofocus: bool,
 ) -> Result<impl View> {
     Ok(view! {
         <label>
@@ -1019,15 +1038,21 @@ async fn message_fields<'a>(
 /// else the `target` the page acts on, such as its account.
 #[component]
 pub(crate) async fn confirm<'a>(
+    /// The dashboard action the button belongs to.
     action: &'a Action,
+    /// The change the button makes.
     change: Change,
     #[into]
     #[default]
+    /// What the dialog names as the subject, if any.
     subject: Option<&'a str>,
     #[into]
     #[default]
+    /// What the dialog names as the target, if any.
     target: Option<&'a str>,
-    #[default] child: Child<'_>,
+    /// The hidden fields posted with the change.
+    #[default]
+    child: Child<'_>,
 ) -> Result<impl View> {
     let class = if change.danger() {
         "button danger small"
@@ -1071,12 +1096,17 @@ pub(crate) async fn confirm<'a>(
 pub async fn account_settings<'a>(
     #[into]
     #[default]
+    /// The account the tab belongs to, if it was found.
     account: Option<Target<'a>>,
+    /// The settings tabs, with where each is.
     tabs: &'a [(SettingsTab, &'a str)],
+    /// The tab shown.
     current: SettingsTab,
     #[into]
     #[default]
+    /// Why the last attempt was refused, if it was.
     refusal: Option<&'a str>,
+    /// The tab's content.
     child: Child<'_>,
 ) -> Result<impl View> {
     Ok(view! {
@@ -1095,7 +1125,12 @@ pub async fn account_settings<'a>(
 
 /// A change the service would refuse, shown disabled with the `reason`.
 #[component]
-pub(crate) async fn refused_action<'a>(label: &'a str, reason: &'a str) -> Result<impl View> {
+pub(crate) async fn refused_action<'a>(
+    /// What the disabled button says.
+    label: &'a str,
+    /// Why the service would refuse it.
+    reason: &'a str,
+) -> Result<impl View> {
     Ok(view! {
         <span class="refused">
             <button class="secondary small" disabled="" title=(reason)>(label)</button>
@@ -1106,7 +1141,10 @@ pub(crate) async fn refused_action<'a>(label: &'a str, reason: &'a str) -> Resul
 
 /// An account's status, as a badge.
 #[component]
-pub(crate) async fn account_status(status: AccountStatus) -> Result<impl View> {
+pub(crate) async fn account_status(
+    /// The account's status.
+    status: AccountStatus,
+) -> Result<impl View> {
     let shown = match status {
         AccountStatus::Active => Badge::new("ok", "Active"),
         AccountStatus::Disabled => Badge::new("neutral", "Disabled"),
@@ -1134,7 +1172,10 @@ impl Badge {
 
 /// The badge `shown`, as a list or a card shows it.
 #[component]
-async fn badge(shown: Badge) -> Result<impl View> {
+async fn badge(
+    /// The badge.
+    shown: Badge,
+) -> Result<impl View> {
     Ok(view! {
         <span class=(class!("badge", shown.tone))>(shown.label)</span>
     })
@@ -1144,10 +1185,15 @@ async fn badge(shown: Badge) -> Result<impl View> {
 /// `filled`; otherwise the `empty` line saying so in its place.
 #[component]
 async fn data_table<'a>(
+    /// The column headings.
     headings: &'a [&'a str],
+    /// What shows instead of the rows when there are none.
     empty: &'a str,
+    /// Whether there are rows.
     filled: bool,
-    #[default] child: Child<'_>,
+    /// The rows.
+    #[default]
+    child: Child<'_>,
 ) -> Result<impl View> {
     Ok(view! {
         if filled {
@@ -1171,14 +1217,20 @@ async fn data_table<'a>(
 
 /// A moment, to the minute, in UTC.
 #[component]
-pub(crate) async fn moment(at: DateTime<Utc>) -> Result<impl View> {
+pub(crate) async fn moment(
+    /// The moment.
+    at: DateTime<Utc>,
+) -> Result<impl View> {
     Ok(view! { time(at: at, precision: Precision::Minute) })
 }
 
 /// What an account that does not administer Origin Auth sees, on the dashboard or on
 /// auth's handoff page, and where it may go instead.
 #[component]
-pub async fn no_access<'a>(home: &'a str) -> Result<impl View> {
+pub async fn no_access<'a>(
+    /// Where the person may go instead.
+    home: &'a str,
+) -> Result<impl View> {
     Ok(view! {
         <h1>"This account has no access"</h1>
         <p class="lead">"Only administrators can use the admin dashboard."</p>
@@ -1190,10 +1242,14 @@ pub async fn no_access<'a>(home: &'a str) -> Result<impl View> {
 /// `title`, the `detail` of why, and a link to `retry`, if there is one.
 #[component]
 pub async fn dashboard_failure<'a>(
+    /// What the page is titled.
     title: &'a str,
-    #[into] detail: String,
+    /// Why it failed.
+    #[into]
+    detail: String,
     #[into]
     #[default]
+    /// Where to try again, if there is a way.
     retry: Option<String>,
 ) -> Result<impl View> {
     Ok(view! {
@@ -1209,7 +1265,9 @@ pub async fn dashboard_failure<'a>(
 /// quick while the Origin Account session lasts, which signs out at `auth_sign_out`.
 #[component]
 pub async fn dashboard_signed_out<'a>(
+    /// Where to sign in again.
     sign_in: &'a str,
+    /// Where the Origin Account session signs out.
     auth_sign_out: &'a str,
 ) -> Result<impl View> {
     Ok(view! {
@@ -1229,11 +1287,15 @@ pub async fn dashboard_signed_out<'a>(
 /// as `alert`, if it was.
 #[component]
 pub async fn handoff_proof<'a>(
+    /// Where the form posts once the passkey is proved.
     action: &'a str,
+    /// Where the passkey proof is posted.
     proof: &'a str,
+    /// What the handoff asked for.
     query: &'a HandoffQuery,
     #[into]
     #[default]
+    /// Why the last attempt failed, if it did.
     alert: Option<&'a str>,
 ) -> Result<impl View> {
     Ok(view! {

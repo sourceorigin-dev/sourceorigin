@@ -162,7 +162,10 @@ impl AdminOverview<'_> {
 
 /// The overview page.
 #[component]
-pub async fn admin_overview<'a>(overview: AdminOverview<'a>) -> Result<impl View> {
+pub async fn admin_overview<'a>(
+    /// What the page shows.
+    overview: AdminOverview<'a>,
+) -> Result<impl View> {
     Ok(view! {
         page_head(
             title: "Overview",
@@ -221,7 +224,10 @@ pub async fn admin_overview<'a>(overview: AdminOverview<'a>) -> Result<impl View
 
 /// What a `problem` says, and where to look.
 #[component]
-async fn problem_notice<'a>(problem: &'a Problem<'a>) -> Result<impl View> {
+async fn problem_notice<'a>(
+    /// The problem.
+    problem: &'a Problem<'a>,
+) -> Result<impl View> {
     Ok(view! {
         match problem {
             Problem::OpenAlerts { count, alerts } => {

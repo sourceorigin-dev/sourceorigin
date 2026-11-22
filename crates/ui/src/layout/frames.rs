@@ -47,8 +47,13 @@ pub enum Health {
 /// source, and the links: the source, SourceOrigin's `policies` and support.
 #[component]
 pub(crate) async fn status_bar<'a>(
-    #[default] health: Option<Health>,
-    #[default] environment: Option<&'a str>,
+    /// Whether the service needs attention, when the page knows.
+    #[default]
+    health: Option<Health>,
+    /// The environment the service runs in, if it is named.
+    #[default]
+    environment: Option<&'a str>,
+    /// The policies the bar links.
     policies: Policies<'a>,
 ) -> Result<impl View> {
     Ok(view! {
@@ -85,9 +90,13 @@ pub(crate) async fn status_bar<'a>(
 /// `home`, labelled `back`. It goes in an [`auth_shell`].
 #[component]
 pub async fn error_page<'a>(
+    /// What the page is titled.
     title: &'a str,
+    /// What failed.
     message: &'a str,
+    /// Where the home page is.
     home: &'a str,
+    /// Where to go back to.
     back: &'a str,
 ) -> Result<impl View> {
     Ok(view! {
@@ -105,10 +114,17 @@ pub async fn error_page<'a>(
 /// links SourceOrigin's `policies`.
 #[component]
 pub async fn auth_shell<'a>(
+    /// Where the home page is.
     home: &'a str,
-    #[default] reference: Option<TraceId>,
-    #[default] admin: bool,
+    /// The trace of the request, if it has one.
+    #[default]
+    reference: Option<TraceId>,
+    /// Whether the page is the dashboard's.
+    #[default]
+    admin: bool,
+    /// The policies the status bar links.
     policies: Policies<'a>,
+    /// The page.
     child: Child<'_>,
 ) -> Result<impl View> {
     let reference = reference.map(|reference| reference.to_string());
@@ -143,9 +159,13 @@ pub async fn auth_shell<'a>(
 /// Its pages have no forms, so the theme follows the browser alone.
 #[component]
 pub async fn site_shell<'a>(
+    /// Where the home page is.
     home: &'a str,
+    /// The links beside the brand, each with its URL.
     links: &'a [(&'a str, &'a str)],
+    /// The policies the status bar links.
     policies: Policies<'a>,
+    /// The page.
     child: Child<'_>,
 ) -> Result<impl View> {
     Ok(view! {

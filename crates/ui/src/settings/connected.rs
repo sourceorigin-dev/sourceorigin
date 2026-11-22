@@ -54,9 +54,13 @@ pub struct ConnectedAppRow<'a> {
 /// as `state` opens it, for `audience`. Its changes post to `page`.
 #[component]
 pub async fn connected_apps<'a>(
+    /// Where the page is, which its changes post to.
     page: &'a str,
+    /// The connected apps.
     rows: &'a [ConnectedAppRow<'a>],
+    /// Which removal is open, and what the last attempt said.
     state: &'a ConnectedAppsState,
+    /// Whom the page is shown to.
     audience: Audience<'a>,
 ) -> Result<impl View> {
     Ok(view! {
@@ -93,9 +97,13 @@ pub async fn connected_apps<'a>(
 /// removal row takes the focus.
 #[component]
 async fn app_row<'a>(
+    /// Where the page is, which its changes post to.
     page: &'a str,
+    /// The app.
     row: ConnectedAppRow<'a>,
+    /// Whether its removal row is open.
     removing: bool,
+    /// Whom the page is shown to.
     audience: Audience<'a>,
 ) -> Result<impl View> {
     let name = row.name;

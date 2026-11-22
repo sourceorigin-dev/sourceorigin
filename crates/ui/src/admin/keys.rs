@@ -32,8 +32,11 @@ const fn state_badge(state: SigningKeyState) -> Badge {
 /// `rotate` and rewrapping them at `rewrap`.
 #[component]
 pub async fn signing_key_list<'a>(
+    /// The signing keys, oldest first.
     rows: &'a [SigningKeyRow<'a>],
+    /// Where the signing key is rotated.
     rotate: &'a str,
+    /// Where the keys are rewrapped.
     rewrap: &'a str,
 ) -> Result<impl View> {
     Ok(view! {
@@ -71,7 +74,11 @@ pub async fn signing_key_list<'a>(
 
 /// A moment, or a dash before it happens.
 #[component]
-async fn when(#[into] at: Option<DateTime<Utc>>) -> Result<impl View> {
+async fn when(
+    /// The moment, if it has happened.
+    #[into]
+    at: Option<DateTime<Utc>>,
+) -> Result<impl View> {
     Ok(view! {
         match at {
             Some(at) => moment(at: at),
@@ -85,13 +92,17 @@ async fn when(#[into] at: Option<DateTime<Utc>>) -> Result<impl View> {
 /// to `back`.
 #[component]
 pub async fn signing_key_rotation<'a>(
+    /// Where the page goes back to.
     back: &'a str,
     #[into]
     #[default]
+    /// Why the last attempt was refused, if it was.
     refused: Option<&'a str>,
+    /// Whether the form asks for the new key to sign at once.
     now: bool,
     #[into]
     #[default]
+    /// What the reason field holds.
     reason: Option<&'a str>,
 ) -> Result<impl View> {
     Ok(view! {
