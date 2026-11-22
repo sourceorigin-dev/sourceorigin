@@ -282,6 +282,10 @@ impl PictureApplication {
     /// that does not parse names none.
     async fn serve(State(app): State<Self>, Path(id): Path<String>) -> Result<Response, ApiError> {
         let missing = || ApiError::not_found("There is no such picture.");
+        #[expect(
+            clippy::map_err_ignore,
+            reason = "A path that is no picture ID is answered as a missing picture, as an unknown ID is"
+        )]
         let id: PictureId = id.parse().map_err(|_| missing())?;
         let image = app
             .database

@@ -35,9 +35,9 @@ use thiserror::Error;
 const EXPONENT: [u8; 3] = [1, 0, 1];
 
 /// Why a compact token cannot be split, as a sentence for the caller's error.
-#[derive(Clone, Copy, Debug, Error, PartialEq, Eq)]
+#[derive(Clone, Debug, Error, PartialEq, Eq)]
 #[error("{0}")]
-pub struct Malformed(pub &'static str);
+pub struct Malformed(pub &'static str, #[source] pub Option<base64::DecodeError>);
 
 /// A compact JWS split into its three segments, with only its header decoded.
 /// The caller checks the header first, then decodes the rest, so a header that
@@ -79,7 +79,7 @@ impl<'a> Split<'a> {
 fn decode(segment: &str) -> Result<Vec<u8>, Malformed> {
     URL_SAFE_NO_PAD
         .decode(segment)
-        .map_err(|_| Malformed("a segment is not base64url"))
+        .map_err(|error| Malformed("a segment is not base64url", Some(error)))
 }
 
 /// A compact JWS (RFC 7515 §7.1) split into its decoded parts. Nothing is
@@ -105,7 +105,7 @@ impl<'a> Compact<'a> {
     /// that is not unpadded base64url.
     pub fn split(token: &'a str) -> Result<Split<'a>, Malformed> {
         if token.len() > MAX_TOKEN_BYTES {
-            return Err(Malformed("the token exceeds 16 KiB"));
+            return Err(Malformed("the token exceeds 16 KiB", None));
         }
         let mut segments = token.split('.');
         let (Some(header), Some(payload), Some(signature), None) = (
@@ -114,7 +114,7 @@ impl<'a> Compact<'a> {
             segments.next(),
             segments.next(),
         ) else {
-            return Err(Malformed("the token is not three segments"));
+            return Err(Malformed("the token is not three segments", None));
         };
         Ok(Split {
             header: decode(header)?,
@@ -248,6 +248,10 @@ impl Rs256VerifyingKey {
     /// # Errors
     /// [`VerifyError::Unusable`] for a key with a [`KeyDefect`], whatever the
     /// signature; [`VerifyError::BadSignature`] when the signature does not verify.
+    #[expect(
+        clippy::map_err_ignore,
+        reason = "The provider's `Unspecified` carries nothing, by design"
+    )]
     pub fn verify(&self, signing_input: &str, signature: &[u8]) -> Result<(), VerifyError> {
         let key = self
             .parsed

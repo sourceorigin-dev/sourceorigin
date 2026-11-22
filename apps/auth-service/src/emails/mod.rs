@@ -530,6 +530,10 @@ impl AccountService {
         request: RequestContext,
     ) -> Result<Verified, AccountError> {
         // A token that does not parse cannot match: answer as for an unknown one.
+        #[expect(
+            clippy::map_err_ignore,
+            reason = "Secret::parse names a byte of the token, a secret; the answer is the one for an unknown token"
+        )]
         let digest = Secret::parse(token)
             .map_err(|_| EmailError::InvalidToken)?
             .digest();

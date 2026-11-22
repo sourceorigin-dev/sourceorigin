@@ -171,6 +171,10 @@ impl DashboardSignIn {
         if proof.session_id() != session.id {
             return Err(AdminError::SessionEnded);
         }
+        #[expect(
+            clippy::map_err_ignore,
+            reason = "Secret::parse names a byte of the handoff's state, a secret"
+        )]
         let state = Secret::parse(&handoff.state).map_err(|_| AdminError::InvalidHandoff)?;
         let return_to = Self::path(&handoff.return_to)?;
         let code = Secret::generate()?;
@@ -212,6 +216,10 @@ impl DashboardSignIn {
         let state = BrowserCookie::DashboardState
             .read(headers)
             .ok_or(AdminError::InvalidHandoff)?;
+        #[expect(
+            clippy::map_err_ignore,
+            reason = "Secret::parse names a byte of the handoff's code, a secret"
+        )]
         let code = Secret::parse(code).map_err(|_| AdminError::InvalidHandoff)?;
         let mut tx = self.database.begin().await?;
         let user_id = (tx
@@ -366,6 +374,6 @@ impl DashboardSignIn {
 
     /// The dashboard path `value` names, which cannot leave the dashboard's origin.
     fn path(value: &str) -> Result<ReturnTo, AdminError> {
-        ReturnTo::parse(Some(value)).map_err(|_| AdminError::InvalidHandoff)
+        ReturnTo::parse(Some(value)).map_err(AdminError::InvalidHandoffReturn)
     }
 }

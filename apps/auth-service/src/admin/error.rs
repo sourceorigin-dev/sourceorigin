@@ -6,7 +6,9 @@ use crate::{
     security::ApiError,
 };
 use sourceorigin_common::{
-    DeliveryId, PasskeyId, email::InvalidEmail, protocol::step_up::StepUpRequirement,
+    DeliveryId, PasskeyId,
+    email::InvalidEmail,
+    protocol::{return_to::InvalidReturnTo, step_up::StepUpRequirement},
 };
 use sourceorigin_crypto::CryptoError;
 use sourceorigin_repository::DatabaseError;
@@ -28,6 +30,10 @@ pub(crate) enum AdminError {
     /// used, expired or for another browser, or its request is malformed.
     #[error("this sign-in to the dashboard did not work; sign in again")]
     InvalidHandoff,
+    /// A sign-in to the dashboard was handed off with a return path that leaves
+    /// the dashboard.
+    #[error("this sign-in to the dashboard did not work; sign in again")]
+    InvalidHandoffReturn(#[source] InvalidReturnTo),
     /// No account has this ID or handle, or no active one this verified email.
     #[error("no account has this ID, handle or verified email")]
     UserNotFound,
@@ -227,7 +233,7 @@ impl AdminError {
             Self::SessionEnded => "session_ended",
             Self::NotAdministrator => "not_administrator",
             Self::StepUpRequired(_) => "step_up_required",
-            Self::InvalidHandoff => "invalid_handoff",
+            Self::InvalidHandoff | Self::InvalidHandoffReturn(_) => "invalid_handoff",
             Self::UserNotFound => "user_not_found",
             Self::InvitationNotFound => "invitation_not_found",
             Self::ClientNotFound => "client_not_found",
@@ -312,6 +318,7 @@ impl From<AdminError> for ApiError {
             | AdminError::InvalidInvitationEmail(_)
             | AdminError::InvitationUnsendable(_)
             | AdminError::InvalidHandoff
+            | AdminError::InvalidHandoffReturn(_)
             | AdminError::InvalidSubject
             | AdminError::InvalidBody
             | AdminError::NoRecipients

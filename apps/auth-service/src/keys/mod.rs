@@ -531,7 +531,7 @@ impl<'t, 'c> Change<'t, 'c> {
     /// Seals and stores `key` in `state`.
     async fn insert(&mut self, key: &Rs256Key, state: SigningKeyState) -> Result<KeyId, KeyError> {
         let key_type = SigningKeyType::Rsa;
-        let id: KeyId = key.kid().parse().map_err(|_| CryptoError::KeyId)?;
+        let id: KeyId = key.kid().parse().map_err(CryptoError::KeyId)?;
         let sealed_private_key = self.store.seal(key, &id, key_type)?;
         self.tx
             .signing_keys()

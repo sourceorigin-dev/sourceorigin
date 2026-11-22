@@ -4,7 +4,7 @@ use crate::{Issuer, KeyError, keys::Jws, scope::ScopeSet};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use sourceorigin_common::{
-    ClientId, SessionId, TokenId, UserId,
+    ClientId, InvalidValue, SessionId, TokenId, UserId,
     protocol::{
         challenge::{BearerChallenge, BearerError},
         claims::{
@@ -19,6 +19,7 @@ use sourceorigin_common::{
         step_up::StepUpRequirement,
     },
 };
+use sourceorigin_crypto::Malformed;
 use std::marker::PhantomData;
 use thiserror::Error;
 
@@ -55,8 +56,11 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum TokenError {
     /// The token is not a compact JWS.
-    #[error("token is malformed: {0}")]
-    Malformed(&'static str),
+    #[error("token is malformed")]
+    Malformed(#[source] Malformed),
+    /// The header is not a JWS header.
+    #[error("token header is not a JWS header")]
+    MalformedHeader(#[source] serde_json::Error),
     /// The header lists `crit` extensions, which this SDK does not understand.
     #[error("token requires header extensions this SDK does not understand")]
     UnsupportedCriticalHeader,
@@ -85,7 +89,7 @@ pub enum TokenError {
     InvalidClaims(#[source] serde_json::Error),
     /// `sub` is neither an account ID nor the client.
     #[error("token subject {0:?} is not an account ID")]
-    InvalidSubject(String),
+    InvalidSubject(String, #[source] InvalidValue),
     /// `iss`, `aud`, a time or the ID token's `nonce` fails the shared check.
     #[error(transparent)]
     Claims(#[from] ClaimsError),
@@ -153,13 +157,13 @@ impl TokenError {
             Self::InsufficientUserAuthentication(_) => {
                 return SdkError::category(ErrorCategory::InsufficientUserAuthentication);
             }
-            Self::Malformed(_) => ErrorReason::Malformed,
+            Self::Malformed(_) | Self::MalformedHeader(_) => ErrorReason::Malformed,
             Self::UnsupportedCriticalHeader => ErrorReason::UnsupportedCriticalHeader,
             Self::WrongType { .. } => ErrorReason::WrongType,
             Self::UnsupportedAlgorithm(_) => ErrorReason::UnsupportedAlgorithm,
             Self::UnknownKey(_) => ErrorReason::UnknownKey,
             Self::BadSignature => ErrorReason::BadSignature,
-            Self::InvalidClaims(_) | Self::InvalidSubject(_) | Self::NoLogoutTarget => {
+            Self::InvalidClaims(_) | Self::InvalidSubject(..) | Self::NoLogoutTarget => {
                 ErrorReason::InvalidClaims
             }
             Self::LifetimeTooLong { .. } => ErrorReason::LifetimeTooLong,
@@ -192,7 +196,7 @@ impl TokenError {
     /// The account `sub` names.
     pub(crate) fn account(sub: &str) -> Result<UserId, Self> {
         sub.parse()
-            .map_err(|_| Self::InvalidSubject(sub.to_owned()))
+            .map_err(|source| Self::InvalidSubject(sub.to_owned(), source))
     }
 
     /// Requires the authentication `acr` and `auth_time` describe to meet

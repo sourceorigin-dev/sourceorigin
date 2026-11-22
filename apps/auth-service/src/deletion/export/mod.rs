@@ -532,6 +532,10 @@ impl AccountExport {
             clients,
             permit,
         } = self;
+        #[expect(
+            clippy::map_err_ignore,
+            reason = "A failed send returns the unsent chunk, which is the account's own data"
+        )]
         let send = async |chunk: Vec<u8>| {
             (sender.send(Ok(chunk.into())).await).map_err(|_| ExportError::Closed)
         };

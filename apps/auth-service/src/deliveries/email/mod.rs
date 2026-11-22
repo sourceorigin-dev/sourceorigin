@@ -406,6 +406,10 @@ impl<M: Mailer> EmailSender<M> {
         };
         let mail = content.said.mail();
         let html = mail.html().await.map_err(|error| built(&*error))?;
+        #[expect(
+            clippy::map_err_ignore,
+            reason = "A delivery's failure is stored as its `Failure` kind alone, never what a parser said of the address"
+        )]
         let to: Address = content
             .address
             .parse()

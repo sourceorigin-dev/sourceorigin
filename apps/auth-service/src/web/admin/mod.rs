@@ -1328,7 +1328,7 @@ async fn sign_in(cx: &Cx) -> Result<Response> {
             cookie.set_on(&mut response)?;
             Ok(response)
         }
-        Err(refused @ AdminError::InvalidHandoff) => {
+        Err(refused @ (AdminError::InvalidHandoff | AdminError::InvalidHandoffReturn(_))) => {
             refused.log_refusal();
             let retry = href!(overview::overview).resolve(cx);
             let page = view! { cx =>

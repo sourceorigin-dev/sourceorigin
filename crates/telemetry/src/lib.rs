@@ -104,7 +104,7 @@ pub enum TelemetryError {
     Panicked(#[from] tokio::sync::oneshot::error::RecvError),
     /// The flush did not finish in time, so what was still pending is lost.
     #[error("telemetry flush did not finish within {0:?}")]
-    TimedOut(Duration),
+    TimedOut(Duration, #[source] tokio::time::error::Elapsed),
 }
 
 /// A service's installed telemetry. Spans always get trace IDs; exporters exist
@@ -207,7 +207,7 @@ impl Telemetry {
         });
         let flushed = tokio::time::timeout(within, result)
             .await
-            .map_err(|_| TelemetryError::TimedOut(within))?;
+            .map_err(|source| TelemetryError::TimedOut(within, source))?;
         Ok(flushed??)
     }
 

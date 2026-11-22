@@ -35,11 +35,15 @@
 
 use super::{
     claims::Acr,
-    oauth::{ErrorDescription, Scopes},
+    oauth::{ErrorDescription, InvalidDescription, Scopes},
     step_up::StepUpRequirement,
 };
 use serde::{Deserialize, Serialize};
-use std::{fmt, str::FromStr};
+use std::{
+    fmt,
+    num::ParseIntError,
+    str::{FromStr, Utf8Error},
+};
 use thiserror::Error;
 use url::Url;
 
@@ -140,6 +144,9 @@ pub enum ChallengeError {
     /// The header breaks the RFC 9110 §11 challenge grammar.
     #[error("WWW-Authenticate is malformed at byte {0}")]
     Syntax(usize),
+    /// A quoted string starting at this byte is not UTF-8.
+    #[error("WWW-Authenticate is malformed at byte {0}")]
+    NotUtf8(usize, #[source] Utf8Error),
     /// No challenge uses the `Bearer` scheme.
     #[error("WWW-Authenticate has no Bearer challenge")]
     NotBearer,
@@ -149,6 +156,15 @@ pub enum ChallengeError {
     /// A known parameter has an invalid value.
     #[error("Bearer challenge has an invalid {0}")]
     InvalidValue(&'static str),
+    /// The `error_description` is not printable ASCII without `"` or `\`.
+    #[error("Bearer challenge has an invalid error_description")]
+    InvalidErrorDescription(#[source] InvalidDescription),
+    /// The `max_age` is not a number of seconds.
+    #[error("Bearer challenge has an invalid max_age")]
+    InvalidMaxAge(#[source] ParseIntError),
+    /// The `resource_metadata` is not a URL.
+    #[error("Bearer challenge has an invalid resource_metadata")]
+    InvalidResourceMetadata(#[source] url::ParseError),
 }
 
 impl BearerChallenge {
@@ -214,7 +230,7 @@ impl BearerChallenge {
                     challenge.error_description = Some(
                         value
                             .parse()
-                            .map_err(|_| ChallengeError::InvalidValue("error_description"))?,
+                            .map_err(ChallengeError::InvalidErrorDescription)?,
                     );
                 }
                 // RFC 6750 §3: scope tokens separated by single spaces.
@@ -232,17 +248,14 @@ impl BearerChallenge {
                 // knows, as auth picks it (OIDC Core §3.1.2.1).
                 "acr_values" => challenge.step_up.acr = Acr::select(&value),
                 "max_age" => {
-                    challenge.step_up.max_age = Some(
-                        value
-                            .parse()
-                            .map_err(|_| ChallengeError::InvalidValue("max_age"))?,
-                    );
+                    challenge.step_up.max_age =
+                        Some(value.parse().map_err(ChallengeError::InvalidMaxAge)?);
                 }
                 "resource_metadata" => {
                     challenge.resource_metadata = Some(
                         value
                             .parse()
-                            .map_err(|_| ChallengeError::InvalidValue("resource_metadata"))?,
+                            .map_err(ChallengeError::InvalidResourceMetadata)?,
                     );
                 }
                 _ => {}
@@ -461,7 +474,8 @@ impl<'a> Parser<'a> {
             match self.peek() {
                 Some(b'"') => {
                     self.position += 1;
-                    return String::from_utf8(value).map_err(|_| ChallengeError::Syntax(start));
+                    return String::from_utf8(value)
+                        .map_err(|error| ChallengeError::NotUtf8(start, error.utf8_error()));
                 }
                 Some(b'\\') => {
                     self.position += 1;

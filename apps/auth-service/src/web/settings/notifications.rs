@@ -151,6 +151,10 @@ impl NotificationPage {
     }
 
     /// The notification the path names, which is missing if it is not an ID.
+    #[expect(
+        clippy::map_err_ignore,
+        reason = "A path that is no notification ID is answered as a missing notification, as an unknown ID is"
+    )]
     fn id(cx: &Cx) -> Result<NotificationId, Failure> {
         path_param::<Id>(cx).parse().map_err(|_| Failure::Missing)
     }

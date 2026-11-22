@@ -388,6 +388,10 @@ impl AccountService {
     /// account is active. A token that does not parse cannot match, so it answers
     /// as an unknown one.
     pub(crate) async fn open_recovery(&self, token: &str) -> Result<OpenRecovery, AccountError> {
+        #[expect(
+            clippy::map_err_ignore,
+            reason = "Secret::parse names a byte of the token, a secret; the answer is the one for an unknown token"
+        )]
         let digest = Secret::parse(token)
             .map_err(|_| RecoveryError::InvalidLink)?
             .digest();

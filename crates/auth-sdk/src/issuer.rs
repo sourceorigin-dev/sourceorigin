@@ -32,7 +32,7 @@ use url::Url;
 pub enum DiscoveryError {
     /// The configured issuer is not an `https` URL without query or fragment.
     #[error("issuer {0:?} must be an https URL without query or fragment")]
-    InvalidIssuer(String),
+    InvalidIssuer(String, #[source] Option<url::ParseError>),
     /// The metadata endpoint could not be reached.
     #[error(transparent)]
     Network(#[from] NetworkError),
@@ -61,7 +61,7 @@ impl DiscoveryError {
     #[must_use]
     pub const fn code(&self) -> SdkError {
         match self {
-            Self::InvalidIssuer(_) => SdkError::category(ErrorCategory::Discovery),
+            Self::InvalidIssuer(..) => SdkError::category(ErrorCategory::Discovery),
             Self::Network(_) => SdkError::category(ErrorCategory::Network),
             Self::InvalidDocument(_) | Self::InsecureEndpoint(_) => {
                 SdkError::new(ErrorCategory::Discovery, ErrorReason::InvalidDocument)
@@ -212,16 +212,16 @@ impl Issuer {
 
     /// Where `issuer` publishes its metadata (OIDC Discovery 1.0 §4.1).
     fn metadata_url(issuer: &str) -> Result<Url, DiscoveryError> {
-        let invalid = || DiscoveryError::InvalidIssuer(issuer.to_owned());
-        let url = Url::parse(issuer).map_err(|_| invalid())?;
+        let invalid = |source| DiscoveryError::InvalidIssuer(issuer.to_owned(), source);
+        let url = Url::parse(issuer).map_err(|source| invalid(Some(source)))?;
         if url.scheme() != "https" || url.query().is_some() || url.fragment().is_some() {
-            return Err(invalid());
+            return Err(invalid(None));
         }
         Url::parse(&format!(
             "{}{OPENID_CONFIGURATION_PATH}",
             issuer.trim_end_matches('/')
         ))
-        .map_err(|_| invalid())
+        .map_err(|source| invalid(Some(source)))
     }
 
     /// Parses a metadata document and checks it belongs to `issuer`.

@@ -167,6 +167,10 @@ impl OutboundClient {
     /// that is not public. Names are checked when they resolve.
     fn check(&self, destination: &str) -> Result<Url, DeliveryError> {
         let invalid = DeliveryError::Permanent(Failure::InvalidDestination);
+        #[expect(
+            clippy::map_err_ignore,
+            reason = "A delivery's failure is stored as its `Failure` kind alone, never what a parser said of the destination"
+        )]
         let url = Url::parse(destination).map_err(|_| invalid)?;
         let address = match url.host() {
             _ if url.scheme() != "https" => return Err(invalid),

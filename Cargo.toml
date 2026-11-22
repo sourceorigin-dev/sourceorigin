@@ -43,6 +43,7 @@ expect_used = "warn"
 panic = "warn"
 todo = "warn"
 unreachable = "warn"
+map_err_ignore = "warn"
 unimplemented = "warn"
 dbg_macro = "warn"
 # `let _ =` hides a `#[must_use]` result, such as a dropped error.
