@@ -176,8 +176,27 @@ that regenerates it.
 - **Test one behaviour, and name the test for what it proves**, such as
   `google_key_fetch_is_a_client_span_of_its_request`. Its doc comment says why
   the behaviour matters.
+- **Test it once, at the lowest layer that fails without the change**: not
+  again in a wrapper, at each call site or on each surface.
+- **Extend before you add.** When an existing test or table covers the
+  behaviour, add a row or an assertion to it; write a new test only when no case
+  fits.
+- **A fix comes with a test that fails without it, written first**, when it
+  fixes logic, data, state or a protocol. A purely visual fix, such as spacing,
+  colour or alignment, is shown with before and after screenshots in the pull
+  request instead, and gets no test.
 - **Assert the outcome**, not that something ran. A test that only checks a page
   loads or a command exits 0 proves little and still has to be maintained.
+- **Wait for events, not time.** No `thread::sleep` or `tokio::time::sleep` to
+  let something happen, no assertions on how much real time passed, and no
+  retries: await the channel, notification or state change that marks the
+  milestone, such as a `watch` the test's fake sends on, or `until_blocked` for a
+  transaction queued behind a lock. Move tokio's clock with
+  `#[tokio::test(start_paused = true)]` or `tokio::time::advance`, and end an
+  expiry PostgreSQL judges at once, as `SessionRepository::expire` and
+  `RecoveryRepository::expire` do. A wait on a real subprocess or network peer
+  that has nothing to await says why on the line above: `// wall-clock: <why>`.
+  A `cargo xtask test-waits` check is coming to enforce this.
 - **Don't test that a removed feature stays removed.** Once the code is gone,
   there is nothing left to break.
 - **Cover in the browser whatever needs a browser.** Each spec says at its top
