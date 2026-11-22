@@ -496,32 +496,42 @@ impl DatabaseTransaction<'_> {
     /// checkpoint's position.
     pub async fn prune_audit_chain(&mut self, through: u64) -> Result<u64, DatabaseError> {
         let through = Unsigned::bind(through)?;
-        let connection = &mut *self.inner;
-        sqlx::query!("SELECT set_config('sourceorigin.audit_prune', 'on', true)")
-            .fetch_one(&mut *connection)
-            .await?;
-        Limit::STATEMENT
-            .at(PRUNE_STATEMENT_TIMEOUT)
-            .set(Scope::Transaction)
-            .fetch_one(&mut *connection)
-            .await?;
-        let deleted = sqlx::query!(
-            "DELETE FROM domain_events WHERE chain_position <= $1",
-            through
-        )
-        .execute(&mut *connection)
-        .await?
+        let mut audit = self.audit();
+        run!(
+            audit,
+            fetch_one,
+            sqlx::query!("SELECT set_config('sourceorigin.audit_prune', 'on', true)")
+        )?;
+        run!(
+            audit,
+            fetch_one,
+            Limit::STATEMENT
+                .at(PRUNE_STATEMENT_TIMEOUT)
+                .set(Scope::Transaction)
+        )?;
+        let deleted = run!(
+            audit,
+            execute,
+            sqlx::query!(
+                "DELETE FROM domain_events WHERE chain_position <= $1",
+                through
+            )
+        )?
         .rows_affected();
-        sqlx::query!(
-            "INSERT INTO audit_anchor (position) VALUES ($1)
+        run!(
+            audit,
+            execute,
+            sqlx::query!(
+                "INSERT INTO audit_anchor (position) VALUES ($1)
             ON CONFLICT (singleton) DO UPDATE SET position = EXCLUDED.position",
-            through
-        )
-        .execute(&mut *connection)
-        .await?;
-        sqlx::query!("SELECT set_config('sourceorigin.audit_prune', 'off', true)")
-            .fetch_one(&mut *connection)
-            .await?;
+                through
+            )
+        )?;
+        run!(
+            audit,
+            fetch_one,
+            sqlx::query!("SELECT set_config('sourceorigin.audit_prune', 'off', true)")
+        )?;
         Ok(deleted)
     }
 }
