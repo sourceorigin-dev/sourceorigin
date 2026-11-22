@@ -76,8 +76,8 @@ pub(super) async fn detail(cx: &Cx) -> Result<Response> {
     }
     let found = service.client_detail(&admin.operator, &id).await?;
     let approved = service.list_related_origins(&admin.operator).await?;
-    let stored = &found.client;
-    let client = ClientRow::from(&found);
+    let client = &found.client;
+    let row = ClientRow::from(&found);
     let page = || Client(id.clone());
     let secrets: Vec<_> = found.secrets.iter().map(SecretRow::from).collect();
     let origins = approved
@@ -91,9 +91,9 @@ pub(super) async fn detail(cx: &Cx) -> Result<Response> {
             Ok((approved.origin.as_str(), remove))
         })
         .collect::<Result<_>>()?;
-    let approve = if stored.deleted_at.is_some() {
+    let approve = if client.deleted_at.is_some() {
         Err("Deleted clients sign nobody in.")
-    } else if stored.trusted {
+    } else if client.trusted {
         Ok(href!(origins::approve, page()).resolve(cx))
     } else {
         Err("Only trusted clients' pages sign users in themselves.")
@@ -102,14 +102,14 @@ pub(super) async fn detail(cx: &Cx) -> Result<Response> {
     // is not links the change's page, which confirms first.
     let inline = admin.operator.is_confirmed(super::FORM_TIME);
     let action = |href: String| Action { href, inline };
-    let changes = stored.deleted_at.is_none().then(|| ClientChanges {
+    let changes = client.deleted_at.is_none().then(|| ClientChanges {
         settings: href!(edit, page()).resolve(cx),
-        status: match client.status {
+        status: match row.status {
             ClientStatus::Deleted { .. } | ClientStatus::Suspended { .. } => None,
             ClientStatus::Enabled => Some(action(href!(disable, page()).resolve(cx))),
             ClientStatus::Disabled => Some(action(href!(enable, page()).resolve(cx))),
         },
-        suspension: action(match client.status {
+        suspension: action(match row.status {
             ClientStatus::Suspended { .. } => href!(unsuspend, page()).resolve(cx),
             ClientStatus::Deleted { .. } | ClientStatus::Enabled | ClientStatus::Disabled => {
                 href!(suspend, page()).resolve(cx)
@@ -119,10 +119,10 @@ pub(super) async fn detail(cx: &Cx) -> Result<Response> {
         secret: (found.kind == ClientKind::Confidential).then(|| href!(rotate, page()).resolve(cx)),
     });
     let shown = ClientPage {
-        client,
-        trusted: stored.trusted,
-        audiences: &stored.allowed_audiences,
-        owner: stored
+        client: row,
+        trusted: client.trusted,
+        audiences: &client.allowed_audiences,
+        owner: client
             .owner_id
             .map(|owner| (owner, App::account(cx, owner))),
         created_at: found.created_at,
