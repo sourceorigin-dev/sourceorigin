@@ -10,8 +10,8 @@ use axum::{
 };
 use sourceorigin_common::DeliveryId;
 use sourceorigin_repository::{DeliveryStatus, DeliverySummary, NewDelivery};
-use std::{marker::PhantomData, net::IpAddr, sync::Mutex};
-use tokio::sync::{Notify, mpsc};
+use std::{marker::PhantomData, net::IpAddr};
+use tokio::sync::{Notify, mpsc, watch};
 
 /// A retryable failure without `Retry-After`.
 const UNAVAILABLE: DeliveryError = DeliveryError::Retryable {
@@ -262,8 +262,24 @@ enum Behavior {
     Accepted,
 }
 
-/// Sends channel `C`'s deliveries, keeping the ID each attempt carried.
-struct Recorder<C>(Arc<Mutex<Vec<DeliveryId>>>, PhantomData<C>);
+/// What a channel's workers did: the delivery ID each attempt carried, in
+/// order, and how many of their polls found nothing due.
+#[derive(Clone, Debug, Default)]
+struct Seen {
+    attempts: Vec<DeliveryId>,
+    idle: usize,
+}
+
+impl Seen {
+    /// How many attempts carried `id`.
+    fn count(&self, id: DeliveryId) -> usize {
+        self.attempts.iter().filter(|&&seen| seen == id).count()
+    }
+}
+
+/// Sends channel `C`'s deliveries, publishing what its workers do as each
+/// attempt starts and each poll finds nothing.
+struct Recorder<C>(watch::Sender<Seen>, PhantomData<C>);
 
 impl<C: Channel<Recipient = Behavior, Payload = ()>> Sender for Recorder<C> {
     type Channel = C;
@@ -273,9 +289,11 @@ impl<C: Channel<Recipient = Behavior, Payload = ()>> Sender for Recorder<C> {
         &self,
         delivery: &Delivery<C>,
     ) -> impl Future<Output = Result<(), DeliveryError>> + Send {
-        let mut attempts = self.0.lock().expect("attempts");
-        let first = !attempts.contains(&delivery.id);
-        attempts.push(delivery.id);
+        let mut first = false;
+        self.0.send_modify(|seen| {
+            first = !seen.attempts.contains(&delivery.id);
+            seen.attempts.push(delivery.id);
+        });
         let refused = DeliveryError::Permanent(Failure::Status(StatusCode::FORBIDDEN));
         std::future::ready(match delivery.recipient {
             Behavior::Unavailable => Err(DeliveryError::Retryable {
@@ -287,16 +305,20 @@ impl<C: Channel<Recipient = Behavior, Payload = ()>> Sender for Recorder<C> {
             Behavior::RefusedOnce | Behavior::Accepted => Ok(()),
         })
     }
+
+    fn idle(&self) {
+        self.0.send_modify(|seen| seen.idle += 1);
+    }
 }
 
-/// A database with no pending delivery left on `C` by an earlier run, and workers
-/// sending `C`, whose attempts are recorded in the returned list.
+/// A database with no pending delivery left on `C` by an earlier run, workers
+/// sending `C`, and what they do.
 async fn workers<C: Channel<Recipient = Behavior, Payload = ()>>()
--> (Database, Jobs, Arc<Mutex<Vec<DeliveryId>>>) {
+-> (Database, Jobs, watch::Sender<Seen>) {
     let database = cleared::<C>().await;
-    let attempts = Arc::default();
-    let jobs = Jobs::replica(Recorder::<C>(Arc::clone(&attempts), PhantomData)).await;
-    (database, jobs, attempts)
+    let seen = watch::Sender::default();
+    let jobs = Jobs::replica(Recorder::<C>(seen.clone(), PhantomData)).await;
+    (database, jobs, seen)
 }
 
 /// A database with no pending delivery left on `C` by an earlier run.
@@ -345,31 +367,28 @@ async fn queue<C: Channel<Recipient = Behavior, Payload = ()>>(
         .expect("insert")
 }
 
-/// Polls `C`'s deliveries for up to 10 s until `done` returns `Some`.
-async fn wait_for<C: Channel, T>(
-    database: &Database,
-    done: impl Fn(&[DeliverySummary]) -> Option<T>,
-) -> T {
-    tokio::time::timeout(Duration::from_secs(10), async {
-        loop {
-            let listed = database
-                .deliveries()
-                .list(None, Some(C::NAME), 1000)
-                .await
-                .expect("list");
-            if let Some(found) = done(&listed) {
-                break found;
-            }
-            tokio::time::sleep(Duration::from_millis(50)).await;
-        }
-    })
-    .await
-    .expect("deliveries reach the expected state")
+/// Waits up to 10 s until what the workers did satisfies `done`, and returns
+/// it. An attempt shows as it starts: shutting the workers down finishes it and
+/// records its outcome.
+async fn wait_for(seen: &watch::Sender<Seen>, done: impl FnMut(&Seen) -> bool) -> Seen {
+    let mut receiver = seen.subscribe();
+    tokio::time::timeout(Duration::from_secs(10), receiver.wait_for(done))
+        .await
+        .expect("the workers do what the test awaits")
+        .expect("the test holds a sender")
+        .clone()
 }
 
-/// The listed delivery `id`, if any.
-fn find(listed: &[DeliverySummary], id: DeliveryId) -> Option<DeliverySummary> {
-    listed.iter().find(|d| d.id == id).cloned()
+/// Delivery `id` of channel `C`, as an operator lists it.
+async fn listed<C: Channel>(database: &Database, id: DeliveryId) -> DeliverySummary {
+    database
+        .deliveries()
+        .list(None, Some(C::NAME), 1000)
+        .await
+        .expect("list")
+        .into_iter()
+        .find(|delivery| delivery.id == id)
+        .expect("the delivery")
 }
 
 /// Workers record a retryable failure as a retry, with every attempt carrying
@@ -377,16 +396,16 @@ fn find(listed: &[DeliverySummary], id: DeliveryId) -> Option<DeliverySummary> {
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn workers_retry_retryable_errors_and_fail_permanent_ones() {
-    let (database, jobs, attempts) = workers::<Failing>().await;
+    let (database, jobs, seen) = workers::<Failing>().await;
     let unavailable = queue::<Failing>(&database, Behavior::Unavailable).await;
     let refused = queue::<Failing>(&database, Behavior::Refused).await;
-    let (unavailable_summary, refused_summary) = wait_for::<Failing, _>(&database, |listed| {
-        let (unavailable, refused) = (find(listed, unavailable)?, find(listed, refused)?);
-        (unavailable.last_error.is_some() && refused.status != DeliveryStatus::Pending)
-            .then_some((unavailable, refused))
+    wait_for(&seen, |seen| {
+        seen.count(unavailable) > 0 && seen.count(refused) > 0
     })
     .await;
     jobs.shutdown().await.expect("no worker panicked");
+    let unavailable_summary = listed::<Failing>(&database, unavailable).await;
+    let refused_summary = listed::<Failing>(&database, refused).await;
 
     assert_eq!(unavailable_summary.status, DeliveryStatus::Pending);
     assert_eq!(
@@ -403,12 +422,10 @@ async fn workers_retry_retryable_errors_and_fail_permanent_ones() {
         (DeliveryStatus::Failed, 1)
     );
     assert_eq!(refused_summary.last_error.as_deref(), Some("HTTP 403"));
-    let seen = attempts.lock().expect("attempts").clone();
-    let count = |id| seen.iter().filter(|&&seen| seen == id).count();
-    assert!(count(unavailable) >= 1);
+    let seen = seen.borrow();
     assert_eq!(
-        (count(refused), seen.len()),
-        (1, count(unavailable) + 1),
+        (seen.count(refused), seen.attempts.len()),
+        (1, seen.count(unavailable) + 1),
         "every attempt carries its delivery's ID"
     );
 }
@@ -419,14 +436,15 @@ async fn workers_retry_retryable_errors_and_fail_permanent_ones() {
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn each_attempt_is_a_trace_and_idle_polls_export_nothing() {
     let capture = sourceorigin_telemetry::Telemetry::capture(crate::TELEMETRY_FILTER);
-    let (database, jobs, _) = workers::<Traced>().await;
+    let (database, jobs, seen) = workers::<Traced>().await;
     let id = queue::<Traced>(&database, Behavior::Refused).await;
-    wait_for::<Traced, _>(&database, |listed| {
-        find(listed, id).filter(|d| d.status == DeliveryStatus::Failed)
-    })
-    .await;
-    tokio::time::sleep(POLL_INTERVAL * 2).await;
+    let attempted = wait_for(&seen, |seen| seen.attempts.contains(&id)).await;
+    wait_for(&seen, |seen| seen.idle > attempted.idle).await;
     jobs.shutdown().await.expect("no worker panicked");
+    assert_eq!(
+        listed::<Traced>(&database, id).await.status,
+        DeliveryStatus::Failed
+    );
 
     let spans = capture.spans();
     let names: Vec<_> = spans.iter().map(|span| span.name.as_ref()).collect();
@@ -449,22 +467,26 @@ async fn each_attempt_is_a_trace_and_idle_polls_export_nothing() {
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn a_resent_delivery_carries_the_same_id() {
-    let (database, jobs, attempts) = workers::<Resent>().await;
+    let (database, jobs, seen) = workers::<Resent>().await;
     let id = queue::<Resent>(&database, Behavior::RefusedOnce).await;
-    wait_for::<Resent, _>(&database, |listed| {
-        find(listed, id).filter(|d| d.status == DeliveryStatus::Failed)
-    })
-    .await;
+    wait_for(&seen, |seen| !seen.attempts.is_empty()).await;
+    jobs.shutdown().await.expect("no worker panicked");
+    assert_eq!(
+        listed::<Resent>(&database, id).await.status,
+        DeliveryStatus::Failed
+    );
     database.deliveries().retry(id).await.expect("retry");
-    let resent = wait_for::<Resent, _>(&database, |listed| {
-        find(listed, id).filter(|d| d.status == DeliveryStatus::Succeeded)
-    })
-    .await;
+    let jobs = Jobs::replica(Recorder::<Resent>(seen.clone(), PhantomData)).await;
+    wait_for(&seen, |seen| seen.attempts.len() > 1).await;
     jobs.shutdown().await.expect("no worker panicked");
 
-    assert_eq!(resent.attempts, 2);
+    let resent = listed::<Resent>(&database, id).await;
     assert_eq!(
-        *attempts.lock().expect("attempts"),
+        (resent.status, resent.attempts),
+        (DeliveryStatus::Succeeded, 2)
+    );
+    assert_eq!(
+        seen.borrow().attempts,
         [id, id],
         "both sends carry the delivery's ID"
     );
@@ -511,8 +533,8 @@ async fn a_delivery_survives_its_replica_dying_mid_send() {
         let id = queue::<Killed>(&database, Behavior::Accepted).await;
         let first = tokio::time::timeout(Duration::from_secs(10), sends.recv()).await;
         assert_eq!(first, Ok(Some(id)), "A sends the delivery");
-        let sent = Arc::default();
-        let b = Jobs::replica(Recorder::<Killed>(Arc::clone(&sent), PhantomData)).await;
+        let seen = watch::Sender::default();
+        let b = Jobs::replica(Recorder::<Killed>(seen.clone(), PhantomData)).await;
         let a = if killed {
             drop(a);
             None
@@ -520,30 +542,22 @@ async fn a_delivery_survives_its_replica_dying_mid_send() {
             Some(a)
         };
 
-        let delivered = wait_for::<Killed, _>(&database, |listed| {
-            find(listed, id).filter(|d| d.status == DeliveryStatus::Succeeded)
-        })
-        .await;
+        wait_for(&seen, |seen| !seen.attempts.is_empty()).await;
+        b.shutdown().await.expect("no worker panicked");
         if let Some(a) = a {
             release.notify_waiters();
             a.shutdown().await.expect("A's late attempt ends");
         }
-        b.shutdown().await.expect("no worker panicked");
 
+        let delivered = listed::<Killed>(&database, id).await;
         let finished = delivered.finished_at.expect("finished") - delivered.created_at;
         assert!(
             finished >= TimeDelta::from_std(Stalled::LEASE).expect("lease"),
             "B waits for A's lease: {finished}, killed: {killed}"
         );
-        assert_eq!(*sent.lock().expect("sent"), [id], "B sends the same ID");
-        let listed = database
-            .deliveries()
-            .list(None, Some(Killed::NAME), 1000)
-            .await
-            .expect("list");
-        let summary = find(&listed, id).expect("the delivery");
+        assert_eq!(seen.borrow().attempts, [id], "B sends the same ID");
         assert_eq!(
-            (summary.status, summary.last_error),
+            (delivered.status, delivered.last_error),
             (DeliveryStatus::Succeeded, None),
             "A's late refusal is discarded, killed: {killed}"
         );
