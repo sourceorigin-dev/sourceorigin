@@ -150,7 +150,7 @@ pub use token::{
 /// by name, so this list is the SDK's contract.
 pub mod protocol {
     pub use sourceorigin_common::protocol::{
-        challenge, claims, jwt, metadata, oauth, sdk, step_up,
+        challenge, claims, jwt, metadata, oauth, registered, sdk, step_up,
     };
     pub use sourceorigin_common::{ClientId, DeliveryId, InvalidValue, SessionId, TokenId, UserId};
 }

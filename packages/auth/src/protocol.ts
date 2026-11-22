@@ -774,7 +774,8 @@ export const ERROR_REASONS: readonly ErrorReason[] = ["issuer_mismatch", "invali
 
 /**
  * Clock skew tolerated on `exp`, `nbf`, `iat` and `auth_time`. Auth tolerates the
- * same on `iat` alone, and none on `exp` or `max_age`.
+ * same on `nbf` and `iat` alone, and none on `exp` or `max_age`
+ * (`registered::Expiry`).
  *
  * In milliseconds.
  */

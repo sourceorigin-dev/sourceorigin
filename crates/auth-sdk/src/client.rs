@@ -969,7 +969,7 @@ impl Client {
         let client = self.config().client_id.as_str();
         let claims: LogoutTokenClaims = self
             .issuer()
-            .decode(token, TokenType::Logout, client)
+            .decode(token, TokenType::Logout, client, None)
             .await?;
         LogoutToken::from_claims(claims)
     }

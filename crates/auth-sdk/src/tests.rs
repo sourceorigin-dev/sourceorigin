@@ -178,7 +178,7 @@ async fn token_vectors() {
                 let resource = Resource::new(audience).expect("vector resource");
                 match issuer.resource(resource).validate::<Scopes>(token).await {
                     Ok(_) => case.assert::<AccessTokenClaims>(Ok(issuer
-                        .decode(token, TokenType::Access, audience)
+                        .decode(token, TokenType::Access, audience, None)
                         .await
                         .expect("decode a token that validated"))),
                     Err(error) => case.assert::<()>(Err(error.code())),

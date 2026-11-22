@@ -140,7 +140,10 @@ In `apps/auth-service/src/federation/providers/mod.rs`:
 3. Add `Provider::GitLab => Ok(Self::gitlab())` to `ProviderEndpoints::new`.
 4. Add a `GitLab(GitLabProtocol)` variant to `IdentityStrategy`, then its arms:
    - in `IdentityStrategy::extend_authorization`: an OpenID Connect provider
-     sends the flow's `nonce`, as `GoogleProtocol::extend_authorization` does;
+     sends the flow's `nonce`, as `GoogleProtocol::extend_authorization` does,
+     and its claims type implements `RegisteredClaims`, so the shared
+     `Validation::check` reads its issuer, audience, times and nonce, as
+     `GoogleClaims::verify` does;
    - in `FederationApplication::exchange`: call `gitlab_identity`.
 5. Add the `Provider::GitLab` arm to `ProviderPicture::parse`: the host its
    pictures are on, and how to ask for the stored size, if it can. Nothing else

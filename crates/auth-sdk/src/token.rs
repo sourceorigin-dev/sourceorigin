@@ -8,12 +8,13 @@ use sourceorigin_common::{
     protocol::{
         challenge::{BearerChallenge, BearerError},
         claims::{
-            AccessTokenClaims, Acr, Actor, Amr, Audience, Confirmation, IdTokenClaims,
-            LogoutTokenClaims, ProfileClaims,
+            AccessTokenClaims, Acr, Actor, Amr, Confirmation, IdTokenClaims, LogoutTokenClaims,
+            ProfileClaims,
         },
         constants::{LEEWAY, MAX_LOGOUT_LIFETIME},
         jwt::{Algorithm, Claim, TokenType},
         oauth::Scopes,
+        registered::{ClaimsError, Expiry, RegisteredClaims, Validation},
         sdk::{ErrorCategory, ErrorReason, SdkError},
         step_up::StepUpRequirement,
     },
@@ -28,10 +29,13 @@ use thiserror::Error;
 /// use chrono::Utc;
 /// use sourceorigin_auth::{
 ///     KeyError, TokenError,
-///     protocol::sdk::{ErrorCategory, ErrorReason, SdkError},
+///     protocol::{
+///         registered::ClaimsError,
+///         sdk::{ErrorCategory, ErrorReason, SdkError},
+///     },
 /// };
 ///
-/// let expired = TokenError::Expired(Utc::now());
+/// let expired = TokenError::Claims(ClaimsError::Expired(Utc::now()));
 /// assert_eq!(
 ///     expired.code(),
 ///     SdkError::new(ErrorCategory::InvalidToken, ErrorReason::Expired)
@@ -82,31 +86,9 @@ pub enum TokenError {
     /// `sub` is neither an account ID nor the client.
     #[error("token subject {0:?} is not an account ID")]
     InvalidSubject(String),
-    /// `iss` is not the issuer.
-    #[error("token issuer is {found:?}, expected {expected:?}")]
-    WrongIssuer {
-        /// The configured issuer.
-        expected: String,
-        /// The token's `iss`.
-        found: String,
-    },
-    /// `aud` does not contain the expected value.
-    #[error("token audience {found:?} does not contain {expected:?}")]
-    WrongAudience {
-        /// The resource or client this token must be for.
-        expected: String,
-        /// The token's `aud`.
-        found: Audience,
-    },
-    /// `exp` has passed, beyond the leeway.
-    #[error("token expired at {0}")]
-    Expired(DateTime<Utc>),
-    /// `nbf` is in the future, beyond the leeway.
-    #[error("token is not valid before {0}")]
-    NotYetValid(DateTime<Utc>),
-    /// `iat` is in the future, beyond the leeway.
-    #[error("token is issued in the future, at {0}")]
-    IssuedInFuture(DateTime<Utc>),
+    /// `iss`, `aud`, a time or the ID token's `nonce` fails the shared check.
+    #[error(transparent)]
+    Claims(#[from] ClaimsError),
     /// A logout token's `exp` is more than 10 minutes after its `iat`.
     #[error("logout token is valid from {issued_at} to {expires_at}, longer than 10 minutes")]
     LifetimeTooLong {
@@ -118,9 +100,6 @@ pub enum TokenError {
     /// A logout token names neither `sub` nor `sid`, so no session to end.
     #[error("logout token names neither sub nor sid")]
     NoLogoutTarget,
-    /// The ID token's `nonce` is not the pending login's.
-    #[error("ID token nonce does not match this login")]
-    NonceMismatch,
     /// The ID token's `azp` names another client.
     #[error("ID token authorized party is {found:?}, expected {expected:?}")]
     WrongAuthorizedParty {
@@ -167,6 +146,7 @@ impl TokenError {
     pub const fn code(&self) -> SdkError {
         let reason = match self {
             Self::Keys(error) => return error.code(),
+            Self::Claims(error) => error.reason(),
             Self::InsufficientScope { .. } => {
                 return SdkError::category(ErrorCategory::InsufficientScope);
             }
@@ -182,13 +162,7 @@ impl TokenError {
             Self::InvalidClaims(_) | Self::InvalidSubject(_) | Self::NoLogoutTarget => {
                 ErrorReason::InvalidClaims
             }
-            Self::WrongIssuer { .. } => ErrorReason::IssuerMismatch,
-            Self::WrongAudience { .. } => ErrorReason::WrongAudience,
-            Self::Expired(_) => ErrorReason::Expired,
-            Self::NotYetValid(_) => ErrorReason::NotYetValid,
-            Self::IssuedInFuture(_) => ErrorReason::IssuedInFuture,
             Self::LifetimeTooLong { .. } => ErrorReason::LifetimeTooLong,
-            Self::NonceMismatch => ErrorReason::NonceMismatch,
             Self::WrongAuthorizedParty { .. } => ErrorReason::WrongAuthorizedParty,
             Self::AuthenticationTooOld { .. } => ErrorReason::AuthenticationTooOld,
             Self::SubjectMismatch { .. } => ErrorReason::SubjectMismatch,
@@ -675,108 +649,6 @@ impl LogoutToken {
     }
 }
 
-/// The registered claims every token type checks the same way.
-pub(crate) trait RegisteredClaims: DeserializeOwned {
-    /// `iss`.
-    fn issuer(&self) -> &str;
-    /// `aud`.
-    fn audience(&self) -> &Audience;
-    /// `exp`.
-    fn expires_at(&self) -> DateTime<Utc>;
-    /// `nbf`, if any.
-    fn not_before(&self) -> Option<DateTime<Utc>>;
-    /// `iat`.
-    fn issued_at(&self) -> DateTime<Utc>;
-
-    /// Whether `aud` must name the expected audience alone. ID tokens trust no other
-    /// audience (OIDC Core §3.1.3.7), so `azp` can only confirm this client, and auth
-    /// addresses each logout token to one client; access tokens may name several.
-    const EXCLUSIVE_AUDIENCE: bool;
-
-    /// Checks `iss`, `aud` and the times, in the documented order.
-    fn check(&self, issuer: &str, audience: &str, now: DateTime<Utc>) -> Result<(), TokenError> {
-        if self.issuer() != issuer {
-            return Err(TokenError::WrongIssuer {
-                expected: issuer.to_owned(),
-                found: self.issuer().to_owned(),
-            });
-        }
-        let others =
-            Self::EXCLUSIVE_AUDIENCE && self.audience().iter().any(|value| value != audience);
-        if others || !self.audience().contains(audience) {
-            return Err(TokenError::WrongAudience {
-                expected: audience.to_owned(),
-                found: self.audience().clone(),
-            });
-        }
-        // Checked: a far-future `exp` must not overflow, and never expires.
-        if self
-            .expires_at()
-            .checked_add_signed(LEEWAY)
-            .is_some_and(|deadline| now >= deadline)
-        {
-            return Err(TokenError::Expired(self.expires_at()));
-        }
-        if let Some(not_before) = self.not_before().filter(|nbf| *nbf > now + LEEWAY) {
-            return Err(TokenError::NotYetValid(not_before));
-        }
-        if self.issued_at() > now + LEEWAY {
-            return Err(TokenError::IssuedInFuture(self.issued_at()));
-        }
-        Ok(())
-    }
-}
-
-/// Implements [`RegisteredClaims`] for claims types whose registered claims are their
-/// `iss`, `aud`, `exp` and `iat` fields. Each names its `nbf` field, or `none` for a
-/// type without one, so no type can leave the not-before check out by omission.
-macro_rules! registered_claims {
-    (@not_before $claims:ident, none) => {
-        None
-    };
-    (@not_before $claims:ident, $nbf:ident) => {
-        $claims.$nbf
-    };
-    ($(
-        impl $([$($generics:tt)*])? for $claims:ty {
-            exclusive_audience: $exclusive:literal, not_before: $nbf:ident
-        }
-    )+) => {$(
-        impl$(<$($generics)*>)? RegisteredClaims for $claims {
-            const EXCLUSIVE_AUDIENCE: bool = $exclusive;
-
-            fn issuer(&self) -> &str {
-                &self.iss
-            }
-            fn audience(&self) -> &Audience {
-                &self.aud
-            }
-            fn expires_at(&self) -> DateTime<Utc> {
-                self.exp
-            }
-            fn not_before(&self) -> Option<DateTime<Utc>> {
-                registered_claims!(@not_before self, $nbf)
-            }
-            fn issued_at(&self) -> DateTime<Utc> {
-                self.iat
-            }
-        }
-    )+};
-}
-
-registered_claims! {
-    impl [X: DeserializeOwned] for AccessTokenClaims<X> {
-        exclusive_audience: false, not_before: nbf
-    }
-    impl for IdTokenClaims {
-        exclusive_audience: true, not_before: nbf
-    }
-    // `LogoutTokenClaims` has no `nbf`.
-    impl for LogoutTokenClaims {
-        exclusive_audience: true, not_before: none
-    }
-}
-
 impl Issuer {
     /// Algorithms both this SDK and the issuer accept.
     fn algorithms(&self) -> Vec<Algorithm> {
@@ -790,20 +662,29 @@ impl Issuer {
             .collect()
     }
 
-    /// Runs the shared checks on a token of type `typ` meant for `audience`, in the
-    /// order of the SDK design: framing, type, algorithm, key, signature, claims.
-    pub(crate) async fn decode<T: RegisteredClaims>(
+    /// Runs the shared checks on a token of type `typ` meant for `audience`, bound to
+    /// the login's `nonce` if it sent one, in the order of the SDK design: framing,
+    /// type, algorithm, key, signature, claims.
+    pub(crate) async fn decode<T: RegisteredClaims + DeserializeOwned>(
         &self,
         token: &str,
         typ: TokenType,
         audience: &str,
+        nonce: Option<&str>,
     ) -> Result<T, TokenError> {
         let jws = Jws::parse(token)?;
         jws.require_type(typ)?;
         let algorithm = jws.require_algorithm(&self.algorithms())?;
         self.keys().verify(&jws, algorithm).await?;
         let claims: T = serde_json::from_slice(jws.payload()).map_err(TokenError::InvalidClaims)?;
-        claims.check(self.issuer(), audience, self.now())?;
+        Validation {
+            issuers: &[self.issuer()],
+            audience: Some(audience),
+            nonce,
+            expiry: Expiry::Lenient,
+            now: self.now(),
+        }
+        .check(&claims)?;
         Ok(claims)
     }
 
@@ -816,10 +697,9 @@ impl Issuer {
         nonce: Option<&str>,
         max_age: Option<u32>,
     ) -> Result<IdToken, TokenError> {
-        let claims: IdTokenClaims = self.decode(token, TokenType::Id, client.as_str()).await?;
-        if nonce.is_some_and(|nonce| claims.nonce.as_deref() != Some(nonce)) {
-            return Err(TokenError::NonceMismatch);
-        }
+        let claims: IdTokenClaims = self
+            .decode(token, TokenType::Id, client.as_str(), nonce)
+            .await?;
         if let Some(azp) = claims.azp.as_ref().filter(|azp| *azp != client) {
             return Err(TokenError::WrongAuthorizedParty {
                 expected: client.clone(),

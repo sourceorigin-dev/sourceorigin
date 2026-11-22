@@ -71,6 +71,8 @@ pub mod jwt;
 pub mod metadata;
 /// OAuth and OpenID Connect vocabulary shared by clients and the provider.
 pub mod oauth;
+/// The one check of a token's registered claims, and its leeway policy.
+pub mod registered;
 /// The path a sign-in sends the browser back to.
 pub mod return_to;
 /// Whether a browser request comes from a site's own pages.

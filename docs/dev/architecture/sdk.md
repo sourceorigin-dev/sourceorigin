@@ -128,6 +128,11 @@ Checks run in this order, and the first failure is reported. Each failure is an
       delivery attempt for two minutes;
     - `sub` or `sid` is present (`invalid_claims`).
 
+In Rust, steps 8 to 10 and the `nonce` are one check, `Validation::check` in
+`sourceorigin_common::protocol::registered`, at the time the issuer's clock gives.
+Auth runs the same check on Google's ID tokens, with `Expiry::Strict`: no leeway
+on `exp`.
+
 Scope and step-up requirements are checked after validation, and fail with their
 own categories.
 

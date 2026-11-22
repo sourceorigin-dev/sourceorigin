@@ -197,8 +197,10 @@ own calls to exchange the code and read the identity
 
 **What is checked:** the flow is bound to the browser that started it by a
 cookie, and the code exchange uses PKCE. Google's ID token is checked for its
-signature against Google's keys, its issuer, an audience of auth's client alone
-and the flow's nonce (`federation/providers/google.rs`). From GitHub, auth reads
+signature against Google's keys, its issuer, an audience of auth's client alone,
+its times and the flow's nonce (`federation/providers/google.rs`), by the check
+the Rust SDK runs on auth's tokens (`protocol::registered` in
+`sourceorigin-common`), with no leeway on `exp`. From GitHub, auth reads
 the numeric account ID and, if shared, the verified primary email
 (`federation/providers/github.rs`).
 

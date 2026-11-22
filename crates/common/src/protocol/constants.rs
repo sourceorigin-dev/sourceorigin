@@ -7,7 +7,8 @@ use std::time::Duration;
 
 super::sdk_constants! {
     /// Clock skew tolerated on `exp`, `nbf`, `iat` and `auth_time`. Auth tolerates the
-    /// same on `iat` alone, and none on `exp` or `max_age`.
+    /// same on `nbf` and `iat` alone, and none on `exp` or `max_age`
+    /// (`registered::Expiry`).
     pub const LEEWAY: TimeDelta = TimeDelta::seconds(30);
     /// Longest a logout token may be valid: auth signs each delivery attempt for two
     /// minutes, so a longer-lived token was not made for one attempt.
