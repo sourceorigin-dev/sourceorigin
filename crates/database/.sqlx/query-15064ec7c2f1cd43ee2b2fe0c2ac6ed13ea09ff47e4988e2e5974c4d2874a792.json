@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT u.alert_id AS \"alert_id: AlertId\", u.status AS \"status: AlertStatus\",\n                    p.reason AS \"note?\", u.author AS \"author: Json<Actor>\",\n                    h.handle AS \"handle?: Handle\", u.posted_at\n                FROM alert_updates u\n                LEFT JOIN event_personal_data p ON p.event_id = u.event_id\n                LEFT JOIN handles h\n                    ON h.user_id = (u.author ->> 'user_id')::uuid AND h.released_at IS NULL\n                WHERE u.alert_id = ANY($1)\n                ORDER BY u.posted_at, u.id",
+  "query": "SELECT u.alert_id AS \"alert_id: AlertId\", u.status AS \"status: AlertStatus\",\n                    p.reason AS \"note?\", u.author,\n                    h.handle AS \"handle?: Handle\", u.posted_at\n                FROM alert_updates u\n                LEFT JOIN event_personal_data p ON p.event_id = u.event_id\n                LEFT JOIN handles h\n                    ON h.user_id = (u.author ->> 'user_id')::uuid AND h.released_at IS NULL\n                WHERE u.alert_id = ANY($1)\n                ORDER BY u.posted_at, u.id",
   "describe": {
     "columns": [
       {
@@ -20,7 +20,7 @@
       },
       {
         "ordinal": 3,
-        "name": "author: Json<Actor>",
+        "name": "author",
         "type_info": "Jsonb"
       },
       {
@@ -48,5 +48,5 @@
       false
     ]
   },
-  "hash": "d5cc0480c4b9381062c39b91ca0775251bcdb3805b94222aa37bfb8496c2afd1"
+  "hash": "15064ec7c2f1cd43ee2b2fe0c2ac6ed13ea09ff47e4988e2e5974c4d2874a792"
 }

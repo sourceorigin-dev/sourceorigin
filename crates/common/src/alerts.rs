@@ -201,8 +201,9 @@ pub struct AlertUpdate {
     pub status: AlertStatus,
     /// What they added, if anything.
     pub note: Option<String>,
-    /// Who posted it.
-    pub author: AlertAuthor,
+    /// Who posted it, or `None` if a newer release recorded an author this one
+    /// does not know, which is shown without a byline.
+    pub author: Option<AlertAuthor>,
     /// When.
     pub posted_at: DateTime<Utc>,
 }

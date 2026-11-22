@@ -360,3 +360,57 @@ async fn alerts_take_updates_from_the_dashboard() {
     assert!(previous.contains("Previous alerts"), "{previous}");
     assert!(!previous.contains(&position.to_string()), "{previous}");
 }
+
+/// Updates whose author a newer release recorded, of a type this one does not
+/// know or a known type naming a job it does not know, show on the Alerts page
+/// without a byline, and the overview's banner still leads there.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL"]
+async fn alert_updates_by_authors_a_newer_release_recorded_show_without_a_byline() {
+    use sourceorigin_common::{
+        admin::{ChainBreak, ChainProblem},
+        alerts::{Alert, AlertStatus},
+    };
+    let harness = Harness::isolated().await;
+    let admin = harness.admin().await;
+    let alert = Alert::AuditChainBroken(ChainBreak {
+        position: 1,
+        problem: ChainProblem::EventChanged,
+    });
+    let id = harness
+        .database
+        .alerts()
+        .raise(&alert)
+        .await
+        .expect("raise");
+    for (status, author) in [
+        (
+            AlertStatus::Investigating,
+            serde_json::json!({"type": "from_a_newer_release"}),
+        ),
+        (
+            AlertStatus::Fixing,
+            serde_json::json!({"type": "system", "job": "from_a_newer_release"}),
+        ),
+    ] {
+        harness
+            .database
+            .alerts()
+            .add_update_written_elsewhere(id, status, &author)
+            .await
+            .expect("update");
+    }
+    let dashboard = harness.sign_in(&admin, "/alerts").await;
+    let page = html(harness.visit(&dashboard, "/alerts").await).await;
+    for status in ["Investigating", "Fixing"] {
+        assert!(
+            page.contains(&format!("<strong>{status}</strong></div>")),
+            "{page}"
+        );
+    }
+    let overview = html(harness.visit(&dashboard, "/").await).await;
+    assert!(
+        overview.contains("1 alert needs attention") && overview.contains("See the alerts"),
+        "{overview}"
+    );
+}

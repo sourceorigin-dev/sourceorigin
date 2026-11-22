@@ -3,7 +3,7 @@
 //! current, the one not cleared yet.
 
 use super::{AlertRepository, KindProbe, RepositoryExecutor, Unsigned};
-use crate::{DatabaseError, LockKey};
+use crate::{DatabaseError, DecodeFailure, LockKey, RecordedActor};
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 use sourceorigin_common::{
@@ -63,8 +63,8 @@ struct UpdateRow {
     status: AlertStatus,
     /// The note, until its event's personal data is erased.
     note: Option<String>,
-    /// Who posted it, as an event's actor.
-    author: Json<Actor>,
+    /// Who posted it, as an event's actor, which [`RecordedActor`] decodes.
+    author: Value,
     /// The administrator's handle, unless their account was purged.
     handle: Option<Handle>,
     /// When.
@@ -72,19 +72,27 @@ struct UpdateRow {
 }
 
 impl UpdateRow {
-    /// The update, with its alert.
+    /// The update, with its alert. An author a newer release recorded, which this
+    /// one does not know, reads as `None`; a known one that does not decode, or
+    /// that is not an administrator or an operator, fails.
     fn decode(self) -> Result<(AlertId, AlertUpdate), DatabaseError> {
-        let author = match self.author.0 {
-            Actor::Admin { .. } => AlertAuthor::Administrator {
+        let invalid = |source: DecodeFailure| DatabaseError::InvalidStoredData {
+            column: "author".into(),
+            source,
+        };
+        let recorded =
+            RecordedActor::try_from(self.author).map_err(|error| invalid(error.into()))?;
+        let author = match recorded {
+            RecordedActor::Known(Actor::Admin { .. }) => Some(AlertAuthor::Administrator {
                 handle: self.handle,
-            },
-            Actor::Cli { os_user, host } => AlertAuthor::Operator { os_user, host },
-            _ => {
-                return Err(DatabaseError::InvalidStoredData {
-                    column: "author".into(),
-                    source: "not an administrator or operator".into(),
-                });
+            }),
+            RecordedActor::Known(Actor::Cli { os_user, host }) => {
+                Some(AlertAuthor::Operator { os_user, host })
             }
+            RecordedActor::Known(_) => {
+                return Err(invalid("not an administrator or operator".into()));
+            }
+            RecordedActor::Unknown(_) => None,
         };
         let update = AlertUpdate {
             status: self.status,
@@ -284,7 +292,7 @@ impl AlertRepository<'_> {
             sqlx::query_as!(
                 UpdateRow,
                 r#"SELECT u.alert_id AS "alert_id: AlertId", u.status AS "status: AlertStatus",
-                    p.reason AS "note?", u.author AS "author: Json<Actor>",
+                    p.reason AS "note?", u.author,
                     h.handle AS "handle?: Handle", u.posted_at
                 FROM alert_updates u
                 LEFT JOIN event_personal_data p ON p.event_id = u.event_id
@@ -330,6 +338,45 @@ impl AlertRepository<'_> {
                 "UPDATE alerts SET version = $2 WHERE id = $1",
                 id.as_uuid(),
                 version,
+            )
+        )?;
+        Ok(())
+    }
+
+    /// Adds an update on alert `id` as a newer release would, with any `author`
+    /// and no note, for tests of what this release reads back. That release
+    /// widened the column's check to the authors it writes, so this drops the
+    /// check: run it on a schema of its own, from
+    /// [`Database::isolated`](crate::Database::isolated).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DatabaseError`] if a query fails.
+    #[cfg(any(test, feature = "test-util"))]
+    pub async fn add_update_written_elsewhere(
+        &mut self,
+        id: AlertId,
+        status: AlertStatus,
+        author: &Value,
+    ) -> Result<(), DatabaseError> {
+        run!(
+            self,
+            execute,
+            sqlx::query(
+                "ALTER TABLE alert_updates DROP CONSTRAINT IF EXISTS alert_updates_author_check"
+            )
+        )?;
+        run!(
+            self,
+            execute,
+            sqlx::query!(
+                "INSERT INTO alert_updates (id, alert_id, event_id, status, author)
+                VALUES ($1, $2, $3, $4, $5)",
+                Uuid::now_v7(),
+                id.as_uuid(),
+                EventId::new().as_uuid(),
+                status.as_str(),
+                author,
             )
         )?;
         Ok(())
