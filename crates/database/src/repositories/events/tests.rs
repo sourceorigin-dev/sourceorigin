@@ -369,7 +369,7 @@ async fn alert_authors_a_newer_release_wrote_read_as_unknown() {
         alerts::{Alert, AlertStatus},
     };
     use std::time::Duration;
-    let url = std::env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL");
+    let url = Database::test_url();
     let database = Database::isolated(
         DatabaseConfig::new(&url, 1, Duration::from_secs(5)).expect("configuration"),
     )

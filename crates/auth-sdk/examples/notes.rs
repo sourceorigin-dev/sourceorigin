@@ -13,6 +13,10 @@
 //!
 //! The `ANCHOR` comments mark the parts `docs/user/apps/sign-in-rust.md` and
 //! `docs/user/apps/protect-an-api.md` show.
+#![expect(
+    clippy::disallowed_methods,
+    reason = "An example for applications that read their settings with `std::env`, not SourceOrigin's `Variable`"
+)]
 
 use axum::{Json, Router, extract::State, http::StatusCode, routing::get};
 use sourceorigin_auth::{

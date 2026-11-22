@@ -19,6 +19,7 @@ use sourceorigin_common::{
     AccountStatus,
     admin::{DeliveryStatus, Paging, SigningKeyState},
     alerts::AlertState,
+    config::Variable,
 };
 use std::{
     error::Error,
@@ -113,8 +114,12 @@ impl Stream {
     /// `TERM` is not `dumb`.
     fn terminal(writer: impl Write + IsTerminal + Send + 'static) -> Self {
         let color = writer.is_terminal()
-            && std::env::var_os("NO_COLOR").is_none_or(|value| value.is_empty())
-            && std::env::var_os("TERM").is_none_or(|term| term != "dumb");
+            && Variable::new("NO_COLOR")
+                .raw()
+                .is_none_or(|value| value.is_empty())
+            && Variable::new("TERM")
+                .raw()
+                .is_none_or(|term| term != "dumb");
         Self {
             writer: Box::new(writer),
             color,

@@ -151,7 +151,7 @@ impl GeneratedFile {
     /// # Errors
     /// Returns [`Stale`] when the committed file differs, or the write's error.
     pub fn write_or_compare(&self) -> Result<(), Stale> {
-        if std::env::var_os(UPDATE).is_some() {
+        if Variable::new(UPDATE).is_set() {
             return fs::write(&self.path, &self.text).map_err(|source| Stale::Write {
                 path: self.path.clone(),
                 source,

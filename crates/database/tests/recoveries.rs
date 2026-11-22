@@ -33,7 +33,7 @@ impl Owner {
         let db = Database::test().await;
         // A repository never hands out its pool, so the raw statements get one
         // of their own.
-        let url = std::env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL");
+        let url = Database::test_url();
         let pool = sqlx::PgPool::connect(&url).await.expect("pool");
         Self { db, pool }
     }
@@ -97,8 +97,7 @@ impl Limited {
                 REVOKE ALL ON account_recoveries FROM {name};"
             ))
             .await;
-        let mut url =
-            url::Url::parse(&std::env::var("TEST_DATABASE_URL").expect("URL")).expect("test URL");
+        let mut url = url::Url::parse(&Database::test_url()).expect("test URL");
         url.set_username(&name).expect("user");
         url.set_password(None).expect("password");
         let config = DatabaseConfig::new(url.as_str(), 1, std::time::Duration::from_secs(5))

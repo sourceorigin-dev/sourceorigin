@@ -405,7 +405,7 @@ impl Database {
     /// each connection, and applies the schema. In-crate database tests get the raw
     /// pool so they can insert fixtures with plain SQL.
     pub(crate) async fn test_pool() -> PgPool {
-        let url = std::env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL");
+        let url = Self::test_url();
         let pool = PgPoolOptions::new()
             .acquire_timeout(Self::TEST_ACQUIRE_TIMEOUT)
             .connect(&url)

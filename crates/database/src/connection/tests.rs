@@ -388,8 +388,7 @@ async fn under_provisioning_lock(owner: &Database, sql: &str) {
 
 /// Connection settings for `user` on `TEST_DATABASE_URL`, without a password.
 fn config_for(user: &str) -> DatabaseConfig {
-    let mut url = url::Url::parse(&std::env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL"))
-        .expect("test URL");
+    let mut url = url::Url::parse(&Database::test_url()).expect("test URL");
     url.set_username(user).expect("user");
     url.set_password(None).expect("password");
     DatabaseConfig::new(url.as_str(), 1, Database::TEST_ACQUIRE_TIMEOUT).expect("config")

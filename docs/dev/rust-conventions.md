@@ -109,6 +109,9 @@ Declare each environment variable as a `Variable` constant beside its configurat
 section. `ConfigurationError` names the variable, explains how to fix it and retains
 safe underlying sources. Parse configuration into validated types such as `Origin`
 at startup; downstream code uses those values without revalidation.
+Nothing else reads the environment: Clippy bans `std::env::var`, `var_os` and `vars`
+(`clippy.toml`), and `Variable::os` is the one read. A flag or a setting that is not
+text uses `Variable::raw` or `Variable::is_set`.
 OIDC clients are not configuration: they live in the database (see below).
 
 `AuthConfig` combines one section per application, such as `PasskeyConfig`,
