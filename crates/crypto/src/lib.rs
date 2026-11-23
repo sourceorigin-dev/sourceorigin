@@ -85,9 +85,9 @@ pub enum CryptoError {
     /// A JWT segment contains malformed JSON.
     #[error("invalid JWT JSON")]
     Json(#[from] serde_json::Error),
-    /// A token has invalid framing or headers.
-    #[error("JWT framing or headers are invalid")]
-    InvalidToken,
+    /// A token's header names another type or algorithm than the one expected.
+    #[error("JWT type or algorithm is not the one expected")]
+    UnexpectedHeader,
     /// A JWT signature did not verify.
     #[error("JWT signature is invalid")]
     Signature,
