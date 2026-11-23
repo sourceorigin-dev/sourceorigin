@@ -8,8 +8,8 @@ error[E0277]: the trait bound `sourceorigin_auth::IdToken: serde::Deserialize<'d
   = note: for types from other crates check whether the crate offers a `serde` feature flag
   = help: the following other types implement trait `Deserialize<'de>`:
             &'a Path
+            &'a RawValue
             &'a [u8]
-            &'a serde_json::raw::RawValue
             &'a str
             ()
             (T,)

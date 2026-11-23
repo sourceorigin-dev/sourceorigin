@@ -132,7 +132,8 @@ const claims: unknown = JSON.parse(new TextDecoder().decode(jws.payload));
 ```
 
 In Rust, `KeyCache::new(jwks_uri, http)` and `Jws` do the same, where `http` is
-a `reqwest::ClientBuilder` for proxies or extra trusted roots. Either way, the
+a `reqwest::ClientBuilder` for proxies or extra trusted roots. The SDK re-exports
+the `reqwest` it uses, as `sourceorigin_auth::reqwest`. Either way, the
 JWKS URL must use `https`, and the SDKs follow no redirect and give up on a
 request after 10 seconds, whatever the HTTP client you give them. To pin keys, or
 verify without the network, give a parsed `KeySet` to `KeyCache.fixed` in

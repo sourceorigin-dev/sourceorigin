@@ -18,6 +18,7 @@ use url::Url;
 
 /// Auth could not be reached, or answered outside its protocol.
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum NetworkError {
     /// The default HTTP client could not be built.
     #[error("could not build the HTTP client")]

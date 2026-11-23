@@ -67,7 +67,9 @@ The router serves:
 - `GET /auth/callback` completes the sign-in and sets the session cookie.
 - `POST /auth/logout` signs the user out.
 
-To mount the routes elsewhere, nest them there and tell `LoginRoutes::mounted_at`.
+To mount the routes elsewhere, nest them there and tell `LoginRoutes::mounted_at`,
+such as `.mounted_at("/account".parse()?)`. The path is one on your app, with no
+query or route parameters.
 `after_login` sets where a sign-in lands when it came from no page, `/` by default.
 
 The session lives in the `__Host-sourceorigin-<client ID>-session` cookie, which is

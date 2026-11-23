@@ -135,7 +135,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
   for pages that work signed out too.
 - Link to `/auth/login?return_to=/notes` to sign in and come back to a page.
 - Sign out with a form that posts to `/auth/logout` from the app's own pages.
-- Mount the routes elsewhere with `.mounted_at("/account")`, and change where
+- Mount the routes elsewhere with `.mounted_at("/account".parse()?)`, and change where
   users land with `.after_login(...)` and `.after_logout(...)`, which must be a
   registered post-logout URI.
 

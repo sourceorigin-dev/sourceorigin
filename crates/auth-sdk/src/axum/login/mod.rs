@@ -140,6 +140,62 @@ impl From<ReturnTo> for String {
     }
 }
 
+/// Where the app nests [`LoginRoutes::router`], which the SDK links its routes
+/// under: a path on this app by the rule [`ReturnTo`] follows, with no query and no
+/// `{` or `}`, since a route parameter would leave the links naming no path.
+///
+/// ```
+/// use sourceorigin_auth::axum::MountPath;
+///
+/// assert!("/account".parse::<MountPath>().is_ok());
+/// assert!("account".parse::<MountPath>().is_err());
+/// assert!("/account?next=/".parse::<MountPath>().is_err());
+/// assert!("/{tenant}/auth".parse::<MountPath>().is_err());
+/// ```
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MountPath(String);
+
+/// A mount path that is not a fixed path on this app, with why it is not a path on
+/// the app when [`ReturnTo`] refused it.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+#[error("the login routes must be mounted at a path such as /auth, without a query or parameters")]
+pub struct InvalidMountPath(#[source] Option<InvalidReturnTo>);
+
+impl MountPath {
+    /// The path, without a trailing `/`, so the root is empty and a route appends
+    /// its own `/`.
+    fn prefix(&self) -> &str {
+        self.0.trim_end_matches('/')
+    }
+
+    /// The path.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl Default for MountPath {
+    /// `/auth`.
+    fn default() -> Self {
+        Self("/auth".into())
+    }
+}
+
+impl FromStr for MountPath {
+    type Err = InvalidMountPath;
+    /// Accepts a path [`ReturnTo`] accepts that has no `?`, `{` or `}`.
+    fn from_str(path: &str) -> Result<Self, Self::Err> {
+        let path: ReturnTo = path
+            .parse()
+            .map_err(|source| InvalidMountPath(Some(source)))?;
+        if path.0.contains(['?', '{', '}']) {
+            return Err(InvalidMountPath(None));
+        }
+        Ok(Self(path.0))
+    }
+}
+
 /// The login routes were given a public client.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 #[error(
@@ -170,7 +226,7 @@ pub(super) struct Login {
     /// Where auth sends users after logout; must be registered for the client.
     after_logout: Option<Url>,
     /// Where [`LoginRoutes::router`] is nested.
-    mount: String,
+    mount: MountPath,
     /// How long a session lasts.
     lifetime: TimeDelta,
     /// What receives back-channel logouts, if the app handles them.
@@ -213,7 +269,7 @@ pub(super) struct Login {
 ///     .scopes("profile".parse()?)
 ///     .after_login("/notes".parse()?)
 ///     .after_logout("https://notes.sourceorigin.dev/".parse()?)
-///     .mounted_at("/account")
+///     .mounted_at("/account".parse()?)
 ///     .session_lifetime(TimeDelta::days(7));
 /// let app: Router = Router::new()
 ///     .route("/notes", get(home))
@@ -230,7 +286,7 @@ impl fmt::Debug for LoginRoutes {
         formatter
             .debug_struct("LoginRoutes")
             .field("client", &self.0.client)
-            .field("mount", &self.0.mount)
+            .field("mount", &self.0.mount.as_str())
             .finish_non_exhaustive()
     }
 }
@@ -253,7 +309,7 @@ impl LoginRoutes {
             scopes: Scopes::default(),
             home: ReturnTo::root(),
             after_logout: None,
-            mount: "/auth".into(),
+            mount: MountPath::default(),
             lifetime: DEFAULT_SESSION_LIFETIME,
             on_logout: None,
         }))
@@ -284,8 +340,8 @@ impl LoginRoutes {
 
     /// Where [`Self::router`] is nested; `/auth` by default.
     #[must_use]
-    pub fn mounted_at(mut self, path: impl Into<String>) -> Self {
-        self.0.mount = path.into();
+    pub fn mounted_at(mut self, path: MountPath) -> Self {
+        self.0.mount = path;
         self
     }
 
@@ -483,11 +539,7 @@ impl Login {
             }
             query.append_pair("step_up", "true");
         }
-        format!(
-            "{}/login?{}",
-            self.mount.trim_end_matches('/'),
-            query.finish()
-        )
+        format!("{}/login?{}", self.mount.prefix(), query.finish())
     }
 
     /// Whether the request is a browser navigating to a page with `GET`

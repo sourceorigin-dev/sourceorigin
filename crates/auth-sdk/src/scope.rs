@@ -4,13 +4,15 @@
 use sourceorigin_common::protocol::oauth::Scopes;
 
 /// One scope, declared with [`scopes!`](crate::scopes), which checks its name at
-/// compile time.
-pub trait Scope: ScopeSet {
+/// compile time. Named apart from
+/// [`protocol::oauth::Scope`](crate::protocol::oauth::Scope), the standard scopes'
+/// vocabulary.
+pub trait DeclaredScope: ScopeSet {
     /// The scope's wire name, such as `notes:read`.
     const NAME: &'static str;
 }
 
-/// Scopes a token must hold. Implemented by every [`Scope`], by tuples of scope sets
+/// Scopes a token must hold. Implemented by every [`DeclaredScope`], by tuples of scope sets
 /// such as `(notes::Read, notes::Write)`, by each [`scopes!`](crate::scopes) module's
 /// `All`, and by [`Scopes`], which requires nothing.
 ///
@@ -121,12 +123,12 @@ pub trait Declared: Send + Sync + 'static {
 ///     }
 /// }
 ///
-/// use sourceorigin_auth::{Scope, ScopeSet};
+/// use sourceorigin_auth::{DeclaredScope, ScopeSet};
 /// assert_eq!(notes::Read::NAME, "notes:read");
 /// assert_eq!(notes::All::required().to_string(), "notes:read notes:write");
 /// ```
 ///
-/// This generates the module with a marker type per scope implementing [`Scope`], and
+/// This generates the module with a marker type per scope implementing [`DeclaredScope`], and
 /// `All`, the [`ScopeSet`] of every scope in the module. Markers have no values: they
 /// name scopes in types such as `AccessToken<notes::Read>`. Scope names are checked
 /// against RFC 6749 §3.3 at compile time, and requiring a scope the module does not
@@ -148,7 +150,7 @@ macro_rules! scopes {
                 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
                 pub(crate) enum $scope {}
 
-                impl $crate::Scope for $scope {
+                impl $crate::DeclaredScope for $scope {
                     const NAME: &'static str = $name;
                 }
 

@@ -165,6 +165,7 @@ impl<'a> Jws<'a> {
 
 /// Signing keys could not be fetched or used.
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum KeyError {
     /// The key endpoint could not be reached.
     #[error(transparent)]

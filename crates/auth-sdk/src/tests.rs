@@ -11,8 +11,8 @@ use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use chrono::TimeDelta;
 use serde_json::Value;
 use sourceorigin_common::protocol::{
-    challenge::BearerChallenge, claims::AccessTokenClaims, jwt::TokenType,
-    metadata::ServerMetadata, same_origin::BrowserRequest,
+    challenge::BearerChallenge, claims::AccessTokenClaims, metadata::ServerMetadata,
+    same_origin::BrowserRequest,
 };
 use std::{
     fs,
@@ -178,7 +178,7 @@ async fn token_vectors() {
                 let resource = Resource::new(audience).expect("vector resource");
                 match issuer.resource(resource).validate::<Scopes>(token).await {
                     Ok(_) => case.assert::<AccessTokenClaims>(Ok(issuer
-                        .decode(token, TokenType::Access, audience, None)
+                        .decode(token, audience, None)
                         .await
                         .expect("decode a token that validated"))),
                     Err(error) => case.assert::<()>(Err(error.code())),

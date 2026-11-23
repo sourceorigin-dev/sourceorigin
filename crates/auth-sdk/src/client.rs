@@ -14,10 +14,9 @@ use sourceorigin_common::{
     protocol::{
         challenge::AuthScheme,
         claims::{IdTokenClaims, LogoutTokenClaims, UserInfo},
-        jwt::TokenType,
         oauth::{
-            CodeChallengeMethod, ErrorResponse, GrantType, Prompt, PushedAuthorization,
-            ResponseType, Scope, Scopes, TokenResponse,
+            CodeChallengeMethod, ErrorCode, ErrorDescription, ErrorResponse, GrantType, Prompt,
+            PushedAuthorization, ResponseType, Scope, Scopes, TokenResponse,
         },
         sdk::{ErrorCategory, ErrorReason, SdkError},
         step_up::StepUpRequirement,
@@ -43,6 +42,7 @@ use url::Url;
 /// # }
 /// ```
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum OAuthError {
     /// The endpoint could not be reached.
     #[error(transparent)]
@@ -118,6 +118,7 @@ impl OAuthError {
 /// );
 /// ```
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum LoginError {
     /// The operating system could not supply random bytes for `state`, `nonce` and
     /// the PKCE verifier.
@@ -144,14 +145,11 @@ pub enum LoginError {
     /// `iss` is missing although the issuer advertises it (RFC 9207 §2.4).
     #[error("authorization response has no iss parameter")]
     MissingIssuer,
-    /// The issuer refused the authorization, for example because the user declined.
-    #[error("authorization failed with {error}")]
-    Denied {
-        /// The OAuth error code.
-        error: String,
-        /// What the issuer says went wrong.
-        description: Option<String>,
-    },
+    /// The issuer refused the authorization, for example because the user declined
+    /// ([`ErrorCode::AccessDenied`]), with the error it redirected with. Characters
+    /// RFC 6749 forbids in its description are replaced ([`ErrorDescription::lossy`]).
+    #[error("authorization failed with {}", .0.error)]
+    Denied(ErrorResponse),
     /// A successful response has no `code`.
     #[error("authorization response has no code")]
     MissingCode,
@@ -165,7 +163,7 @@ impl LoginError {
     #[must_use]
     pub const fn code(&self) -> SdkError {
         let reason = match self {
-            Self::Denied { .. } => return SdkError::category(ErrorCategory::OAuth),
+            Self::Denied(_) => return SdkError::category(ErrorCategory::OAuth),
             Self::Push(error) | Self::Exchange(error) => return error.code(),
             Self::Randomness(_) => return SdkError::category(ErrorCategory::Network),
             Self::StateMismatch | Self::ForeignLogin => ErrorReason::StateMismatch,
@@ -410,6 +408,7 @@ credential!(
 
 /// Tokens from a code exchange or refresh.
 #[derive(Clone, Debug)]
+#[non_exhaustive]
 pub struct Tokens {
     /// The access token.
     pub access_token: BearerToken,
@@ -490,10 +489,13 @@ impl PendingLogin {
             _ => {}
         }
         if let Some(error) = &callback.error {
-            return Err(LoginError::Denied {
-                error: error.clone(),
-                description: callback.error_description.clone(),
-            });
+            return Err(LoginError::Denied(ErrorResponse {
+                error: ErrorCode::from(error.as_str()),
+                error_description: callback
+                    .error_description
+                    .as_deref()
+                    .map(ErrorDescription::lossy),
+            }));
         }
         callback.code.as_deref().ok_or(LoginError::MissingCode)
     }
@@ -774,7 +776,7 @@ impl Client {
             .require_authentication(pending.step_up, self.issuer().now())
             .map_err(OAuthError::IdToken)?;
         if let Some(subject) = &pending.subject
-            && let Err(error) = id_token.require_subject(subject)
+            && let Err(error) = id_token.require_sub(subject)
         {
             if let Some(refresh_token) = &tokens.refresh_token {
                 let _revoked = self.revoke(refresh_token).await;
@@ -942,15 +944,14 @@ impl Client {
     /// match logout.scope() {
     ///     LogoutScope::Session(sid) => println!("end the sessions of auth session {sid}"),
     ///     LogoutScope::Subject(sub) => println!("end every session of {sub}"),
+    ///     // A later version may end sessions some other way.
+    ///     scope => eprintln!("cannot end the sessions of {scope:?}"),
     /// }
     /// # Ok(()) }
     /// ```
     pub async fn logout_token(&self, token: &str) -> Result<LogoutToken, TokenError> {
         let client = self.config().client_id.as_str();
-        let claims: LogoutTokenClaims = self
-            .issuer()
-            .decode(token, TokenType::Logout, client, None)
-            .await?;
+        let claims: LogoutTokenClaims = self.issuer().decode(token, client, None).await?;
         LogoutToken::from_claims(claims)
     }
 

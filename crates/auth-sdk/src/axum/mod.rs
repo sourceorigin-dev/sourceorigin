@@ -79,8 +79,8 @@ pub use bearer::{
     AuthRejection, Authenticated, BearerLayer, BearerService, RequireAuthentication, Scoped,
 };
 pub use login::{
-    CrossOrigin, InvalidReturnTo, LoginLayer, LoginRoutes, LoginService, MaybeSignedIn,
-    PublicClient, ReturnTo, SignedIn, StepUp,
+    CrossOrigin, InvalidMountPath, InvalidReturnTo, LoginLayer, LoginRoutes, LoginService,
+    MaybeSignedIn, MountPath, PublicClient, ReturnTo, SignedIn, StepUp,
 };
 pub use seal::{CookieKey, CookieKeyError};
 pub use session::StoredLogin;

@@ -13,7 +13,8 @@ cargo add sourceorigin-auth --features axum
 The `axum` feature adds extractors, a bearer layer and the login routes for
 [axum](https://docs.rs/axum) 0.8. Without it, the SDK works with any framework. It
 needs Rust 1.88 or newer, and a C compiler for its cryptography,
-[aws-lc-rs](https://docs.rs/aws-lc-rs).
+[aws-lc-rs](https://docs.rs/aws-lc-rs). It re-exports the crates its API names,
+such as `reqwest` and `url`, so you can use the versions it does.
 
 ## Sign users in
 
