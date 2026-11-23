@@ -260,7 +260,7 @@ impl Flow {
             ("code_challenge_method", CodeChallengeMethod::S256.as_str()),
             (
                 "code_challenge",
-                &sourceorigin_crypto::Pkce::challenge(Self::verifier()).expect("PKCE"),
+                &sourceorigin_crypto::Pkce::challenge(Self::verifier()),
             ),
         ]);
         if let Some(prompt) = prompt {

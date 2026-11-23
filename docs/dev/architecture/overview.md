@@ -87,7 +87,7 @@ services fit together.
 | Crate | Owns |
 | --- | --- |
 | `sourceorigin-common` (`crates/common`) | Shared types: IDs, handles, vocabularies, domain events, notifications, and under `protocol` the wire types auth and the SDKs share. Its server-only parts sit behind the `server`, `admin`, `config`, `email`, `events`, `similarity` and `sqlx` features, so the Rust SDK compiles none of them: `server` holds client registrations, handles, the public IP ranges, the settings API bodies, the response headers and the IDs and vocabularies only servers use |
-| `sourceorigin-crypto` (`crates/crypto`) | Every cryptographic primitive, on `aws-lc-rs`. The Rust SDK builds only secrets, digests, HMAC, RS256 verification and AES-256-GCM sealing; the `server` feature adds PKCE, client secrets, RS256 signing and key sets, the key-encryption key, Ed25519 signed notes and SCRAM verifiers |
+| `sourceorigin-crypto` (`crates/crypto`) | Every cryptographic primitive, on `aws-lc-rs`. The Rust SDK builds only secrets, digests, HMAC, PKCE challenges, RS256 verification and AES-256-GCM sealing; the `server` feature adds the PKCE verifier check, client secrets, RS256 signing and key sets, the key-encryption key, Ed25519 signed notes and SCRAM verifiers |
 | `sourceorigin-repository` (`crates/database`) | The only crate that runs SQL: connections, migrations, repositories, transactions, events and the delivery queue's storage |
 | `sourceorigin-telemetry` (`crates/telemetry`) | Logs, traces and metrics, and the HTTP layer every router uses |
 | `sourceorigin-ui` (`crates/ui`) | The Topcoat components of auth's pages and the admin dashboard, and the bodies of its emails, which know nothing of the database or HTTP. It uses `sourceorigin-common`'s types, never the other way round |

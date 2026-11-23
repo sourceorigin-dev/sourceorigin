@@ -23,7 +23,7 @@ use sourceorigin_common::{
         step_up::StepUpRequirement,
     },
 };
-use sourceorigin_crypto::{Digest, Secret};
+use sourceorigin_crypto::{Pkce, Secret};
 use std::{fmt, sync::Arc};
 use thiserror::Error;
 use url::Url;
@@ -671,7 +671,7 @@ impl Client {
         };
         let mut scopes = request.scopes.clone();
         scopes.insert(Scope::OpenId);
-        let challenge = Digest::sha256(pending.verifier.as_bytes()).encoded();
+        let challenge = Pkce::challenge(&pending.verifier);
         let mut parameters = vec![
             ("response_type", ResponseType::Code.as_str().to_owned()),
             ("redirect_uri", pending.redirect_uri.to_string()),

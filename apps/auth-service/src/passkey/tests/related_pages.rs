@@ -48,7 +48,7 @@ impl Fixture {
     /// Pushes `page`'s authorization request, with `extra` parameters, and returns
     /// its `request_uri`.
     async fn push(&self, page: &RelatedPage, extra: &[(&str, &str)]) -> String {
-        let challenge = sourceorigin_crypto::Pkce::challenge(PAGE_VERIFIER).expect("PKCE");
+        let challenge = sourceorigin_crypto::Pkce::challenge(PAGE_VERIFIER);
         let form = url::form_urlencoded::Serializer::new(String::new())
             .extend_pairs([
                 ("client_id", page.client.id.as_str()),

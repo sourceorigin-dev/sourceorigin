@@ -2,9 +2,9 @@
 //! Rust SDK; no browser or database policy.
 //!
 //! With no features, this crate is what the SDK builds on: random secrets,
-//! digests, RS256 verification and sealing. The `server` feature adds what only
-//! auth uses: RS256 signing and key sets, client secrets, PKCE, the key-encryption
-//! key, Ed25519 signed notes and SCRAM verifiers.
+//! digests, PKCE challenges, RS256 verification and sealing. The `server` feature
+//! adds what only auth uses: RS256 signing and key sets, client secrets, the PKCE
+//! verifier check, the key-encryption key, Ed25519 signed notes and SCRAM verifiers.
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![warn(clippy::print_stdout, clippy::print_stderr)]
 /// The one RS256 verifier auth and the SDK share, and compact JWS splitting.
@@ -12,9 +12,11 @@ mod jws;
 /// Ed25519 signed notes, for audit checkpoints.
 #[cfg(feature = "server")]
 mod note;
-/// Client secrets and PKCE, as auth checks them.
+/// Client secrets, as auth checks them.
 #[cfg(feature = "server")]
 mod oauth;
+/// PKCE S256 challenges, and auth's check of a verifier.
+mod pkce;
 /// SCRAM-SHA-256 password verifiers, for database roles.
 #[cfg(feature = "server")]
 mod scram;
@@ -27,7 +29,8 @@ pub use jws::{Compact, KeyDefect, Malformed, Rs256VerifyingKey, Split, VerifyErr
 #[cfg(feature = "server")]
 pub use note::{NoteKey, NoteVerifier, NoteVerifiers};
 #[cfg(feature = "server")]
-pub use oauth::{ClientSecret, Pkce};
+pub use oauth::ClientSecret;
+pub use pkce::Pkce;
 #[cfg(feature = "server")]
 pub use scram::ScramVerifier;
 #[cfg(feature = "server")]
