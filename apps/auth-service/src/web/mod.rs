@@ -371,10 +371,7 @@ impl WebApplication {
 
     /// The page's query, as `T`. A malformed one is the request's fault.
     fn query<T: DeserializeOwned>(cx: &Cx) -> std::result::Result<T, OAuthError> {
-        parse_query_params(cx).map_err(|error| {
-            OAuthCode::InvalidRequest
-                .reject_with(format!("the request is malformed: {error}"), error)
-        })
+        parse_query_params(cx).map_err(|error| OAuthError::malformed("the request", error))
     }
 
     /// The form posted to the page, as `T`. A malformed one is the request's fault.
