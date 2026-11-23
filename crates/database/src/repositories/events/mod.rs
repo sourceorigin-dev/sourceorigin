@@ -117,8 +117,9 @@ impl RecordedEvent {
 /// actors newer releases recorded: a type it does not know, or a known type
 /// naming a value it does not know, such as a new [`JobName`] of an
 /// [`Actor::System`]. Those read as [`Self::Unknown`] instead of failing, and each
-/// reader decides what to do with them. Only reads produce one: `record` takes an
-/// [`EventContext`], whose actor is an [`Actor`].
+/// reader decides what to do with them. An alert update's author reads by the
+/// same rule. Only reads produce one: `record` takes an [`EventContext`], whose
+/// actor is an [`Actor`], and an alert update's author is one too.
 ///
 /// Serializes as stored.
 ///
@@ -139,6 +140,20 @@ impl RecordedActor {
         match self {
             Self::Known(actor) => Some(actor),
             Self::Unknown(_) => None,
+        }
+    }
+}
+
+impl TryFrom<Value> for RecordedActor {
+    type Error = serde_json::Error;
+
+    /// Decodes a stored actor, an event's or an alert update's author: one this
+    /// release does not know reads as [`Self::Unknown`], and a known one that
+    /// does not decode fails.
+    fn try_from(stored: Value) -> Result<Self, Self::Error> {
+        match KindProbe::known_flat(&stored) {
+            Some(actor) => actor.map(Self::Known),
+            None => Ok(Self::Unknown(stored)),
         }
     }
 }
@@ -241,10 +256,8 @@ impl TryFrom<EventRow> for StoredEvent {
                 data: payload,
             },
         };
-        let actor = match KindProbe::known_flat(&row.actor) {
-            Some(actor) => RecordedActor::Known(actor.map_err(|source| invalid("actor", source))?),
-            None => RecordedActor::Unknown(row.actor),
-        };
+        let actor =
+            RecordedActor::try_from(row.actor).map_err(|source| invalid("actor", source))?;
         Ok(Self {
             id: row.id,
             occurred_at: row.occurred_at,

@@ -357,6 +357,55 @@ async fn actors_a_newer_release_wrote_read_as_unknown() {
     tx.rollback().await.expect("rollback");
 }
 
+/// Alert update authors a newer release recorded, of a type this one does not
+/// know or a known type naming a job it does not know, read as no author. A
+/// known type that does not decode still fails.
+#[tokio::test]
+#[ignore = "requires a disposable TEST_DATABASE_URL"]
+async fn alert_authors_a_newer_release_wrote_read_as_unknown() {
+    use crate::DatabaseConfig;
+    use sourceorigin_common::{
+        admin::{ChainBreak, ChainProblem},
+        alerts::{Alert, AlertStatus},
+    };
+    use std::time::Duration;
+    let url = std::env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL");
+    let database = Database::isolated(
+        DatabaseConfig::new(&url, 1, Duration::from_secs(5)).expect("configuration"),
+    )
+    .await
+    .expect("isolated database");
+    let alert = Alert::AuditChainBroken(ChainBreak {
+        position: 1,
+        problem: ChainProblem::EventChanged,
+    });
+    let id = database.alerts().raise(&alert).await.expect("alert");
+    let post = async |author| {
+        database
+            .alerts()
+            .add_update_written_elsewhere(id, AlertStatus::Fixing, &author)
+            .await
+            .expect("update");
+    };
+    post(serde_json::json!({"type": "from_a_newer_release"})).await;
+    post(serde_json::json!({"type": "system", "job": "from_a_newer_release"})).await;
+    let authors: Vec<_> = database
+        .alerts()
+        .updates(&[id])
+        .await
+        .expect("updates")
+        .into_iter()
+        .map(|(_, update)| update.author)
+        .collect();
+    assert_eq!(authors, [None, None]);
+
+    post(serde_json::json!({"type": "cli"})).await;
+    assert!(matches!(
+        database.alerts().updates(&[id]).await,
+        Err(DatabaseError::InvalidStoredData { .. })
+    ));
+}
+
 /// An alert update's note is its event's reason, so it is read while the event's
 /// personal data is kept, and reads as none once that is erased.
 #[tokio::test]

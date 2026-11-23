@@ -211,7 +211,7 @@ async fn updates_acknowledge_an_alert_until_its_condition_changes() {
     );
     assert!(matches!(
         detail.updates[0].author,
-        AlertAuthor::Administrator { handle: Some(_) }
+        Some(AlertAuthor::Administrator { handle: Some(_) })
     ));
     let recorded = database
         .events()

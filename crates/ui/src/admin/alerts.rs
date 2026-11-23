@@ -2,9 +2,7 @@
 
 use super::{Action, Badge, Change, badge, confirm, moment};
 use crate::layout::page_head;
-use sourceorigin_common::alerts::{
-    Alert, AlertAuthor, AlertDetail, AlertState, AlertStatus, AlertUpdate,
-};
+use sourceorigin_common::alerts::{Alert, AlertAuthor, AlertDetail, AlertState, AlertStatus};
 use topcoat::{
     Result,
     view::{View, class, component, view},
@@ -42,14 +40,14 @@ fn alert_badge(detail: &AlertDetail) -> Badge {
     }
 }
 
-/// Who posted `update`, in words.
-fn author(update: &AlertUpdate) -> String {
-    match &update.author {
+/// Who posted an update, as its byline.
+fn byline(author: &AlertAuthor) -> String {
+    match author {
         AlertAuthor::Administrator {
             handle: Some(handle),
-        } => format!("@{handle}"),
-        AlertAuthor::Administrator { handle: None } => "a deleted account".to_owned(),
-        AlertAuthor::Operator { os_user, host } => format!("the terminal, {os_user}@{host}"),
+        } => format!(" by @{handle}"),
+        AlertAuthor::Administrator { handle: None } => " by a deleted account".to_owned(),
+        AlertAuthor::Operator { os_user, host } => format!(" by the terminal, {os_user}@{host}"),
     }
 }
 
@@ -138,7 +136,9 @@ async fn alert_card<'a>(card: &'a AlertCard<'a>) -> Result<impl View> {
                             <span class=(class!("dot", status_badge(update.status).tone))></span>
                             <div class="text">
                                 <strong>(status_badge(update.status).label)</strong>
-                                (format!(" by {}", author(update)))
+                                if let Some(author) = &update.author {
+                                    (byline(author))
+                                }
                                 if let Some(note) = &update.note {
                                     <small class="wrap">(note.as_str())</small>
                                 }
