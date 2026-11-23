@@ -21,9 +21,7 @@ behavior and names.
 
 ## Wire types
 
-The wire format is defined by types in `sourceorigin_common::protocol`, not by prose.
-The Rust SDK re-exports them by name as `sourceorigin_auth::protocol`, so that list is
-its contract:
+The wire format is defined by types in `sourceorigin_common::protocol`, not by prose:
 
 - `claims`: `AccessTokenClaims`, `IdTokenClaims`, `LogoutTokenClaims`, `UserInfo`,
   and the parts they share (`AuthenticationClaims`, `ProfileClaims`, `Audience`,
@@ -37,6 +35,11 @@ its contract:
   `TokenResponse` and `PushedAuthorization`.
 - `challenge::BearerChallenge`, the `WWW-Authenticate` value.
 - `sdk`: the error codes below.
+
+The Rust SDK re-exports by name, as `sourceorigin_auth::protocol`, the types its
+API names and the types those name in turn. That list, in
+`crates/auth-sdk/src/lib.rs`, is its contract. The rest, such as
+`AccessTokenClaims`, `JwkSet` and `TokenResponse`, it reads only inside.
 
 Auth issues tokens and documents by serializing these types, and the Rust SDK
 deserializes them, so the two cannot disagree. An SDK in another language mirrors

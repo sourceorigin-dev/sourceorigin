@@ -146,12 +146,63 @@ pub use token::{
 };
 
 /// The wire types this SDK reads, shared with auth itself. Each item is re-exported
-/// by name, so this list is the SDK's contract.
+/// by name, so this list is the SDK's contract: every type its API names, and the
+/// types those name in turn.
 pub mod protocol {
-    pub use sourceorigin_common::protocol::{
-        challenge, claims, jwt, metadata, oauth, registered, sdk, step_up,
+    pub use sourceorigin_common::{
+        ClientId, DeliveryId, InvalidClientId, InvalidValue, SessionId, TokenId, UserId,
+        VocabularyError,
     };
-    pub use sourceorigin_common::{ClientId, DeliveryId, InvalidValue, SessionId, TokenId, UserId};
+
+    /// `WWW-Authenticate: Bearer` challenges sent by resource servers.
+    pub mod challenge {
+        pub use sourceorigin_common::protocol::challenge::{
+            BearerChallenge, BearerError, ChallengeError,
+        };
+    }
+
+    /// ID token, logout token and `UserInfo` claims, and the `acr` and `amr` values
+    /// they report.
+    pub mod claims {
+        pub use sourceorigin_common::protocol::claims::{
+            Absent, Acr, Actor, Amr, Audience, AuthenticationClaims, Confirmation, IdTokenClaims,
+            LogoutEvents, LogoutTokenClaims, ProfileClaims, UserInfo,
+        };
+    }
+
+    /// JWT claim and JOSE field vocabulary.
+    pub mod jwt {
+        pub use sourceorigin_common::protocol::jwt::{Algorithm, Claim, TokenType};
+    }
+
+    /// Authorization server metadata, as published at both well-known discovery paths.
+    pub mod metadata {
+        pub use sourceorigin_common::protocol::metadata::ServerMetadata;
+    }
+
+    /// OAuth and `OpenID` Connect vocabulary shared by clients and the provider.
+    pub mod oauth {
+        pub use sourceorigin_common::protocol::oauth::{
+            ClientAuthMethod, CodeChallengeMethod, ErrorCode, ErrorDescription, ErrorResponse,
+            GrantType, InvalidDescription, InvalidScope, Prompt, ResponseMode, ResponseType, Scope,
+            Scopes, SubjectType,
+        };
+    }
+
+    /// Why a token's registered claims fail their one check.
+    pub mod registered {
+        pub use sourceorigin_common::protocol::registered::ClaimsError;
+    }
+
+    /// Error codes shared by the SDKs and their test vectors.
+    pub mod sdk {
+        pub use sourceorigin_common::protocol::sdk::{ErrorCategory, ErrorReason, SdkError};
+    }
+
+    /// What a protected operation needs from the user's authentication (RFC 9470).
+    pub mod step_up {
+        pub use sourceorigin_common::protocol::step_up::StepUpRequirement;
+    }
 }
 pub use protocol::{
     ClientId, SessionId, TokenId, UserId,

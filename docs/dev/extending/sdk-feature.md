@@ -87,10 +87,11 @@ pub fn picture(&self) -> Option<&str> {
 }
 ```
 
-`sourceorigin_auth::protocol` re-exports the shared modules by name, in
-`crates/auth-sdk/src/lib.rs`: that list is the SDK's contract, so a new
-protocol module joins it. `constants` stays out: its limits are how the SDKs
-behave, not part of the wire format.
+`sourceorigin_auth::protocol` re-exports by name, in
+`crates/auth-sdk/src/lib.rs`, each shared type the SDK's API names, and the
+types those name in turn: that list is the SDK's contract. A shared type that a
+new method takes or returns joins it. `constants` stays out: its limits are how
+the SDKs behave, not part of the wire format.
 
 A limit, lifetime or name both SDKs apply goes in `sdk_constants!` in
 `crates/common/src/protocol/constants.rs`, or beside its wire type. The Rust SDK
