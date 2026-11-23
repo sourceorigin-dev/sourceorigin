@@ -287,6 +287,87 @@ async fn handles_are_reserved_given_released_and_unreserved() {
     );
 }
 
+/// A change posted without a reason is refused on its page, which asks for one,
+/// whatever else its form takes and however the page decodes it: reserving and
+/// unreserving a handle, changing an account's handle and display name, and the
+/// settings tabs, which read their form from the body themselves. None fails to
+/// decode, and none changes anything.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL"]
+async fn a_change_without_a_reason_is_refused_on_its_page() {
+    let harness = Harness::new().await;
+    let admin = harness.admin().await;
+    let owner = Browser::new_account(&harness.database).await;
+    let user = owner.user_id;
+    let suffix = &user.to_string()[24..];
+    let (kept, fresh) = (format!("kept-{suffix}"), format!("fresh-{suffix}"));
+    let primary = format!("primary-{user}@example.com");
+    crate::tests::verified_address(&harness.database, user, &primary, true).await;
+    let address = format!("other-{user}@example.com");
+    let other = crate::tests::verified_address(&harness.database, user, &address, false)
+        .await
+        .to_string();
+    let stored = async || {
+        harness
+            .database
+            .users()
+            .find_by_id(user)
+            .await
+            .expect("lookup")
+            .expect("user")
+    };
+    let before = stored().await;
+    let dashboard = harness
+        .confirmed(&admin, "/handles/reserve", Utc::now())
+        .await;
+    let post = async |path: &str, fields: &[(&str, &str)]| {
+        let url = format!("{DASHBOARD}{path}");
+        dashboard
+            .submit(&harness.dashboard, &url, fields, OWN_PAGE)
+            .await
+    };
+    let reserve = [("handle", kept.as_str()), REASON];
+    assert_eq!(
+        redirect(&post("/handles/reserve", &reserve).await),
+        "/handles"
+    );
+
+    let unreserve = format!("/handles/unreserve?handle={kept}");
+    let (handle, name, emails) = (
+        format!("/users/{user}/handle"),
+        format!("/users/{user}/name"),
+        format!("/users/{user}/emails"),
+    );
+    let remove = [("action", "remove"), ("id", other.as_str())];
+    for (path, fields) in [
+        ("/handles/reserve", [("handle", fresh.as_str())].as_slice()),
+        (&unreserve, &[]),
+        (&handle, &[("handle", fresh.as_str())]),
+        (&name, &[("display_name", "Renamed by support")]),
+        (&emails, &remove),
+    ] {
+        let refused = post(path, fields).await;
+        assert_eq!(refused.status(), StatusCode::BAD_REQUEST, "{path}");
+        let page = html(refused).await;
+        assert!(
+            page.contains("Give a reason of 1 to 500 characters"),
+            "{path}: {page}"
+        );
+    }
+
+    let page = html(harness.visit(&dashboard, "/handles").await).await;
+    assert!(page.contains(&unreserve), "still reserved: {page}");
+    assert!(!page.contains(&fresh), "nothing reserved: {page}");
+    let after = stored().await;
+    assert_eq!(after.handle, before.handle);
+    assert_eq!(after.display_name, before.display_name);
+    let addresses = harness.database.emails().list(user).await.expect("emails");
+    assert!(
+        addresses.iter().any(|email| email.id.to_string() == other),
+        "the address stays"
+    );
+}
+
 /// The Alerts page shows an open alert as needing attention, with posting an
 /// update on it, and the overview's banner leads there. An update is recorded
 /// as the administrator's, and the alert then shows its status and note. The

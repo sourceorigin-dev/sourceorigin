@@ -174,7 +174,9 @@ pub(super) async fn reserve(cx: &Cx, form: Option<Form<Reservation>>) -> Result<
 - `App::submit` makes the change, goes back to `back` once it is made, and
   otherwise returns the refusal, which the form shows with what was typed. A
   change whose form posts only its reason uses `App::submit_reason` and
-  `ReasonForm`, which parse the reason first.
+  `ReasonForm`, which parse the reason first. Every form's `reason` field is
+  `#[serde(default)]`, so a form posted without one decodes, and `Reason::parse`
+  refuses it on the page as it refuses a blank one.
 
 The page's words are a `Change` variant in `crates/ui/src/admin/mod.rs`: its
 title, description, button, label, whether it takes something away, and the

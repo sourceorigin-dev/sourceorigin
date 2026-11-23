@@ -31,6 +31,7 @@ struct Reservation {
     /// The handle to reserve.
     handle: String,
     /// Who or what it is kept for.
+    #[serde(default)]
     reason: String,
 }
 
