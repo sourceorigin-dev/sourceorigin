@@ -146,20 +146,7 @@ impl FromStr for KeyId {
     }
 }
 
-impl TryFrom<String> for KeyId {
-    type Error = InvalidKeyId;
-    /// Validates owned text, as serde reads it.
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        value.parse()
-    }
-}
-
-impl From<KeyId> for String {
-    /// The identifier unchanged.
-    fn from(value: KeyId) -> Self {
-        value.0
-    }
-}
+text_conversions!(KeyId);
 
 impl fmt::Display for KeyId {
     /// Writes the identifier unchanged.
