@@ -75,7 +75,8 @@ jobs:
   # matches a filter only when it matches every pattern. `web` covers every
   # file Prettier, ESLint or tsc can see, so it excludes file types rather than
   # directories. `app` covers everything the running service and its images
-  # are built from, and the TypeScript SDK the browser suite also runs. Rust
+  # are built from, and the TypeScript SDK the browser suite also runs, which
+  # the piqueld manifests and the telemetry configs are not. Rust
   # also reads files outside the crates: the committed audit verifier keys,
   # which auth compiles in, and the generated reference pages its tests compare
   # with the code, which `reference` matches since `rust` skips Markdown.
@@ -114,7 +115,8 @@ jobs:
             app:
               - '{Cargo.toml,Cargo.lock,rust-toolchain.toml,.cargo/**,justfile,just/**,package.json,pnpm-lock.yaml,playwright.config.ts,apps/**,crates/**,packages/auth/**,tests/browser/**,infra/**,docs/dev/security/audit-key.pub,.dockerignore,.github/workflows/ci.yml}'
               - '!**/*.md'
-              - '!infra/piqueld.toml'
+              - '!infra/{piqueld,telemetry}.toml'
+              - '!infra/telemetry/**'
             infra:
               - '{infra/piqueld.toml,infra/telemetry.toml,infra/telemetry/*.yaml,justfile,just/infra.just,.github/workflows/ci.yml}'
 
