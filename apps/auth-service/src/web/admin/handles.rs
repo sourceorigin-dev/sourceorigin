@@ -121,7 +121,7 @@ pub(super) async fn reserve(cx: &Cx, form: Option<Form<Reservation>>) -> Result<
             reason: reason,
             <label>
                 "Handle"
-                <input name="handle" required="" maxlength="32" autocomplete="off" value=(typed) autofocus="">
+                <input name="handle" required="" maxlength=(sourceorigin_common::handle::MAX_LENGTH.to_string()) autocomplete="off" value=(typed) autofocus="">
             </label>
         )
     };
