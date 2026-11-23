@@ -9,7 +9,7 @@ publish = false
 
 [dependencies]
 sourceorigin-common = { workspace = true, features = ["admin", "config", "email", "events", "server", "similarity"] }
-sourceorigin-crypto.workspace = true
+sourceorigin-crypto = { workspace = true, features = ["server"] }
 sourceorigin-repository.workspace = true
 sourceorigin-telemetry.workspace = true
 sourceorigin-auth.workspace = true

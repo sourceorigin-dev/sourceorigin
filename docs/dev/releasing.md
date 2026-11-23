@@ -48,9 +48,9 @@ links. Every other crate is under the PolyForm Noncommercial License and sets
 `publish = false`, so it can't be published, nor become a dependency of a crate
 that is. `just publish` refuses to publish a crate under any other license.
 
-`sourceorigin-common` is published whole: its server-only features, such as
-`server`, `sqlx` and `events`, are off by default, and the SDK enables none of
-them, so an app builds only what the SDK reads.
+`sourceorigin-common` and `sourceorigin-crypto` are published whole: their
+server-only features, such as `server`, `sqlx` and `events`, are off by default,
+and the SDK enables none of them, so an app builds only what the SDK uses.
 
 docs.rs builds each crate's documentation with every feature, and labels the
 items a feature adds. `sourceorigin-auth`'s front page holds a quick start, its
