@@ -27,7 +27,8 @@ secrecy.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
-tokio.workspace = true
+# A mutex and `OnceCell`, and the deadlines on requests.
+tokio = { workspace = true, features = ["sync", "time"] }
 tower = { workspace = true, optional = true }
 tracing = { workspace = true, optional = true }
 url.workspace = true
@@ -36,8 +37,9 @@ url.workspace = true
 axum.workspace = true
 # Tests sign their tokens with `Rs256Key`.
 sourceorigin-crypto = { workspace = true, features = ["server"] }
-# Paused time, so a test can wait out a deadline without waiting.
-tokio = { workspace = true, features = ["test-util"] }
+# The tests' and the example's runtime and listeners, and paused time, so a test
+# can wait out a deadline without waiting.
+tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "test-util"] }
 trybuild.workspace = true
 
 [[example]]

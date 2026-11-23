@@ -15,7 +15,7 @@ sourceorigin-ui.workspace = true
 
 axum.workspace = true
 thiserror.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "net", "sync", "time"] }
 topcoat = { workspace = true, features = ["view"] }
 tracing.workspace = true
 

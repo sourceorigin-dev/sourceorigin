@@ -25,7 +25,7 @@ opentelemetry-http.workspace = true
 opentelemetry-appender-tracing.workspace = true
 reqwest.workspace = true
 thiserror.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "net", "sync", "time"] }
 tracing.workspace = true
 tracing-opentelemetry.workspace = true
 tracing-subscriber.workspace = true

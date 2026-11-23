@@ -18,7 +18,7 @@ topcoat = { workspace = true, features = ["view"] }
 url.workspace = true
 
 [dev-dependencies]
-tokio.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "net", "sync", "time"] }
 
 [lints]
 workspace = true
