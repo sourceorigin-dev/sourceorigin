@@ -13,7 +13,7 @@ use chrono::{DateTime, Duration, Utc};
 use serde::Serialize;
 use sourceorigin_common::{
     ClientId, ClientSecretId, UserId,
-    admin::{ApprovedOrigin, Client},
+    admin::{ApprovedOrigin, Client, ClientDetail, SecretLifetime},
     clients::{
         BackchannelLogoutUri, ClientField, ClientKind, ClientOwner, ClientRegistration,
         RedirectUri, RelatedOrigin, ScopeName,
@@ -165,6 +165,17 @@ impl From<StoredOidcClient> for Client {
             last_used_at: client.last_used_at,
             suspended_at: client.suspended_at,
             deleted_at: client.deleted_at,
+        }
+    }
+}
+
+impl From<StoredClientSecret> for SecretLifetime {
+    /// Keeps its ID and lifetime.
+    fn from(secret: StoredClientSecret) -> Self {
+        Self {
+            id: secret.id,
+            created_at: secret.created_at,
+            expires_at: secret.expires_at,
         }
     }
 }
@@ -747,6 +758,29 @@ impl OidcRepository<'_> {
                 id,
             )
         )
+    }
+
+    /// The client `id` as its admin page shows it, with its secrets, deleted or
+    /// not, or `None` if no client ever had this ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DatabaseError`] if a query fails or a row is invalid.
+    pub async fn client_detail(
+        &mut self,
+        id: &ClientId,
+    ) -> Result<Option<ClientDetail>, DatabaseError> {
+        let Some(client) = self.find_client(id.as_str()).await? else {
+            return Ok(None);
+        };
+        let secrets = self.client_secrets(id).await?;
+        Ok(Some(ClientDetail {
+            kind: client.kind,
+            created_at: client.created_at,
+            updated_at: client.updated_at,
+            client: client.into(),
+            secrets: secrets.into_iter().map(Into::into).collect(),
+        }))
     }
 
     /// Every secret of the client, expired ones included, oldest first.

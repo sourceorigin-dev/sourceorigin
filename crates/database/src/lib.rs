@@ -63,7 +63,7 @@ pub use repositories::{
     },
     passkeys::{CeremonyKind, ConsumedCeremony, InsertCeremony, InsertPasskey, StoredPasskey},
     pictures::StoredPicture,
-    recoveries::{InsertRecovery, RecentRecovery, RecoveryPasskey, RecoveryState, StoredRecovery},
+    recoveries::{InsertRecovery, StoredRecovery},
     security::{InsertInvitation, InvitationKey, OpenInvitation},
     sessions::{
         InsertSession, LAST_SEEN_INTERVAL, SessionAuthentication, SessionScope, StoredSession,

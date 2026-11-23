@@ -1085,9 +1085,9 @@ impl AdminApplication {
                 if path == href {
                     return None;
                 }
-                let details = service.client_details(&admin.operator, &id).await.ok()?;
+                let detail = service.client_detail(&admin.operator, &id).await.ok()?;
                 Some(Parent {
-                    name: Self::title(&details.client).to_owned(),
+                    name: Self::title(&detail).to_owned(),
                     href,
                     id: id.to_string(),
                 })

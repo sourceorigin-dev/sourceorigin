@@ -4,8 +4,10 @@
 use super::{RecoveryRepository, RepositoryExecutor};
 use crate::DatabaseError;
 use chrono::{DateTime, Duration, Utc};
-use serde::Serialize;
-use sourceorigin_common::{PasskeyId, RecoveryId, UserId};
+use sourceorigin_common::{
+    PasskeyId, RecoveryId, UserId,
+    admin::{Recovery, RecoveryPasskey, RecoveryState},
+};
 
 /// A new recovery, whose link works until `expires_at`.
 pub struct InsertRecovery<'a> {
@@ -59,35 +61,6 @@ macro_rules! recoveries {
     };
 }
 
-/// Where a recovery stands. [`StoredRecovery::state`] is the only place auth
-/// computes it; the migration's `undoable_recovery` is the one SQL copy, which
-/// the database's backstops use.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-pub enum RecoveryState {
-    /// Its link works: not used, cancelled or undone, and not expired.
-    Open,
-    /// Its link was used and its probation has not ended: its passkey signs in
-    /// but never confirms a session, and a passkey from before it can undo it.
-    Probation {
-        /// When the probation ends.
-        settles_at: DateTime<Utc>,
-    },
-    /// Its probation ended: its passkey is an ordinary passkey.
-    Settled,
-    /// It expired unused, or was cancelled or undone.
-    Ended,
-}
-
-impl RecoveryState {
-    /// Whether the recovery can still be undone: its link works, or it is in
-    /// probation.
-    #[must_use]
-    pub const fn undoable(self) -> bool {
-        matches!(self, Self::Open | Self::Probation { .. })
-    }
-}
-
 impl StoredRecovery {
     /// Where the recovery stood when it was read.
     #[must_use]
@@ -106,40 +79,7 @@ impl StoredRecovery {
     }
 }
 
-/// A recent recovery of an account, as support reviews it before starting
-/// another: where it stands, and the passkey its link enrolled.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct RecentRecovery {
-    /// The recovery.
-    pub id: RecoveryId,
-    /// When it started.
-    pub started_at: DateTime<Utc>,
-    /// When its link stops, or stopped, working unused.
-    pub expires_at: DateTime<Utc>,
-    /// When its link enrolled a passkey, if it did.
-    pub completed_at: Option<DateTime<Utc>>,
-    /// When it was cancelled before its link was used.
-    pub cancelled_at: Option<DateTime<Utc>>,
-    /// When it was undone, by its owner or by support.
-    pub undone_at: Option<DateTime<Utc>>,
-    /// Where it stands now.
-    pub state: RecoveryState,
-    /// The passkey its link enrolled, if it did.
-    pub passkey: Option<RecoveryPasskey>,
-}
-
-/// The passkey a recovery's link enrolled.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct RecoveryPasskey {
-    /// The passkey.
-    pub id: PasskeyId,
-    /// Its label, while its row exists.
-    pub friendly_name: Option<String>,
-    /// Whether it is still active.
-    pub active: bool,
-}
-
-/// A [`RecentRecovery`] as one row: the recovery, and its passkey's columns.
+/// A [`Recovery`] as one row: the recovery, and its passkey's columns.
 struct RecentRow {
     /// The recovery.
     recovery: StoredRecovery,
@@ -149,7 +89,7 @@ struct RecentRow {
     passkey_active: bool,
 }
 
-impl From<RecentRow> for RecentRecovery {
+impl From<RecentRow> for Recovery {
     /// Computes its state, and gathers the enrolled passkey's columns.
     fn from(row: RecentRow) -> Self {
         let RecentRow {
@@ -348,7 +288,7 @@ impl RecoveryRepository<'_> {
         &mut self,
         user_id: UserId,
         since: DateTime<Utc>,
-    ) -> Result<Vec<RecentRecovery>, DatabaseError> {
+    ) -> Result<Vec<Recovery>, DatabaseError> {
         let rows = run!(
             self,
             fetch_all,

@@ -72,9 +72,7 @@ pub(crate) use admin::{
 use audit::AuditApplication;
 pub(crate) use audit::{AuditError, AuditKeys};
 pub use cli::Cli;
-pub(crate) use clients::{
-    Applied, ClientDetails, ClientRegistry, ClientRegistryError, MAX_OWNED_CLIENTS,
-};
+pub(crate) use clients::{Applied, ClientRegistry, ClientRegistryError, MAX_OWNED_CLIENTS};
 pub(crate) use config::{
     AuditConfig, AuthConfig, DashboardConfig, KeyEncryptionKeys, PUBLIC_BASE_URL, TokenDigestKeys,
 };

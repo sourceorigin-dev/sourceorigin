@@ -11,9 +11,8 @@ use crate::{
 use clap::Subcommand;
 use sourceorigin_common::{
     PasskeyId,
-    admin::{UserDetail, UserPage},
+    admin::{Recovery, RecoveryState, UserDetail, UserPage},
 };
-use sourceorigin_repository::{RecentRecovery, RecoveryState};
 
 /// Accounts, in any status.
 #[derive(Subcommand)]
@@ -263,7 +262,7 @@ impl UserCommand {
     /// Shows the account's recent recoveries, if it has any, before another is
     /// started or one is undone. On standard error, which leaves standard output
     /// to the new link.
-    fn show_recent(console: &Console, recent: &[RecentRecovery]) -> Result<(), CliError> {
+    fn show_recent(console: &Console, recent: &[Recovery]) -> Result<(), CliError> {
         if recent.is_empty() {
             return Ok(());
         }
@@ -307,7 +306,7 @@ impl UserCommand {
 
 // An account's recent recoveries, newest first, with where each stands and the
 // passkey it enrolled, shown before another is started or one is undone.
-report!([RecentRecovery], self, out, {
+report!([Recovery], self, out, {
     out.table(
         ["RECOVERY", "STARTED", "STATE", "PASSKEY", "NAME", "ACTIVE"],
         "",

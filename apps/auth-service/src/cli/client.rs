@@ -4,11 +4,11 @@ use super::{
     CliError, Confirm, Console, Why,
     output::{Cell, Joined, Single, Style, report},
 };
-use crate::{Applied, ClientDetails, GracePeriod, PUBLIC_BASE_URL, Reason};
+use crate::{Applied, GracePeriod, PUBLIC_BASE_URL, Reason};
 use clap::{Args, Subcommand};
 use sourceorigin_common::{
     ClientId, UserId,
-    admin::{ApprovedOrigin, Client},
+    admin::{ApprovedOrigin, Client, ClientDetail},
     clients::{
         AllowedScopes, BackchannelLogoutUri, ClientKind, ClientRegistration, ClientStatus,
         DisplayName, PostLogoutUris, RedirectUri, RedirectUris, RelatedOrigin, ScopeName,
@@ -192,7 +192,7 @@ impl ClientCommand {
             }
             Self::Apply(apply) => apply.run(console).await,
             Self::List => out.emit(&service.list_clients(operator).await?[..]),
-            Self::Show { id } => out.emit(&service.client_details(operator, &id).await?),
+            Self::Show { id } => out.emit(&service.client_detail(operator, &id).await?),
             Self::Update(update) => {
                 let (id, reason) = (update.id.clone(), update.why.reason.clone());
                 service
@@ -332,7 +332,7 @@ report!([Client], self, out, {
 });
 
 // A client's registration, then its secrets, never their values.
-report!(ClientDetails, self, out, {
+report!(ClientDetail, self, out, {
     let client = &self.client;
     out.title(format_args!("{} ({})", client.display_name, client.id))?;
     let list = |items: &[String]| {
@@ -343,15 +343,8 @@ report!(ClientDetails, self, out, {
         }
     };
     out.fields(&[
-        ("Kind", Cell::new(client.kind)),
-        (
-            "Status",
-            ClientCommand::status(ClientStatus::of(
-                client.enabled,
-                client.suspended_at,
-                client.deleted_at,
-            )),
-        ),
+        ("Kind", Cell::new(self.kind)),
+        ("Status", ClientCommand::status(client.status())),
         ("Owner", ClientCommand::owner(client.owner_id)),
         ("Redirect URIs", list(&client.redirect_uris)),
         ("Post-logout URIs", list(&client.post_logout_uris)),
@@ -366,8 +359,8 @@ report!(ClientDetails, self, out, {
             "Back-channel logout",
             client.backchannel_logout_uri.as_deref().into(),
         ),
-        ("Created", client.created_at.into()),
-        ("Updated", client.updated_at.into()),
+        ("Created", self.created_at.into()),
+        ("Updated", self.updated_at.into()),
         ("Last used", client.last_used_at.into()),
         ("Suspended", client.suspended_at.into()),
         ("Deleted", client.deleted_at.into()),

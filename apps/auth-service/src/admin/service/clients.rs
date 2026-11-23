@@ -3,12 +3,12 @@
 
 use super::AdminService;
 use crate::{
-    Applied, ClientDetails, ClientRegistry, ClientRegistryError, GracePeriod,
+    Applied, ClientRegistry, ClientRegistryError, GracePeriod,
     admin::{AdminError, Operator, Reason},
 };
 use sourceorigin_common::{
     ClientId,
-    admin::{ApprovedOrigin, Client},
+    admin::{ApprovedOrigin, Client, ClientDetail},
     clients::{ClientField, ClientOwner, ClientRegistration, RelatedOrigin},
 };
 use sourceorigin_crypto::ClientSecret;
@@ -24,22 +24,22 @@ impl AdminService {
         Ok(Self::views(self.database.oidc().list_clients().await?))
     }
 
-    /// Describes one OIDC client as stored, with the lifetimes of its secrets.
-    pub(crate) async fn client_details(
+    /// Describes one OIDC client, deleted or not, with the lifetimes of its
+    /// secrets.
+    pub(crate) async fn client_detail(
         &self,
         operator: &Operator,
         id: &ClientId,
-    ) -> Result<ClientDetails, AdminError> {
+    ) -> Result<ClientDetail, AdminError> {
         operator.authorize_read(&self.database).await?;
         let mut tx = self.database.begin().await?;
-        let client = tx
+        let detail = tx
             .oidc()
-            .find_client(id.as_str())
+            .client_detail(id)
             .await?
             .ok_or(AdminError::ClientNotFound)?;
-        let secrets = tx.oidc().client_secrets(id).await?;
         tx.commit().await?;
-        Ok(ClientDetails { client, secrets })
+        Ok(detail)
     }
 
     /// Runs `change` on the client registry in one transaction, attributed to

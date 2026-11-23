@@ -468,6 +468,51 @@ fn paging_has_no_zero_page_or_page_size() {
     );
 }
 
+/// A client's detail, which `client show --json` prints, is the client as the
+/// list prints it, with its kind, dates and secrets beside it.
+#[cfg(feature = "admin")]
+#[test]
+fn a_client_detail_extends_the_listed_client() {
+    let at = chrono::DateTime::<chrono::Utc>::UNIX_EPOCH;
+    let client = admin::Client {
+        id: "notes".parse().expect("client ID"),
+        display_name: "Notes".to_owned(),
+        redirect_uris: vec!["https://notes.example/callback".to_owned()],
+        post_logout_uris: Vec::new(),
+        allowed_scopes: vec!["openid".to_owned()],
+        allowed_audiences: vec!["notes".to_owned()],
+        allow_refresh: false,
+        enabled: true,
+        trusted: false,
+        require_pushed_authorization_requests: false,
+        token_endpoint_auth_method: protocol::oauth::ClientAuthMethod::None,
+        backchannel_logout_uri: None,
+        owner_id: None,
+        last_used_at: None,
+        suspended_at: None,
+        deleted_at: None,
+    };
+    let detail = admin::ClientDetail {
+        client: client.clone(),
+        kind: clients::ClientKind::Public,
+        created_at: at,
+        updated_at: at,
+        secrets: Vec::new(),
+    };
+    let listed = serde_json::to_value(&client).expect("serialize");
+    let mut shown = serde_json::to_value(&detail).expect("serialize");
+    let shown = shown.as_object_mut().expect("an object");
+    for extra in ["kind", "created_at", "updated_at", "secrets"] {
+        assert!(shown.remove(extra).is_some(), "{extra}");
+    }
+    assert_eq!(serde_json::Value::Object(shown.clone()), listed);
+    let json = serde_json::to_string(&detail).expect("serialize");
+    assert_eq!(
+        serde_json::from_str::<admin::ClientDetail>(&json).expect("deserialize"),
+        detail
+    );
+}
+
 /// Only public addresses pass the shared check, however they are written: an
 /// embedded IPv4 address (mapped, NAT64, 6to4) is checked too. A back-channel
 /// logout URI on a literal address registers exactly when deliveries could reach

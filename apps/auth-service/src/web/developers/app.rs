@@ -206,13 +206,7 @@ impl AccountPage for AppSecrets {
             return Err(Failure::Missing);
         }
         let secrets = web.account.client_secrets(&app).await?;
-        let rows: Vec<_> = secrets
-            .iter()
-            .map(|secret| SecretRow {
-                created_at: secret.created_at,
-                expires_at: secret.expires_at,
-            })
-            .collect();
+        let rows: Vec<_> = secrets.iter().map(SecretRow::from).collect();
         let page = developers::of(APP_SECRETS, &client.id);
         let view = view! { cx =>
             sourceorigin_ui::app_secrets(

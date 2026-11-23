@@ -12,9 +12,10 @@ use crate::{
 use chrono::Utc;
 use sourceorigin_common::{
     AccountStatus, RecoveryId, UserId,
+    admin::Recovery,
     events::{DomainEvent, EventContext, RecoveryRevocation, RevocationReason},
 };
-use sourceorigin_repository::{DatabaseTransaction, InsertRecovery, RecentRecovery};
+use sourceorigin_repository::{DatabaseTransaction, InsertRecovery};
 use url::Url;
 
 impl AdminService {
@@ -158,7 +159,7 @@ impl AdminService {
         &self,
         operator: &Operator,
         user_id: UserId,
-    ) -> Result<Vec<RecentRecovery>, AdminError> {
+    ) -> Result<Vec<Recovery>, AdminError> {
         operator.authorize_read(&self.database).await?;
         let mut tx = self.database.begin().await?;
         let since = Utc::now() - PROBATION;

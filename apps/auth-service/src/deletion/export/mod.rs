@@ -15,15 +15,17 @@ use base64::Engine;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use serde_json::Value;
-use sourceorigin_common::admin::{ApprovedOrigin, Consent, DashboardSession, KnownDevice};
+use sourceorigin_common::admin::{
+    self, ApprovedOrigin, Consent, DashboardSession, KnownDevice, RecoveryState,
+};
 use sourceorigin_common::{
     AccountStatus, ClientId, ErrorChain, Handle, PasskeyId, PictureId, RecoveryId, SessionId,
     UserId, events::DomainEvent, notifications::NotificationPreference,
 };
 use sourceorigin_repository::{
     AnnouncementRecord, DatabaseError, DatabaseTransaction, EventFilter, IdentityRecord,
-    NotificationRecord, RecentRecovery, RecordedEvent, RecoveryState, SessionRecord, StoredGrant,
-    StoredHandle, StoredOidcClient, StoredPasskey, StoredPicture, StoredUser,
+    NotificationRecord, RecordedEvent, SessionRecord, StoredGrant, StoredHandle, StoredOidcClient,
+    StoredPasskey, StoredPicture, StoredUser,
 };
 use std::{collections::BTreeMap, time::Duration};
 use tokio::sync::{
@@ -325,9 +327,9 @@ struct Recovery {
     settles_at: Option<DateTime<Utc>>,
 }
 
-impl From<RecentRecovery> for Recovery {
+impl From<admin::Recovery> for Recovery {
     /// Keeps its dates, state and passkey.
-    fn from(recovery: RecentRecovery) -> Self {
+    fn from(recovery: admin::Recovery) -> Self {
         let (state, settles_at) = match recovery.state {
             RecoveryState::Open => ("open", None),
             RecoveryState::Probation { settles_at } => ("probation", Some(settles_at)),

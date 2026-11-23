@@ -4,12 +4,11 @@ use chrono::TimeZone;
 use serde_json::json;
 use sourceorigin_common::{
     AnnouncementId, AuthenticationMethod, EmailId, EventId, NotificationId, Provider, TokenId,
-    admin::DashboardSession,
+    admin::{DashboardSession, RecoveryPasskey},
     clients::ClientKind,
     events::{Browser, Platform, UserAgentFamily},
     notifications::{EmailCategory, NotificationPreference},
 };
-use sourceorigin_repository::RecoveryPasskey;
 
 /// Every section but the events serializes under its documented name and shape.
 #[test]
@@ -152,7 +151,7 @@ fn serializes_every_section_in_its_documented_shape() {
                 approved_at: at,
             }],
         }],
-        recoveries: vec![Recovery::from(RecentRecovery {
+        recoveries: vec![Recovery::from(admin::Recovery {
             id: recovery,
             started_at: at,
             expires_at: at,

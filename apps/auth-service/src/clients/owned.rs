@@ -17,6 +17,7 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 use sourceorigin_common::{
     ClientId,
+    admin::SecretLifetime,
     clients::{
         AllowedScopes, ClientField, ClientKind, ClientOwner, ClientRegistration, PostLogoutUris,
         RedirectUri, RedirectUris, ScopeName,
@@ -24,7 +25,7 @@ use sourceorigin_common::{
     protocol::oauth::Scope,
 };
 use sourceorigin_crypto::{ClientSecret, Secret};
-use sourceorigin_repository::{DatabaseTransaction, StoredClientSecret, StoredOidcClient};
+use sourceorigin_repository::{DatabaseTransaction, StoredOidcClient};
 use std::error::Error;
 use thiserror::Error;
 
@@ -398,12 +399,13 @@ impl AccountService {
     pub(crate) async fn client_secrets(
         &self,
         owned: &OwnedClient,
-    ) -> Result<Vec<StoredClientSecret>, AccountError> {
-        Ok(self
+    ) -> Result<Vec<SecretLifetime>, AccountError> {
+        let secrets = self
             .database
             .oidc()
             .client_secrets(&owned.client.id)
-            .await?)
+            .await?;
+        Ok(secrets.into_iter().map(Into::into).collect())
     }
 
     /// Runs `change` on the client registry in one transaction, attributed to

@@ -10,9 +10,9 @@
 pub use crate::protocol::api::{Identity, Passkey};
 pub use crate::user_agent::{Browser, Platform, UserAgentFamily};
 use crate::{
-    AccountStatus, AnnouncementId, AuthenticationMethod, ClientId, DeliveryId, EventId, Handle,
-    PictureId, SessionId, TokenId, TraceId, UserId,
-    clients::{ClientStatus, RelatedOrigin},
+    AccountStatus, AnnouncementId, AuthenticationMethod, ClientId, ClientSecretId, DeliveryId,
+    EventId, Handle, PasskeyId, PictureId, RecoveryId, SessionId, TokenId, TraceId, UserId,
+    clients::{ClientKind, ClientStatus, RelatedOrigin},
     form::Checkbox,
     protocol::{jwt::KeyId, oauth::ClientAuthMethod},
 };
@@ -382,6 +382,97 @@ impl Client {
     pub const fn status(&self) -> ClientStatus {
         ClientStatus::of(self.enabled, self.suspended_at, self.deleted_at)
     }
+}
+
+/// One OIDC client as its page and `client show` show it: the client as listed,
+/// with its kind, when it was registered and changed, and its secrets.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClientDetail {
+    /// The client, as the list shows it.
+    #[serde(flatten)]
+    pub client: Client,
+    /// Public, or confidential with secrets.
+    pub kind: ClientKind,
+    /// When it was registered.
+    pub created_at: DateTime<Utc>,
+    /// When its registration last changed.
+    pub updated_at: DateTime<Utc>,
+    /// A confidential client's secrets, oldest first, expired ones included.
+    pub secrets: Vec<SecretLifetime>,
+}
+
+/// One of a confidential client's secrets: when it was made and when it stops
+/// working, never its value.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SecretLifetime {
+    /// The secret.
+    pub id: ClientSecretId,
+    /// When it was made.
+    pub created_at: DateTime<Utc>,
+    /// When a rotation made it stop working, if one did.
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
+/// Where an account recovery stands. The database crate computes it as it reads
+/// one; the migration's `undoable_recovery` is the one SQL copy, which the
+/// database's backstops use.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum RecoveryState {
+    /// Its link works: not used, cancelled or undone, and not expired.
+    Open,
+    /// Its link was used and its probation has not ended: its passkey signs in
+    /// but never confirms a session, and a passkey from before it can undo it.
+    Probation {
+        /// When the probation ends.
+        settles_at: DateTime<Utc>,
+    },
+    /// Its probation ended: its passkey is an ordinary passkey.
+    Settled,
+    /// It expired unused, or was cancelled or undone.
+    Ended,
+}
+
+impl RecoveryState {
+    /// Whether the recovery can still be undone: its link works, or it is in
+    /// probation.
+    #[must_use]
+    pub const fn undoable(self) -> bool {
+        matches!(self, Self::Open | Self::Probation { .. })
+    }
+}
+
+/// A recent recovery of an account, as support reviews it before starting
+/// another: where it stands, and the passkey its link enrolled.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Recovery {
+    /// The recovery.
+    pub id: RecoveryId,
+    /// When it started.
+    pub started_at: DateTime<Utc>,
+    /// When its link stops, or stopped, working unused.
+    pub expires_at: DateTime<Utc>,
+    /// When its link enrolled a passkey, if it did.
+    pub completed_at: Option<DateTime<Utc>>,
+    /// When it was cancelled before its link was used.
+    pub cancelled_at: Option<DateTime<Utc>>,
+    /// When it was undone, by its owner or by support.
+    pub undone_at: Option<DateTime<Utc>>,
+    /// Where it stands now.
+    pub state: RecoveryState,
+    /// The passkey its link enrolled, if it did.
+    pub passkey: Option<RecoveryPasskey>,
+}
+
+/// The passkey a recovery's link enrolled.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RecoveryPasskey {
+    /// The passkey.
+    pub id: PasskeyId,
+    /// Its label, while its row exists.
+    pub friendly_name: Option<String>,
+    /// Whether it is still active.
+    pub active: bool,
 }
 
 /// The event list's query. Every filter is optional.
