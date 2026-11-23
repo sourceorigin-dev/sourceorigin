@@ -11,6 +11,7 @@ use crate::{
     },
 };
 use serde::Deserialize;
+use sourceorigin_common::ErrorChain;
 use sourceorigin_ui::{
     Audience, CROP_SIZE, CROP_X, CROP_Y, Messages, Notice, PICTURE_FIELD, ProfileChange,
     ProfileDialog, ProfileState, Section, Tab, Who,
@@ -85,7 +86,7 @@ impl Profile {
                     return Some(ProfileEdit::Oversize);
                 }
                 Err(error) => {
-                    tracing::debug!(%error, "picture upload rejected");
+                    tracing::debug!(error = %ErrorChain(&*error), "picture upload rejected");
                     return None;
                 }
             };
@@ -103,7 +104,7 @@ impl Profile {
                     return Some(ProfileEdit::Oversize);
                 }
                 Err(error) => {
-                    tracing::debug!(%error, "picture upload rejected");
+                    tracing::debug!(error = %ErrorChain(&*error), "picture upload rejected");
                     return None;
                 }
             }
