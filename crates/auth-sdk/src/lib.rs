@@ -189,9 +189,9 @@ pub mod protocol {
         };
     }
 
-    /// Why a token's registered claims fail their one check.
+    /// A token's registered claims, and why they fail their one check.
     pub mod registered {
-        pub use sourceorigin_common::protocol::registered::ClaimsError;
+        pub use sourceorigin_common::protocol::registered::{ClaimsError, RegisteredClaims};
     }
 
     /// Error codes shared by the SDKs and their test vectors.
