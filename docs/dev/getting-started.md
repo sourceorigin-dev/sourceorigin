@@ -5,9 +5,9 @@ your changes on a preview.
 
 ## Install the tools
 
-- [rustup](https://rustup.rs). It installs the Rust release that
-  `rust-toolchain.toml` pins, with rustfmt and Clippy, the first time you build.
-  CI and the deployment images build with that release too.
+- [rustup](https://rustup.rs). It installs Rust stable, which
+  `rust-toolchain.toml` selects, with rustfmt and Clippy, the first time you
+  build. CI and the deployment images build with stable too.
 - [just](https://just.systems) 1.42 or later. Every task runs through it.
 - Node 24 or later and pnpm, for the web tools and the TypeScript SDK. The
   workspace pins pnpm's version.

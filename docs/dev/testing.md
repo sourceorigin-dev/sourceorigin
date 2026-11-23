@@ -205,14 +205,13 @@ CI runs the same recipes, in these jobs:
 | `package` | `just publish --dry-run`: see [releasing](releasing.md#what-gets-published) |
 | `msrv` | `cargo check` of the published crates with all their features, then `just rust features`, with their oldest supported Rust, the workspace's `rust-version` |
 | `e2e` | The browser suite, against the debug binary behind Caddy, with Mailpit receiving auth's email and sourceorigin.dev's web server on its own host |
-| `docker` | Builds the auth, web and docs images, the first two with the Rust of `rust-toolchain.toml` and from the layers `main` cached last |
+| `docker` | Builds the auth, web and docs images, the first two with the Rust `rust-toolchain.toml` selects and from the layers `main` cached last |
 | `infra` | `just infra check`, with the latest piquelctl |
 | `docs` | `just docs` |
 
-Every job but `msrv` builds with the Rust release that `rust-toolchain.toml`
-pins, as the images do, so a new Rust release never changes what CI reports
-on its own. To adopt one, raise `channel` in that file, and fix in the same pull
-request what the new rustc and Clippy report.
+Every job but `msrv` builds with Rust stable, which `rust-toolchain.toml`
+selects, as the images do. A new stable release can bring new rustc and Clippy
+warnings, which then fail CI until fixed.
 
 A pull request runs only the jobs its changes can affect, by the paths it changes:
 Rust jobs for Rust code and the files it reads, such as the committed audit keys
