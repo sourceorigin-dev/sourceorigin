@@ -18,7 +18,8 @@ You need an Origin Account. If you don't have one yet, see
    unlock the passkey with your fingerprint, face or PIN.
 
 Origin Auth signs you in and goes on to where you were headed: the app, or your
-settings.
+settings. If you are already signed in, as when you select **Sign in** on
+sourceorigin.dev, it goes there at once.
 
 If your passkey is on a security key or another device, choose that option in
 your browser's prompt.

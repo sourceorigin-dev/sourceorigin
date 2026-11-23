@@ -360,7 +360,9 @@ async fn only_administrators_signed_in_with_a_passkey_are_handed_off() {
         csp.contains(&format!("form-action 'self' {DASHBOARD}")),
         "{csp}"
     );
-    let page = social.visit(&harness.auth.a, routes::page::LOGIN).await;
+    let elsewhere = format!("{}?acr=phr", routes::page::LOGIN);
+    let page = social.visit(&harness.auth.a, &elsewhere).await;
+    assert_eq!(page.status(), StatusCode::OK);
     assert!(!policy(&page).contains(DASHBOARD), "only on its way there");
 }
 

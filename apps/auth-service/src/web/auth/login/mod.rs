@@ -3,7 +3,9 @@
 //!
 //! Neither is an [`AccountPage`](crate::web::account::AccountPage): they serve browsers
 //! that are not signed in. Their `GET` finds the [`Step`] the browser is at, from
-//! the query, the provider's sign-in pending in the browser and its session. Their
+//! the query, the provider's sign-in pending in the browser and its session; `/login`
+//! sends a browser already signed in straight on, when it would only ask it to sign
+//! in again ([`Continuation::skipped`]). Their
 //! `POST` makes the change its form names, then sends the browser where the
 //! [`Continuation`] says, which the server alone decides. A change the service
 //! refuses renders the page again, saying why.
@@ -128,6 +130,24 @@ impl Continuation {
                 .parse::<Uri>()
                 .is_ok_and(|uri| uri.path() == routes::page::ADMIN),
             Self::Authorization(_) => false,
+        }
+    }
+
+    /// Where a browser at `step` goes at once, without the page: the path, when it is
+    /// already signed in, as from sourceorigin.dev's Sign in link. `None` for an
+    /// authorization, which sends a browser here only when its session falls short,
+    /// and whenever the query asks for a class of authentication, `target_acr`, as the
+    /// dashboard's handoff does.
+    fn skipped(&self, step: &Step<'_>, target_acr: Option<Acr>) -> Option<&ReturnTo> {
+        match (self, step, target_acr) {
+            (
+                Self::Path(path),
+                Step::SignIn {
+                    signed_in: Some(_), ..
+                },
+                None,
+            ) => Some(path),
+            _ => None,
         }
     }
 
@@ -367,7 +387,7 @@ impl WebApplication {
                 (see_other(next).into_response(cx)?, cookie)
             }
             // An explicit link goes back to where it started; an email match offers
-            // to sign in before going on.
+            // a signed-out browser to sign in before going on.
             LoginChange::CancelLink {} => {
                 let pending = visit
                     .pending
@@ -609,7 +629,8 @@ impl WebApplication {
     }
 
     /// Renders the sign-in page `page` at the step the `visit` finds, at `refused`'s
-    /// status and saying why, if anything was. Its forms may redirect to the
+    /// status and saying why, if anything was, or sends a browser already signed in
+    /// on when the page has nothing more to ask of it. Its forms may redirect to the
     /// providers, to the application whose authorization the sign-in continues,
     /// and through auth's handoff to the admin dashboard; an authorization that is
     /// unknown or expired explains itself.
@@ -697,6 +718,12 @@ impl WebApplication {
             .as_ref()
             .map(|error| error.public().1)
             .or_else(|| query.error.map(CallbackError::message));
+        // The page stays when it says why something failed.
+        if alert.is_none()
+            && let Some(path) = continuation.skipped(&step, target_acr)
+        {
+            return Ok(see_other(path.as_str()).into_response(cx)?);
+        }
         let kept = continuation.on(LoginQuery {
             error: None,
             linked: None,

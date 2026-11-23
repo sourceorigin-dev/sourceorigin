@@ -18,6 +18,7 @@ use axum::http::{StatusCode, header};
 use sourceorigin_common::{
     AuthenticationMethod, Provider, UserId,
     clients::{ClientKind, ClientRegistration},
+    protocol::claims::Acr,
 };
 use sourceorigin_crypto::Secret;
 use sourceorigin_repository::{Database, PendingFederation};
@@ -189,7 +190,8 @@ async fn signing_in_offers_passkeys_providers_and_a_handle() {
 
 /// Once the passkey script signed the browser in, its form sends it on to the path
 /// on auth it asked for, or to the settings when it asked for none or for another
-/// site. A browser already signed in is told to which account, and may sign out
+/// site. A browser already signed in goes there at once, unless the page asks for
+/// a class of authentication: it is then told to which account, and may sign out
 /// first.
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL"]
@@ -199,9 +201,6 @@ async fn signing_in_goes_on_to_the_path_asked_for() {
     let browser = Browser::new_account(&database).await;
     let account = database.users().find_by_id(browser.user_id).await;
     let handle = account.expect("account").expect("active").handle;
-    let page = html(browser.visit(&replicas.a, LOGIN).await).await;
-    assert!(page.contains(&format!("Signed in as @{handle}.")), "{page}");
-    assert!(page.contains(">Sign out</button>"), "{page}");
     for (return_to, to) in [
         (Some(settings::SESSIONS), settings::SESSIONS),
         (Some("https://evil.example"), settings::HOME),
@@ -211,12 +210,30 @@ async fn signing_in_goes_on_to_the_path_asked_for() {
             return_to: return_to.map(str::to_owned),
             ..LoginQuery::default()
         };
+        let here = link(LOGIN, &query);
+        let opened = browser.visit(&replicas.a, &here).await;
+        assert_eq!(opened.status(), StatusCode::SEE_OTHER, "{return_to:?}");
+        assert_eq!(redirect(&opened), to, "{return_to:?}");
         let signed_in = browser
-            .post(&replicas, &link(LOGIN, &query), &LoginChange::SignedIn {})
+            .post(&replicas, &here, &LoginChange::SignedIn {})
             .await;
         assert_eq!(signed_in.status(), StatusCode::SEE_OTHER, "{return_to:?}");
         assert_eq!(redirect(&signed_in), to, "{return_to:?}");
     }
+    let passkey = LoginQuery {
+        acr: Some(Acr::PhishingResistant),
+        ..LoginQuery::default()
+    };
+    let page = html(browser.visit(&replicas.a, &link(LOGIN, &passkey)).await).await;
+    assert!(page.contains(&format!("Signed in as @{handle}.")), "{page}");
+    assert!(page.contains(">Sign out</button>"), "{page}");
+    // A page saying why something failed stays, as for a provider's sign-in gone.
+    let gone = waiting(PendingDestination::Link, settings::SESSIONS);
+    let page = html(browser.visit(&replicas.a, &gone).await).await;
+    assert!(
+        page.contains("No provider sign-in is waiting in this browser. Please start again."),
+        "{page}"
+    );
 }
 
 /// Signing in for an application lets the page's forms redirect on to it, and its
