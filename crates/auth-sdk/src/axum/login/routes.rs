@@ -341,7 +341,7 @@ impl Login {
         State(login): State<Arc<Self>>,
         form: Result<Form<LogoutForm>, FormRejection>,
     ) -> Response {
-        let mut response = login.receive_logout(form.ok()).await;
+        let mut response = login.receive_logout(form).await;
         response
             .headers_mut()
             .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
@@ -351,7 +351,7 @@ impl Login {
     /// Applies the logout token in `form`, answering as
     /// [`LoginRoutes::on_backchannel_logout`](super::LoginRoutes::on_backchannel_logout)
     /// documents.
-    async fn receive_logout(&self, form: Option<Form<LogoutForm>>) -> Response {
+    async fn receive_logout(&self, form: Result<Form<LogoutForm>, FormRejection>) -> Response {
         let invalid = || {
             let body = Json(serde_json::json!({ "error": "invalid_request" }));
             (StatusCode::BAD_REQUEST, body).into_response()
@@ -360,9 +360,14 @@ impl Login {
         let Some(handler) = &self.on_logout else {
             return StatusCode::NOT_FOUND.into_response();
         };
-        let Some(Form(form)) = form else {
-            tracing::warn!("back-channel logout without a logout_token form field");
-            return invalid();
+        let form = match form {
+            Ok(Form(form)) => form,
+            Err(rejection) => {
+                // The rejection's text already ends with its cause, which is also its
+                // source, so a chain would repeat it.
+                tracing::warn!(error = %rejection, "back-channel logout form rejected");
+                return invalid();
+            }
         };
         let token = match self.client.logout_token(&form.logout_token).await {
             Ok(token) => token,
