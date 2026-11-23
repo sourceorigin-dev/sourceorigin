@@ -1,7 +1,10 @@
 //! RP-initiated logout: the request, validated when the logout page asks to confirm
 //! it and again when its form confirms it, and the end of the sessions it names.
 
-use super::{Claim, MAX_STATE_BYTES, OAuthCode, OAuthError, OidcApplication, Reject};
+use super::{
+    MAX_STATE_BYTES, OAuthCode, OAuthError, OidcApplication, Reject,
+    hint::{HintError, IdTokenHint},
+};
 use crate::{
     account::AccountService,
     routes,
@@ -10,8 +13,7 @@ use crate::{
 };
 use axum::http::HeaderMap;
 use serde::{Deserialize, Deserializer};
-use serde_json::Value;
-use sourceorigin_common::{ClientId, SessionId, UserId, events::RevocationReason};
+use sourceorigin_common::{ClientId, events::RevocationReason};
 use sourceorigin_repository::SessionScope;
 use sourceorigin_ui::LoginQuery;
 use url::Url;
@@ -69,37 +71,6 @@ impl LogoutQuery {
     }
 }
 
-/// What a verified `id_token_hint` says: the client auth issued it to, and the
-/// account and session it names.
-struct Hint {
-    /// The token's audience.
-    client: ClientId,
-    /// The token's `sub`.
-    user: Option<UserId>,
-    /// The token's `sid`.
-    session: Option<SessionId>,
-}
-
-impl Hint {
-    /// Reads the claims of an ID token auth signed. Auth signed it, so its audience
-    /// is a client ID it issued to.
-    fn read(claims: &Value) -> Result<Self, OAuthError> {
-        let text = |claim: Claim| claims.get(claim.as_str()).and_then(Value::as_str);
-        let client = text(Claim::Audience)
-            .unwrap_or_default()
-            .parse()
-            .map_err(|error| {
-                OAuthCode::InvalidRequest
-                    .reject_with("id_token_hint audience is not a client ID", error)
-            })?;
-        Ok(Self {
-            client,
-            user: text(Claim::Subject).and_then(|sub| sub.parse().ok()),
-            session: text(Claim::Session).and_then(|sid| sid.parse().ok()),
-        })
-    }
-}
-
 /// A validated logout request: who asked, what its hint names, and where the
 /// browser goes once signed out.
 struct LogoutRequest {
@@ -107,7 +78,7 @@ struct LogoutRequest {
     /// post-logout URI names it.
     client: Option<ClientId>,
     /// The verified hint, issued to `client`.
-    hint: Option<Hint>,
+    hint: Option<IdTokenHint>,
     /// Whether a hint was sent that auth could not verify, and was ignored.
     unverified: bool,
     /// Where the browser goes once signed out.
@@ -129,27 +100,25 @@ pub(crate) struct LogoutView {
 impl OidcApplication {
     /// Validates an RP-initiated logout request. An `id_token_hint` auth can't
     /// verify, signed by a key auth no longer keeps or forged, is ignored: the
-    /// logout goes on, attributed to no client and back to auth's sign-in page. An
-    /// unregistered `post_logout_redirect_uri`, or one naming no client, is
-    /// refused.
+    /// logout goes on, attributed to no client and back to auth's sign-in page. One
+    /// auth signed is read as authorization reads it, so claims auth doesn't issue
+    /// refuse the request, but an expired one is accepted. An unregistered
+    /// `post_logout_redirect_uri`, or one naming no client, is refused.
     async fn validate_logout(&self, q: &LogoutQuery) -> Result<LogoutRequest, OAuthError> {
         if q.state.as_ref().is_some_and(|s| s.len() > MAX_STATE_BYTES) {
             return Err(OAuthCode::InvalidRequest
                 .reject(format!("state must be at most {MAX_STATE_BYTES} bytes")));
         }
-        let verified = match &q.id_token_hint {
-            Some(token) => Some(
-                self.keys
-                    .current()?
-                    .verify_id_token_hint(token, &self.issuer),
-            ),
-            None => None,
+        let (hint, unverified) = match q
+            .id_token_hint
+            .as_deref()
+            .map(|token| self.id_token_hint(token))
+        {
+            None => (None, false),
+            Some(Ok(hint)) => (Some(hint), false),
+            Some(Err(HintError::Unverified(_))) => (None, true),
+            Some(Err(HintError::Refused(error))) => return Err(error),
         };
-        let unverified = verified.as_ref().is_some_and(Result::is_err);
-        let hint = verified
-            .and_then(Result::ok)
-            .map(|claims| Hint::read(&claims))
-            .transpose()?;
         if let (Some(client_id), Some(hint)) = (q.client_id.as_deref(), &hint)
             && client_id != hint.client.as_str()
         {
@@ -226,7 +195,7 @@ impl OidcApplication {
         q: &LogoutQuery,
     ) -> Result<LogoutView, OAuthError> {
         let request = self.validate_logout(q).await?;
-        let hinted = request.hint.as_ref().and_then(|hint| hint.user);
+        let hinted = request.hint.as_ref().map(|hint| hint.user);
         let signed_in = match hinted {
             Some(_) => Session::optional(&self.database, headers).await?,
             None => None,
@@ -263,9 +232,9 @@ impl OidcApplication {
         let signed_out = AccountService::new(self.database.clone())
             .sign_out(context, headers, reason.clone())
             .await?;
-        if let Some(Hint {
+        if let Some(IdTokenHint {
             client,
-            user: Some(user),
+            user,
             session: Some(session),
         }) = &request.hint
         {

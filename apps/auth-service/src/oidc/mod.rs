@@ -5,6 +5,8 @@
 mod authorize;
 /// Protocol errors and their HTTP responses.
 mod error;
+/// The `id_token_hint` authorization and logout read alike.
+mod hint;
 /// Pushed requests completed by a passkey sign-in on an application's own page.
 mod inline;
 /// RP-initiated logout and confirmation.

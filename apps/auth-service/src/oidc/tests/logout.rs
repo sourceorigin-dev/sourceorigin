@@ -345,3 +345,60 @@ async fn a_hint_naming_another_account_says_so() {
     );
     assert!(!active(other.session_id).await, "the browser signed out");
 }
+
+/// Authorization and logout read an `id_token_hint` alike: both refuse one auth
+/// signed without a numeric `exp`, or whose `sub` is no account ID. Logout still
+/// accepts an expired one, as RP-Initiated Logout §2 asks, and goes back to the
+/// application it names.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL"]
+async fn authorization_and_logout_read_a_hint_alike() {
+    let flow = Flow::new(true, true).await;
+    let now = Utc::now().timestamp();
+    let expired = json!({"iss":flow.app.issuer,"sub":flow.user_id,"aud":flow.client.id,"iat":now-600,"exp":now-300});
+    let sign = |claims: &Value| {
+        flow.app
+            .keys
+            .current()
+            .expect("fresh keys")
+            .sign(TokenType::Id, claims)
+            .expect("sign hint")
+    };
+    let mut no_exp = expired.clone();
+    no_exp.as_object_mut().expect("claims").remove("exp");
+    let mut no_account = expired.clone();
+    no_account["sub"] = json!("not-an-account");
+    for claims in [no_exp, no_account] {
+        let hint = sign(&claims);
+        let authorized = flow
+            .authorize_with(
+                Method::GET,
+                Scope::OpenId.as_str(),
+                Some(Prompt::None.as_str()),
+                &[("id_token_hint", &hint)],
+            )
+            .await;
+        assert_eq!(
+            parameter(&flow.client_redirect(&authorized), "error"),
+            OAuthCode::InvalidRequest.as_str(),
+            "{claims}"
+        );
+        let logout = flow
+            .request(
+                Method::POST,
+                routes::oidc::LOGOUT,
+                &[("id_token_hint", &hint)],
+                None,
+            )
+            .await;
+        assert_eq!(logout.status(), StatusCode::BAD_REQUEST, "{claims}");
+    }
+    let destination = flow.client.post_logout_uris[0].as_str();
+    let response = flow
+        .log_out(&[
+            ("id_token_hint", &sign(&expired)),
+            ("post_logout_redirect_uri", destination),
+        ])
+        .await;
+    assert_eq!(location(&response).as_str(), destination);
+}

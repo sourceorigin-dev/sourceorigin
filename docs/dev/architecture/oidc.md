@@ -51,7 +51,8 @@ client's redirect URI with `iss`, and `state` if the request had one
 `AuthorizationParameters::validate` checks the rest the same way for browser and
 pushed requests, one named step per check: no request object and no
 `response_mode` but `query`, an `id_token_hint` that auth signed for this
-client, which names the only account that may answer, `response_type=code`
+client, which names the only account that may answer
+([read as logout reads it](#id-token-hints)), `response_type=code`
 (`unsupported_response_type` for another), an
 S256 PKCE challenge, which only a confidential client may leave out, `state`, scopes and audience the client allows, `nonce`,
 `max_age` and `prompt`. It returns a `ValidatedAuthorization`, whose `store`
@@ -235,8 +236,8 @@ RP-initiated logout takes two requests:
    the page asking to confirm the request (`logout_request`), served by the pages
    (`web/auth/oidc.rs`) under the protocol's own security class. It validates
    the request: a `client_id` matching the `id_token_hint`'s audience, and a
-   `post_logout_redirect_uri` registered exactly for that client. A hint auth
-   signed may be expired and signed by a retired key. One it can't verify is
+   `post_logout_redirect_uri` registered exactly for that client. A hint is
+   read as [authorization reads it](#id-token-hints). One auth can't verify is
    ignored rather than blocking the logout: the request then names no client,
    and the browser goes back to sign-in, not to the redirect URI. The page says
    so, and says when the hint names another account than the browser's. It
@@ -260,6 +261,17 @@ A request with no parameters, as the settings and the admin dashboard post to
 
 Signing out revokes the session, which tells every app that received tokens from
 it ([back-channel logout](sessions.md#back-channel-logout)).
+
+### ID token hints
+
+Authorization and logout read an `id_token_hint` the same way
+(`OidcApplication::id_token_hint`, in `src/oidc/hint.rs`). Auth must have signed
+it, with a published or retired key, as an ID token from its own issuer. Expiry
+doesn't count: an expired ID token still names its account, and RP-Initiated
+Logout §2 asks logout to accept one. It must still have a numeric `exp`, a
+client ID as its audience and an account ID as its `sub`; otherwise the request
+is refused with `invalid_request`. The two differ only on a hint auth can't
+verify: authorization refuses it, and logout goes on without it.
 
 ## Discovery
 
