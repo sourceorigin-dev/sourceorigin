@@ -9,11 +9,11 @@ use crate::{
 };
 use sourceorigin_common::{
     AccountStatus, PictureId, SessionId, UserId,
-    admin::{EventSearch, MessageIntent, MessageUser, Recovery, User, UserSearch},
+    admin::{EventSearch, Recovery, User, UserSearch},
 };
 use sourceorigin_ui::{
-    AccountPages, Action, Change, Crumb, MessagePreview, Pager, Query, RecoveryKey, RecoveryRow,
-    SessionRow, Target, UserRow,
+    AccountPages, Action, Change, Crumb, MessageIntent, MessagePreview, MessageUser, Pager, Query,
+    RecoveryKey, RecoveryRow, SessionRow, Target, UserRow,
 };
 use topcoat::{
     Result,
@@ -33,6 +33,14 @@ const ADMINISTRATOR_TARGET: &str =
     "Administrator accounts can only be changed after revoking their rights.";
 /// How many of an account's events its page shows.
 const RECENT_EVENTS: usize = 10;
+
+impl TryFrom<&MessageUser> for Letter {
+    type Error = AdminError;
+    /// Reads the dashboard's message form.
+    fn try_from(form: &MessageUser) -> Result<Self, Self::Error> {
+        Self::new(&form.subject, &form.body)
+    }
+}
 
 /// The query of [`search`].
 #[query_params(error = bad_request)]

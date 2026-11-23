@@ -4,9 +4,10 @@
 use super::{AdminApplication as App, ReasonForm, ReasonPage};
 use crate::{AdminError, InviteExpiry, Reason};
 use chrono::Utc;
+use serde::Deserialize;
 use sourceorigin_common::{
     TokenId,
-    admin::{CreateInvitation, CreatedInvitation, InvitationState},
+    admin::{CreatedInvitation, InvitationState},
     email::NormalizedEmail,
 };
 use sourceorigin_ui::{Action, Change, InvitationRow, Target};
@@ -18,6 +19,23 @@ use topcoat::{
 };
 
 path_param!(pub invitation: TokenId, error = not_found);
+
+/// The form creating an invitation.
+#[derive(Clone, Deserialize)]
+struct CreateInvitation {
+    /// The address to mail the link to, which the account created with it starts
+    /// with, verified. Without one, the link is shown once to pass on.
+    #[serde(default)]
+    email: Option<String>,
+    /// How long the link stays valid: 1 hour to 365 days, a number followed by `m`,
+    /// `h` or `d`, e.g. `24h`.
+    /// Seven days when absent.
+    #[serde(default)]
+    expires_in: Option<String>,
+    /// Why: 1 to 500 characters, without control characters.
+    #[serde(default)]
+    reason: String,
+}
 
 /// `/invitations`: signup invitations, newest first, with the changes each
 /// open one takes: a mailed one is resent only while email is on.

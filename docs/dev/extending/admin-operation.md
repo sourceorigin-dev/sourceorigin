@@ -190,6 +190,14 @@ pub(super) async fn reserve(
   `Reason` on. A change whose form posts only its reason takes a `ReasonForm`,
   an `Administered<()>`, and `App::reason_change` serves its whole page.
 
+Declare the form beside the page, as `Reservation` is, when the page's own
+markup writes its fields. A form that a `sourceorigin-ui` component renders,
+such as `DraftAnnouncement`, is declared in ui beside that component, and the
+page converts it into the service's input. `sourceorigin_common::admin` holds
+views and the searches the service takes, never forms. Two of the dashboard's
+page queries, `UserSearch` and `SendAnnouncement`, are still there until they
+move to ui; declare a new page's query in ui.
+
 The page's words are a `Change` variant in `crates/ui/src/admin/mod.rs`: its
 title, description, button, label, whether it takes something away, and the
 reason it asks for. Link the page from the list it belongs to, as the handles

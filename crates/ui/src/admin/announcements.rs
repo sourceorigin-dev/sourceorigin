@@ -2,19 +2,110 @@
 //! recipients read it, and the form drafting one.
 
 use super::{Action, Change, confirm, data_table, message_fields, moment};
+use crate::Checkbox;
 use crate::icons::{Icon, icon};
 use crate::{
     clients::choice,
     email::{Mail, email_preview},
     layout::{alert_notice, page_head},
 };
-use sourceorigin_common::admin::{
-    Announcement, AnnouncementAudience, AnnouncementDetail, DraftAnnouncement, User,
-};
+use serde::{Deserialize, Serialize};
+use sourceorigin_common::admin::{Announcement, AnnouncementDetail, User};
 use topcoat::{
     Result,
     view::{View, component, view},
 };
+
+/// Whom an announcement goes to, as its form chooses.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AnnouncementAudience {
+    /// Every account, as of its sending.
+    #[default]
+    Everyone,
+    /// The accounts the form lists.
+    Accounts,
+}
+
+/// The form drafting an announcement, or changing a draft, as typed: the
+/// dashboard checks it, so a mistake is explained beside the form.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DraftAnnouncement {
+    /// The email's subject: one line, up to 150 characters.
+    #[serde(default)]
+    pub subject: String,
+    /// Its text: up to 20,000 characters, paragraphs separated by blank lines.
+    #[serde(default)]
+    pub body: String,
+    /// Whom it goes to.
+    #[serde(default)]
+    pub audience: AnnouncementAudience,
+    /// For [`AnnouncementAudience::Accounts`], the accounts, one per line, each by
+    /// handle, verified email or ID.
+    #[serde(default)]
+    pub accounts: String,
+    /// Whether it is emailed to every recipient, whatever their preference.
+    #[serde(default, skip_serializing_if = "Checkbox::is_off")]
+    pub essential: Checkbox,
+    /// What the button pressed asks for.
+    #[serde(default)]
+    pub intent: DraftIntent,
+    /// The accounts search, as typed.
+    #[serde(default)]
+    pub find: String,
+    /// The handle a search result's button adds to the accounts.
+    #[serde(default)]
+    pub add: Option<String>,
+}
+
+impl DraftAnnouncement {
+    /// Whether the form only looks accounts up, or adds one: nothing is saved,
+    /// and it shows again as typed.
+    #[must_use]
+    pub const fn composes(&self) -> bool {
+        matches!(self.intent, DraftIntent::Find) || self.add.is_some()
+    }
+
+    /// Whether the accounts list `handle`, with or without its `@`, ignoring
+    /// ASCII case as [`Handle::parse`](sourceorigin_common::Handle::parse) does.
+    #[must_use]
+    pub fn lists(&self, handle: &str) -> bool {
+        self.accounts.lines().map(str::trim).any(|line| {
+            line.strip_prefix('@')
+                .unwrap_or(line)
+                .eq_ignore_ascii_case(handle)
+        })
+    }
+
+    /// Adds the account the pressed button names, by handle, to the accounts,
+    /// unless they list it already, and sends the announcement to the accounts.
+    pub fn add_chosen(&mut self) {
+        let Some(handle) = self.add.take() else {
+            return;
+        };
+        self.audience = AnnouncementAudience::Accounts;
+        if self.lists(&handle) {
+            return;
+        }
+        if !self.accounts.trim_end().is_empty() {
+            self.accounts = format!("{}\n", self.accounts.trim_end());
+        }
+        self.accounts.push_str(&handle);
+    }
+}
+
+/// What a draft's form asks for, by the button pressed.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DraftIntent {
+    /// Save it as a draft.
+    #[default]
+    Save,
+    /// Save it, then send it as saved.
+    Send,
+    /// Look accounts up to add, saving nothing.
+    Find,
+}
 
 /// An announcement in the list, and its page.
 #[derive(Clone, Debug)]
@@ -349,4 +440,24 @@ async fn chosen_accounts<'a>(
             </label>
         </div>
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{AnnouncementAudience, DraftAnnouncement};
+
+    /// Adding an account from the search lists it once, however its handle was
+    /// typed: handles match ignoring case, as `Handle::parse` lowercases them.
+    #[test]
+    fn announcements_list_an_account_once_whatever_its_case() {
+        let mut draft = DraftAnnouncement {
+            accounts: " @Ada \n".into(),
+            add: Some("ada".into()),
+            ..DraftAnnouncement::default()
+        };
+        assert!(draft.lists("ada"));
+        draft.add_chosen();
+        assert_eq!(draft.accounts, " @Ada \n");
+        assert_eq!(draft.audience, AnnouncementAudience::Accounts);
+    }
 }

@@ -6,18 +6,19 @@
 //! does.
 
 use super::AdminApplication as App;
-use crate::{AdminError, AnnouncementDraft, admin::SignedInAdmin, deliveries::AnnouncementSender};
+use crate::{
+    AdminError, AnnouncementDraft, AnnouncementRecipients, Letter, admin::SignedInAdmin,
+    deliveries::AnnouncementSender,
+};
 use chrono::Duration;
 use serde::de::IgnoredAny;
 use sourceorigin_common::{
     AnnouncementId,
-    admin::{
-        AnnouncementAudience, AnnouncementDetail, DraftAnnouncement, DraftIntent, SendAnnouncement,
-    },
+    admin::{AnnouncementDetail, SendAnnouncement},
 };
 use sourceorigin_ui::{
-    Action, AdminAnnouncementRow, Change, Checkbox, Crumb, DraftActions, FoundAccount, Query,
-    Target,
+    Action, AdminAnnouncementRow, AnnouncementAudience, Change, Checkbox, Crumb, DraftActions,
+    DraftAnnouncement, DraftIntent, FoundAccount, Query, Target,
 };
 use topcoat::{
     Error, Result,
@@ -35,6 +36,33 @@ use topcoat::{
 };
 
 path_param!(pub announcement: AnnouncementId, error = not_found);
+
+impl TryFrom<&DraftAnnouncement> for AnnouncementDraft {
+    type Error = AdminError;
+    /// Reads the dashboard's form: one account per line of its list, blank lines
+    /// skipped.
+    fn try_from(form: &DraftAnnouncement) -> Result<Self, Self::Error> {
+        let recipients = match form.audience {
+            AnnouncementAudience::Everyone => AnnouncementRecipients::Everyone,
+            AnnouncementAudience::Accounts => AnnouncementRecipients::Accounts(
+                form.accounts
+                    .lines()
+                    .map(str::trim)
+                    .filter(|line| !line.is_empty())
+                    .map(|line| match line.parse() {
+                        Ok(user) => user,
+                        Err(never) => match never {},
+                    })
+                    .collect(),
+            ),
+        };
+        Self::new(
+            Letter::new(&form.subject, &form.body)?,
+            recipients,
+            form.essential.0,
+        )
+    }
+}
 
 /// `/announcements`: the latest announcements, drafts and sent ones.
 #[route(GET "/announcements")]

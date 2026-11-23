@@ -36,8 +36,8 @@ mod users;
 
 pub use alerts::{AlertCard, alert_list, alert_update_fields, previous_alerts};
 pub use announcements::{
-    AdminAnnouncementRow, DraftActions, FoundAccount, announcement_form, announcement_list,
-    announcement_page,
+    AdminAnnouncementRow, AnnouncementAudience, DraftActions, DraftAnnouncement, DraftIntent,
+    FoundAccount, announcement_form, announcement_list, announcement_page,
 };
 pub use audit::audit_page;
 pub use clients::{
@@ -57,7 +57,8 @@ pub use lists::{
 pub use overview::{AdminOverview, Measure, Problem, admin_overview};
 pub use recoveries::{RecoveryKey, RecoveryRow, recovery_list};
 pub use users::{
-    AccountPages, MessagePreview, SessionRow, UserRow, message_page, user_page, user_search,
+    AccountPages, MessageIntent, MessagePreview, MessageUser, SessionRow, UserRow, message_page,
+    user_page, user_search,
 };
 
 use crate::{
