@@ -140,6 +140,7 @@ pub struct BearerChallenge {
 
 /// A `WWW-Authenticate` value that holds no valid `Bearer` challenge.
 #[derive(Debug, Clone, Error, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ChallengeError {
     /// The header breaks the RFC 9110 §11 challenge grammar.
     #[error("WWW-Authenticate is malformed at byte {0}")]

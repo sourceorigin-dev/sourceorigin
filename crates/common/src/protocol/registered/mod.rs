@@ -141,6 +141,7 @@ impl Validation<'_> {
 
 /// Why [`Validation::check`] refused a token's claims.
 #[derive(Clone, Debug, Error, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ClaimsError {
     /// `iss` is none of the accepted issuers.
     #[error("token issuer is {found:?}, expected one of {expected:?}")]
