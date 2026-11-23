@@ -179,46 +179,76 @@ impl EmailApplication {
         Ok(Json(verified))
     }
 
-    /// Records the removal of `user_id`'s address `id` as `context`'s, then
-    /// deletes it. In that order, so the `email` channel still reads a verified
-    /// address and copies it into the notice of its removal.
-    pub(crate) async fn delete(
-        tx: &mut DatabaseTransaction<'_>,
-        context: &EventContext,
+    /// Checks that the sender can send to `address`, which is stricter than
+    /// [`NormalizedEmail::parse`]: a link mailed to an address it can't send to
+    /// would never arrive.
+    pub(crate) fn sendable(address: &NormalizedEmail) -> Result<(), lettre::address::AddressError> {
+        address.as_str().parse::<lettre::Address>().map(drop)
+    }
+}
+
+/// Account `user_id`'s addresses in `tx`, changed as `context`'s. Every
+/// address joins, is verified and leaves through it, so each is recorded and
+/// counted the same way.
+pub(crate) struct Emails<'a, 'tx> {
+    /// The transaction that makes the changes.
+    tx: &'a mut DatabaseTransaction<'tx>,
+    /// Who makes them.
+    context: &'a EventContext,
+    /// The account whose addresses they are.
+    user_id: UserId,
+}
+
+impl<'a, 'tx> Emails<'a, 'tx> {
+    /// Changes `user_id`'s addresses in `tx`, as `context`'s.
+    pub(crate) const fn new(
+        tx: &'a mut DatabaseTransaction<'tx>,
+        context: &'a EventContext,
         user_id: UserId,
-        id: EmailId,
-    ) -> Result<(), DatabaseError> {
+    ) -> Self {
+        Self {
+            tx,
+            context,
+            user_id,
+        }
+    }
+
+    /// Records the removal of address `id`, then deletes it. In that order, so
+    /// the `email` channel still reads a verified address and copies it into the
+    /// notice of its removal.
+    pub(crate) async fn delete(&mut self, id: EmailId) -> Result<(), DatabaseError> {
         let removed = DomainEvent::EmailRemoved { email_id: id };
-        tx.record(context, Some(user_id), removed).await?;
-        tx.emails().remove(user_id, id).await
+        self.tx
+            .record(self.context, Some(self.user_id), removed)
+            .await?;
+        self.tx.emails().remove(self.user_id, id).await
     }
 
     /// [`Self::delete`], without the notice of its removal: for a step of an
     /// operation whose own notification tells the account, such as the
     /// unverified addresses support's recovery removes.
-    pub(crate) async fn delete_quietly(
-        tx: &mut DatabaseTransaction<'_>,
-        context: &EventContext,
-        user_id: UserId,
-        id: EmailId,
-    ) -> Result<(), DatabaseError> {
+    pub(crate) async fn delete_quietly(&mut self, id: EmailId) -> Result<(), DatabaseError> {
         let removed = DomainEvent::EmailRemoved { email_id: id };
-        tx.record_quietly(context, Some(user_id), removed).await?;
-        tx.emails().remove(user_id, id).await
+        self.tx
+            .record_quietly(self.context, Some(self.user_id), removed)
+            .await?;
+        self.tx.emails().remove(self.user_id, id).await
     }
 
-    /// Counts one verification email against the hourly limits of the account,
-    /// the client IP and the address's mailbox, so neither one account, nor one client, nor
-    /// many of both can flood a mailbox. In the caller's transaction, so a rejected
-    /// or failed addition counts nothing.
+    /// Counts one verification email to `address` against the hourly limits of
+    /// the account, `client_ip` and the address's mailbox, so neither one
+    /// account, nor one client, nor many of both can flood a mailbox. In the
+    /// caller's transaction, so a rejected or failed addition counts nothing.
     async fn limit(
-        tx: &mut DatabaseTransaction<'_>,
-        user_id: UserId,
+        &mut self,
         client_ip: IpAddr,
         address: &NormalizedEmail,
     ) -> Result<(), EmailError> {
         let buckets = [
-            (format!("account:{user_id}"), VERIFICATIONS_PER_ACCOUNT),
+            (
+                format!("account:{}", self.user_id),
+                VERIFICATIONS_PER_ACCOUNT,
+            ),
             (format!("ip:{client_ip}"), VERIFICATIONS_PER_IP),
             (
                 format!("address:{}", address.mailbox()),
@@ -227,7 +257,8 @@ impl EmailApplication {
         ];
         for (key, limit) in buckets {
             let bucket = Digest::sha256(format!("verification-email:{key}").as_bytes());
-            if !tx
+            if !self
+                .tx
                 .security()
                 .allow_request(bucket.as_bytes(), limit, VERIFICATION_WINDOW)
                 .await?
@@ -238,26 +269,28 @@ impl EmailApplication {
         Ok(())
     }
 
-    /// Records `EmailVerified` for `user_id`'s address `email_id` as
-    /// `context`'s, then `PrimaryEmailChanged` with no previous address if it
-    /// became the `primary` one, the account having had none. Shared by
-    /// `verify_email` and `Added::verified`.
+    /// Records `EmailVerified` for address `email_id`, then `PrimaryEmailChanged`
+    /// with no previous address if it became the `primary` one, the account
+    /// having had none. Shared by `verify_email` and [`Self::add_verified`].
     async fn record_verified(
-        tx: &mut DatabaseTransaction<'_>,
-        context: &EventContext,
-        user_id: UserId,
+        &mut self,
         email_id: EmailId,
         primary: bool,
     ) -> Result<(), DatabaseError> {
-        let subject = Some(user_id);
-        tx.record(context, subject, DomainEvent::EmailVerified { email_id })
+        let subject = Some(self.user_id);
+        self.tx
+            .record(
+                self.context,
+                subject,
+                DomainEvent::EmailVerified { email_id },
+            )
             .await?;
         if primary {
             let event = DomainEvent::PrimaryEmailChanged {
                 email_id,
                 previous_email_id: None,
             };
-            tx.record(context, subject, event).await?;
+            self.tx.record(self.context, subject, event).await?;
         }
         Ok(())
     }
@@ -270,11 +303,11 @@ impl EmailApplication {
         Ok(())
     }
 
-    /// Imports the address `pending`'s provider verified into `user_id`'s
-    /// account, as `context`'s from `client_ip`, while linking that identity in
-    /// `tx`. It joins verified and primary when the provider is authoritative for
-    /// it; otherwise unverified, with its verification email, as when the owner
-    /// adds it, since it may have changed owners since the provider verified it.
+    /// Imports the address `pending`'s provider verified, from `client_ip`,
+    /// while linking that identity. It joins verified and primary when the
+    /// provider is authoritative for it; otherwise unverified, with its
+    /// verification email, as when the owner adds it, since it may have changed
+    /// owners since the provider verified it.
     /// Only an account with no verified address and without it takes one, and
     /// never one another account holds verified, even while that one is disabled
     /// or being deleted: a provider never replaces the owner's own address or takes
@@ -284,37 +317,34 @@ impl EmailApplication {
     /// same address in the same instant still fails the ownership trigger, and so
     /// the transaction; retrying skips the address.
     pub(crate) async fn import(
-        tx: &mut DatabaseTransaction<'_>,
-        context: &EventContext,
+        &mut self,
         config: &EmailConfig,
         client_ip: IpAddr,
-        user_id: UserId,
         pending: &PendingFederation,
     ) -> Result<(), EmailError> {
         let Some(address) = &pending.email else {
             return Ok(());
         };
         let address = NormalizedEmail::parse(address).map_err(EmailError::Invalid)?;
-        let emails = tx.emails().list(user_id).await?;
+        let emails = self.tx.emails().list(self.user_id).await?;
         if emails
             .iter()
             .any(|email| email.verified_at.is_some() || email.normalized_email == address.as_str())
-            || tx
+            || self
+                .tx
                 .emails()
-                .is_owned(address.as_str(), Some(user_id))
+                .is_owned(address.as_str(), Some(self.user_id))
                 .await?
         {
             return Ok(());
         }
-        let added = Added {
-            context,
-            user_id,
-            address: &address,
-            provider: Some(pending.provider),
-        };
+        let provider = Some(pending.provider);
         let imported = match Self::room(emails.len()) {
-            Ok(()) if pending.email_authoritative => added.verified(tx).await,
-            Ok(()) => added.unverified(tx, config, client_ip).await.map(drop),
+            Ok(()) if pending.email_authoritative => self.add_verified(&address, provider).await,
+            Ok(()) => self
+                .add_unverified(&address, provider, config, client_ip)
+                .await
+                .map(drop),
             Err(error) => Err(error),
         };
         match imported {
@@ -331,117 +361,94 @@ impl EmailApplication {
         }
     }
 
-    /// Checks that the sender can send to `address`, which is stricter than
-    /// [`NormalizedEmail::parse`]: a link mailed to an address it can't send to
-    /// would never arrive.
-    pub(crate) fn sendable(address: &NormalizedEmail) -> Result<(), lettre::address::AddressError> {
-        address.as_str().parse::<lettre::Address>().map(drop)
-    }
-
-    /// Starts the new account `user_id` with `address`, the one the invitation it
-    /// redeemed was mailed to, verified and primary, as `context`'s, in `tx`:
-    /// opening the mailed link proved what a verification email would. An address
-    /// another account verified since the invitation was mailed is skipped, as a
-    /// provider's is, and the account starts without one.
-    pub(crate) async fn invited(
-        tx: &mut DatabaseTransaction<'_>,
-        context: &EventContext,
-        user_id: UserId,
-        address: &NormalizedEmail,
-    ) -> Result<(), EmailError> {
-        if tx
+    /// Starts the new account with `address`, the one the invitation it
+    /// redeemed was mailed to, verified and primary: opening the mailed link
+    /// proved what a verification email would. An address another account
+    /// verified since the invitation was mailed is skipped, as a provider's is,
+    /// and the account starts without one.
+    pub(crate) async fn invited(&mut self, address: &NormalizedEmail) -> Result<(), EmailError> {
+        if self
+            .tx
             .emails()
-            .is_owned(address.as_str(), Some(user_id))
+            .is_owned(address.as_str(), Some(self.user_id))
             .await?
         {
             tracing::info!("invited address held by another account; not added");
             return Ok(());
         }
-        let added = Added {
-            context,
-            user_id,
-            address,
-            provider: None,
-        };
-        added.verified(tx).await
+        self.add_verified(address, None).await
     }
-}
 
-/// An address joining an account, as `context`'s, and the provider it is
-/// imported from, if any. Every address joins through it, so each is recorded
-/// and counted the same way.
-struct Added<'a> {
-    /// Who adds it.
-    context: &'a EventContext,
-    /// The account it joins.
-    user_id: UserId,
-    /// The address.
-    address: &'a NormalizedEmail,
-    /// The provider it is imported from.
-    provider: Option<Provider>,
-}
-
-impl Added<'_> {
-    /// Adds the address unverified, and records it with its verification email,
-    /// counted against the hourly limits of the account, `client_ip` and the
-    /// mailbox. Returns its ID.
-    async fn unverified(
-        self,
-        tx: &mut DatabaseTransaction<'_>,
+    /// Adds `address` unverified, imported from `provider` if any, and records
+    /// it with its verification email, counted against the hourly limits of the
+    /// account, `client_ip` and the mailbox. Returns its ID.
+    async fn add_unverified(
+        &mut self,
+        address: &NormalizedEmail,
+        provider: Option<Provider>,
         config: &EmailConfig,
         client_ip: IpAddr,
     ) -> Result<EmailId, EmailError> {
         if config.smtp.is_none() {
             return Err(EmailError::Disabled);
         }
-        EmailApplication::sendable(self.address).map_err(EmailError::Unsendable)?;
-        EmailApplication::limit(tx, self.user_id, client_ip, self.address).await?;
+        EmailApplication::sendable(address).map_err(EmailError::Unsendable)?;
+        self.limit(client_ip, address).await?;
         let id = EmailId::new();
         let digest = config.verification_keys.token(id).digest();
-        tx.emails()
+        self.tx
+            .emails()
             .insert_unverified(&InsertUnverifiedEmail {
                 id,
                 user_id: self.user_id,
-                normalized_email: self.address.as_str(),
+                normalized_email: address.as_str(),
                 secret_digest: digest.as_bytes(),
                 expires_at: Utc::now() + VERIFICATION_LIFETIME,
             })
             .await?;
-        self.record(tx, id).await?;
+        self.record_added(id, address, provider).await?;
         Ok(id)
     }
 
-    /// Adds the address verified, as the primary one of an account that has
-    /// none, which a provider authoritative for it, or the invitation mailed to
-    /// it, vouches for.
-    async fn verified(self, tx: &mut DatabaseTransaction<'_>) -> Result<(), EmailError> {
+    /// Adds `address` verified, imported from `provider` if any, as the primary
+    /// one of an account that has none, which a provider authoritative for it,
+    /// or the invitation mailed to it, vouches for.
+    async fn add_verified(
+        &mut self,
+        address: &NormalizedEmail,
+        provider: Option<Provider>,
+    ) -> Result<(), EmailError> {
         let id = EmailId::new();
-        tx.emails()
+        self.tx
+            .emails()
             .insert_verified(&InsertVerifiedEmail {
                 id,
                 user_id: self.user_id,
-                normalized_email: self.address.as_str().to_owned(),
+                normalized_email: address.as_str().to_owned(),
                 is_primary: true,
                 verified_at: Utc::now(),
             })
             .await?;
-        self.record(tx, id).await?;
-        EmailApplication::record_verified(tx, self.context, self.user_id, id, true).await?;
+        self.record_added(id, address, provider).await?;
+        self.record_verified(id, true).await?;
         Ok(())
     }
 
-    /// Records the address's addition as `id`.
-    async fn record(
-        &self,
-        tx: &mut DatabaseTransaction<'_>,
+    /// Records the addition of `address`, imported from `provider` if any, as `id`.
+    async fn record_added(
+        &mut self,
         id: EmailId,
+        address: &NormalizedEmail,
+        provider: Option<Provider>,
     ) -> Result<(), EmailError> {
         let added = DomainEvent::EmailAdded {
             email_id: id,
-            address: Personal::Value(self.address.clone()),
-            provider: self.provider,
+            address: Personal::Value(address.clone()),
+            provider,
         };
-        tx.record(self.context, Some(self.user_id), added).await?;
+        self.tx
+            .record(self.context, Some(self.user_id), added)
+            .await?;
         Ok(())
     }
 }
@@ -486,6 +493,7 @@ impl AccountService {
         owner.lock_confirmed(&mut tx).await?;
         let emails = tx.emails().list(user).await?;
         let mut count = emails.len();
+        let mut changes = Emails::new(&mut tx, &context, user);
         if let Some(existing) = emails
             .iter()
             .find(|email| email.normalized_email == address.as_str())
@@ -493,18 +501,12 @@ impl AccountService {
             if existing.verified_at.is_some() {
                 return Err(EmailError::AlreadyAdded.into());
             }
-            EmailApplication::delete(&mut tx, &context, user, existing.id).await?;
+            changes.delete(existing.id).await?;
             count -= 1;
         }
-        EmailApplication::room(count)?;
-        let added = Added {
-            context: &context,
-            user_id: user,
-            address: &address,
-            provider: None,
-        };
-        let id = added
-            .unverified(&mut tx, config, owner.request().client_ip)
+        Emails::room(count)?;
+        let id = changes
+            .add_unverified(&address, None, config, owner.request().client_ip)
             .await?;
         tx.commit().await?;
         Ok(EmailView {
@@ -557,14 +559,9 @@ impl AccountService {
             Err(DatabaseError::Conflict(_)) => return Err(EmailError::OwnedElsewhere.into()),
             Err(error) => return Err(error.into()),
         };
-        EmailApplication::record_verified(
-            &mut tx,
-            &context,
-            pending.user_id,
-            pending.email_id,
-            primary,
-        )
-        .await?;
+        Emails::new(&mut tx, &context, pending.user_id)
+            .record_verified(pending.email_id, primary)
+            .await?;
         tx.commit().await?;
         Ok(Verified {
             address: pending.address,
@@ -626,7 +623,9 @@ impl AccountService {
         {
             return Err(EmailError::PrimaryInUse.into());
         }
-        EmailApplication::delete(&mut tx, &subject.context(), subject.user(), id).await?;
+        Emails::new(&mut tx, &subject.context(), subject.user())
+            .delete(id)
+            .await?;
         subject.commit(tx).await
     }
 }
