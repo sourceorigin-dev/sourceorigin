@@ -18,7 +18,10 @@ use axum::{
 use ipnet::IpNet;
 use sourceorigin_common::{
     config::Origin,
-    protocol::{isolation, same_origin::BrowserRequest},
+    protocol::{
+        headers::{self, ReferrerPolicy},
+        same_origin::BrowserRequest,
+    },
 };
 use sourceorigin_crypto::Digest;
 use sourceorigin_repository::{Database, DatabaseError};
@@ -95,22 +98,16 @@ impl CacheClass {
         }
     }
 
-    /// The `Cache-Control` value of this class. Every value forbids transforming the
-    /// body: Cloudflare's edge would otherwise rewrite pages, hiding email addresses
-    /// behind a decoding script the Content-Security-Policy blocks.
+    /// The `Cache-Control` value of this class, which forbids transforming the body
+    /// ([`headers`]).
     fn cache_control(self) -> HeaderValue {
-        HeaderValue::from_static(match self {
-            Self::NoStore => "no-store, no-transform",
-            Self::Immutable => "public, max-age=31536000, immutable, no-transform",
-            Self::Public { max_age } => {
-                // Digits and fixed text always form a valid header value.
-                return HeaderValue::try_from(format!(
-                    "public, max-age={}, no-transform",
-                    max_age.as_secs()
-                ))
-                .unwrap_or(HeaderValue::from_static("no-store, no-transform"));
-            }
-        })
+        match self {
+            Self::NoStore => HeaderValue::from_static(headers::CACHE_NO_STORE),
+            Self::Immutable => HeaderValue::from_static(headers::CACHE_IMMUTABLE),
+            // Digits and fixed text always form a valid header value.
+            Self::Public { max_age } => HeaderValue::try_from(headers::cache_public(max_age))
+                .unwrap_or(HeaderValue::from_static(headers::CACHE_NO_STORE)),
+        }
     }
 }
 
@@ -583,7 +580,7 @@ impl HttpSecurity {
         Ok(())
     }
 
-    /// Adds the enforced [`CacheClass`] and browser isolation headers, plus the CORS
+    /// Adds the enforced [`CacheClass`] and the security headers, plus the CORS
     /// `grant` when set. A cacheable response is the same for every origin, so public
     /// data is granted to all origins and other cached responses to none. Other
     /// sites' pages may embed or read only public responses, such as profile
@@ -600,23 +597,12 @@ impl HttpSecurity {
         let headers = response.headers_mut();
         // Replaces any handler value: only the class decides.
         headers.insert(header::CACHE_CONTROL, class.cache_control());
-        for (name, value) in isolation::headers(public) {
+        // Navigation must not leak authentication URLs.
+        for (name, value) in headers::security(public, ReferrerPolicy::None) {
             headers.insert(
                 HeaderName::from_static(name),
                 HeaderValue::from_static(value),
             );
-        }
-        for (name, value) in [
-            // No MIME sniffing.
-            (header::X_CONTENT_TYPE_OPTIONS, "nosniff"),
-            // Navigation must not leak authentication URLs.
-            (header::REFERRER_POLICY, "no-referrer"),
-            // Authentication pages must never be framed.
-            (header::X_FRAME_OPTIONS, "DENY"),
-            // Keep later visits on HTTPS for a year.
-            (header::STRICT_TRANSPORT_SECURITY, "max-age=31536000"),
-        ] {
-            headers.insert(name, HeaderValue::from_static(value));
         }
         let (origin, allowed_headers, methods) = match grant {
             None => return,
