@@ -50,7 +50,10 @@ export type LoginOptions = {
   afterLogin?: string;
   /** Where auth sends users after logout. It must be a registered post-logout URI of the client; without one, auth shows its own page. */
   afterLogout?: string;
-  /** The path the routes are under; `/auth` by default. */
+  /**
+   * The path the routes are under; `/auth` by default. It is a path on this app, by
+   * the rule `return_to` follows, with no query and no `{` or `}`.
+   */
   mount?: string;
   /** How long a session lasts at most, in milliseconds; 12 hours by default. Auth may end it sooner. */
   sessionLifetime?: number;
@@ -199,7 +202,10 @@ export class Login {
     if (afterLogout !== undefined && !URL.canParse(afterLogout)) {
       throw new TypeError('afterLogout must be a URL');
     }
-    if (!mount.startsWith('/')) throw new TypeError('mount must be a path');
+    // The rule of a return path, so the login links can't leave the app.
+    if (Login.#returnTo(mount) === undefined || /[?{}]/.test(mount)) {
+      throw new TypeError('mount must be a path such as /auth, without a query or parameters');
+    }
     if (!(lifetime > 0 && Number.isSafeInteger(lifetime))) {
       throw new TypeError('sessionLifetime must be a positive number of milliseconds');
     }
