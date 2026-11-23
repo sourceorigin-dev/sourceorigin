@@ -457,6 +457,24 @@ pub struct Event {
     pub erased: bool,
 }
 
+impl Event {
+    /// Who caused it.
+    ///
+    /// # Errors
+    ///
+    /// Returns why its stored `actor` is not one this release knows.
+    #[cfg(feature = "events")]
+    pub fn actor(&self) -> Result<crate::events::Actor, serde_json::Error> {
+        crate::events::Actor::deserialize(&self.actor)
+    }
+
+    /// Its kind, e.g. `session_revoked`, if its stored `event` names one.
+    #[must_use]
+    pub fn kind(&self) -> Option<&str> {
+        self.event.get("kind").and_then(serde_json::Value::as_str)
+    }
+}
+
 /// An origin approved for a client's pages to sign users in with passkeys, which
 /// `/.well-known/webauthn` lists as a `WebAuthn` related origin.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
