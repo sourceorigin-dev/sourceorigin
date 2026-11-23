@@ -8,6 +8,7 @@ use crate::{
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use sourceorigin_common::PICTURE_TYPES;
 use topcoat::{
     Result,
     view::{View, component, view},
@@ -15,10 +16,6 @@ use topcoat::{
 
 /// The file input an upload sends its picture in.
 pub const PICTURE_FIELD: &str = "picture";
-
-/// The media types auth reads a picture from, as an upload's file input and a
-/// fetch's `Accept` header name them; auth recognises the format by content.
-pub const PICTURE_TYPES: &str = "image/png,image/jpeg,image/gif";
 
 /// The hidden inputs an upload sends the square to keep in, in the picture's
 /// pixels once upright: its left edge, its top edge and its side. The picture

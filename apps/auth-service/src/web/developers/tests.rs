@@ -1,6 +1,7 @@
 //! The developer console through the whole service, as a browser uses it.
 
 use crate::{
+    GracePeriod,
     routes::page::developers::{self, APP, APP_SECRETS, APP_SETTINGS, HOME, NEW},
     security::BrowserCookie,
     tests::{Browser, Replicas, cookie, html, policy, redirect},
@@ -110,6 +111,21 @@ fn browser_forms_decode() {
     let Form(SecretsChange::Rotate { grace }) =
         Form::<SecretsChange>::from_bytes(b"action=rotate&grace=7d").expect("rotation");
     assert_eq!(grace, Some(Grace::Week));
+}
+
+/// Each choice of the rotation form is the grace period it is written as.
+#[test]
+fn rotation_choices_are_the_periods_they_name() {
+    for grace in Grace::ALL {
+        assert_eq!(
+            Ok(GracePeriod::from(grace)),
+            grace
+                .as_str()
+                .parse::<GracePeriod>()
+                .map_err(|error| error.to_string()),
+            "{grace}"
+        );
+    }
 }
 
 /// A confidential app's secret shows once, in the answer registering it, which

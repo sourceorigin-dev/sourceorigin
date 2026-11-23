@@ -45,7 +45,17 @@ Keep implementations simple. Follow neighbouring modules and share repeated logi
   the changes and queries their forms and links send. They render plain data,
   `sourceorigin-common` IDs, vocabularies and events, or plain rows such as `EmailRow`
   or `ClientRow` that the pages map the service's views into, and take URLs as
-  props; they know nothing of the domain, the database or HTTP. `layout` holds
+  props; they know nothing of the domain, the database or HTTP. Dependencies
+  point one way: ui uses `sourceorigin-common`'s types, and auth's services never
+  name ui's. A service's inputs, rules, views, outcomes and errors are its own
+  types or common's, and the pages in `src/web` convert between them and ui's,
+  such as a rotation form's `Grace` into the service's `GracePeriod`. Outside
+  `src/web`, only what answers a browser or renders an email names ui: a
+  redirect to a page writes that page's query, as federation's callback and the
+  OIDC flows write `LoginQuery`; the security layer renders its error page and keeps the preference and notice cookies,
+  `assets` serves ui's files, the email deliverer renders each email's bodies,
+  and the configuration finds sourceorigin.dev's policies at the
+  `Policies::PATHS` that site serves them at. `layout` holds
   the document and the two frames: the shell of a signed-in page, a sidebar of
   `NavItem`s beside the page and a status bar below it, which the account's
   pages (`account`) and the admin dashboard (`dashboard_frame`) both fill, and

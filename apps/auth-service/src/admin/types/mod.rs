@@ -7,7 +7,6 @@ use sourceorigin_common::{
     Handle, HandleError, UserId,
     admin::{AnnouncementAudience, DraftAnnouncement, MessageUser},
 };
-use sourceorigin_ui::Grace;
 use std::{fmt, str::FromStr};
 use thiserror::Error;
 
@@ -43,8 +42,6 @@ const MINUTES_PER_HOUR: i64 = 60;
 const MINUTES_PER_DAY: i64 = 24 * MINUTES_PER_HOUR;
 /// Invitation lifetime when none is given: seven days.
 const DEFAULT_INVITE_EXPIRY: i64 = 7 * MINUTES_PER_DAY;
-/// Grace period of a rotation when none is given: a day.
-const DEFAULT_GRACE_PERIOD: i64 = MINUTES_PER_DAY;
 
 /// A whole number of minutes, written in its largest whole unit, e.g. `365d`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -92,6 +89,16 @@ pub struct InvalidLifetime {
 }
 
 impl<const MIN: i64, const MAX: i64> Lifetime<MIN, MAX> {
+    /// A lifetime of `minutes`, for a constant: one outside the bounds fails to
+    /// compile.
+    const fn within(minutes: i64) -> Self {
+        assert!(
+            MIN <= minutes && minutes <= MAX,
+            "a lifetime outside its bounds"
+        );
+        Self(Minutes(minutes))
+    }
+
     /// The lifetime as a duration.
     #[must_use]
     pub const fn duration(self) -> Duration {
@@ -106,23 +113,23 @@ impl Default for InviteExpiry {
     }
 }
 
+impl GracePeriod {
+    /// None: earlier secrets stop at once.
+    pub const NONE: Self = Self::within(0);
+    /// An hour.
+    pub const HOUR: Self = Self::within(MINUTES_PER_HOUR);
+    /// A day, when none is given.
+    pub const DAY: Self = Self::within(MINUTES_PER_DAY);
+    /// A week.
+    pub const WEEK: Self = Self::within(7 * MINUTES_PER_DAY);
+    /// 30 days, the longest.
+    pub const MONTH: Self = Self::within(30 * MINUTES_PER_DAY);
+}
+
 impl Default for GracePeriod {
     /// A day.
     fn default() -> Self {
-        Self(Minutes(DEFAULT_GRACE_PERIOD))
-    }
-}
-
-impl From<Grace> for GracePeriod {
-    /// The period the rotation form's choice names.
-    fn from(grace: Grace) -> Self {
-        Self(Minutes(match grace {
-            Grace::Now => 0,
-            Grace::Hour => MINUTES_PER_HOUR,
-            Grace::Day => MINUTES_PER_DAY,
-            Grace::Week => 7 * MINUTES_PER_DAY,
-            Grace::Month => 30 * MINUTES_PER_DAY,
-        }))
+        Self::DAY
     }
 }
 

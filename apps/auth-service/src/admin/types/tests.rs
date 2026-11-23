@@ -32,21 +32,6 @@ fn lifetimes_accept_bounded_minutes_hours_and_days() {
     );
 }
 
-/// Each choice of the rotation form is the grace period it is written as.
-#[test]
-fn rotation_choices_are_the_periods_they_name() {
-    for grace in Grace::ALL {
-        assert_eq!(
-            Ok(GracePeriod::from(grace)),
-            grace
-                .as_str()
-                .parse::<GracePeriod>()
-                .map_err(|error| error.to_string()),
-            "{grace}"
-        );
-    }
-}
-
 /// A letter's subject is one line, and its text keeps its line breaks as `\n`;
 /// both are trimmed and bounded.
 #[test]

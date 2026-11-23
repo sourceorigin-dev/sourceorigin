@@ -179,7 +179,7 @@ impl AccountService {
         let upload = client
             .get(
                 url.as_str(),
-                sourceorigin_ui::PICTURE_TYPES,
+                sourceorigin_common::PICTURE_TYPES,
                 MAX_UPLOAD_BYTES + 1,
             )
             .await

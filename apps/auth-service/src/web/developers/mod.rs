@@ -19,15 +19,15 @@ use super::{
     account::{AccountPage, Applied, Framed, Reader, no_change},
 };
 use crate::{
-    MAX_OWNED_CLIENTS,
+    GracePeriod, MAX_OWNED_CLIENTS,
     account::{AccountError, Owner},
     clients::{ClientSettings, NewClient, OwnedClient, OwnedClientView},
     routes::page::developers::{self, APP, APP_SECRETS, APP_SETTINGS, HOME, NEW},
 };
 use sourceorigin_common::clients::{ClientKind, ClientStatus};
 use sourceorigin_ui::{
-    AppLink, AppTab, ClientDraft, ClientRow, Crumb, Messages, NewAppChange, NewAppState, Notice,
-    Registered, Revealed, Section, Title,
+    AppLink, AppTab, ClientDraft, ClientRow, Crumb, Grace, Messages, NewAppChange, NewAppState,
+    Notice, Registered, Revealed, Section, Title,
 };
 use topcoat::{
     context::Cx,
@@ -195,6 +195,20 @@ impl From<ClientDraft> for ClientSettings {
             backchannel_logout_uri: Some(draft.backchannel_logout_uri.trim())
                 .filter(|uri| !uri.is_empty())
                 .map(str::to_owned),
+        }
+    }
+}
+
+impl From<Grace> for GracePeriod {
+    /// The period the rotation form's choice names, which the console and the
+    /// dashboard both offer.
+    fn from(grace: Grace) -> Self {
+        match grace {
+            Grace::Now => Self::NONE,
+            Grace::Hour => Self::HOUR,
+            Grace::Day => Self::DAY,
+            Grace::Week => Self::WEEK,
+            Grace::Month => Self::MONTH,
         }
     }
 }

@@ -449,6 +449,10 @@ uuid_id!(
     PictureId,
     "Identifier of one upload of an account's profile picture, in its URL: a new picture gets a new one."
 );
+/// The media types auth reads a profile picture from, as an upload's file input
+/// and a provider picture's fetch name them in `accept` and `Accept`; auth
+/// recognises the format by content.
+pub const PICTURE_TYPES: &str = "image/png,image/jpeg,image/gif";
 uuid_id!(
     RecoveryId,
     "Identifier of an account recovery, which its link's token is derived from."

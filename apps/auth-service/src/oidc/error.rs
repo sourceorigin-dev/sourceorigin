@@ -19,7 +19,6 @@ use sourceorigin_common::{
 };
 use sourceorigin_crypto::CryptoError;
 use sourceorigin_repository::DatabaseError;
-use sourceorigin_ui::QueryError;
 use std::{borrow::Cow, error::Error as StdError};
 use thiserror::Error;
 use url::Url;
@@ -152,7 +151,7 @@ pub(crate) enum OAuthError {
     CookieHeader(#[from] axum::http::header::InvalidHeaderValue),
     /// The address of the page the browser goes on to could not be written.
     #[error("a page's address could not be written")]
-    PageAddress(#[from] QueryError),
+    PageAddress(#[from] serde_urlencoded::ser::Error),
     /// A grant read back from the database holds an invalid scope.
     #[error("a stored grant holds an invalid scope")]
     StoredScopes(#[from] InvalidScope),
