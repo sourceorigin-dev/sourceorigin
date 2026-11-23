@@ -48,6 +48,10 @@ pub enum LockKey {
     /// expects its key free; no release takes it.
     #[cfg(any(test, feature = "test-util"))]
     TransactionTest = -4,
+    /// The test that transaction-scoped locks refuse an exclusive connection;
+    /// no release takes it.
+    #[cfg(any(test, feature = "test-util"))]
+    GuardTest = -5,
 }
 
 impl LockKey {

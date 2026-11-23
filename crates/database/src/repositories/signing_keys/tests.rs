@@ -38,7 +38,10 @@ async fn the_lock_excludes_and_one_key_per_type_signs() {
     assert!(!other.signing_keys().try_lock().await.expect("try lock"));
     other.rollback().await.expect("rollback");
     assert!(
-        database.signing_keys().lock().await.is_err(),
+        matches!(
+            database.signing_keys().lock().await,
+            Err(DatabaseError::OutsideTransaction)
+        ),
         "the pool has no transaction"
     );
 

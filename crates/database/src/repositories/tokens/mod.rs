@@ -249,12 +249,7 @@ impl TokenRepository<'_> {
         // All state locks must outlive the redemption, token issuance and commit,
         // even when nothing is written: they make the refresh wait for a logout,
         // disablement or recovery undo, then fail on what it committed.
-        if matches!(self.executor, RepositoryExecutor::Pool(_)) {
-            return Err(DatabaseError::Operation(
-                "refresh redemption requires a transaction".into(),
-            )
-            .into());
-        }
+        self.executor.require_transaction()?;
         // Look up immutable ownership without locks, then acquire locks explicitly.
         // Account mutations take user -> session -> family; logout takes session ->
         // family. A joined FOR UPDATE does not guarantee that ordering.

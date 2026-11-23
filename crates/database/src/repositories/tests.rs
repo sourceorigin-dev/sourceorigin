@@ -1,6 +1,7 @@
-//! Stored values that their Rust types reject surface as invalid data.
+//! Stored values that their Rust types reject surface as invalid data, and
+//! transaction-scoped locks refuse to run outside a transaction.
 use crate::{
-    Database, DatabaseError,
+    Database, DatabaseError, LockKey,
     repositories::{SessionRepository, UserRepository},
 };
 use sourceorigin_common::{Handle, SessionId, UserId};
@@ -52,4 +53,32 @@ async fn undecodable_columns_are_invalid_stored_data() {
             .await,
         Err(DatabaseError::InvalidStoredData { .. })
     ));
+}
+
+/// A transaction-scoped advisory lock taken on the pool or an exclusive connection
+/// would end with its statement, so both refuse it before running any query; a
+/// transaction takes it.
+#[tokio::test]
+#[ignore = "requires a disposable TEST_DATABASE_URL"]
+async fn transaction_scoped_locks_need_a_transaction() {
+    let database = Database::test().await;
+    assert!(matches!(
+        database.oidc().lock_related_origins().await,
+        Err(DatabaseError::OutsideTransaction)
+    ));
+
+    let mut tx = database.begin().await.expect("transaction");
+    tx.oidc().lock_related_origins().await.expect("lock");
+    tx.rollback().await.expect("rollback");
+
+    let mut exclusive = database
+        .try_exclusive(LockKey::GuardTest)
+        .await
+        .expect("lock")
+        .expect("a free lock");
+    assert!(matches!(
+        exclusive.oidc().lock_related_origins().await,
+        Err(DatabaseError::OutsideTransaction)
+    ));
+    exclusive.release().await.expect("release");
 }

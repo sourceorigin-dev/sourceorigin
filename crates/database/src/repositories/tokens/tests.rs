@@ -84,12 +84,12 @@ impl Grant {
     /// Commits a fresh account, session and code issued to `client`.
     async fn new(pool: &PgPool, client: &ClientId) -> Self {
         let mut tx = pool.begin().await.expect("transaction");
-        let user = UserRepository::from_connection(&mut tx)
+        let user = UserRepository::from_transaction(&mut tx)
             .insert_named("lock")
             .await;
         let grant = Self {
             user,
-            session: SessionRepository::from_connection(&mut tx)
+            session: SessionRepository::from_transaction(&mut tx)
                 .insert(&InsertSession::lasting(user, Duration::hours(1)))
                 .await
                 .expect("session")
@@ -171,7 +171,7 @@ async fn independent_refreshes_share_client_and_logout_does_not_deadlock() {
         .family(&mut TokenRepository::from_pool(&pool), &client)
         .await;
     let mut first_tx = pool.begin().await.expect("first transaction");
-    TokenRepository::from_connection(&mut first_tx)
+    TokenRepository::from_transaction(&mut first_tx)
         .redeem_refresh(
             first,
             std::slice::from_ref(&digest_first),
@@ -183,7 +183,7 @@ async fn independent_refreshes_share_client_and_logout_does_not_deadlock() {
     let mut second_tx = pool.begin().await.expect("second transaction");
     tokio::time::timeout(
         Wait::from_secs(2),
-        TokenRepository::from_connection(&mut second_tx).redeem_refresh(
+        TokenRepository::from_transaction(&mut second_tx).redeem_refresh(
             second,
             std::slice::from_ref(&digest_second),
             client.as_str(),
@@ -205,7 +205,7 @@ async fn independent_refreshes_share_client_and_logout_does_not_deadlock() {
     let mut rotation = pool.begin().await.expect("rotation transaction");
     let rotation_backend = Database::backend(&mut rotation).await;
     let rotation_task = tokio::spawn(async move {
-        let result = TokenRepository::from_connection(&mut rotation)
+        let result = TokenRepository::from_transaction(&mut rotation)
             .redeem_refresh(
                 first,
                 std::slice::from_ref(&digest_first),
@@ -219,7 +219,7 @@ async fn independent_refreshes_share_client_and_logout_does_not_deadlock() {
     Database::wait_for_lock(&pool, rotation_backend).await;
     tokio::time::timeout(
         Wait::from_secs(2),
-        SessionRepository::from_connection(&mut logout)
+        SessionRepository::from_transaction(&mut logout)
             .revoke(grant.user, SessionScope::One(grant.session)),
     )
     .await
@@ -259,7 +259,7 @@ async fn replay_revokes_family_despite_invalid_scopes() {
                 .expect("consumed token with invalid scopes");
         }
         let mut tx = pool.begin().await.expect("transaction");
-        let result = TokenRepository::from_connection(&mut tx)
+        let result = TokenRepository::from_transaction(&mut tx)
             .redeem_refresh(
                 token,
                 std::slice::from_ref(&digest),
@@ -343,7 +343,7 @@ async fn a_kept_token_writes_nothing_and_holds_its_locks_until_commit() {
     for _ in 0..2 {
         let mut tx = pool.begin().await.expect("transaction");
         let before = written(&mut tx).await;
-        let redeemed = TokenRepository::from_connection(&mut tx)
+        let redeemed = TokenRepository::from_transaction(&mut tx)
             .redeem_refresh(
                 token,
                 std::slice::from_ref(&digest),
@@ -365,7 +365,7 @@ async fn a_kept_token_writes_nothing_and_holds_its_locks_until_commit() {
     // The count does see a write: rotating consumes the token.
     let mut tx = pool.begin().await.expect("transaction");
     let before = written(&mut tx).await;
-    TokenRepository::from_connection(&mut tx)
+    TokenRepository::from_transaction(&mut tx)
         .redeem_refresh(
             token,
             std::slice::from_ref(&digest),
@@ -392,7 +392,7 @@ async fn a_concurrent_redemption_answers_with_the_same_successor() {
         .family(&mut TokenRepository::from_pool(&pool), &client)
         .await;
     let mut first_tx = pool.begin().await.expect("first redemption");
-    let redeemed = TokenRepository::from_connection(&mut first_tx)
+    let redeemed = TokenRepository::from_transaction(&mut first_tx)
         .redeem_refresh(
             first,
             std::slice::from_ref(&first_digest),
@@ -406,7 +406,7 @@ async fn a_concurrent_redemption_answers_with_the_same_successor() {
     let (retry_digest, retry_client) = (first_digest.clone(), client.clone());
     let retry_task = tokio::spawn(async move {
         let before = written(&mut retry).await;
-        let result = TokenRepository::from_connection(&mut retry)
+        let result = TokenRepository::from_transaction(&mut retry)
             .redeem_refresh(
                 first,
                 std::slice::from_ref(&retry_digest),
@@ -421,7 +421,7 @@ async fn a_concurrent_redemption_answers_with_the_same_successor() {
     Database::wait_for_lock(&pool, retry_backend).await;
     let second = TokenId::new();
     let second_digest = second.as_uuid().as_bytes().repeat(2);
-    TokenRepository::from_connection(&mut first_tx)
+    TokenRepository::from_transaction(&mut first_tx)
         .insert_token(&InsertRefreshToken {
             id: second,
             family_id: redeemed.family_id,
@@ -445,7 +445,7 @@ async fn a_concurrent_redemption_answers_with_the_same_successor() {
     assert_eq!(wrote, 0, "the retry writes nothing");
 
     let mut tx = pool.begin().await.expect("transaction");
-    let mut tokens = TokenRepository::from_connection(&mut tx);
+    let mut tokens = TokenRepository::from_transaction(&mut tx);
     let rotated = tokens
         .redeem_refresh(
             second,
@@ -470,7 +470,7 @@ async fn a_concurrent_redemption_answers_with_the_same_successor() {
         .expect("its successor");
     tx.commit().await.expect("commit rotation");
     let mut tx = pool.begin().await.expect("transaction");
-    let result = TokenRepository::from_connection(&mut tx)
+    let result = TokenRepository::from_transaction(&mut tx)
         .redeem_refresh(
             first,
             std::slice::from_ref(&first_digest),
@@ -533,7 +533,7 @@ async fn code_replay_waits_for_first_redemption_and_revokes_its_family() {
             "redeemable {redeemable}: {result:?}"
         );
         let mut rotation = pool.begin().await.expect("rotation transaction");
-        let result = TokenRepository::from_connection(&mut rotation)
+        let result = TokenRepository::from_transaction(&mut rotation)
             .redeem_refresh(
                 token,
                 std::slice::from_ref(&digest),
@@ -578,7 +578,7 @@ async fn code_replay_by_another_client_revokes_nothing() {
         "{result:?}"
     );
     let mut rotation = pool.begin().await.expect("rotation transaction");
-    TokenRepository::from_connection(&mut rotation)
+    TokenRepository::from_transaction(&mut rotation)
         .redeem_refresh(
             token,
             std::slice::from_ref(&digest),
@@ -656,14 +656,14 @@ async fn logout_revokes_a_family_committed_while_it_waited() {
     let client = client(&pool).await;
     let grant = Grant::new(&pool, &client).await;
     let mut exchange = pool.begin().await.expect("exchange transaction");
-    SessionRepository::from_connection(&mut exchange)
+    SessionRepository::from_transaction(&mut exchange)
         .find_active_by_id_for_update(grant.session)
         .await
         .expect("lock")
         .expect("active session");
     grant
         .family(
-            &mut TokenRepository::from_connection(&mut exchange),
+            &mut TokenRepository::from_transaction(&mut exchange),
             &client,
         )
         .await;
@@ -671,7 +671,7 @@ async fn logout_revokes_a_family_committed_while_it_waited() {
     let logout_backend = Database::backend(&mut logout).await;
     let (user, session) = (grant.user, grant.session);
     let logout_task = tokio::spawn(async move {
-        let revoked = SessionRepository::from_connection(&mut logout)
+        let revoked = SessionRepository::from_transaction(&mut logout)
             .revoke(user, SessionScope::One(session))
             .await
             .expect("logout");

@@ -777,17 +777,10 @@ impl OidcRepository<'_> {
     ///
     /// # Errors
     ///
-    /// Returns [`DatabaseError`] if the query fails.
+    /// Returns [`DatabaseError::OutsideTransaction`] outside a transaction, or
+    /// another [`DatabaseError`] if the query fails.
     pub async fn lock_related_origins(&mut self) -> Result<(), DatabaseError> {
-        run!(
-            self,
-            execute,
-            sqlx::query!(
-                "SELECT pg_advisory_xact_lock($1)",
-                LockKey::RelatedOrigins.id()
-            )
-        )?;
-        Ok(())
+        self.executor.lock(LockKey::RelatedOrigins).await
     }
 
     /// Every approved related origin, by origin.
