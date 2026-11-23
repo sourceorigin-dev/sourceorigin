@@ -346,7 +346,7 @@ impl AlertRepository<'_> {
     /// Adds an update on alert `id` as a newer release would, with any `author`
     /// and no note, for tests of what this release reads back. That release
     /// widened the column's check to the authors it writes, so this drops the
-    /// check, and only on a schema of its own, from
+    /// check, and only on a database of its own, from
     /// [`Database::isolated`](crate::Database::isolated).
     ///
     /// # Errors
@@ -364,7 +364,7 @@ impl AlertRepository<'_> {
             execute,
             sqlx::query(
                 r"DO $$ BEGIN
-                    IF current_schema() NOT LIKE 'test\_%' THEN
+                    IF current_database() NOT LIKE 'test\_%' THEN
                         RAISE EXCEPTION 'add_update_written_elsewhere runs only on Database::isolated';
                     END IF;
                     ALTER TABLE alert_updates DROP CONSTRAINT IF EXISTS alert_updates_author_check;
