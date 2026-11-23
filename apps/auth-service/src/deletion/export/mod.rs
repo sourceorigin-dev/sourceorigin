@@ -18,7 +18,7 @@ use serde_json::Value;
 use sourceorigin_common::admin::{ApprovedOrigin, Consent, DashboardSession, KnownDevice};
 use sourceorigin_common::{
     AccountStatus, ClientId, ErrorChain, Handle, PasskeyId, PictureId, RecoveryId, SessionId,
-    UserId, notifications::NotificationPreference,
+    UserId, events::DomainEvent, notifications::NotificationPreference,
 };
 use sourceorigin_repository::{
     AnnouncementRecord, DatabaseError, DatabaseTransaction, EventFilter, IdentityRecord,
@@ -56,7 +56,7 @@ const STREAMS: usize = 2;
 static STREAMING: Semaphore = Semaphore::const_new(STREAMS);
 /// The kind of the events left out: an administrator's views of the account,
 /// which its history hides too, since a read may be a confidential inquiry.
-const VIEWS: &str = "account_viewed";
+const VIEWS: &str = DomainEvent::AccountViewed {}.kind();
 
 /// Everything auth stores about an account, read from one snapshot and streamed
 /// as one document: `{"format": "sourceorigin.account-export", "version": 6, …,
