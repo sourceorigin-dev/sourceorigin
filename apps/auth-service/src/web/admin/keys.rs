@@ -1,7 +1,6 @@
 //! Signing keys: listing, rotating, revoking and rewrapping them.
 
-use super::{AdminApplication as App, ReasonForm, ReasonPage};
-use crate::Reason;
+use super::{AdminApplication as App, Administered, ReasonForm, ReasonPage, Refused};
 use serde::Deserialize;
 use sourceorigin_common::protocol::jwt::KeyId;
 use sourceorigin_ui::{Action, Change, Checkbox, SigningKeyRow, Target};
@@ -20,9 +19,6 @@ struct Rotation {
     /// Whether the new key signs at once, skipping its day of waiting.
     #[serde(default)]
     now: Checkbox,
-    /// Why.
-    #[serde(default)]
-    reason: String,
 }
 
 /// `/keys`: every signing key, oldest first, each with the change revoking it.
@@ -57,20 +53,24 @@ pub(super) async fn list(cx: &Cx) -> Result<Response> {
 
 /// `/keys/rotate`: publishes a new signing key, or makes it sign at once.
 #[route([GET, POST] "/keys/rotate")]
-pub(super) async fn rotate(cx: &Cx, form: Option<Form<Rotation>>) -> Result<Response> {
+pub(super) async fn rotate(
+    cx: &Cx,
+    form: Option<Form<Administered<Rotation>>>,
+) -> Result<Response> {
     let admin = App::confirmed(cx).await?;
     let app = App::of(cx);
     let back = href!(list).resolve(cx);
-    let refused = App::submit(cx, form, back.clone(), |input: Rotation| async move {
-        let reason = Reason::parse(input.reason)?;
+    let refused = App::submit_reason(cx, form, back.clone(), |rotation, reason| async move {
         app.service
-            .rotate_signing_key(&admin.operator, &app.keys, input.now.0, reason)
+            .rotate_signing_key(&admin.operator, &app.keys, rotation.now.0, reason)
             .await
             .map(drop)
     })
     .await?;
-    let now = refused.as_ref().is_some_and(|refused| refused.form.now.0);
-    let reason = refused.as_ref().map(|refused| refused.form.reason.as_str());
+    let now = refused
+        .as_ref()
+        .is_some_and(|refused| refused.form.change.now.0);
+    let reason = refused.as_ref().map(Refused::reason);
     let (back, refused) = (&back, refused.as_deref());
     let page = view! { cx =>
         sourceorigin_ui::signing_key_rotation(back: back.as_str(), refused: refused, now: now, reason: reason)

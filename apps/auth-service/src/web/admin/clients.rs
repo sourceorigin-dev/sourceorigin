@@ -15,7 +15,7 @@
 //! page at `/clients/new`, whatever the client's ID.
 
 use super::{
-    AdminApplication as App, ReasonForm, ReasonPage, Refusal,
+    AdminApplication as App, Administered, ReasonForm, ReasonPage, Refusal,
     origins::{self, OriginQuery},
 };
 use crate::{
@@ -25,7 +25,6 @@ use crate::{
     security::ApiError,
 };
 use chrono::Utc;
-use serde::Deserialize;
 use sourceorigin_common::{
     ClientId,
     admin::ClientDetail,
@@ -225,7 +224,10 @@ pub(super) async fn edit(cx: &Cx, form: Option<Form<OperatorDraft>>) -> Result<R
 /// `/clients/{client}/secret`: a confidential client's secrets, and rotating
 /// them. A rotation comes back here, which shows the new secret once.
 #[route([GET, POST] "/clients/{client}/secret")]
-pub(super) async fn rotate(cx: &Cx, form: Option<Form<Rotation>>) -> Result<Response> {
+pub(super) async fn rotate(
+    cx: &Cx,
+    form: Option<Form<Administered<SecretsChange>>>,
+) -> Result<Response> {
     let admin = App::admin(cx).await?;
     // The page showing a new secret needs no confirmation: sending the browser
     // to confirm would lose the secret.
@@ -240,7 +242,7 @@ pub(super) async fn rotate(cx: &Cx, form: Option<Form<Rotation>>) -> Result<Resp
         return Err(AdminError::from(ClientRegistryError::Public(id)).into());
     }
     let here = href!(rotate, Client(id.clone())).resolve(cx);
-    let changed = App::change(cx, form, async |rotation: Rotation| {
+    let changed = App::change(cx, form, async |rotation| {
         let SecretsChange::Rotate { grace } = rotation.change;
         let reason = Reason::parse(rotation.reason)?;
         service
@@ -297,17 +299,6 @@ pub(super) async fn rotate(cx: &Cx, form: Option<Form<Rotation>>) -> Result<Resp
     };
     // A large page: its future is boxed, off the handler's stack.
     Box::pin(App::render(cx, StatusCode::OK, "Client secrets", page)).await
-}
-
-/// The form rotating a client's secret: the developer console's, with why.
-#[derive(Clone, Deserialize)]
-pub(super) struct Rotation {
-    /// The rotation, as the developer console posts it.
-    #[serde(flatten)]
-    change: SecretsChange,
-    /// Why, as typed.
-    #[serde(default)]
-    reason: String,
 }
 
 /// A change to a client that only needs confirming, as its `client` command

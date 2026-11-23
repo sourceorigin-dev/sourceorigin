@@ -732,22 +732,25 @@ impl AdminApplication {
             .map(Body::new)
     }
 
-    /// [`Self::submit`] for a change whose form posts only why: parses the
-    /// reason and makes the change with it.
-    async fn submit_reason<F, Fut, E>(
+    /// [`Self::submit`] for a change that checks its reason first: parses the
+    /// reason, then makes the change with it.
+    async fn submit_reason<C, F, Fut, E>(
         cx: &Cx,
-        form: Option<Form<ReasonForm>>,
+        form: Option<Form<Administered<C>>>,
         done: String,
         call: F,
-    ) -> Result<Option<Refused<ReasonForm>>>
+    ) -> Result<Option<Refused<Administered<C>>>>
     where
+        C: Clone,
         E: Into<Refusal>,
-        F: FnOnce(Reason) -> Fut,
+        F: FnOnce(C, Reason) -> Fut,
         Fut: Future<Output = Result<(), E>>,
     {
-        Self::submit(cx, form, done, async |input: ReasonForm| {
+        Self::submit(cx, form, done, async |input: Administered<C>| {
             let reason = Reason::parse(input.reason)?;
-            call(reason).await.map_err(Into::<Refusal>::into)
+            call(input.change, reason)
+                .await
+                .map_err(Into::<Refusal>::into)
         })
         .await
     }
@@ -767,7 +770,8 @@ impl AdminApplication {
         F: FnOnce(Reason) -> Fut,
         Fut: Future<Output = Result<(), E>>,
     {
-        let refused = Self::submit_reason(cx, form, done, call).await?;
+        let refused =
+            Self::submit_reason(cx, form, done, async move |(), reason| call(reason).await).await?;
         Self::reason_page(cx, page, refused, ()).await
     }
 
@@ -856,15 +860,29 @@ struct Refused<I> {
     form: I,
 }
 
-/// The form of a change that asks only why: its reason, recorded with it, which
-/// the owner of an account it changes sees in their history. A `GET`'s query,
-/// which the extractor reads as its form, has none.
+/// The form of a dashboard change: the change, and why, recorded with it, which
+/// the owner of an account it changes sees in their history. The reason
+/// defaults to empty, so a form posted without one decodes and is refused on its
+/// page, as a blank one is, and a `GET`'s query, which the extractor reads as
+/// its form, needs none.
+///
+/// `C`'s fields reach it flattened, as text, past the form's own parsing: each
+/// must decode from a string, as strings, IDs, `Checkbox` and text enums do.
+/// A number, or an `Option` that reads an empty value as `None`, fails to
+/// decode, so a form with one, such as the administrator grant's, keeps its
+/// own `reason` field instead.
 #[derive(Clone, Deserialize)]
-struct ReasonForm {
+struct Administered<C> {
+    /// The change, as its form names it.
+    #[serde(flatten)]
+    change: C,
     /// Why, as typed.
     #[serde(default)]
     reason: String,
 }
+
+/// The form of a change that asks only why.
+type ReasonForm = Administered<()>;
 
 /// The page of a change whose form asks only why, which
 /// [`AdminApplication::reason_change`] serves.
@@ -893,7 +911,7 @@ impl<'a> ReasonPage<'a> {
     }
 }
 
-impl Refused<ReasonForm> {
+impl<C> Refused<Administered<C>> {
     /// The reason as it was typed, which the page shows again.
     fn reason(&self) -> &str {
         &self.form.reason

@@ -155,12 +155,14 @@ as `handles.rs`. A change's page shows its form on `GET` and makes the change on
 ```rust
 /// `/handles/reserve`: reserves a handle, saying who or what it is kept for.
 #[route([GET, POST] "/handles/reserve")]
-pub(super) async fn reserve(cx: &Cx, form: Option<Form<Reservation>>) -> Result<Response> {
-    let admin = App::admin(cx).await?;
-    App::confirm(cx, admin)?;
+pub(super) async fn reserve(
+    cx: &Cx,
+    form: Option<Form<Administered<Reservation>>>,
+) -> Result<Response> {
+    let admin = App::confirmed(cx).await?;
     let service = &App::of(cx).service;
     let back = href!(check).resolve(cx);
-    let refused = App::submit(cx, form, back.clone(), |input: Reservation| async move {
+    let refused = App::submit(cx, form, back.clone(), |input| async move {
         // Parse the form, then call the service as `admin.operator`.
     })
     .await?;
@@ -168,15 +170,25 @@ pub(super) async fn reserve(cx: &Cx, form: Option<Form<Reservation>>) -> Result<
 }
 ```
 
-- `App::admin` finds the administrator, or sends the browser to sign in.
-- `App::confirm` requires the dashboard's own recent passkey confirmation, or
-  sends the browser to confirm and back.
+- `App::confirmed` finds the administrator and requires the dashboard's own
+  recent passkey confirmation, or sends the browser to sign in or confirm, and
+  back.
+- Most change forms are an `Administered<C>`: the form's own fields, `C`, and
+  the `reason` every change posts. The reason defaults to empty, so a form
+  posted without one decodes, and `Reason::parse` refuses it on the page as it
+  refuses a blank one. `C`'s fields are flattened, so each must decode from
+  text: strings, IDs, `Checkbox` and text enums do, but numbers, and `Option`s
+  that read an empty value as `None`, don't. A form with one declares its own
+  `#[serde(default)] reason` instead, as the administrator grant's
+  `GrantForm` does. So do `CreateInvitation` and `ApproveOrigin`
+  (`sourceorigin_common::admin`) and `OperatorDraft`
+  (`crates/ui/src/admin/clients.rs`), and the alert update's `UpdateForm`
+  posts its reason as `note`.
 - `App::submit` makes the change, goes back to `back` once it is made, and
-  otherwise returns the refusal, which the form shows with what was typed. A
-  change whose form posts only its reason uses `App::submit_reason` and
-  `ReasonForm`, which parse the reason first. Every form's `reason` field is
-  `#[serde(default)]`, so a form posted without one decodes, and `Reason::parse`
-  refuses it on the page as it refuses a blank one.
+  otherwise returns the refusal, which the form shows with what was typed.
+  `App::submit_reason` parses the reason first, then hands the change and its
+  `Reason` on. A change whose form posts only its reason takes a `ReasonForm`,
+  an `Administered<()>`, and `App::reason_change` serves its whole page.
 
 The page's words are a `Change` variant in `crates/ui/src/admin/mod.rs`: its
 title, description, button, label, whether it takes something away, and the

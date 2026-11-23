@@ -51,6 +51,10 @@ pub(super) async fn list(cx: &Cx) -> Result<Response> {
 /// What [`grant`] takes: by `GET`, the search for the account, from its query;
 /// by `POST`, the account to grant and why, from its form. One type, since the
 /// extractor reads a `GET`'s query as its form.
+///
+/// Not an [`Administered`](super::Administered): flattened fields reach their
+/// type as text, so `page=2`, the pager's own link, and an empty `user_id` would
+/// fail to decode. Its own `reason` defaults the same way.
 #[derive(Clone, Deserialize)]
 pub(super) struct GrantForm {
     /// The account to grant rights, which the button posts.

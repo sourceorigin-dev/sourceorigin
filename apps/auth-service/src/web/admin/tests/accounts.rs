@@ -410,8 +410,8 @@ async fn administrators_change_an_accounts_settings_with_a_reason() {
 }
 
 /// Granting rights starts from a search: the page lists the accounts matching a
-/// handle, with a button for each that may be granted, and the button's form
-/// makes the account an administrator.
+/// handle, a page at a time, with a button for each that may be granted, and the
+/// button's form makes the account an administrator.
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn rights_are_granted_from_a_search() {
@@ -433,6 +433,9 @@ async fn rights_are_granted_from_a_search() {
         page.contains(&format!(r#"name="user_id" value="{}""#, other.user_id)),
         "{page}"
     );
+    // The pager's links name a page, which the search reads as a number.
+    let paged = harness.visit(&dashboard, &format!("{search}&page=2")).await;
+    assert_eq!(paged.status(), StatusCode::OK, "{search}&page=2");
     let granted = dashboard
         .submit(
             &harness.dashboard,
