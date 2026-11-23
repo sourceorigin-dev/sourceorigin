@@ -40,6 +40,7 @@ use super::{
     account::{Framed, Reader},
 };
 use crate::{
+    account::Holdings,
     emails::EmailView,
     federation::FederationApplication,
     grants::ConnectedApp,
@@ -48,9 +49,13 @@ use crate::{
     routes::page::settings,
     sessions::SessionItem,
 };
-use sourceorigin_common::protocol::api::Identity;
+use sourceorigin_common::{
+    Provider,
+    protocol::api::{Identity, Passkey},
+};
 use sourceorigin_ui::{
-    ConnectedAppRow, DeviceRow, EmailRow, HistoryRow, InboxRow, Messages, ProviderRow, Section, Tab,
+    ConnectedAppRow, DeviceRow, EmailRow, HistoryRow, InboxRow, Messages, ProviderRow, Recovery,
+    Section, Tab,
 };
 use topcoat::{
     context::Cx,
@@ -71,6 +76,49 @@ pub(super) const TABS: [(Tab, &str); 9] = [
     (Tab::History, settings::HISTORY),
     (Tab::Data, settings::DATA),
 ];
+
+/// What an account holds, as its security history and notifications name it:
+/// the owner's pages and the admin dashboard's show it through
+/// [`Self::holds`].
+pub(super) struct HeldRows<'a> {
+    /// The account's passkeys.
+    passkeys: &'a [Passkey],
+    /// Its addresses.
+    emails: Vec<EmailRow<'a>>,
+    /// The providers linked to it.
+    linked: Vec<Provider>,
+}
+
+impl<'a> From<&'a Holdings> for HeldRows<'a> {
+    /// The holdings as the pages show them.
+    fn from(holdings: &'a Holdings) -> Self {
+        Self {
+            passkeys: &holdings.passkeys,
+            emails: holdings.emails.iter().map(EmailRow::from).collect(),
+            linked: holdings
+                .identities
+                .iter()
+                .map(|identity| identity.provider)
+                .collect(),
+        }
+    }
+}
+
+impl HeldRows<'_> {
+    /// What the history's entries and the notifications name, with the
+    /// account's `recovery` that can still be undone, if any.
+    pub(super) fn holds<'a>(
+        &'a self,
+        recovery: Option<&'a Recovery>,
+    ) -> sourceorigin_ui::Holdings<'a> {
+        sourceorigin_ui::Holdings {
+            passkeys: self.passkeys,
+            emails: &self.emails,
+            linked: &self.linked,
+            recovery,
+        }
+    }
+}
 
 impl<'a> From<&'a EmailView> for EmailRow<'a> {
     /// The address as a page shows it.

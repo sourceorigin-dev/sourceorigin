@@ -67,6 +67,17 @@ pub(crate) struct Viewer {
     by: Reading,
 }
 
+/// A [`Viewer`]'s read of their account, once [`Viewer::authorize`] allowed it.
+/// Only `authorize` builds one, so a reader that takes it, such as
+/// [`AccountService::holdings`]'s, reads only what was authorized, and several
+/// reads share one authorization.
+///
+/// [`AccountService::holdings`]: crate::account::AccountService::holdings
+pub(crate) struct Authorized {
+    /// The account.
+    user: UserId,
+}
+
 /// An [`Owner`] whose session the request's cookie showed confirmed with a passkey
 /// recently, for routes whose operation needs it. Checked when extracted, before
 /// the path and body, so such a route answers `step_up_required` before any other
@@ -338,14 +349,21 @@ impl Viewer {
     /// data: once an hour ([`Operator::record_view`]), so a page reading several
     /// settings records one. The extractor already checked an owner's session,
     /// and an owner's reads of their own are not recorded.
-    pub(crate) async fn authorize(&self, database: &Database) -> Result<(), AccountError> {
+    pub(crate) async fn authorize(&self, database: &Database) -> Result<Authorized, AccountError> {
         if let Reading::Operator(operator) = &self.by {
             operator.authorize_read(database).await?;
             let mut tx = database.begin().await?;
             operator.record_view(&mut tx, self.user).await?;
             tx.commit().await?;
         }
-        Ok(())
+        Ok(Authorized { user: self.user })
+    }
+}
+
+impl Authorized {
+    /// The account.
+    pub(crate) const fn user(&self) -> UserId {
+        self.user
     }
 }
 

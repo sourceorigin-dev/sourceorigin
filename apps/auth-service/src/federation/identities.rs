@@ -1,7 +1,7 @@
 //! Pending and linked social identities: signup, linking, listing and unlinking.
 
 use super::{FederationApplication, FederationError, Flow, FlowCookie, Provider, ProviderPicture};
-use crate::account::{AccountError, AccountService, Owner, Subject, Viewer};
+use crate::account::{AccountError, AccountService, Authorized, Owner, Subject, Viewer};
 use crate::config::EmailConfig;
 use crate::emails::EmailApplication;
 use crate::security::BrowserCookie;
@@ -215,12 +215,16 @@ impl AccountService {
 
     /// Lists the account's active social identities.
     pub(crate) async fn identities(&self, viewer: &Viewer) -> Result<Vec<Identity>, AccountError> {
-        viewer.authorize(&self.database).await?;
-        let identities = self
-            .database
-            .federation()
-            .list_active(viewer.user())
-            .await?;
+        let read = viewer.authorize(&self.database).await?;
+        self.authorized_identities(&read).await
+    }
+
+    /// [`Self::identities`], for a read already authorized.
+    pub(crate) async fn authorized_identities(
+        &self,
+        read: &Authorized,
+    ) -> Result<Vec<Identity>, AccountError> {
+        let identities = self.database.federation().list_active(read.user()).await?;
         Ok(identities.into_iter().map(Into::into).collect())
     }
 

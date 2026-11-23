@@ -2,7 +2,7 @@
 //! administrator may also list, rename and remove them.
 
 use super::{PasskeyApplication, PasskeyError, PasskeyName};
-use crate::account::{AccountError, AccountService, Owner, Subject, Viewer};
+use crate::account::{AccountError, AccountService, Authorized, Owner, Subject, Viewer};
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use sourceorigin_common::{
     PasskeyId,
@@ -43,8 +43,16 @@ impl AccountService {
         &self,
         viewer: &Viewer,
     ) -> Result<Vec<api::Passkey>, AccountError> {
-        viewer.authorize(&self.database).await?;
-        let passkeys = self.database.passkeys().list_active(viewer.user()).await?;
+        let read = viewer.authorize(&self.database).await?;
+        self.authorized_passkeys(&read).await
+    }
+
+    /// [`Self::passkeys`], for a read already authorized.
+    pub(crate) async fn authorized_passkeys(
+        &self,
+        read: &Authorized,
+    ) -> Result<Vec<api::Passkey>, AccountError> {
+        let passkeys = self.database.passkeys().list_active(read.user()).await?;
         Ok(passkeys.into_iter().map(Into::into).collect())
     }
 

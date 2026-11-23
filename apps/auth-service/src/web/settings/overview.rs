@@ -5,12 +5,12 @@ use crate::{
     web::{
         Failure, WebApplication,
         account::{AccountPage, Reader, no_change},
+        settings::HeldRows,
     },
 };
 use chrono::{Duration, Utc};
 use sourceorigin_ui::{
-    AccountOverview, ConnectedAppRow, DeviceRow, EmailRow, Holdings, Messages, OverviewLinks,
-    Section, Tab,
+    AccountOverview, ConnectedAppRow, DeviceRow, Messages, OverviewLinks, Section, Tab,
 };
 use topcoat::{
     context::Cx,
@@ -52,18 +52,12 @@ impl AccountPage for Overview {
             .activity(&viewer, now - Duration::days(7))
             .await?;
         let history = web.account.history(&viewer, None).await?;
-        let passkeys = web.account.passkeys(&viewer).await?;
-        let emails = web.account.emails(&viewer).await?;
-        let identities = web.account.identities(&viewer).await?;
+        let holdings = web.account.holdings(&viewer).await?;
         let unread = web.account.unread_notifications(&viewer).await?;
-        let providers = web.federation.provider_rows(&identities);
-        let linked: Vec<_> = identities
-            .iter()
-            .map(|identity| identity.provider)
-            .collect();
+        let providers = web.federation.provider_rows(&holdings.identities);
+        let held = HeldRows::from(&holdings);
         let devices: Vec<_> = sessions.iter().map(DeviceRow::from).collect();
         let app_rows: Vec<_> = apps.iter().map(ConnectedAppRow::from).collect();
-        let email_rows: Vec<_> = emails.iter().map(EmailRow::from).collect();
         let mut rows = history.rows();
         rows.truncate(ACTIVITY_SHOWN);
         let overview = AccountOverview {
@@ -72,12 +66,7 @@ impl AccountPage for Overview {
             app_sign_ins_week: activity.app_sign_ins,
             security_events_week: activity.security_events,
             activity: &rows,
-            holds: Holdings {
-                passkeys: &passkeys,
-                emails: &email_rows,
-                linked: &linked,
-                recovery: reader.recovery(),
-            },
+            holds: held.holds(reader.recovery()),
             providers: &providers,
             now,
             unread,

@@ -282,7 +282,10 @@ on it:
   and records the read as a view through `Operator::record_view`, which skips
   it when the same administrator session or operator viewed the account within
   the hour, so a page reading several settings, or reloaded, records one; an
-  owner's reads are not recorded.
+  owner's reads are not recorded. It returns `Authorized`, which only it
+  builds: readers that take one share a single authorization, as
+  `AccountService::holdings` reads the passkeys, addresses and identities a
+  page's history names.
 
 Only the extractors and `AccountService::owner`, which pages call, build an owner's
 `Owner`, from the session cookie; their `Subject` and `Viewer` come from it, or
