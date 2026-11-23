@@ -9,11 +9,11 @@ use crate::{
 };
 use sourceorigin_common::{
     AccountStatus, PictureId, SessionId, UserId,
-    admin::{EventSearch, MessageIntent, MessageUser, Recovery, RecoveryState, User, UserSearch},
+    admin::{EventSearch, MessageIntent, MessageUser, Recovery, User, UserSearch},
 };
 use sourceorigin_ui::{
     AccountPages, Action, Change, Crumb, MessagePreview, Pager, Query, RecoveryKey, RecoveryRow,
-    RecoveryStanding, SessionRow, Target, UserRow,
+    SessionRow, Target, UserRow,
 };
 use topcoat::{
     Result,
@@ -428,18 +428,7 @@ impl App {
             .iter()
             .map(|recovery| RecoveryRow {
                 started_at: recovery.started_at,
-                standing: match recovery.state {
-                    RecoveryState::Open => RecoveryStanding::Unused,
-                    RecoveryState::Probation { settles_at } => {
-                        RecoveryStanding::Probation { settles_at }
-                    }
-                    RecoveryState::Settled => RecoveryStanding::Settled,
-                    RecoveryState::Ended => match (recovery.undone_at, recovery.cancelled_at) {
-                        (Some(at), _) => RecoveryStanding::Undone(at),
-                        (None, Some(at)) => RecoveryStanding::Cancelled(at),
-                        (None, None) => RecoveryStanding::Expired,
-                    },
-                },
+                standing: recovery.standing(),
                 passkey: recovery.passkey.as_ref().zip(recovery.completed_at).map(
                     |(passkey, enrolled_at)| RecoveryKey {
                         id: passkey.id,

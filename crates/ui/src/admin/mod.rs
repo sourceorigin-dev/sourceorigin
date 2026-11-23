@@ -55,7 +55,7 @@ pub use lists::{
     invitation_list,
 };
 pub use overview::{AdminOverview, Measure, Problem, admin_overview};
-pub use recoveries::{RecoveryKey, RecoveryRow, RecoveryStanding, recovery_list};
+pub use recoveries::{RecoveryKey, RecoveryRow, recovery_list};
 pub use users::{
     AccountPages, MessagePreview, SessionRow, UserRow, message_page, user_page, user_search,
 };

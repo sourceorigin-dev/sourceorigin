@@ -12,7 +12,7 @@ use crate::{
 use chrono::{DateTime, Utc};
 use sourceorigin_common::{
     AccountStatus,
-    admin::{Administrator, Invitation, InvitationSent},
+    admin::{Administrator, Invitation, InvitationSent, InvitationState},
 };
 use topcoat::{
     Result,
@@ -47,15 +47,11 @@ pub struct InvitationRow<'a> {
 impl InvitationRow<'_> {
     /// Whether it can still be used, as of `now`, as a badge.
     fn state(&self, now: DateTime<Utc>) -> Badge {
-        let invitation = self.invitation;
-        if invitation.redeemed_at.is_some() {
-            Badge::new("ok", "Redeemed")
-        } else if invitation.revoked_at.is_some() {
-            Badge::new("danger", "Revoked")
-        } else if invitation.expires_at <= now {
-            Badge::new("neutral", "Expired")
-        } else {
-            Badge::new("", "Open")
+        match self.invitation.state(now) {
+            InvitationState::Redeemed => Badge::new("ok", "Redeemed"),
+            InvitationState::Revoked => Badge::new("danger", "Revoked"),
+            InvitationState::Expired => Badge::new("neutral", "Expired"),
+            InvitationState::Open => Badge::new("", "Open"),
         }
     }
 }

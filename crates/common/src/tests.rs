@@ -513,6 +513,79 @@ fn a_client_detail_extends_the_listed_client() {
     );
 }
 
+/// An invitation is redeemed, revoked, expired or open: the first that applies,
+/// so a revoked one, which revoking also expires, reads as revoked.
+#[cfg(feature = "admin")]
+#[test]
+fn an_invitation_state_takes_the_first_that_applies() {
+    use admin::InvitationState::{Expired, Open, Redeemed, Revoked};
+    let now = chrono::DateTime::<chrono::Utc>::UNIX_EPOCH;
+    let (past, future) = (
+        now - chrono::Duration::hours(1),
+        now + chrono::Duration::hours(1),
+    );
+    for (expires_at, redeemed_at, revoked_at, state) in [
+        (future, Some(past), Some(past), Redeemed),
+        (past, None, Some(past), Revoked),
+        (now, None, None, Expired),
+        (future, None, None, Open),
+    ] {
+        let invitation = admin::Invitation {
+            id: TokenId::new(),
+            email: None,
+            created_at: past,
+            expires_at,
+            redeemed_at,
+            revoked_at,
+        };
+        assert_eq!(invitation.state(now), state, "{invitation:?}");
+    }
+}
+
+/// An ended recovery's standing says why it ended: undone outranks cancelled,
+/// and one neither undone nor cancelled expired.
+#[cfg(feature = "admin")]
+#[test]
+fn an_ended_recovery_says_why() {
+    use admin::{RecoveryStanding, RecoveryState};
+    let (undone, cancelled) = (
+        chrono::DateTime::<chrono::Utc>::UNIX_EPOCH,
+        chrono::DateTime::<chrono::Utc>::UNIX_EPOCH + chrono::Duration::days(1),
+    );
+    let recovery = |state, undone_at, cancelled_at| admin::Recovery {
+        id: RecoveryId::new(),
+        started_at: undone,
+        expires_at: undone,
+        completed_at: None,
+        cancelled_at,
+        undone_at,
+        state,
+        passkey: None,
+    };
+    for (undone_at, cancelled_at, standing) in [
+        (
+            Some(undone),
+            Some(cancelled),
+            RecoveryStanding::Undone(undone),
+        ),
+        (
+            None,
+            Some(cancelled),
+            RecoveryStanding::Cancelled(cancelled),
+        ),
+        (None, None, RecoveryStanding::Expired),
+    ] {
+        assert_eq!(
+            recovery(RecoveryState::Ended, undone_at, cancelled_at).standing(),
+            standing
+        );
+    }
+    assert_eq!(
+        recovery(RecoveryState::Open, None, None).standing(),
+        RecoveryStanding::Unused
+    );
+}
+
 /// Only public addresses pass the shared check, however they are written: an
 /// embedded IPv4 address (mapped, NAT64, 6to4) is checked too. A back-channel
 /// logout URI on a literal address registers exactly when deliveries could reach

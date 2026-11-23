@@ -58,6 +58,10 @@ stands, against the database's clock read with the row
 | `Settled` | Its probation ended. Its passkey is an ordinary passkey. |
 | `Ended` | It expired unused, or was cancelled or undone. |
 
+`sourceorigin_common::admin::Recovery::standing` is the one place that splits
+an `Ended` recovery into undone, cancelled and expired, for the CLI and the
+dashboard.
+
 A recovery that is `Open` or in `Probation` can still be undone. An account has
 at most one (S2, S4). The migration's `undoable_recovery` is the one SQL copy of
 that condition, which the [database backstops](#database-backstops) share.
