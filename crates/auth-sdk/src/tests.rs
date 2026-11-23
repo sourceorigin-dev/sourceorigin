@@ -312,6 +312,38 @@ fn callback_vectors() {
     }
 }
 
+/// A denied authorization keeps auth's error, typed, and a description with
+/// characters RFC 6749 forbids, with them replaced rather than lost.
+#[test]
+fn a_denial_keeps_the_error_auth_redirected_with() {
+    let pending: PendingLogin = serde_json::from_value(serde_json::json!({
+        "issuer": "https://auth.example",
+        "client_id": "notes-web",
+        "state": "state",
+        "nonce": "unused",
+        "verifier": "unused",
+        "redirect_uri": "https://client.example.com/callback",
+        "step_up": {},
+    }))
+    .expect("pending login");
+    let callback = CallbackParams::from_query(
+        "state=state&iss=https%3A%2F%2Fauth.example&error=access_denied\
+         &error_description=the+%22user%22+declined+%C3%A9",
+    )
+    .expect("callback parameters");
+    let Err(LoginError::Denied(response)) = pending.check(&callback, true) else {
+        panic!("the denial is not kept");
+    };
+    assert_eq!(response.error, protocol::oauth::ErrorCode::AccessDenied);
+    assert_eq!(
+        response
+            .error_description
+            .as_ref()
+            .map(protocol::oauth::ErrorDescription::as_str),
+        Some("the 'user' declined ?")
+    );
+}
+
 /// The CSRF check of logout and of reading a session, against the client's redirect
 /// URI's origin, as [`crate::axum`]'s login routes ask it.
 #[test]

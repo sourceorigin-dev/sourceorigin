@@ -41,7 +41,8 @@ API names and the types those name in turn. That list, in
 `crates/auth-sdk/src/lib.rs`, is its contract. The rest, such as
 `AccessTokenClaims`, `JwkSet` and `TokenResponse`, it reads only inside. It also
 re-exports `CryptoError` and the crates its API names (`chrono`, `reqwest`,
-`secrecy`, `serde_json` and `url`), so an app names the versions it uses. Its
+`secrecy`, `serde_json`, `tokio` and `url`), so an app names the versions it uses, except
+axum, which an app depends on directly. Its
 enums and the `Tokens` it returns are `#[non_exhaustive]`, so a release can add
 a variant or a field without breaking apps, and no two of its items share a
 name: its scope trait is `DeclaredScope`, apart from `protocol::oauth::Scope`, and
