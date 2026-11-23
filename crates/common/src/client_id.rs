@@ -5,16 +5,6 @@ use serde::{Deserialize, Serialize};
 use std::{fmt, str::FromStr};
 use thiserror::Error;
 
-/// Starts every client ID auth generates.
-#[cfg(feature = "server")]
-const GENERATED_ID_PREFIX: &str = "c_";
-/// Characters after [`GENERATED_ID_PREFIX`], 5 random bits each.
-#[cfg(feature = "server")]
-const GENERATED_ID_CHARS: usize = 20;
-/// The RFC 4648 base32 alphabet, lowercased so generated IDs read well in URLs.
-#[cfg(feature = "server")]
-const BASE32: &[u8; 32] = b"abcdefghijklmnopqrstuvwxyz234567";
-
 /// A registered OAuth client's identifier: 1 to 64 ASCII letters, digits, `.`, `_`
 /// or `-`. It is fixed at registration and appears in tokens as `client_id`, `azp`
 /// and `aud`, so no other client may ever take it, even after a deletion.
@@ -37,6 +27,13 @@ impl ClientId {
 
 #[cfg(feature = "server")]
 impl ClientId {
+    /// Starts every client ID auth generates.
+    const GENERATED_ID_PREFIX: &str = "c_";
+    /// Characters after [`Self::GENERATED_ID_PREFIX`], 5 random bits each.
+    const GENERATED_ID_CHARS: usize = 20;
+    /// The RFC 4648 base32 alphabet, lowercased so generated IDs read well in URLs.
+    const BASE32: &[u8; 32] = b"abcdefghijklmnopqrstuvwxyz234567";
+
     /// The ID auth gives a client an account registers: `c_` and 20 base32
     /// characters, one per byte of `random`, 100 bits in all. Only operators and
     /// administrators choose IDs, so an account can never claim a name such as
@@ -45,9 +42,9 @@ impl ClientId {
     pub fn generated(random: &[u8; 32]) -> Self {
         let suffix = random
             .iter()
-            .take(GENERATED_ID_CHARS)
-            .map(|byte| char::from(BASE32[usize::from(byte & 0x1f)]));
-        Self(GENERATED_ID_PREFIX.chars().chain(suffix).collect())
+            .take(Self::GENERATED_ID_CHARS)
+            .map(|byte| char::from(Self::BASE32[usize::from(byte & 0x1f)]));
+        Self(Self::GENERATED_ID_PREFIX.chars().chain(suffix).collect())
     }
 }
 

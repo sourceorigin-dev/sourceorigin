@@ -86,7 +86,7 @@ services fit together.
 
 | Crate | Owns |
 | --- | --- |
-| `sourceorigin-common` (`crates/common`) | Shared types: IDs, handles, vocabularies, domain events, notifications, and under `protocol` the wire types auth and the SDKs share. Its server-only parts sit behind the `admin`, `config`, `email`, `events` and `similarity` features, so the Rust SDK compiles none of them |
+| `sourceorigin-common` (`crates/common`) | Shared types: IDs, handles, vocabularies, domain events, notifications, and under `protocol` the wire types auth and the SDKs share. Its server-only parts sit behind the `server`, `admin`, `config`, `email`, `events`, `similarity` and `sqlx` features, so the Rust SDK compiles none of them: `server` holds client registrations, handles, the public IP ranges, the settings API bodies, the response headers and the IDs and vocabularies only servers use |
 | `sourceorigin-crypto` (`crates/crypto`) | Every cryptographic primitive, on `aws-lc-rs`: secrets, digests, HMAC, PKCE, RS256 signing and key sets, AES-256-GCM sealing, Ed25519 signed notes and SCRAM verifiers |
 | `sourceorigin-repository` (`crates/database`) | The only crate that runs SQL: connections, migrations, repositories, transactions, events and the delivery queue's storage |
 | `sourceorigin-telemetry` (`crates/telemetry`) | Logs, traces and metrics, and the HTTP layer every router uses |

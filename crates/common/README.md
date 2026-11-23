@@ -12,8 +12,13 @@ depends on this crate and re-exports what an app needs from it.
 
 With no features, the crate is what the SDKs build on; the Rust SDK adds
 `client-spans`, for a span around each request it sends. The others are for
-SourceOrigin's own servers, and compile nothing unless enabled: `admin`,
-`config`, `email`, `events`, `similarity` and `sqlx`. The
+SourceOrigin's own servers, and compile nothing unless enabled: `server`,
+`admin`, `config`, `email`, `events`, `similarity` and `sqlx`. `server` holds
+what auth and sourceorigin.dev share beyond the SDKs: client registrations
+(`clients`), handles (`handle`), the public IP ranges (`net`), auth's settings
+API bodies and response headers, the IDs and vocabularies of accounts and their
+records, and the `str_enum!` and `open_str_enum!` macros. `admin`, `events` and
+`similarity` enable it. The
 [API documentation](https://docs.rs/sourceorigin-common) describes each.
 
 It needs Rust 1.88 or newer.

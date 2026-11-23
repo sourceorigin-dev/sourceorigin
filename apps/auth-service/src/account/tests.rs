@@ -24,13 +24,10 @@ use axum::{
 };
 use chrono::{Duration, Utc};
 use sourceorigin_common::{
-    AuthenticationMethod, EmailId, Provider, TokenId, UserId,
+    AuthenticationMethod, ClientId, EmailId, Provider, TokenId, UserId,
+    clients::{ClientKind, ClientOwner},
     events::{Actor, DomainEvent, RevocationReason},
     protocol::step_up::StepUpRequirement,
-};
-use sourceorigin_common::{
-    ClientId,
-    clients::{ClientKind, ClientOwner},
 };
 use sourceorigin_crypto::Secret;
 use sourceorigin_repository::PendingFederation;
