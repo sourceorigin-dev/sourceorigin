@@ -2,8 +2,10 @@
 
 use super::*;
 use crate::federation::providers::{GoogleClaims, GoogleProtocol};
+use chrono::DateTime;
 use sourceorigin_auth::{KeyCache, KeySet};
 use sourceorigin_common::protocol::jwt::{Algorithm, TokenType};
+use sourceorigin_common::protocol::registered::ClaimsError;
 use sourceorigin_crypto::Rs256Key;
 use tracing::Instrument;
 
@@ -161,8 +163,8 @@ async fn google_key_fetch_is_a_client_span_of_its_request() {
 }
 
 /// ID-token verification rejects untrusted signatures, malformed claims, untrusted
-/// issuers, other or additional audiences, another nonce, and tokens expired or
-/// issued in the future.
+/// issuers, other or additional audiences, another nonce, and tokens expired, not yet
+/// valid or issued in the future, all at the time it is given.
 #[tokio::test]
 async fn google_signed_tokens_are_verified() {
     let rsa = Rs256Key::generate("google-test").expect("RSA key");
@@ -175,51 +177,65 @@ async fn google_signed_tokens_are_verified() {
     protocol.keys = KeyCache::fixed(
         KeySet::parse(&serde_json::to_vec(&rsa.jwks()).expect("JWKS")).expect("key set"),
     );
-    let valid = serde_json::json!({"iss":"https://accounts.google.com","aud":"client","sub":"subject","iat":Utc::now().timestamp(),"exp":Utc::now().timestamp()+300,"nonce":"nonce"});
+    // Long past, so a check reading the system clock would refuse every token.
+    let now = DateTime::from_timestamp(1_767_225_600, 0).expect("time");
+    let at = |seconds: i64| now.timestamp() + seconds;
+    let valid = serde_json::json!({"iss":"https://accounts.google.com","aud":"client","sub":"subject","iat":at(0),"exp":at(300),"nonce":"nonce"});
     let verify = async |claims: &serde_json::Value| {
         let token = rsa.sign(TokenType::Id, claims).expect("signed token");
-        GoogleClaims::verify(&token, &protocol, "client", "nonce").await
+        GoogleClaims::verify(&token, &protocol, "client", "nonce", now).await
+    };
+    // The shared check's error, behind Google's.
+    let rejection = async |claims: &serde_json::Value| {
+        let error = verify(claims).await.err()?;
+        std::error::Error::source(&error)?
+            .downcast_ref::<ClaimsError>()
+            .cloned()
     };
     assert!(verify(&valid).await.is_ok());
     let untrusted = Rs256Key::generate("google-test").expect("untrusted key");
     let token = untrusted.sign(TokenType::Id, &valid).expect("signed token");
     assert_eq!(
-        GoogleClaims::verify(&token, &protocol, "client", "nonce")
+        GoogleClaims::verify(&token, &protocol, "client", "nonce", now)
             .await
             .map_err(|error| error.to_string())
             .err()
             .as_deref(),
         Some("Google ID token failed verification")
     );
+    let time = |seconds: i64| DateTime::from_timestamp(at(seconds), 0).expect("time");
     for (field, value, error) in [
         (
             "nonce",
             serde_json::json!("other"),
-            "Google ID token nonce does not match this sign-in attempt",
+            ClaimsError::NonceMismatch,
         ),
         (
             "iat",
-            serde_json::json!(Utc::now().timestamp() + 3600),
-            "Google ID token is issued in the future",
+            serde_json::json!(at(31)),
+            ClaimsError::IssuedInFuture(time(31)),
+        ),
+        // Google may send `nbf`, which gets the same leeway as `iat`.
+        (
+            "nbf",
+            serde_json::json!(at(31)),
+            ClaimsError::NotYetValid(time(31)),
         ),
         // Expiry has no leeway: a token that expired a second ago is refused.
         (
             "exp",
-            serde_json::json!(Utc::now().timestamp() - 1),
-            "Google ID token has expired",
+            serde_json::json!(at(-1)),
+            ClaimsError::Expired(time(-1)),
         ),
     ] {
         let mut claims = valid.clone();
         claims[field] = value;
-        assert_eq!(
-            verify(&claims)
-                .await
-                .map_err(|error| error.to_string())
-                .err()
-                .as_deref(),
-            Some(error),
-            "{field}"
-        );
+        assert_eq!(rejection(&claims).await, Some(error), "{field}");
+    }
+    for (field, value) in [("iat", at(30)), ("nbf", at(30))] {
+        let mut claims = valid.clone();
+        claims[field] = serde_json::json!(value);
+        assert!(verify(&claims).await.is_ok(), "{field} within the leeway");
     }
     for field in ["iss", "aud", "exp", "sub"] {
         let mut claims = valid.clone();

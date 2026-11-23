@@ -213,7 +213,7 @@ impl<X: DeserializeOwned> ResourceValidator<X> {
     ) -> Result<AccessToken<S, X>, TokenError> {
         let claims: AccessTokenClaims<X> = self
             .issuer
-            .decode(token, TokenType::Access, self.resource.identifier())
+            .decode(token, TokenType::Access, self.resource.identifier(), None)
             .await?;
         AccessToken::from_claims(claims)?.into_scoped()
     }

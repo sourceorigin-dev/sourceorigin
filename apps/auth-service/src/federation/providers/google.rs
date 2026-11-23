@@ -4,13 +4,14 @@ use super::{
     FederationApplication, FederationConfigError, IdentityStrategy, MAX_TOKEN_BYTES, Provider,
     ProviderEndpoints, ProviderError, VerifiedIdentity,
 };
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use sourceorigin_auth::{Jws, KeyCache, TokenError};
 use sourceorigin_common::protocol::{
     claims::Audience,
     jwt::Algorithm,
     oauth::{Prompt, Scope},
+    registered::{ClaimsError, Expiry, RegisteredClaims, Validation},
 };
 use thiserror::Error;
 use url::Url;
@@ -21,8 +22,6 @@ const SCOPES: &[&str] = &[
     Scope::Email.as_str(),
     Scope::Profile.as_str(),
 ];
-/// Allowed clock skew when checking ID-token issuance.
-const CLOCK_SKEW_SECONDS: i64 = 30;
 /// Display name proposed when the token carries no usable name.
 const FALLBACK_NAME: &str = "Google user";
 /// The domain of Gmail addresses, which Google always hosts.
@@ -43,24 +42,10 @@ pub(in crate::federation) enum GoogleError {
     /// The ID token's claims are missing or have the wrong type.
     #[error("Google ID token claims are invalid")]
     Claims(#[source] serde_json::Error),
-    /// The ID token was issued by someone other than Google.
-    #[error("Google ID token issuer {0:?} is not Google")]
-    UntrustedIssuer(String),
-    /// The ID token is for another client.
-    #[error("Google ID token is not for this client")]
-    WrongAudience,
-    /// The ID token also names clients other than this one.
-    #[error("Google ID token audience includes other clients")]
-    SharedAudience,
-    /// The ID token was issued for another sign-in attempt.
-    #[error("Google ID token nonce does not match this sign-in attempt")]
-    NonceMismatch,
-    /// The ID token has expired.
-    #[error("Google ID token has expired")]
-    Expired,
-    /// The ID token's issuance time is in the future.
-    #[error("Google ID token is issued in the future")]
-    IssuedInFuture,
+    /// The ID token is not Google's, not for this client alone, expired, not yet
+    /// valid, or for another sign-in attempt.
+    #[error("Google ID token claims are not accepted")]
+    Rejected(#[from] ClaimsError),
     /// The ID token was authorized for another client.
     #[error("Google ID token authorized party is another client")]
     AuthorizedPartyMismatch,
@@ -118,7 +103,8 @@ impl FederationApplication {
         protocol: &GoogleProtocol,
     ) -> Result<VerifiedIdentity, ProviderError> {
         let token: GoogleToken = Self::json(response).await?;
-        let claims = GoogleClaims::verify(&token.id_token, protocol, client_id, nonce).await?;
+        let claims =
+            GoogleClaims::verify(&token.id_token, protocol, client_id, nonce, Utc::now()).await?;
         let authoritative = claims.authoritative();
         VerifiedIdentity::new(
             Provider::Google,
@@ -149,10 +135,15 @@ pub(in crate::federation) struct GoogleClaims {
     aud: Audience,
     /// Stable Google account ID.
     sub: String,
-    /// Expiry, as a Unix timestamp.
-    exp: i64,
-    /// Issuance time, as a Unix timestamp.
-    iat: i64,
+    /// Expiry.
+    #[serde(with = "chrono::serde::ts_seconds")]
+    exp: DateTime<Utc>,
+    /// Time before which the token must not be accepted, which Google may send.
+    #[serde(default, with = "chrono::serde::ts_seconds_option")]
+    nbf: Option<DateTime<Utc>>,
+    /// Issuance time.
+    #[serde(with = "chrono::serde::ts_seconds")]
+    iat: DateTime<Utc>,
     /// Nonce stored with the federation flow when it started.
     nonce: String,
     /// Authorized party; must be this client when present.
@@ -171,14 +162,16 @@ pub(in crate::federation) struct GoogleClaims {
 }
 
 impl GoogleClaims {
-    /// Verifies the signature against Google's published keys, then the issuer,
-    /// exclusive audience, nonce and times. Unlike the SDK's own ID tokens, expiry has
-    /// no leeway: the token came straight from Google's token endpoint.
+    /// Verifies the signature against Google's published keys, then, at `now`, the
+    /// shared check of the issuer, exclusive audience, times and nonce, and last the
+    /// authorized party. Unlike the SDK's own ID tokens, expiry has no leeway
+    /// ([`Expiry::Strict`]): the token came straight from Google's token endpoint.
     pub(in crate::federation) async fn verify(
         token: &str,
         protocol: &GoogleProtocol,
         client_id: &str,
         nonce: &str,
+        now: DateTime<Utc>,
     ) -> Result<Self, GoogleError> {
         if token.len() > MAX_TOKEN_BYTES {
             return Err(GoogleError::TokenTooLong(token.len()));
@@ -187,25 +180,14 @@ impl GoogleClaims {
         let algorithm = jws.require_algorithm(&[Algorithm::Rs256])?;
         protocol.keys.verify(&jws, algorithm).await?;
         let claims: Self = serde_json::from_slice(jws.payload()).map_err(GoogleError::Claims)?;
-        if !protocol.issuers.contains(&claims.iss.as_str()) {
-            return Err(GoogleError::UntrustedIssuer(claims.iss));
+        Validation {
+            issuers: protocol.issuers,
+            audience: Some(client_id),
+            nonce: Some(nonce),
+            expiry: Expiry::Strict,
+            now,
         }
-        if !claims.aud.contains(client_id) {
-            return Err(GoogleError::WrongAudience);
-        }
-        if claims.aud.iter().any(|audience| audience != client_id) {
-            return Err(GoogleError::SharedAudience);
-        }
-        if claims.nonce != nonce {
-            return Err(GoogleError::NonceMismatch);
-        }
-        let now = Utc::now().timestamp();
-        if claims.exp <= now {
-            return Err(GoogleError::Expired);
-        }
-        if claims.iat > now + CLOCK_SKEW_SECONDS {
-            return Err(GoogleError::IssuedInFuture);
-        }
+        .check(&claims)?;
         if claims.azp.as_deref().is_some_and(|azp| azp != client_id) {
             return Err(GoogleError::AuthorizedPartyMismatch);
         }
@@ -229,5 +211,29 @@ impl GoogleClaims {
                     .hd
                     .as_deref()
                     .is_some_and(|hd| domain.eq_ignore_ascii_case(hd)))
+    }
+}
+
+impl RegisteredClaims for GoogleClaims {
+    /// An ID token, which trusts no other audience (OIDC Core §3.1.3.7).
+    const EXCLUSIVE_AUDIENCE: bool = true;
+
+    fn issuer(&self) -> &str {
+        &self.iss
+    }
+    fn audience(&self) -> &Audience {
+        &self.aud
+    }
+    fn expires_at(&self) -> DateTime<Utc> {
+        self.exp
+    }
+    fn not_before(&self) -> Option<DateTime<Utc>> {
+        self.nbf
+    }
+    fn issued_at(&self) -> DateTime<Utc> {
+        self.iat
+    }
+    fn nonce(&self) -> Option<&str> {
+        Some(&self.nonce)
     }
 }
