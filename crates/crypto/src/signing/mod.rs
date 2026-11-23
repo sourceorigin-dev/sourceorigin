@@ -12,12 +12,13 @@ use base64::{
     Engine,
     engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD},
 };
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use secrecy::zeroize::Zeroizing;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use serde_json::Value;
-use sourceorigin_common::protocol::jwt::{
-    Algorithm, Claim, Jwk, JwkSet, KeyId, KeyType, KeyUse, TokenType,
+use sourceorigin_common::protocol::{
+    claims::IdTokenClaims,
+    jwt::{Algorithm, Jwk, JwkSet, KeyId, KeyType, KeyUse, TokenType},
+    registered::{Expiry, RegisteredClaims, Validation},
 };
 use std::{borrow::Cow, collections::BTreeSet};
 
@@ -27,8 +28,6 @@ const GENERATED_RSA_SIZE: KeySize = KeySize::Rsa3072;
 const PKCS8_LABEL: &str = "PRIVATE KEY";
 /// The PEM label of a public key.
 const PUBLIC_KEY_LABEL: &str = "PUBLIC KEY";
-/// Maximum tolerated future issuance time.
-const ISSUED_AT_SKEW_SECONDS: i64 = 30;
 
 /// Protected JOSE header. It is the only header auth writes and the only one it
 /// accepts back: unknown fields, `crit` included, fail parsing.
@@ -137,14 +136,17 @@ impl PublicKey {
         }
     }
 
-    /// Verifies the signature, type, issuer and issue time of a token naming this
-    /// key, but not its expiry, and returns its claims.
-    fn verified(
+    /// Verifies the type and signature of a token naming this key, decodes its
+    /// claims as `T`, and checks them at `now` as auth checks its own tokens: from
+    /// `issuer`, of any audience and nonce, expiring as `expiry` says.
+    fn verified<T: RegisteredClaims + DeserializeOwned>(
         &self,
         token: &Token<'_>,
         typ: TokenType,
         issuer: &str,
-    ) -> Result<Value, CryptoError> {
+        expiry: Expiry,
+        now: DateTime<Utc>,
+    ) -> Result<T, CryptoError> {
         if token.header.typ != typ || !self.signs_with(token.header.alg) {
             return Err(CryptoError::InvalidToken);
         }
@@ -154,15 +156,16 @@ impl PublicKey {
                 VerifyError::Unusable(defect) => CryptoError::UnusableKey(defect),
                 VerifyError::BadSignature => CryptoError::Signature,
             })?;
-        let claims: Value = serde_json::from_slice(token.compact.payload())?;
-        if claims[Claim::Issuer.as_str()] != issuer
-            || claims
-                .get(Claim::IssuedAt.as_str())
-                .and_then(Value::as_i64)
-                .is_none_or(|iat| iat > Utc::now().timestamp() + ISSUED_AT_SKEW_SECONDS)
-        {
-            return Err(CryptoError::InvalidToken);
+        let claims: T =
+            serde_json::from_slice(token.compact.payload()).map_err(CryptoError::InvalidClaims)?;
+        Validation {
+            issuers: &[issuer],
+            audience: None,
+            nonce: None,
+            expiry,
+            now,
         }
+        .check(&claims)?;
         Ok(claims)
     }
 }
@@ -370,42 +373,49 @@ impl KeySet {
         &self.jwks
     }
 
-    /// Verifies a compact token signed by a published key, including its expiry,
-    /// and decodes its claims as `T`.
+    /// Verifies a compact token signed by a published key and decodes its claims
+    /// as `T`, which pass the shared check at `now`: `issuer`, no leeway on `exp`
+    /// ([`Expiry::Strict`]), and the leeway on `nbf` and `iat`. Any audience will
+    /// do: auth reads its own tokens, whoever they are for.
     ///
     /// # Errors
-    /// Returns [`CryptoError::UnknownKey`] for a key outside the published ones;
-    /// otherwise preserves provider and decoding failures and rejects invalid
-    /// signatures or claims.
-    pub fn verify<T: DeserializeOwned>(
+    /// Returns [`CryptoError::UnknownKey`] for a key outside the published ones,
+    /// [`CryptoError::InvalidClaims`] for claims that do not decode as `T`, and
+    /// [`CryptoError::Claims`] for claims that fail the check; otherwise preserves
+    /// provider and decoding failures and rejects invalid signatures.
+    pub fn verify<T: RegisteredClaims + DeserializeOwned>(
         &self,
         token: &str,
         token_type: TokenType,
         issuer: &str,
+        now: DateTime<Utc>,
     ) -> Result<T, CryptoError> {
         let token = Token::parse(token)?;
-        let claims = Self::find(&self.published, &token)?.verified(&token, token_type, issuer)?;
-        if claims
-            .get(Claim::ExpiresAt.as_str())
-            .and_then(Value::as_i64)
-            .is_none_or(|exp| exp <= Utc::now().timestamp())
-        {
-            return Err(CryptoError::Expired);
-        }
-        Ok(serde_json::from_value(claims)?)
+        Self::find(&self.published, &token)?.verified(
+            &token,
+            token_type,
+            issuer,
+            Expiry::Strict,
+            now,
+        )
     }
 
-    /// Verifies an ID token hint signed by a published or retired key, without
-    /// requiring it to be unexpired.
+    /// Verifies an ID token hint signed by a published or retired key, and checks
+    /// its claims at `now` as [`Self::verify`] does, except that it may have
+    /// expired ([`Expiry::Ignored`]).
     ///
     /// # Errors
-    /// Returns [`CryptoError::UnknownKey`] for a key outside the set; otherwise
-    /// preserves provider and decoding failures and rejects invalid signatures or claims.
-    pub fn verify_id_token_hint(&self, token: &str, issuer: &str) -> Result<Value, CryptoError> {
+    /// As [`Self::verify`], with retired keys among the known ones.
+    pub fn verify_id_token_hint(
+        &self,
+        token: &str,
+        issuer: &str,
+        now: DateTime<Utc>,
+    ) -> Result<IdTokenClaims, CryptoError> {
         let token = Token::parse(token)?;
         Self::find(&self.published, &token)
             .or_else(|_| Self::find(&self.retired, &token))?
-            .verified(&token, TokenType::Id, issuer)
+            .verified(&token, TokenType::Id, issuer, Expiry::Ignored, now)
     }
 
     /// The key among `keys` that `token` names.
