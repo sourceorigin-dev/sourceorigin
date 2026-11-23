@@ -20,7 +20,9 @@ pub use keys::{AuditConfig, KeyEncryptionKeys, TokenDigestKeys};
 use crate::{invitations::InvitationLinks, recovery::RecoveryLinks};
 use email::SMTP_URL;
 use ipnet::IpNet;
-use sourceorigin_common::config::{ConfigurationError, Origin, Variable};
+use sourceorigin_common::config::{
+    ConfigurationError, Origin, SecretBytes, SecretReference, Variable,
+};
 use std::{
     net::{IpAddr, SocketAddr},
     sync::Arc,
@@ -308,6 +310,44 @@ impl AuthConfig {
                 }
             })
             .collect()
+    }
+}
+
+/// Why a variable's secret reference does not resolve.
+const UNRESOLVED: &str = "must resolve through env://NAME or file://PATH";
+
+/// Reads the secrets that variables reference through `env://NAME` or
+/// `file://PATH`, naming the variable in every error.
+trait SecretVariable: Copy {
+    /// Resolves the reference this required variable holds. A malformed
+    /// reference is invalid, as any value [`Variable::parse`] refuses.
+    fn secret(self) -> Result<SecretBytes, ConfigurationError>;
+
+    /// Resolves `reference`, the value of this variable, already read.
+    fn secret_from(self, reference: &str) -> Result<SecretBytes, ConfigurationError>;
+
+    /// The UTF-8 text of `secret`, which this variable references.
+    fn secret_text(self, secret: &SecretBytes) -> Result<&str, ConfigurationError>;
+}
+
+impl SecretVariable for Variable {
+    fn secret(self) -> Result<SecretBytes, ConfigurationError> {
+        let reference: SecretReference = self.parse()?;
+        reference
+            .resolve()
+            .map_err(|source| self.error(UNRESOLVED, source))
+    }
+
+    fn secret_from(self, reference: &str) -> Result<SecretBytes, ConfigurationError> {
+        SecretReference::parse(reference)
+            .and_then(|reference| reference.resolve())
+            .map_err(|source| self.error(UNRESOLVED, source))
+    }
+
+    fn secret_text(self, secret: &SecretBytes) -> Result<&str, ConfigurationError> {
+        secret
+            .text()
+            .map_err(|source| self.error("must contain UTF-8 text", source))
     }
 }
 
