@@ -8,7 +8,10 @@ use reqwest::{
 };
 use sourceorigin_common::{
     SendTraced,
-    protocol::constants::{MAX_RESPONSE_BYTES, REQUEST_DEADLINE},
+    protocol::{
+        challenge::AuthScheme,
+        constants::{MAX_RESPONSE_BYTES, REQUEST_DEADLINE},
+    },
 };
 use thiserror::Error;
 use url::Url;
@@ -199,7 +202,10 @@ impl Http {
                     url::form_urlencoded::byte_serialize(value.as_bytes()).collect::<String>()
                 };
                 let credentials = STANDARD.encode(format!("{}:{}", encode(id), encode(secret)));
-                request.header(header::AUTHORIZATION, format!("Basic {credentials}"))
+                request.header(
+                    header::AUTHORIZATION,
+                    format!("{} {credentials}", AuthScheme::Basic),
+                )
             }
         };
         tokio::time::timeout(REQUEST_DEADLINE, Self::read(url, request))

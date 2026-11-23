@@ -45,6 +45,7 @@ use sourceorigin_common::{
     clients::ClientKind,
     config::Origin,
     protocol::{
+        challenge::AuthScheme,
         claims::{Acr, ProfileClaims},
         jwt::{Algorithm, Claim, TokenType},
         metadata::ServerMetadata,
@@ -93,28 +94,6 @@ pub struct OidcApplication {
     keys: SigningKeys,
     /// Server metadata, served at both well-known discovery paths.
     metadata: PublicDocument,
-}
-
-sourceorigin_common::str_enum! {
-    /// HTTP authentication schemes accepted by the protocol endpoints.
-    enum AuthScheme {
-        /// Client ID and secret, used by confidential clients at the token endpoint.
-        Basic = "Basic",
-        /// An access token, used at `UserInfo`.
-        Bearer = "Bearer",
-    }
-}
-
-impl AuthScheme {
-    /// Returns the credentials of an `Authorization` value using this scheme.
-    /// Scheme names are case-insensitive, and one or more spaces separate them
-    /// from the credentials (RFC 9110 §11.4); credentials are otherwise untouched.
-    fn credentials(self, value: &str) -> Option<&str> {
-        let (scheme, credentials) = value.split_once(' ')?;
-        scheme
-            .eq_ignore_ascii_case(self.as_str())
-            .then(|| credentials.trim_start_matches(' '))
-    }
 }
 
 sourceorigin_common::str_enum! {
