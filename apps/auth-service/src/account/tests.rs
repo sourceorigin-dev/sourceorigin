@@ -23,11 +23,14 @@ use axum::{
     routing::{delete, post},
 };
 use chrono::{Duration, Utc};
-use sourceorigin_common::clients::{ClientId, ClientKind, ClientOwner};
 use sourceorigin_common::{
     AuthenticationMethod, EmailId, Provider, TokenId, UserId,
     events::{Actor, DomainEvent, RevocationReason},
     protocol::step_up::StepUpRequirement,
+};
+use sourceorigin_common::{
+    ClientId,
+    clients::{ClientKind, ClientOwner},
 };
 use sourceorigin_crypto::Secret;
 use sourceorigin_repository::PendingFederation;

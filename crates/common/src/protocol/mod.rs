@@ -56,6 +56,7 @@ macro_rules! sdk_constants {
 use sdk_constants;
 
 /// Bodies shared by auth's account settings and the admin dashboard.
+#[cfg(feature = "server")]
 pub mod api;
 /// `WWW-Authenticate: Bearer` challenges sent by resource servers.
 pub mod challenge;
@@ -64,8 +65,10 @@ pub mod claims;
 /// The limits, lifetimes and names every SDK applies the same way.
 pub mod constants;
 /// The security and `Cache-Control` headers of every response.
+#[cfg(feature = "server")]
 pub mod headers;
 /// The browser isolation headers of every response.
+#[cfg(feature = "server")]
 pub mod isolation;
 /// JWT claim and JOSE field vocabulary shared by token issuers and verifiers.
 pub mod jwt;

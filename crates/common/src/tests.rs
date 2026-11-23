@@ -38,6 +38,24 @@ fn vocabulary_round_trips() {
     serde_json::from_str::<Example>("\"unknown\"").expect_err("should be rejected");
 }
 
+str_enum! {
+    /// Test vocabulary proving the `else` fallback.
+    enum Shade {
+        /// Light.
+        Light = "light",
+        /// Anything else.
+        Other = "other",
+    } else Other
+}
+
+/// A closed vocabulary with an `else` variant reads unknown spellings as it.
+#[test]
+fn vocabulary_falls_back_to_its_else_variant() {
+    assert_eq!("light".parse(), Ok(Shade::Light));
+    assert_eq!("teal".parse(), Ok(Shade::Other));
+    assert_eq!(Shade::ALL, [Shade::Light, Shade::Other]);
+}
+
 open_str_enum! {
     /// Test vocabulary proving open-vocabulary expansion.
     enum OpenExample {
@@ -76,6 +94,7 @@ fn ids_are_canonical_uuid_v7() {
 }
 
 /// Trace IDs read and write exactly 32 lower-case hex digits, never all zero.
+#[cfg(feature = "server")]
 #[test]
 fn trace_ids_are_lower_case_hex() {
     let text = "4bf92f3577b34da6a3ce929d0e0e4736";
@@ -577,6 +596,7 @@ fn an_ended_recovery_says_why() {
 /// embedded IPv4 address (mapped, NAT64, 6to4) is checked too. A back-channel
 /// logout URI on a literal address registers exactly when deliveries could reach
 /// it.
+#[cfg(feature = "server")]
 #[test]
 fn only_public_addresses_are_public() {
     use net::PublicAddress;

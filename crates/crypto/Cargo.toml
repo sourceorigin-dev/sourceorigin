@@ -22,8 +22,9 @@ serde_json.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
-# The vector test reads its `UPDATE_SDK_VECTORS` flag through `Variable`.
-sourceorigin-common = { workspace = true, features = ["config"] }
+# The vector test reads its `UPDATE_SDK_VECTORS` flag through `Variable`, and
+# the vectors record how auth's sessions map to `amr`, with `AuthenticationMethod`.
+sourceorigin-common = { workspace = true, features = ["config", "server"] }
 
 [package.metadata.docs.rs]
 all-features = true

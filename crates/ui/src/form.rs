@@ -15,7 +15,7 @@ use crate::{
     SecretsChange, SignInChange, SignInState, UndoChange, layout::alert_notice,
 };
 use chrono::{DateTime, SecondsFormat, Utc};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de::IgnoredAny};
 use sourceorigin_common::{
     RecoveryId,
     handle::{MAX_LENGTH, MIN_LENGTH},
@@ -25,7 +25,6 @@ use std::str::FromStr;
 /// Why a query could not be written as a link: one of its fields is not a name and
 /// a value.
 pub use serde_urlencoded::ser::Error as QueryError;
-pub use sourceorigin_common::form::Checkbox;
 use topcoat::{
     Result,
     view::{Child, View, component, view},
@@ -297,6 +296,36 @@ impl Fields {
         deserializer: D,
     ) -> std::result::Result<T, D::Error> {
         Ok(sourceorigin_common::protocol::known_one(deserializer)?.unwrap_or_default())
+    }
+}
+
+/// A checkbox, or a flag a query sets by its name alone: checked when the form
+/// sends its name, whatever the value, since browsers send nothing for an unchecked
+/// one. It decodes from text, as a change's fields must, where a `bool` would not.
+/// It is checked as `on`, as browsers send it; leave it out of a form or link with
+/// `#[serde(default, skip_serializing_if = "Checkbox::is_off")]`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Checkbox(pub bool);
+
+impl Checkbox {
+    /// Whether it is unchecked, so its form sends nothing.
+    #[must_use]
+    pub const fn is_off(&self) -> bool {
+        !self.0
+    }
+}
+
+impl Serialize for Checkbox {
+    /// Writes `on` when checked, as browsers send it.
+    fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+        self.0.then_some("on").serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Checkbox {
+    /// Checked, whatever the value: an unchecked box is not sent at all.
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
+        IgnoredAny::deserialize(deserializer).map(|_| Self(true))
     }
 }
 

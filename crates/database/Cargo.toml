@@ -9,7 +9,7 @@ publish = false
 
 [dependencies]
 chrono.workspace = true
-sourceorigin-common = { workspace = true, features = ["admin", "config", "events", "sqlx"] }
+sourceorigin-common = { workspace = true, features = ["admin", "config", "events", "server", "sqlx"] }
 sourceorigin-crypto.workspace = true
 sourceorigin-telemetry.workspace = true
 secrecy.workspace = true

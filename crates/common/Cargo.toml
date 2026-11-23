@@ -12,8 +12,13 @@ keywords = ["oauth", "openid-connect", "jwt", "authentication"]
 categories = ["authentication", "data-structures"]
 
 [features]
+# What auth and sourceorigin.dev share beyond the SDKs: accounts' identifiers and
+# vocabularies, handles, client registrations, the public IP ranges, auth's
+# settings API bodies, the headers of every response and the vocabulary macros.
+# `admin`, `events` and `similarity` enable it.
+server = ["dep:ipnet"]
 # The views of administration, for auth and its dashboard.
-admin = ["dep:serde_json"]
+admin = ["dep:serde_json", "server"]
 # `SendTraced`: client spans around `reqwest` requests, for auth and the SDK.
 client-spans = ["dep:reqwest", "dep:tracing"]
 # Environment variables, validated origins and secret references, for servers.
@@ -24,13 +29,13 @@ email = ["dep:unicode-normalization"]
 # admin view `AuditVerification`.
 events = ["dep:serde_json", "admin", "email"]
 # Look-alike detection for handles, client names and the names reserved from them.
-similarity = ["dep:unicode-security"]
+similarity = ["dep:unicode-security", "server"]
 # SQLx decoding for identifiers and `str_enum!` vocabularies; only `crates/database` enables it.
 sqlx = ["dep:sqlx"]
 
 [dependencies]
 chrono.workspace = true
-ipnet.workspace = true
+ipnet = { workspace = true, optional = true }
 reqwest = { workspace = true, optional = true }
 secrecy = { workspace = true, optional = true }
 serde.workspace = true
