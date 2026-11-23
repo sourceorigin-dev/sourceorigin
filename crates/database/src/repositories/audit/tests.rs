@@ -1,7 +1,6 @@
 //! The guard triggers on sealed history.
-use crate::{Database, DatabaseConfig};
+use crate::Database;
 use sqlx::{Connection, PgConnection};
-use std::time::Duration;
 use uuid::Uuid;
 
 /// Runs `sql`, bound to `id`, in a savepoint, so a refusal leaves the surrounding
@@ -53,17 +52,14 @@ async fn sealing_needs_committed_data() {
 /// sealed one is never updated; only a transaction that set `sourceorigin.audit_prune`
 /// deletes it or sets the anchor, which never moves back. A checkpoint is added
 /// only if it is of a sealed event's hash and dated at a finite time not in the
-/// future, and is never changed. The chain starts in a schema of its own, and
+/// future, and is never changed. The chain starts in a database of its own, and
 /// everything runs in one transaction that is rolled back.
 #[tokio::test]
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn sealed_history_is_guarded() {
-    let url = std::env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL");
-    let database = Database::isolated(
-        DatabaseConfig::new(&url, 1, Duration::from_secs(5)).expect("configuration"),
-    )
-    .await
-    .expect("isolated database");
+    let database = Database::isolated(Database::test_config(1))
+        .await
+        .expect("isolated database");
     let refused = Err("23000".to_owned());
     let mut tx = database.pool.begin().await.expect("transaction");
     let [id, later] = [(); 2].map(|()| Uuid::now_v7());
@@ -142,16 +138,13 @@ async fn sealed_history_is_guarded() {
 }
 
 /// Personal data is recorded only with its event, never attached to an event of
-/// an earlier transaction. That event is committed, so in a schema of its own.
+/// an earlier transaction. That event is committed, so in a database of its own.
 #[tokio::test]
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn personal_data_is_recorded_only_with_its_event() {
-    let url = std::env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL");
-    let database = Database::isolated(
-        DatabaseConfig::new(&url, 1, Duration::from_secs(5)).expect("configuration"),
-    )
-    .await
-    .expect("isolated database");
+    let database = Database::isolated(Database::test_config(1))
+        .await
+        .expect("isolated database");
     let mut connection = database.pool.acquire().await.expect("connection");
     let id = Uuid::now_v7();
     assert_eq!(attempt(&mut connection, INSERT, id).await, Ok(()), "event");

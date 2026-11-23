@@ -315,7 +315,10 @@ async fn operators_retry_and_cancel_deliveries() {
     let pool = Database::test_pool().await;
     clear::<Operated>(&pool).await;
     let id = insert::<Operated>(&pool).await;
-    let lease = Duration::from_millis(300);
+    // The test cancels, retries and looks again within the first attempt's lease,
+    // in a few queries that may each take a second on a loaded machine, then waits
+    // it out once.
+    let lease = Duration::from_secs(5);
     let next = async || claim::<Operated>(&pool, lease).await;
     let repository = || DeliveryRepository::from_pool(&pool);
 

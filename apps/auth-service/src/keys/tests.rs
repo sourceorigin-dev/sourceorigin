@@ -1,12 +1,13 @@
-//! Rotation and revocation on the shared test database. Each test works in
-//! a transaction that holds the signing key lock and rolls back, so tests never
-//! see each other's keys, and the replicas of other tests keep theirs.
+//! Rotation and revocation. Each test works in a database of its own, in a
+//! transaction that holds the signing key lock while it generates keys. On a
+//! busy machine that takes longer than the replicas of other tests wait for the
+//! lock as they start, and advisory locks are per database.
 
 use super::*;
 use crate::{
     routes,
     service::ServiceApplication,
-    tests::{Replicas, key_encryption_key, key_encryption_keys},
+    tests::{key_encryption_key, key_encryption_keys},
 };
 use axum::{
     body::Body,
@@ -24,21 +25,20 @@ use tower::ServiceExt;
 /// The issuer the test tokens name.
 const ISSUER: &str = "https://auth.example";
 
-/// A store over the test database, sealing with the tests' key-encryption key.
+/// A store over a database of its own, sealing with the tests' key-encryption key.
 async fn store() -> (KeyStore, Database) {
-    let database = Replicas::database().await;
+    let database = Database::isolated(Database::test_config(5))
+        .await
+        .expect("isolated database");
     (
         KeyStore::new(database.clone(), key_encryption_keys()),
         database,
     )
 }
 
-/// Deletes every key in `tx`, after taking the lock.
-async fn clear(tx: &mut DatabaseTransaction<'_>) {
+/// Takes the signing key lock in `tx`, as every change does.
+async fn lock(tx: &mut DatabaseTransaction<'_>) {
     tx.signing_keys().lock().await.expect("lock");
-    for key in tx.signing_keys().list().await.expect("list") {
-        tx.signing_keys().delete(&key.id).await.expect("delete");
-    }
 }
 
 /// The keys in `tx` and their states, oldest first.
@@ -177,7 +177,7 @@ async fn rotation_takes_each_step_once_on_schedule() {
     use SigningKeyChange::{Activated, Deleted, Generated, Retired, Retiring};
     let (store, database) = store().await;
     let mut tx = database.begin().await.expect("transaction");
-    clear(&mut tx).await;
+    lock(&mut tx).await;
     let start = Utc::now();
     let states = advance(&store, &mut tx, start).await;
     let [(first, SigningKeyState::Active)] = &states[..] else {
@@ -285,7 +285,7 @@ async fn rotation_takes_each_step_once_on_schedule() {
 async fn concurrent_ticks_take_each_step_once() {
     let (store, database) = store().await;
     let mut first = database.begin().await.expect("transaction");
-    clear(&mut first).await;
+    lock(&mut first).await;
     let mut second = database.begin().await.expect("transaction");
     let now = Utc::now();
     let (ran_first, ran_second) = tokio::join!(
@@ -312,7 +312,7 @@ async fn concurrent_ticks_take_each_step_once() {
 async fn revoking_a_key_removes_it_and_replaces_the_signer() {
     let (store, database) = store().await;
     let mut tx = database.begin().await.expect("transaction");
-    clear(&mut tx).await;
+    lock(&mut tx).await;
     let mut change = Change::new(&mut tx, &store, Utc::now(), None);
     change.advance().await.expect("first key");
     change.rotate(true).await.expect("a second key signs");
@@ -367,7 +367,7 @@ async fn revoking_a_key_removes_it_and_replaces_the_signer() {
 async fn another_key_encryption_key_neither_opens_nor_changes_the_keys() {
     let (store, database) = store().await;
     let mut tx = database.begin().await.expect("transaction");
-    clear(&mut tx).await;
+    lock(&mut tx).await;
     assert!(store.tick_in(&mut tx, Utc::now()).await.expect("first key"));
 
     let other = KeyStore::new(
@@ -403,7 +403,7 @@ async fn another_key_encryption_key_neither_opens_nor_changes_the_keys() {
 async fn rewrapping_seals_every_key_under_the_current_key_encryption_key() {
     let (old, database) = store().await;
     let mut tx = database.begin().await.expect("transaction");
-    clear(&mut tx).await;
+    lock(&mut tx).await;
     let start = Utc::now();
     assert!(old.tick_in(&mut tx, start).await.expect("first key"));
     let mut change = Change::new(&mut tx, &old, start, None);
@@ -477,7 +477,7 @@ async fn rewrapping_seals_every_key_under_the_current_key_encryption_key() {
 async fn a_next_key_that_cannot_sign_is_never_promoted() {
     let (store, database) = store().await;
     let mut tx = database.begin().await.expect("transaction");
-    clear(&mut tx).await;
+    lock(&mut tx).await;
     let start = Utc::now();
     let due = start + PRE_PUBLICATION;
     assert!(store.tick_in(&mut tx, start).await.expect("first key"));
@@ -547,7 +547,7 @@ async fn a_next_key_that_cannot_sign_is_never_promoted() {
 async fn keys_sealed_either_way_open() {
     let (store, database) = store().await;
     let mut tx = database.begin().await.expect("transaction");
-    clear(&mut tx).await;
+    lock(&mut tx).await;
     let start = Utc::now();
     assert!(store.tick_in(&mut tx, start).await.expect("first key"));
     let stored = tx.signing_keys().list().await.expect("list");
@@ -596,7 +596,7 @@ async fn keys_sealed_either_way_open() {
 async fn revoking_a_broken_active_key_recovers_the_key_set() {
     let (store, database) = store().await;
     let mut tx = database.begin().await.expect("transaction");
-    clear(&mut tx).await;
+    lock(&mut tx).await;
     let key = Rs256Key::generate("broken").expect("key");
     let public = key.public_key().jwk().clone();
     let sealing = (Binding::Record, Some(vec![0; 64]));

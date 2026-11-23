@@ -73,13 +73,13 @@ impl Harness {
         }
     }
 
-    /// Builds auth and its dashboard over a schema of their own, for a scenario
+    /// Builds auth and its dashboard over a database of their own, for a scenario
     /// no other may disturb, such as one on the current alerts, which a
     /// verification of the shared test database clears.
     async fn isolated() -> Self {
         let config =
             Self::with_dashboard(AuthConfig::test(&AUTH_ORIGIN.parse().expect("auth origin")));
-        let database = Database::isolated(Replicas::database_config(5))
+        let database = Database::isolated(Database::test_config(5))
             .await
             .expect("isolated database");
         Self {

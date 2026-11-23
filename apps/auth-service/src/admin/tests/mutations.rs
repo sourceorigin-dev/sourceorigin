@@ -1,7 +1,7 @@
 //! How a change waits on locks and rechecks its caller after waiting.
 //!
 //! Each scenario holds a lock while a mutation waits for it, and every mutation
-//! first takes the administrators lock, so each runs in a schema of its own: no
+//! first takes the administrators lock, so each runs in a database of its own: no
 //! other test's change queues behind the lock it holds, or holds one it waits for.
 
 use super::*;

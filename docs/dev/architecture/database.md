@@ -61,7 +61,7 @@ Only `Database::provision` runs unchecked SQL outside the tests: DDL takes no
 bind parameters, so a checked query renders its script
 (`src/connection/runtime_role.sql`) with `format`, which quotes the values, and
 `raw_sql` runs it. The test helpers behind the `test-util` feature run DDL the
-same way, to create a schema (`Database::isolated`) or to turn the audit tables'
+same way, to create a database (`Database::isolated`) or to turn the audit tables'
 guards off and on (`AuditRepository::tamper`), with names they generate or
 write as literals. Test fixtures may use unchecked `sqlx::query`.
 
@@ -552,11 +552,8 @@ keeps deleting `event_personal_data` freely. `deliveries.event_id` has no
 foreign key, so a delivery may name an event already pruned.
 
 Verification tests need history no other test shares: `Database::isolated` (behind
-`test-util`) migrates a schema of its own, and `audit().tamper` applies the
-changes an attacker could make, with the triggers disabled. The history guards
-(`guard_personal_data_insert`, `guard_seal_order`, `guard_new_checkpoint`) look
-tables up in the schema they were migrated into, so they guard that schema's
-chain too; so does `limit_passkeys`, for its passkeys.
+`test-util`) creates and migrates a database of its own, and `audit().tamper`
+applies the changes an attacker could make, with the triggers disabled.
 
 ### Security history
 

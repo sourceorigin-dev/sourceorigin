@@ -8,11 +8,38 @@ use sourceorigin_common::{
     Handle, SessionId, UserId,
     events::{Browser, DomainEvent, Platform, UserAgentFamily},
 };
-use std::net::IpAddr;
+use std::{net::IpAddr, time::Duration};
 
 impl Database {
-    /// Opens a pool of up to five connections to `TEST_DATABASE_URL`, with the
-    /// time limits every connection of the service has, and applies the schema.
+    /// Longest a test waits for a pooled connection, which also bounds connecting
+    /// for its migrations. The service waits five seconds, but a test only sets
+    /// itself up with it, and on a machine loaded many times over, connecting alone
+    /// can take longer. A test that truly hangs still fails, after nextest's slow
+    /// timeout at the latest.
+    pub const TEST_ACQUIRE_TIMEOUT: Duration = Duration::from_mins(1);
+
+    /// A pool of up to `connections` to `TEST_DATABASE_URL`, with the time limits
+    /// every connection of the service has, waiting [`Self::TEST_ACQUIRE_TIMEOUT`]
+    /// for each, such as a fixture passes to [`Self::isolated`] for a database of
+    /// its own.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `TEST_DATABASE_URL` is unset or invalid.
+    #[must_use]
+    #[expect(
+        clippy::expect_used,
+        reason = "test-only fixture; documented under `# Panics`"
+    )]
+    pub fn test_config(connections: u32) -> DatabaseConfig {
+        let url = std::env::var("TEST_DATABASE_URL")
+            .expect("TEST_DATABASE_URL must name a disposable PostgreSQL database");
+        DatabaseConfig::new(&url, connections, Self::TEST_ACQUIRE_TIMEOUT)
+            .expect("database configuration")
+    }
+
+    /// Opens a pool of up to five connections of [`Self::test_config`] and applies
+    /// the schema.
     ///
     /// # Panics
     ///
@@ -23,10 +50,7 @@ impl Database {
         reason = "test-only fixture; documented under `# Panics`"
     )]
     pub async fn test() -> Self {
-        let url = std::env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL");
-        let config = DatabaseConfig::new(&url, 5, std::time::Duration::from_secs(5))
-            .expect("database configuration");
-        let database = Self::connect(config).await.expect("connect");
+        let database = Self::connect(Self::test_config(5)).await.expect("connect");
         database.run_migrations().await.expect("migrate");
         database
     }

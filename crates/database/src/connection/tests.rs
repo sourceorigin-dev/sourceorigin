@@ -392,7 +392,7 @@ fn config_for(user: &str) -> DatabaseConfig {
         .expect("test URL");
     url.set_username(user).expect("user");
     url.set_password(None).expect("password");
-    DatabaseConfig::new(url.as_str(), 1, Duration::from_secs(5)).expect("config")
+    DatabaseConfig::new(url.as_str(), 1, Database::TEST_ACQUIRE_TIMEOUT).expect("config")
 }
 
 /// Provisioning resets what an existing role holds beyond its grants: settings,
@@ -533,9 +533,9 @@ async fn functions_running_as_their_owner_are_not_executable_by_others() {
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn statements_and_lock_waits_past_their_limits_fail() {
     Database::test_pool().await;
-    let url = std::env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL");
-    let config = DatabaseConfig::new(&url, 2, Duration::from_secs(5)).expect("configuration");
-    let database = Database::connect(config).await.expect("connect");
+    let database = Database::connect(Database::test_config(2))
+        .await
+        .expect("connect");
     let settings: Vec<String> = sqlx::query_scalar(
         "SELECT current_setting(name) FROM unnest(ARRAY[
             'statement_timeout', 'lock_timeout', 'idle_in_transaction_session_timeout',
@@ -655,7 +655,7 @@ async fn assert_personal_data_only_erases(runtime: &Database) {
 /// A checkpoint `runtime` inserts must sign a sealed event's hash, and an event it
 /// inserts must be JSON auth can read back, or sealing would fail on it.
 /// `personal_data_is_recorded_only_with_its_event` covers attaching personal data
-/// to an older event, which needs a committed event, so a schema of its own.
+/// to an older event, which needs a committed event, so a database of its own.
 async fn assert_history_is_never_forged(runtime: &Database) {
     for payload in [
         r#"{"n": 1e400}"#.to_owned(),

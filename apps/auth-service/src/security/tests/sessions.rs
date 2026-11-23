@@ -9,10 +9,14 @@ use sourceorigin_repository::InsertSession;
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn optional_session_preserves_database_failure_instead_of_reporting_signed_out() {
-    // A pool of one connection, which the test then holds.
-    let database = Database::connect(Replicas::database_config(1))
-        .await
-        .expect("database");
+    // A pool of one connection, which the test then holds. The lookup waits the
+    // service's five seconds for it, not a fixture's longer wait, so it fails long
+    // before PostgreSQL ends the held transaction as idle.
+    let url = std::env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL");
+    let config =
+        sourceorigin_repository::DatabaseConfig::new(&url, 1, std::time::Duration::from_secs(5))
+            .expect("database configuration");
+    let database = Database::connect(config).await.expect("database");
     // Exhaust only this test's private pool; the database and all other tests
     // remain usable. A well-formed session cookie must trigger a real lookup.
     let transaction = database.begin().await.expect("hold sole connection");
