@@ -187,7 +187,7 @@ async fn administrators_change_another_account_on_its_behalf() {
             .iter()
             .find(|stored| stored.event.known() == Some(&expected))
             .unwrap_or_else(|| panic!("{expected:?} recorded"));
-        assert_eq!(stored.actor, actor, "{expected:?}");
+        assert_eq!(stored.actor.known(), Some(&actor), "{expected:?}");
         assert_eq!(stored.reason.as_deref(), Some(REASON), "{expected:?}");
     }
 
@@ -281,7 +281,7 @@ async fn owners_and_administrators_change_the_display_name() {
             Some(DomainEvent::DisplayNameChanged { old, new }) => Some((
                 old.clone(),
                 new.clone(),
-                stored.actor.clone(),
+                stored.actor.known().cloned().expect("known actor"),
                 stored.reason.as_deref(),
             )),
             _ => None,
@@ -430,11 +430,11 @@ async fn administrators_reads_are_recorded_as_views() {
     };
     assert_ne!(other.actor, view.actor);
     assert_eq!(
-        view.actor,
-        Actor::Admin {
+        view.actor.known(),
+        Some(&Actor::Admin {
             user_id: fixture.admin.user_id,
             session_id: fixture.admin.session_id,
-        }
+        })
     );
     assert_eq!(view.subject, Some(target.user_id));
 }

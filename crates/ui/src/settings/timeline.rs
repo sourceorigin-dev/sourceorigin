@@ -61,8 +61,8 @@ pub struct HistoryRow<'a> {
     pub occurred_at: DateTime<Utc>,
     /// What happened.
     pub entry: &'a HistoryEntry,
-    /// Who did it.
-    pub actor: HistoryActor,
+    /// Who did it; `None` for an actor this release does not know.
+    pub actor: Option<HistoryActor>,
     /// Whether the account may report it as not theirs, as the service decides.
     pub reportable: bool,
     /// Why, as the administrator or operator who did it wrote it.
@@ -280,7 +280,10 @@ impl HistoryRow<'_> {
                 | HistoryEntry::RecoveryStarted
                 | HistoryEntry::Recovered { .. }
                 | HistoryEntry::DeletionScheduled { .. }
-        ) || matches!(self.actor, HistoryActor::Admin | HistoryActor::Operator)
+        ) || matches!(
+            self.actor,
+            Some(HistoryActor::Admin | HistoryActor::Operator)
+        )
     }
 
     /// From where and through which application, after its time.
@@ -301,11 +304,11 @@ impl HistoryRow<'_> {
     /// Who did it, if not the account itself, and why, if they said.
     pub(crate) fn by(&self) -> Option<String> {
         let actor = match self.actor {
-            HistoryActor::Admin => "By a SourceOrigin administrator",
-            HistoryActor::Operator => "By a SourceOrigin operator",
-            HistoryActor::Client => "By an app",
-            HistoryActor::System => "Automatically by SourceOrigin",
-            HistoryActor::Account | HistoryActor::Anonymous => return None,
+            Some(HistoryActor::Admin) => "By a SourceOrigin administrator",
+            Some(HistoryActor::Operator) => "By a SourceOrigin operator",
+            Some(HistoryActor::Client) => "By an app",
+            Some(HistoryActor::System) => "Automatically by SourceOrigin",
+            Some(HistoryActor::Account | HistoryActor::Anonymous) | None => return None,
         };
         Some(match self.reason {
             Some(reason) => format!("{actor}: “{reason}”"),
@@ -600,7 +603,7 @@ mod tests {
             id: EventId::new(),
             occurred_at: Utc::now(),
             entry: &scheduled,
-            actor: HistoryActor::Account,
+            actor: Some(HistoryActor::Account),
             reportable: false,
             reason: None,
             client: None,

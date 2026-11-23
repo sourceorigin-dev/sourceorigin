@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n                e.id AS \"id: EventId\", e.occurred_at, e.kind, e.version, e.payload,\n                e.actor AS \"actor: Json<Actor>\",\n                e.subject_user_id AS \"subject_user_id: UserId\",\n                e.trace_id AS \"trace_id: TraceId\",\n                p.event_id IS NOT NULL AS \"personal!\", p.client_ip AS \"client_ip?: IpAddr\",\n                p.user_agent_family AS \"browser?: Browser\",\n                p.platform AS \"platform?: Platform\",\n                p.details AS \"details?\", p.reason AS \"reason?\"\n            FROM domain_events e\n            LEFT JOIN event_personal_data p ON p.event_id = e.id\n            WHERE e.client_id = $1\n                ORDER BY e.txid DESC, e.sequence DESC\n                LIMIT $2",
+  "query": "SELECT\n                e.id AS \"id: EventId\", e.occurred_at, e.kind, e.version, e.payload,\n                e.actor,\n                e.subject_user_id AS \"subject_user_id: UserId\",\n                e.trace_id AS \"trace_id: TraceId\",\n                p.event_id IS NOT NULL AS \"personal!\", p.client_ip AS \"client_ip?: IpAddr\",\n                p.user_agent_family AS \"browser?: Browser\",\n                p.platform AS \"platform?: Platform\",\n                p.details AS \"details?\", p.reason AS \"reason?\"\n            FROM domain_events e\n            LEFT JOIN event_personal_data p ON p.event_id = e.id\n            WHERE e.kind = 'audit_chain_verified'\n                AND ($1 OR e.payload ->> 'keys' IS DISTINCT FROM 'given')\n                ORDER BY e.occurred_at DESC\n                LIMIT 1",
   "describe": {
     "columns": [
       {
@@ -30,7 +30,7 @@
       },
       {
         "ordinal": 5,
-        "name": "actor: Json<Actor>",
+        "name": "actor",
         "type_info": "Jsonb"
       },
       {
@@ -76,8 +76,7 @@
     ],
     "parameters": {
       "Left": [
-        "Text",
-        "Int8"
+        "Bool"
       ]
     },
     "nullable": [
@@ -97,5 +96,5 @@
       true
     ]
   },
-  "hash": "bbd34bb4b9c0b313f31775d31d7158d943c00a90f5ca9cebad8b231cc41ce44e"
+  "hash": "56a009ea93354f9751267dee1f96c46d6f7b8e1c8163cbf5f12c214099398b02"
 }

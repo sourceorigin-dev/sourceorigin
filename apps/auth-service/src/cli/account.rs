@@ -21,6 +21,7 @@ use clap::{Args, Subcommand};
 use sourceorigin_common::{
     ClientId, EmailId, EventId, NotificationId, PasskeyId, Provider, SessionId, UserId,
     admin::KnownDevice,
+    events::HistoryActor,
     notifications::NotificationPreference,
     protocol::api::{Identity, Passkey},
 };
@@ -593,7 +594,7 @@ report!(HistoryPage, self, out, {
                 Cell::new(item.id),
                 item.occurred_at.into(),
                 Cell::new(item.entry.kind()),
-                Cell::new(item.actor),
+                item.actor.map(HistoryActor::as_str).into(),
                 item.reason.as_deref().into(),
             ]
         }),
@@ -652,10 +653,9 @@ report!(NotificationView, self, out, {
         fields.push(("Offers", Cell::new(action.label())));
     }
     if let Some(entry) = &self.history {
-        fields.push((
-            "History entry",
-            Cell::new(format_args!("{} (by {})", entry.id, entry.actor)),
-        ));
+        // An actor a newer release recorded is not named.
+        let by = (entry.actor).map_or_else(String::new, |actor| format!(" (by {actor})"));
+        fields.push(("History entry", Cell::new(format_args!("{}{by}", entry.id))));
     }
     out.fields(&fields)?;
     out.blank()?;

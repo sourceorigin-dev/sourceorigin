@@ -113,6 +113,6 @@ async fn delivery_changes_check_and_record_their_administrator() {
                 )
             })
             .unwrap_or_else(|| panic!("{kind} recorded"));
-        assert_eq!(recorded.actor, admin.reading().actor, "{kind}");
+        assert_eq!(recorded.actor.known(), Some(&admin.reading().actor));
     }
 }

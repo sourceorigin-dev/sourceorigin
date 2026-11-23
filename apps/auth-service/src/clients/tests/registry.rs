@@ -107,7 +107,7 @@ async fn changes_apply_to_the_next_request_on_every_replica() {
     assert!(
         history
             .iter()
-            .all(|event| event.actor == operator().reading().actor)
+            .all(|event| event.actor.known() == Some(&operator().reading().actor))
     );
     let client_id = client.id.clone();
     assert_eq!(

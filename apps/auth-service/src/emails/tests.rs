@@ -370,7 +370,7 @@ async fn verification_checks_the_signed_in_account() {
         Some(&DomainEvent::EmailVerified { email_id: second })
     );
     assert!(
-        matches!(verified.actor, Actor::User { user_id, .. } if user_id == owner.user_id),
+        matches!(verified.actor.known(), Some(&Actor::User { user_id, .. }) if user_id == owner.user_id),
         "{:?}",
         verified.actor
     );

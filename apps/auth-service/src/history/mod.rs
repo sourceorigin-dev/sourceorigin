@@ -70,18 +70,18 @@ pub(crate) struct HistoryItem<E = HistoryEntry> {
     /// What happened: its `kind` and details.
     #[serde(flatten)]
     pub(crate) entry: E,
-    /// Who did it.
-    pub(crate) actor: HistoryActor,
+    /// Who did it; `None` for an actor a newer release recorded.
+    pub(crate) actor: Option<HistoryActor>,
     /// Why, as the administrator or operator who did it wrote it, while kept.
     pub(crate) reason: Option<String>,
     /// The application involved, if any.
     pub(crate) client: Option<ClientView>,
     /// The request's IP address, while kept; never an administrator's or
-    /// operator's.
+    /// operator's, nor an actor's a newer release recorded.
     pub(crate) ip: Option<IpAddr>,
     /// The request's browser and platform, while kept; never an administrator's
-    /// or operator's. Entries recorded before platforms were have `other` for
-    /// theirs.
+    /// or operator's, nor an actor's a newer release recorded. Entries recorded
+    /// before platforms were have `other` for theirs.
     pub(crate) device: Option<UserAgentFamily>,
     /// Whether retention or a purge deleted the IP address and device.
     pub(crate) erased: bool,
@@ -107,7 +107,7 @@ impl<E> HistoryItem<E> {
     /// `stored`, saying what happened with `entry`. `clients` maps client IDs to
     /// their names. An administrator's or operator's change shows no IP address
     /// or device: they are the administrator's own, which only the admin views
-    /// show.
+    /// show. Neither does an actor a newer release recorded, which may be one.
     pub(crate) fn with(
         stored: &StoredEvent,
         clients: &BTreeMap<ClientId, String>,
@@ -115,14 +115,16 @@ impl<E> HistoryItem<E> {
     ) -> Self {
         let client = (stored.event.known())
             .and_then(DomainEvent::client_id)
-            .or(stored.actor.client_id())
+            .or(stored.actor.known().and_then(Actor::client_id))
             .map(|id| ClientView {
                 name: clients.get(id).cloned(),
                 id: id.clone(),
             });
-        let actor = HistoryActor::from(&stored.actor);
+        let actor = stored.actor.known().map(HistoryActor::from);
         let (origin, erased) = match (actor, &stored.origin) {
-            (HistoryActor::Admin | HistoryActor::Operator, _) => (RequestOrigin::default(), false),
+            (Some(HistoryActor::Admin | HistoryActor::Operator) | None, _) => {
+                (RequestOrigin::default(), false)
+            }
             (_, Personal::Value(origin)) => (*origin, false),
             (_, Personal::Erased) => (RequestOrigin::default(), true),
         };
@@ -144,7 +146,7 @@ impl HistoryItem {
     /// Whether the account may report it as not theirs: what its own sessions did,
     /// of the kinds [`HistoryEntry::reportable`] allows.
     pub(crate) const fn reportable(&self) -> bool {
-        matches!(self.actor, HistoryActor::Account) && self.entry.reportable()
+        matches!(self.actor, Some(HistoryActor::Account)) && self.entry.reportable()
     }
 
     /// The entry `stored` shows its subject, or `None` if it shows none, as for an
@@ -304,7 +306,10 @@ impl AccountService {
         let mut tx = self.database.begin().await?;
         owner.lock(&mut tx).await?;
         let (stored, entry) = Self::entry(tx.events(), owner.user(), event_id).await?;
-        let caused = matches!(stored.actor, Actor::User { user_id, .. } if user_id == owner.user());
+        let caused = matches!(
+            stored.actor.known(),
+            Some(&Actor::User { user_id, .. }) if user_id == owner.user()
+        );
         if !caused || !entry.reportable() {
             return Err(HistoryError::NotReportable.into());
         }

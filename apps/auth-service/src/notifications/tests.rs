@@ -242,9 +242,10 @@ async fn owners_choose_which_notifications_are_emailed() {
             .expect("history")
             .into_iter()
             .filter_map(|stored| match stored.event.known() {
-                Some(DomainEvent::NotificationPreferenceChanged(preference)) => {
-                    Some((preference.email, stored.actor))
-                }
+                Some(DomainEvent::NotificationPreferenceChanged(preference)) => Some((
+                    preference.email,
+                    stored.actor.known().cloned().expect("known actor"),
+                )),
                 _ => None,
             })
             .collect()
@@ -353,9 +354,10 @@ async fn the_sign_out_link_works_once_within_seven_days() {
         .expect("history")
         .into_iter()
         .filter_map(|stored| match stored.event.known() {
-            Some(DomainEvent::SessionRevoked { reason, .. }) => {
-                Some((reason.clone(), stored.actor))
-            }
+            Some(DomainEvent::SessionRevoked { reason, .. }) => Some((
+                reason.clone(),
+                stored.actor.known().cloned().expect("known actor"),
+            )),
             _ => None,
         })
         .collect();

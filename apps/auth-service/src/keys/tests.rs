@@ -67,10 +67,10 @@ async fn changes(tx: &mut DatabaseTransaction<'_>, key: &KeyId) -> Vec<SigningKe
             };
             (key_id == key).then(|| {
                 assert_eq!(
-                    stored.actor,
-                    Actor::System {
+                    stored.actor.known(),
+                    Some(&Actor::System {
                         job: JobName::KeyRotation
-                    }
+                    })
                 );
                 *change
             })

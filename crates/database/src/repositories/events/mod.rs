@@ -64,7 +64,7 @@ pub struct StoredEvent {
     /// When it was recorded.
     pub occurred_at: DateTime<Utc>,
     /// Who caused it.
-    pub actor: Actor,
+    pub actor: RecordedActor,
     /// The account it concerns, if any. The account may no longer exist.
     pub subject: Option<UserId>,
     /// The trace of the request or job that recorded it, to find in telemetry.
@@ -113,6 +113,36 @@ impl RecordedEvent {
     }
 }
 
+/// Who a stored event says caused it. Like [`RecordedEvent`], a release reads
+/// actors newer releases recorded: a type it does not know, or a known type
+/// naming a value it does not know, such as a new [`JobName`] of an
+/// [`Actor::System`]. Those read as [`Self::Unknown`] instead of failing, and each
+/// reader decides what to do with them. Only reads produce one: `record` takes an
+/// [`EventContext`], whose actor is an [`Actor`].
+///
+/// Serializes as stored.
+///
+/// [`JobName`]: sourceorigin_common::events::JobName
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(untagged)]
+pub enum RecordedActor {
+    /// An actor this release knows.
+    Known(Actor),
+    /// An actor a newer release recorded, as stored.
+    Unknown(Value),
+}
+
+impl RecordedActor {
+    /// The actor, if this release knows it.
+    #[must_use]
+    pub const fn known(&self) -> Option<&Actor> {
+        match self {
+            Self::Known(actor) => Some(actor),
+            Self::Unknown(_) => None,
+        }
+    }
+}
+
 /// A checked `sqlx::query_as!` returning [`EventRow`]s, whose columns are written
 /// only here: every event column, joined with the event's personal data, from
 /// `domain_events e` and `event_personal_data p`. `$rest` filters and orders,
@@ -123,7 +153,7 @@ macro_rules! select_events {
             EventRow,
             r#"SELECT
                 e.id AS "id: EventId", e.occurred_at, e.kind, e.version, e.payload,
-                e.actor AS "actor: Json<Actor>",
+                e.actor,
                 e.subject_user_id AS "subject_user_id: UserId",
                 e.trace_id AS "trace_id: TraceId",
                 p.event_id IS NOT NULL AS "personal!", p.client_ip AS "client_ip?: IpAddr",
@@ -150,8 +180,8 @@ struct EventRow {
     version: i16,
     /// The variant's data, with `"$erased"` where personal values were.
     payload: Value,
-    /// Who caused it.
-    actor: Json<Actor>,
+    /// Who caused it, as [`RecordedActor`] decodes it.
+    actor: Value,
     /// The account it concerns.
     subject_user_id: Option<UserId>,
     /// The trace that recorded it.
@@ -175,7 +205,8 @@ impl TryFrom<EventRow> for StoredEvent {
 
     /// Restores the event's personal values, if they are still stored, and decodes
     /// it. A kind or version this release does not know reads as
-    /// [`RecordedEvent::Unknown`]; a known one whose payload does not decode fails.
+    /// [`RecordedEvent::Unknown`], and an actor as [`RecordedActor::Unknown`]; a
+    /// known one that does not decode fails.
     fn try_from(row: EventRow) -> Result<Self, DatabaseError> {
         let invalid = |column: &str, source: serde_json::Error| DatabaseError::InvalidStoredData {
             column: column.into(),
@@ -210,10 +241,14 @@ impl TryFrom<EventRow> for StoredEvent {
                 data: payload,
             },
         };
+        let actor = match KindProbe::known_flat(&row.actor) {
+            Some(actor) => RecordedActor::Known(actor.map_err(|source| invalid("actor", source))?),
+            None => RecordedActor::Unknown(row.actor),
+        };
         Ok(Self {
             id: row.id,
             occurred_at: row.occurred_at,
-            actor: row.actor.0,
+            actor,
             subject: row.subject_user_id,
             trace_id: row.trace_id,
             event,
@@ -311,7 +346,6 @@ impl EventRepository<'_> {
             serde_json::from_value(serde_json::to_value(event).map_err(serialization)?)
                 .map_err(serialization)?;
         let details = PersonalDetails::extract(&mut data);
-        let family = context.origin.user_agent_family;
         let id = EventId::new();
         run!(
             self,
@@ -338,6 +372,21 @@ impl EventRepository<'_> {
                 Telemetry::current_trace_id().map(String::from),
             )
         )?;
+        self.insert_personal(id, &context.origin, &details, context.reason.as_deref())
+            .await?;
+        Ok(id)
+    }
+
+    /// Writes the personal data of the event `id`: where its request came from,
+    /// its payload's personal values and its reason.
+    async fn insert_personal(
+        &mut self,
+        id: EventId,
+        origin: &RequestOrigin,
+        details: &PersonalDetails,
+        reason: Option<&str>,
+    ) -> Result<(), DatabaseError> {
+        let family = origin.user_agent_family;
         run!(
             self,
             execute,
@@ -346,14 +395,14 @@ impl EventRepository<'_> {
                     event_id, client_ip, user_agent_family, platform, details, reason
                 ) VALUES ($1, $2, $3, $4, $5, $6)",
                 id.as_uuid(),
-                context.origin.client_ip as _,
+                origin.client_ip as _,
                 family.map(|family| family.browser.as_str()),
                 family.map(|family| family.platform.as_str()),
-                Json(&details) as _,
-                context.reason.as_deref(),
+                Json(details) as _,
+                reason,
             )
         )?;
-        Ok(id)
+        Ok(())
     }
 
     /// Counts the events matching `filter`, whatever its `before`, `id` and
@@ -564,8 +613,9 @@ impl EventRepository<'_> {
     }
 
     /// Writes an event about `subject` as another release would, with any `kind`,
-    /// `version` and `payload` and no personal data, for tests of what this
-    /// release reads back.
+    /// `version`, `payload` and `actor`, for tests of what this release reads
+    /// back. It keeps `origin` as its personal data, or none without one; personal
+    /// data is only recorded with its event, so pass `origin` in a transaction.
     ///
     /// # Errors
     ///
@@ -577,6 +627,8 @@ impl EventRepository<'_> {
         kind: &str,
         version: i16,
         payload: &Value,
+        actor: &Value,
+        origin: Option<&RequestOrigin>,
     ) -> Result<EventId, DatabaseError> {
         let id = EventId::new();
         run!(
@@ -589,10 +641,13 @@ impl EventRepository<'_> {
                 kind,
                 version,
                 payload,
-                Json(&Actor::Anonymous) as _,
+                actor,
                 subject.as_uuid(),
             )
         )?;
+        if let Some(origin) = origin {
+            (self.insert_personal(id, origin, &PersonalDetails::default(), None)).await?;
+        }
         Ok(id)
     }
 }

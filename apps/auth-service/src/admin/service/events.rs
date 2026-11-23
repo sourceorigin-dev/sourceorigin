@@ -46,8 +46,10 @@ impl AdminService {
                     Personal::Value(origin) => (origin, false),
                     Personal::Erased => (RequestOrigin::default(), true),
                 };
-                let administrator = match &stored.actor {
-                    Actor::Admin { user_id, .. } => administrators.get(user_id).cloned().flatten(),
+                let administrator = match stored.actor.known() {
+                    Some(Actor::Admin { user_id, .. }) => {
+                        administrators.get(user_id).cloned().flatten()
+                    }
                     _ => None,
                 };
                 Ok(Event {
@@ -76,7 +78,7 @@ impl AdminService {
     ) -> Result<HashMap<UserId, Option<Handle>>, AdminError> {
         let mut handles = HashMap::new();
         for event in events {
-            if let Actor::Admin { user_id, .. } = event.actor
+            if let Some(&Actor::Admin { user_id, .. }) = event.actor.known()
                 && !handles.contains_key(&user_id)
             {
                 let user = self.database.users().find_by_id(user_id).await?;

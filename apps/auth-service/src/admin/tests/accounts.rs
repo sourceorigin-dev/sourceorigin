@@ -193,7 +193,14 @@ async fn events_a_newer_release_wrote_are_listed() {
     harness
         .database
         .events()
-        .insert_written_elsewhere(user.user_id, "from_a_newer_release", 1, &data)
+        .insert_written_elsewhere(
+            user.user_id,
+            "from_a_newer_release",
+            1,
+            &data,
+            &json!({"type": "anonymous"}),
+            None,
+        )
         .await
         .expect("event");
     let filter = EventSearch {

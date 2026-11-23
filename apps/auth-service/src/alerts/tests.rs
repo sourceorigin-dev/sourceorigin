@@ -219,7 +219,7 @@ async fn updates_acknowledge_an_alert_until_its_condition_changes() {
         .await
         .expect("events")
         .remove(0);
-    assert!(matches!(recorded.actor, Actor::Admin { .. }));
+    assert!(matches!(recorded.actor.known(), Some(Actor::Admin { .. })));
     assert_eq!(
         recorded.event,
         RecordedEvent::Known(DomainEvent::AlertUpdated {

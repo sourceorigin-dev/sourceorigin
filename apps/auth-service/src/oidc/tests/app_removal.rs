@@ -42,7 +42,7 @@ async fn an_administrator_removes_an_app_with_a_reason() {
         user_id: admin.user_id,
         session_id: admin.session_id,
     };
-    assert_eq!(stored.actor, actor);
+    assert_eq!(stored.actor.known(), Some(&actor));
     assert_eq!(stored.reason.as_deref(), Some(reason));
 }
 

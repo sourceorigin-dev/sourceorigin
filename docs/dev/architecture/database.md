@@ -405,11 +405,23 @@ unknown. Adding a field is not one, since older releases ignore fields they do n
 know, but the field must be an `Option` or `#[serde(default)]`, so that the new
 release still reads the rows already stored.
 
+An event's actor is read by the same rule. Reads return `StoredEvent.actor` as a
+`RecordedActor`: `Known(Actor)`, or `Unknown(Value)` with the stored JSON when
+this release does not know the actor's `type` or a value beside it, such as the
+`JobName` of an `Actor::System`. The admin events API lists it as stored, which
+the dashboard shows as nobody recorded and the CLI as its JSON. The security
+history and the account export show its entries with no actor, IP address or
+device, since it may be an administrator. `record` takes an `Actor`, so a
+release never writes an unknown one, and an actor of a known type that does not
+decode, such as a `user` with no `user_id`, is still
+`DatabaseError::InvalidStoredData`.
+
 Closed vocabularies stored in other columns, such as `AccountStatus` and the
-`JobName` of an `Actor::System`, have no such tolerance: a release fails to decode
-a value it does not know. Add the value in one release that never writes it, and
-start writing it in a later one, so the release a deploy or rollback runs beside
-always reads it.
+actor in `alert_updates.author`, have no such tolerance: a release fails to
+decode a value it does not know
+([#701](https://github.com/sourceorigin-dev/sourceorigin/issues/701)). Add the
+value in one release that never writes it, and start writing it in a later one,
+so the release a deploy or rollback runs beside always reads it.
 
 ### Personal data
 

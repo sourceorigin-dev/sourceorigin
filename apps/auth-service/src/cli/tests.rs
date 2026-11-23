@@ -529,7 +529,9 @@ async fn user_disable_runs_the_admin_operation() {
         matches!(event, DomainEvent::AccountDisabled { .. })
     })
     .await;
-    assert!(matches!(&disabled.actor, Actor::Cli { os_user, .. } if os_user == "test"));
+    assert!(
+        matches!(disabled.actor.known(), Some(Actor::Cli { os_user, .. }) if os_user == "test")
+    );
     recorded(&database, browser.user_id, |event| {
         matches!(event, DomainEvent::SessionRevoked { session_id, .. } if *session_id == browser.session_id)
     })
@@ -560,7 +562,7 @@ async fn account_commands_run_the_shared_operation() {
         matches!(event, DomainEvent::SessionRevoked { session_id, .. } if *session_id == browser.session_id)
     })
     .await;
-    assert!(matches!(&revoked.actor, Actor::Cli { os_user, .. } if os_user == "test"));
+    assert!(matches!(revoked.actor.known(), Some(Actor::Cli { os_user, .. }) if os_user == "test"));
     assert_eq!(revoked.reason.as_deref(), Some("Lost phone"));
 }
 
@@ -609,6 +611,6 @@ async fn account_apps_remove_withdraws_the_consent() {
         matches!(event, DomainEvent::ConsentRevoked { client_id } if *client_id == client.id)
     })
     .await;
-    assert!(matches!(&removed.actor, Actor::Cli { os_user, .. } if os_user == "test"));
+    assert!(matches!(removed.actor.known(), Some(Actor::Cli { os_user, .. }) if os_user == "test"));
     assert_eq!(removed.reason.as_deref(), Some("Impersonating app"));
 }
