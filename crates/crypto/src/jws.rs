@@ -151,6 +151,7 @@ impl<'a> Compact<'a> {
 
 /// Why a signing key cannot verify signatures, as every SDK judges it.
 #[derive(Clone, Debug, Error)]
+#[non_exhaustive]
 pub enum KeyDefect {
     /// The RSA modulus, not counting leading zero bytes, is under 2048 or over 8192
     /// bits.

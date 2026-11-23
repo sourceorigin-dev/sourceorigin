@@ -84,7 +84,7 @@ async fn changes(tx: &mut DatabaseTransaction<'_>, key: &KeyId) -> Vec<SigningKe
 }
 
 /// The key set built from the keys in `tx`.
-async fn key_set(store: &KeyStore, tx: &mut DatabaseTransaction<'_>) -> KeySet {
+async fn key_set(store: &KeyStore, tx: &mut DatabaseTransaction<'_>) -> SigningKeySet {
     store
         .key_set(&tx.signing_keys().list().await.expect("list"))
         .expect("key set")
@@ -123,12 +123,12 @@ async fn insert(
 }
 
 /// The IDs of the keys `keys` publishes.
-fn kids(keys: &KeySet) -> Vec<String> {
+fn kids(keys: &SigningKeySet) -> Vec<String> {
     keys.jwks().keys.iter().map(|key| key.kid.clone()).collect()
 }
 
 /// An ID token signed by `keys`, already expired, as a logout hint may be.
-fn hint(keys: &KeySet) -> String {
+fn hint(keys: &SigningKeySet) -> String {
     let now = Utc::now().timestamp();
     keys.sign(
         TokenType::Id,
@@ -138,7 +138,7 @@ fn hint(keys: &KeySet) -> String {
 }
 
 /// An unexpired access token signed by `keys`.
-fn access_token(keys: &KeySet) -> String {
+fn access_token(keys: &SigningKeySet) -> String {
     let now = Utc::now().timestamp();
     keys.sign(
         TokenType::Access,
@@ -228,7 +228,7 @@ async fn rotation_takes_each_step_once_on_schedule() {
     let keys = key_set(&store, &mut tx).await;
     assert_eq!(keys.signer().kid(), second.as_str());
     assert!(
-        keys.verify::<AccessTokenClaims>(&first_token, TokenType::Access, ISSUER, Utc::now())
+        keys.verify::<AccessTokenClaims>(&first_token, ISSUER, Utc::now())
             .is_ok(),
         "a retiring key's tokens verify"
     );
@@ -251,7 +251,7 @@ async fn rotation_takes_each_step_once_on_schedule() {
     let keys = key_set(&store, &mut tx).await;
     assert!(keys.jwks().keys.iter().all(|key| key.kid != first.as_str()));
     assert!(matches!(
-        keys.verify::<AccessTokenClaims>(&first_token, TokenType::Access, ISSUER, Utc::now()),
+        keys.verify::<AccessTokenClaims>(&first_token, ISSUER, Utc::now()),
         Err(CryptoError::UnknownKey)
     ));
     assert!(
@@ -356,7 +356,7 @@ async fn revoking_a_key_removes_it_and_replaces_the_signer() {
     let keys = key_set(&store, &mut tx).await;
     assert_eq!(keys.signer().kid(), replacement.as_str());
     assert!(matches!(
-        keys.verify::<AccessTokenClaims>(&token, TokenType::Access, ISSUER, Utc::now()),
+        keys.verify::<AccessTokenClaims>(&token, ISSUER, Utc::now()),
         Err(CryptoError::UnknownKey)
     ));
     assert!(matches!(

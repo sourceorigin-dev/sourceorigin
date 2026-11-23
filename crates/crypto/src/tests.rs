@@ -163,30 +163,30 @@ fn jwt_persistence_and_trust_boundaries() {
         profile: ProfileClaims::default(),
     };
     let token = key.sign(TokenType::Id, &claims).expect("sign");
-    let restored = KeySet::single(restored);
+    let restored = SigningKeySet::single(restored);
     assert_eq!(
         restored
-            .verify::<IdTokenClaims>(&token, TokenType::Id, "https://auth.example", now)
+            .verify::<IdTokenClaims>(&token, "https://auth.example", now)
             .expect("verify"),
         claims
     );
     let der = Rs256Key::from_der("persistent", &key.private_key_der().expect("export DER"))
         .expect("restore DER");
     assert_eq!(der.jwks(), key.jwks());
-    let unrelated = KeySet::single(
+    let unrelated = SigningKeySet::single(
         Rs256Key::generate("persistent").expect("different RSA key with the same ID"),
     );
     unrelated
-        .verify::<IdTokenClaims>(&token, TokenType::Id, "https://auth.example", now)
+        .verify::<IdTokenClaims>(&token, "https://auth.example", now)
         .expect_err("should be rejected");
-    let key = KeySet::single(key);
+    let key = SigningKeySet::single(key);
     for token in [
         String::new(),
         "one.two".to_owned(),
         "a.b.c.d".to_owned(),
         "x".repeat(16385),
     ] {
-        key.verify::<IdTokenClaims>(&token, TokenType::Id, "https://auth.example", now)
+        key.verify::<IdTokenClaims>(&token, "https://auth.example", now)
             .expect_err("should be rejected");
     }
     for (field, invalid) in [
@@ -201,7 +201,7 @@ fn jwt_persistence_and_trust_boundaries() {
         let token = key
             .sign(TokenType::Id, &invalid_claims)
             .expect("sign malformed claims");
-        key.verify::<IdTokenClaims>(&token, TokenType::Id, "https://auth.example", now)
+        key.verify::<IdTokenClaims>(&token, "https://auth.example", now)
             .expect_err("should be rejected");
     }
 }

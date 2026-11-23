@@ -37,7 +37,6 @@ async fn public_consent_pkce_claim_scoping_and_replay() {
             tokens["id_token"]
                 .as_str()
                 .expect("token response contains an ID token"),
-            TokenType::Id,
             &flow.app.issuer,
             Utc::now(),
         )

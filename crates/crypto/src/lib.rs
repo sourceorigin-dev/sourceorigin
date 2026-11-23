@@ -37,7 +37,7 @@ pub use scram::ScramVerifier;
 pub use sealing::KeyEncryptionKey;
 pub use sealing::SealingKey;
 #[cfg(feature = "server")]
-pub use signing::{KeySet, PublicKey, Rs256Key};
+pub use signing::{PublicKey, Rs256Key, SigningKeySet};
 
 use aws_lc_rs::{
     constant_time, digest, error::KeyRejected, error::Unspecified, hmac, rand as random,
@@ -54,6 +54,7 @@ const SECRET_BYTES: usize = 32;
 
 /// Cryptographic failures, preserving provider diagnostics without secret values.
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum CryptoError {
     /// The operating system could not supply random bytes.
     #[error("operating system randomness unavailable")]

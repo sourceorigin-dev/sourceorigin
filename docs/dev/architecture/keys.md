@@ -23,7 +23,7 @@ Auth signs tokens with RS256 keys. `apps/auth-service/src/keys` holds two types:
   them, and seals and opens their private keys. The `keys` commands use it
   without the HTTP service.
 - `SigningKeys` is the key set one replica signs and verifies with: a
-  `sourceorigin_crypto::KeySet` shared by every clone, which a reload replaces for all
+  `sourceorigin_crypto::SigningKeySet` shared by every clone, which a reload replaces for all
   of them at once. A request keeps the set it started with.
 
 ### Storage

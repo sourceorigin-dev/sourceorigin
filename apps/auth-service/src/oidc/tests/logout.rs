@@ -109,7 +109,7 @@ async fn logout_posts_a_logout_token_to_the_clients_of_the_session() {
         .keys
         .current()
         .expect("fresh keys")
-        .verify(&token, TokenType::Logout, &flow.app.issuer, Utc::now())
+        .verify(&token, &flow.app.issuer, Utc::now())
         .expect("a logout token signed by auth");
     let claims = serde_json::to_value(claims).expect("claims");
     let issued_at = claims["iat"].as_i64().expect("iat");

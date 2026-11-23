@@ -29,12 +29,12 @@ fn claims(changes: &Value) -> Value {
 /// and `nbf` and `iat` with it. A malformed token is refused for its reason.
 #[test]
 fn verifies_types_signatures_issuers_and_times_at_the_given_time() {
-    let keys = KeySet::single(Rs256Key::generate("test").expect("generate RSA test key"));
+    let keys = SigningKeySet::single(Rs256Key::generate("test").expect("generate RSA test key"));
     let at = |seconds: i64| now() + chrono::TimeDelta::seconds(seconds);
     let verify = |claims: &Value| {
         let token = keys.sign(TokenType::Id, claims).expect("sign");
         (
-            keys.verify::<IdTokenClaims>(&token, TokenType::Id, ISSUER, now()),
+            keys.verify::<IdTokenClaims>(&token, ISSUER, now()),
             keys.verify_id_token_hint(&token, ISSUER, now()),
         )
     };
@@ -73,10 +73,10 @@ fn verifies_types_signatures_issuers_and_times_at_the_given_time() {
     let token = keys
         .sign(TokenType::Access, &claims(&json!({})))
         .expect("sign access token");
-    keys.verify::<AccessTokenClaims>(&token, TokenType::Access, ISSUER, now())
+    keys.verify::<AccessTokenClaims>(&token, ISSUER, now())
         .expect("should be accepted");
     assert!(matches!(
-        keys.verify::<IdTokenClaims>(&token, TokenType::Id, ISSUER, now()),
+        keys.verify::<IdTokenClaims>(&token, ISSUER, now()),
         Err(CryptoError::UnexpectedHeader)
     ));
     let mut bytes = token.into_bytes();
@@ -84,11 +84,11 @@ fn verifies_types_signatures_issuers_and_times_at_the_given_time() {
     bytes[n - 10] = if bytes[n - 10] == b'A' { b'B' } else { b'A' };
     let tampered = std::str::from_utf8(&bytes).expect("modified compact token remains ASCII");
     assert!(matches!(
-        keys.verify::<AccessTokenClaims>(tampered, TokenType::Access, ISSUER, now()),
+        keys.verify::<AccessTokenClaims>(tampered, ISSUER, now()),
         Err(CryptoError::Signature)
     ));
     assert!(matches!(
-        keys.verify::<AccessTokenClaims>("header.payload", TokenType::Access, ISSUER, now()),
+        keys.verify::<AccessTokenClaims>("header.payload", ISSUER, now()),
         Err(CryptoError::MalformedToken(crate::Malformed(
             "the token is not three segments",
             None
@@ -99,7 +99,7 @@ fn verifies_types_signatures_issuers_and_times_at_the_given_time() {
 /// Even correctly RSA-signed inputs cannot choose an algorithm, type, key or critical extension.
 #[test]
 fn rejects_algorithm_confusion_and_unrecognized_headers() {
-    let keys = KeySet::single(Rs256Key::generate("headers").expect("RSA key"));
+    let keys = SigningKeySet::single(Rs256Key::generate("headers").expect("RSA key"));
     let key = keys.signer();
     let claims = claims(&json!({}));
     for (field, value) in [
@@ -122,7 +122,7 @@ fn rejects_algorithm_confusion_and_unrecognized_headers() {
         let token = key.signed(&input).expect("signature");
         assert!(
             matches!(
-                keys.verify::<IdTokenClaims>(&token, TokenType::Id, ISSUER, now()),
+                keys.verify::<IdTokenClaims>(&token, ISSUER, now()),
                 Err(CryptoError::UnexpectedHeader | CryptoError::UnknownKey | CryptoError::Json(_))
             ),
             "accepted {field}"
@@ -134,7 +134,7 @@ fn rejects_algorithm_confusion_and_unrecognized_headers() {
     let signature = Digest::hmac(key.public_key().pem().as_bytes(), input.as_bytes()).encoded();
     let token = format!("{input}.{signature}");
     assert!(matches!(
-        keys.verify::<IdTokenClaims>(&token, TokenType::Id, ISSUER, now()),
+        keys.verify::<IdTokenClaims>(&token, ISSUER, now()),
         Err(CryptoError::Json(_))
     ));
 }
@@ -149,20 +149,21 @@ fn key_set_verifies_by_kid_and_limits_retired_keys_to_hints() {
     let [by_retiring, by_retired, by_unknown] =
         [&retiring, &retired, &unknown].map(|key| key.sign(TokenType::Id, &claims).expect("sign"));
     assert!(matches!(
-        KeySet::new(unknown, vec![retiring.public_key().clone()], vec![]),
+        SigningKeySet::new(unknown, vec![retiring.public_key().clone()], vec![]),
         Err(CryptoError::KeySet)
     ));
     let published = vec![retiring.public_key().clone(), active.public_key().clone()];
-    let keys = KeySet::new(active, published, vec![retired.public_key().clone()]).expect("key set");
+    let keys =
+        SigningKeySet::new(active, published, vec![retired.public_key().clone()]).expect("key set");
     let by_active = keys.sign(TokenType::Id, &claims).expect("sign");
     for token in [&by_active, &by_retiring] {
-        keys.verify::<IdTokenClaims>(token, TokenType::Id, ISSUER, now())
+        keys.verify::<IdTokenClaims>(token, ISSUER, now())
             .expect("should be accepted");
         keys.verify_id_token_hint(token, ISSUER, now())
             .expect("should be accepted");
     }
     assert!(matches!(
-        keys.verify::<IdTokenClaims>(&by_retired, TokenType::Id, ISSUER, now()),
+        keys.verify::<IdTokenClaims>(&by_retired, ISSUER, now()),
         Err(CryptoError::UnknownKey)
     ));
     keys.verify_id_token_hint(&by_retired, ISSUER, now())
@@ -183,7 +184,7 @@ fn key_set_verifies_by_kid_and_limits_retired_keys_to_hints() {
     let twin = Rs256Key::generate("same").expect("key");
     let published = vec![signer.public_key().clone()];
     assert!(matches!(
-        KeySet::new(signer, published, vec![twin.public_key().clone()]),
+        SigningKeySet::new(signer, published, vec![twin.public_key().clone()]),
         Err(CryptoError::KeySet)
     ));
 }

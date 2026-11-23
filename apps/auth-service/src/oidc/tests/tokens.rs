@@ -37,7 +37,6 @@ async fn confidential_refresh_keeps_its_token_logout_and_client_binding() {
             tokens["id_token"]
                 .as_str()
                 .expect("token response contains an ID token"),
-            TokenType::Id,
             &flow.app.issuer,
             Utc::now(),
         )
@@ -95,7 +94,6 @@ async fn confidential_refresh_keeps_its_token_logout_and_client_binding() {
             narrowed["id_token"]
                 .as_str()
                 .expect("refresh response contains an ID token"),
-            TokenType::Id,
             &flow.app.issuer,
             Utc::now(),
         )
@@ -427,7 +425,7 @@ async fn changing_keys_keeps_codes_and_refresh_tokens() {
             )),
             policies: PolicyLinks::on(&crate::tests::WEB_ORIGIN.parse().expect("web origin")),
         },
-        SigningKeys::new(KeySet::single(
+        SigningKeys::new(SigningKeySet::single(
             Rs256Key::generate("rotated").expect("new signing key"),
         )),
     )
