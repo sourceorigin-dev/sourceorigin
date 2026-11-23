@@ -3,29 +3,18 @@
 
 use super::*;
 
-/// Accepts auth paths only, and rejects duplicated pending-browser cookies.
+/// Keeps an accepted path, returns to the settings by default, and rejects
+/// duplicated pending-browser cookies. `return_to`'s rule is common's, which
+/// `tests/sdk-vectors/return-to` pins.
 #[test]
 fn return_destinations_and_browser_bindings_are_strict() {
-    for value in [
-        "//evil.test",
-        "/\\evil.test",
-        "https://evil.test",
-        "https://auth.sourceorigin.dev/settings",
-        "/login#x",
-        "/\n/evil",
-        "settings",
-        "javascript:alert(1)",
-        "https:\\\\evil.test",
-    ] {
-        assert!(ReturnTo::parse(Some(value)).is_err(), "{value}");
-    }
+    assert!(ReturnTo::parse(Some("https://evil.test")).is_err());
     let path = "/oauth/authorize?request=abc";
     assert_eq!(ReturnTo::parse(Some(path)).expect(path).0, path);
     assert_eq!(
         ReturnTo::parse(None).expect("default return").0,
         DEFAULT_RETURN_TO
     );
-    assert!(ReturnTo::parse(Some(&format!("/{}", "x".repeat(MAX_RETURN_TO_BYTES)))).is_err());
     let secret = Secret::generate().expect("browser secret");
     let mut headers = HeaderMap::new();
     headers.insert(
@@ -38,17 +27,6 @@ fn return_destinations_and_browser_bindings_are_strict() {
         .expect("cookie"),
     );
     assert!(BrowserCookie::FederationPending.read(&headers).is_none());
-}
-
-/// Accepts printable ASCII only, as the SDKs do: a space or raw UTF-8 would reach
-/// `Location` as it is.
-#[test]
-fn return_destinations_are_printable_ascii() {
-    for value in ["/caf\u{e9}", "/a b", "/a\u{7f}"] {
-        assert!(ReturnTo::parse(Some(value)).is_err(), "{value:?}");
-    }
-    let path = "/!$&'()*+,-.:;=?@[]^_`{|}~%C3%A9";
-    assert_eq!(ReturnTo::parse(Some(path)).expect(path).0, path);
 }
 
 /// Callbacks require browser state and retain unregistered subjects as pending

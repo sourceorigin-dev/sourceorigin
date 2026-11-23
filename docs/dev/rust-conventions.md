@@ -11,15 +11,17 @@ Keep implementations simple. Follow neighbouring modules and share repeated logi
   the SDKs: token claims, metadata, JWK sets, OAuth/OIDC vocabulary and errors,
   bearer challenges, step-up requirements, SDK error codes and the constants both
   SDKs apply, the bodies of auth's settings API, the same-origin rule for browser
-  requests, and the browser isolation headers every response of auth and
-  sourceorigin.dev carries (`isolation`). Beside them sit the public IP ranges,
-  the only ones auth delivers to (`net`), and what auth's forms post that
-  doesn't decode as itself, such as a checkbox (`form`). The rest are features:
-  `admin` (the views of administration, which the admin dashboard shows, the CLI
-  prints as JSON and the database crate decodes into), `client-spans`
-  (`SendTraced`, client spans around `reqwest` requests, for auth and the SDK), `config` (environment variables, validated origins, secret
-  references), `email` (address normalization), `events` (domain events, the
-  notifications they give owners and the alerts administrators see),
+  requests, the `return_to` rule for paths a sign-in goes back to, and the
+  browser isolation headers every response of auth and sourceorigin.dev carries
+  (`isolation`). Beside them sit the public IP ranges, the only ones auth
+  delivers to (`net`), and what auth's forms post that doesn't decode as itself,
+  such as a checkbox (`form`). The rest are features: `admin` (the views of
+  administration, which the admin dashboard shows, the CLI prints as JSON and the
+  database crate decodes into), `client-spans` (`SendTraced`, client spans around
+  `reqwest` requests, for auth and the SDK), `config` (environment variables,
+  validated origins, secret references), `email` (address normalization),
+  `events` (domain events, the notifications they give owners and the alerts
+  administrators see),
   `similarity` (look-alike detection for handles and client names) and `sqlx`
   (column decoding, enabled only by the database crate).
 - `sourceorigin-crypto` (`crates/crypto`): random secrets, digests, HMAC, constant-time
