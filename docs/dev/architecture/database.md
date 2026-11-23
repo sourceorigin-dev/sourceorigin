@@ -446,9 +446,9 @@ have all finished. The rule is written once, in the `in_safe_order!` query macro
 of `repositories/mod.rs`, which the audit sealer's `audit().unsealed` builds on. A
 long-running transaction holds back every reader until it ends, so keep
 transactions short; the idle limit (see [Time limits](#time-limits)) ends
-one that is forgotten. `history_for_user` lists an account's events,
-newest first, in the same `(txid, sequence)` order, so sealed history is listed in
-chain order.
+one that is forgotten. `events().list`, which an account's security history
+and the admin dashboard read, lists events newest first in the same
+`(txid, sequence)` order, so sealed history is listed in chain order.
 
 ### Sessions
 
