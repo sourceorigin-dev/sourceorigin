@@ -6,7 +6,8 @@
 //! Servers add:
 //!
 //! - `server`: what auth and sourceorigin.dev share beyond the SDKs: accounts'
-//!   identifiers and vocabularies, handles, client registrations, the public IP
+//!   identifiers and vocabularies, handles, the rule names follow, client
+//!   registrations, the public IP
 //!   ranges, auth's settings API bodies, the headers of every response, and the
 //!   `str_enum!` and `open_str_enum!` macros. `admin`, `events` and `similarity`
 //!   enable it.
@@ -72,6 +73,9 @@ pub mod events;
 pub mod handle;
 /// Hexadecimal decoding, shared by the secrets and identifiers written in hex.
 pub mod hex;
+/// The rule names people choose follow.
+#[cfg(feature = "server")]
+mod name;
 /// Which IP addresses are public, so auth may deliver to them.
 #[cfg(feature = "server")]
 pub mod net;
@@ -98,6 +102,8 @@ pub use client_id::{ClientId, InvalidClientId};
 pub use client_span::SendTraced;
 #[cfg(feature = "server")]
 pub use handle::{Handle, HandleError};
+#[cfg(feature = "server")]
+pub use name::{MAX_NAME_CHARS, is_valid_name};
 
 /// Formats an error followed by each of its causes, e.g.
 /// `AUTH_PUBLIC_BASE_URL is invalid: must use https://`.

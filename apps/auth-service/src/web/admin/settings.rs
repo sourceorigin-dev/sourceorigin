@@ -15,7 +15,6 @@ use crate::{
     account::{Subject, Viewer},
     admin::SignedInAdmin,
     handles::HandlesError,
-    passkey::MAX_NAME_CHARS,
     security::ApiError,
     web::{
         account::AccountPage,
@@ -23,7 +22,7 @@ use crate::{
     },
 };
 use serde::{Deserialize, de::DeserializeOwned};
-use sourceorigin_common::{EventId, Handle, UserId};
+use sourceorigin_common::{EventId, Handle, MAX_NAME_CHARS, UserId};
 use sourceorigin_ui::{
     Audience, Change, Checkbox, ConnectedAppChange, ConnectedAppRow, EmailChange, EmailRow,
     HistoryPage, HistoryState, InboxPage, InboxRow, InboxState, ProfileChange, ProfileDialog,

@@ -17,7 +17,7 @@ use crate::{
 use chrono::{DateTime, SecondsFormat, Utc};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::IgnoredAny};
 use sourceorigin_common::{
-    RecoveryId,
+    MAX_NAME_CHARS, RecoveryId,
     handle::{MAX_LENGTH, MIN_LENGTH},
 };
 use std::str::FromStr;
@@ -661,7 +661,7 @@ pub(crate) async fn new_passkey<'a>(
     Ok(view! {
         <label>
             (label)
-            <input name="friendly_name" value=(value) maxlength="80" required="" autocomplete="off">
+            <input name="friendly_name" value=(value) maxlength=(MAX_NAME_CHARS.to_string()) required="" autocomplete="off">
         </label>
         if android {
             <label>

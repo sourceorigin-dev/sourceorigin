@@ -15,7 +15,8 @@ With no features, the crate is what the SDKs build on; the Rust SDK adds
 SourceOrigin's own servers, and compile nothing unless enabled: `server`,
 `admin`, `config`, `email`, `events`, `similarity` and `sqlx`. `server` holds
 what auth and sourceorigin.dev share beyond the SDKs: client registrations
-(`clients`), handles (`handle`), the public IP ranges (`net`), auth's settings
+(`clients`), handles (`handle`), the rule names follow (`is_valid_name`), the
+public IP ranges (`net`), auth's settings
 API bodies and response headers, the IDs and vocabularies of accounts and their
 records, and the `str_enum!` and `open_str_enum!` macros. `admin`, `events` and
 `similarity` enable it. The
