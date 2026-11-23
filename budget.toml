@@ -4,7 +4,7 @@
 auth-service = 29
 sourceorigin-auth = 2
 sourceorigin-common = 10
-sourceorigin-crypto = 12
+sourceorigin-crypto = 11
 sourceorigin-repository = 20
 sourceorigin-telemetry = 1
 sourceorigin-ui = 3

@@ -2,7 +2,8 @@
 //! protocol's wire types and, behind features, what only servers need.
 //!
 //! With no features, this crate is what the SDKs build on: the identifiers tokens
-//! carry, such as [`UserId`], and the [`protocol`] documents. Servers add:
+//! carry, such as [`UserId`], the [`protocol`] documents and [`hex`] decoding.
+//! Servers add:
 //!
 //! - `server`: what auth and sourceorigin.dev share beyond the SDKs: accounts'
 //!   identifiers and vocabularies, handles, client registrations, the public IP
@@ -69,6 +70,8 @@ pub mod events;
 /// Handles: an account's public identifier and login name.
 #[cfg(feature = "server")]
 pub mod handle;
+/// Hexadecimal decoding, shared by the secrets and identifiers written in hex.
+pub mod hex;
 /// Which IP addresses are public, so auth may deliver to them.
 #[cfg(feature = "server")]
 pub mod net;

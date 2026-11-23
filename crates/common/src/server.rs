@@ -109,17 +109,10 @@ impl FromStr for TraceId {
         {
             return Err(invalid());
         }
-        let mut bytes = [0; 16];
-        let digit = |digit: u8| {
-            char::from(digit)
-                .to_digit(16)
-                .and_then(|digit| u8::try_from(digit).ok())
-                .ok_or_else(invalid)
-        };
-        for (byte, [high, low]) in bytes.iter_mut().zip(value.as_bytes().as_chunks().0) {
-            *byte = digit(*high)? << 4 | digit(*low)?;
-        }
-        Self::from_bytes(bytes).ok_or_else(invalid)
+        crate::hex::decode(value)
+            .and_then(|bytes| bytes.try_into().ok())
+            .and_then(Self::from_bytes)
+            .ok_or_else(invalid)
     }
 }
 

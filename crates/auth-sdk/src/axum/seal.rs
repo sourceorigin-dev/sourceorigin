@@ -10,8 +10,11 @@ use base64::{
 };
 use secrecy::zeroize::Zeroizing;
 use serde::{Serialize, de::DeserializeOwned};
-use sourceorigin_common::protocol::constants::{
-    COOKIE_KEY_BYTES, MAX_COOKIE_BYTES, PENDING_LOGIN_SEAL_INFO, SESSION_SEAL_INFO,
+use sourceorigin_common::{
+    hex,
+    protocol::constants::{
+        COOKIE_KEY_BYTES, MAX_COOKIE_BYTES, PENDING_LOGIN_SEAL_INFO, SESSION_SEAL_INFO,
+    },
 };
 use sourceorigin_crypto::{CryptoError, Secret};
 use std::fmt;
@@ -47,19 +50,7 @@ impl Encoding {
                 .ok()
         };
         match self {
-            Self::Hex => {
-                let (pairs, odd) = text.as_bytes().as_chunks::<2>();
-                if !odd.is_empty() {
-                    return None;
-                }
-                pairs
-                    .iter()
-                    .map(|pair| {
-                        let [high, low] = pair.map(|digit| char::from(digit).to_digit(16));
-                        u8::try_from(high? << 4 | low?).ok()
-                    })
-                    .collect()
-            }
+            Self::Hex => hex::decode(text),
             Self::Base64 => base64(&alphabet::STANDARD),
             Self::Base64Url => base64(&alphabet::URL_SAFE),
         }
