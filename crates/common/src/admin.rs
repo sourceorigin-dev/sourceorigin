@@ -12,7 +12,7 @@ pub use crate::user_agent::{Browser, Platform, UserAgentFamily};
 use crate::{
     AccountStatus, AnnouncementId, AuthenticationMethod, ClientId, DeliveryId, EventId, Handle,
     PictureId, SessionId, TokenId, TraceId, UserId,
-    clients::RelatedOrigin,
+    clients::{ClientStatus, RelatedOrigin},
     form::Checkbox,
     protocol::{jwt::KeyId, oauth::ClientAuthMethod},
 };
@@ -377,15 +377,10 @@ pub struct Client {
 }
 
 impl Client {
-    /// `deleted`, `suspended`, `enabled` or `disabled`: the first that applies.
+    /// Whether it signs users in, and why not.
     #[must_use]
-    pub const fn status(&self) -> &'static str {
-        match (&self.deleted_at, &self.suspended_at, self.enabled) {
-            (Some(_), _, _) => "deleted",
-            (None, Some(_), _) => "suspended",
-            (None, None, true) => "enabled",
-            (None, None, false) => "disabled",
-        }
+    pub const fn status(&self) -> ClientStatus {
+        ClientStatus::of(self.enabled, self.suspended_at, self.deleted_at)
     }
 }
 

@@ -28,13 +28,13 @@ use chrono::Utc;
 use serde::Deserialize;
 use sourceorigin_common::{
     ClientId,
-    clients::{ClientKind, ClientRegistration},
+    clients::{ClientKind, ClientRegistration, ClientStatus},
 };
 use sourceorigin_repository::StoredOidcClient;
 use sourceorigin_ui::{
-    Action, AdminClientRow, Change, ClientChanges, ClientDraft, ClientPage, ClientRow,
-    ClientStatus, Crumb, NewClientForm, OperatorDraft, Query, Registration, Revealed, SecretRow,
-    SecretsChange, SecretsState,
+    Action, AdminClientRow, Change, ClientChanges, ClientDraft, ClientPage, ClientRow, Crumb,
+    NewClientForm, OperatorDraft, Query, Registration, Revealed, SecretRow, SecretsChange,
+    SecretsState,
 };
 use topcoat::{
     Result,
@@ -112,13 +112,15 @@ pub(super) async fn detail(cx: &Cx) -> Result<Response> {
     let changes = stored.deleted_at.is_none().then(|| ClientChanges {
         settings: href!(edit, page()).resolve(cx),
         status: match client.status {
-            ClientStatus::Suspended { .. } => None,
+            ClientStatus::Deleted { .. } | ClientStatus::Suspended { .. } => None,
             ClientStatus::Enabled => Some(action(href!(disable, page()).resolve(cx))),
             ClientStatus::Disabled => Some(action(href!(enable, page()).resolve(cx))),
         },
         suspension: action(match client.status {
             ClientStatus::Suspended { .. } => href!(unsuspend, page()).resolve(cx),
-            ClientStatus::Enabled | ClientStatus::Disabled => href!(suspend, page()).resolve(cx),
+            ClientStatus::Deleted { .. } | ClientStatus::Enabled | ClientStatus::Disabled => {
+                href!(suspend, page()).resolve(cx)
+            }
         }),
         delete: action(href!(delete, page()).resolve(cx)),
         secret: (stored.kind == ClientKind::Confidential)
@@ -133,7 +135,6 @@ pub(super) async fn detail(cx: &Cx) -> Result<Response> {
             .map(|owner| (owner, App::account(cx, owner))),
         created_at: stored.created_at,
         updated_at: stored.updated_at,
-        deleted_at: stored.deleted_at,
         secrets: &secrets,
         origins,
         approve,
@@ -497,7 +498,7 @@ impl App {
             id: &stored.id,
             name: &stored.display_name,
             kind: stored.kind,
-            status: ClientStatus::of(stored.enabled, stored.suspended_at),
+            status: ClientStatus::of(stored.enabled, stored.suspended_at, stored.deleted_at),
             redirect_uris: &stored.redirect_uris,
             post_logout_uris: &stored.post_logout_uris,
             allowed_scopes: &stored.allowed_scopes,

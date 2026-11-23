@@ -184,3 +184,36 @@ fn generated_client_ids_use_the_prefix_and_base32() {
         format!("c_{}b", "a".repeat(19))
     );
 }
+
+/// A deletion outranks a suspension, which outranks whether the client is
+/// enabled, and each keeps its own date. The database keeps suspended and
+/// deleted clients disabled, but the rule holds either way.
+#[test]
+fn client_status_takes_the_first_that_applies() {
+    let suspended = DateTime::<Utc>::UNIX_EPOCH;
+    let deleted = suspended + chrono::Duration::days(1);
+    for enabled in [false, true] {
+        for (suspended_at, deleted_at, status) in [
+            (
+                Some(suspended),
+                Some(deleted),
+                ClientStatus::Deleted { at: deleted },
+            ),
+            (None, Some(deleted), ClientStatus::Deleted { at: deleted }),
+            (
+                Some(suspended),
+                None,
+                ClientStatus::Suspended { at: suspended },
+            ),
+        ] {
+            assert_eq!(
+                ClientStatus::of(enabled, suspended_at, deleted_at),
+                status,
+                "enabled: {enabled}"
+            );
+        }
+    }
+    assert_eq!(ClientStatus::of(false, None, None), ClientStatus::Disabled);
+    assert_eq!(ClientStatus::of(true, None, None), ClientStatus::Enabled);
+    assert_eq!(ClientStatus::Deleted { at: deleted }.to_string(), "deleted");
+}

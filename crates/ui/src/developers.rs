@@ -8,8 +8,8 @@
 
 use crate::{
     clients::{
-        ClientDraft, ClientRow, ClientStatus, Connection, FieldError, Grace, Revealed, SecretRow,
-        client_facts, client_form, client_status, copy, secret_panel, secrets_list,
+        ClientDraft, ClientRow, Connection, FieldError, Grace, Revealed, SecretRow, client_facts,
+        client_form, client_status, copy, secret_panel, secrets_list,
     },
     form::{Checkbox, Precision, Query, change_form, open, time},
     icons::Icon,
@@ -17,7 +17,10 @@ use crate::{
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sourceorigin_common::{clients::ClientKind, protocol::oauth::Scope};
+use sourceorigin_common::{
+    clients::{ClientKind, ClientStatus},
+    protocol::oauth::Scope,
+};
 use topcoat::{
     Result,
     view::{View, component, view},
@@ -513,6 +516,8 @@ pub async fn app_settings<'a>(
             "It can sign users in again.",
             Some((AppChange::Enable {}, "Enable")),
         ),
+        // The console never shows a deleted app: it is no longer its owner's.
+        ClientStatus::Deleted { .. } => ("Deleted", "This app was deleted.", None),
     };
     Ok(view! {
         client_form(

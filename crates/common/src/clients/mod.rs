@@ -27,6 +27,7 @@ use crate::{
         oauth::{ClientAuthMethod, Scope, Scopes},
     },
 };
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::{fmt, net::IpAddr, ops::Deref, str::FromStr};
 use thiserror::Error;
@@ -185,6 +186,63 @@ crate::str_enum! {
         Cli = "cli",
         /// By its owner, signed in to auth.
         Account = "account",
+    }
+}
+
+/// Whether a client signs users in, and why not. The first that applies of a
+/// deletion, a suspension, then the client being enabled or not.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ClientStatus {
+    /// It was deleted. It stays listed, disabled, so its ID is never reused.
+    Deleted {
+        /// When.
+        at: DateTime<Utc>,
+    },
+    /// An operator suspended it, and it stays disabled until they lift that: its
+    /// owner cannot enable it.
+    Suspended {
+        /// When.
+        at: DateTime<Utc>,
+    },
+    /// Its owner or an operator disabled it.
+    Disabled,
+    /// It signs users in.
+    Enabled,
+}
+
+impl ClientStatus {
+    /// The status of a client `enabled` or not, suspended at `suspended_at` and
+    /// deleted at `deleted_at`, if ever.
+    #[must_use]
+    pub const fn of(
+        enabled: bool,
+        suspended_at: Option<DateTime<Utc>>,
+        deleted_at: Option<DateTime<Utc>>,
+    ) -> Self {
+        match (deleted_at, suspended_at, enabled) {
+            (Some(at), _, _) => Self::Deleted { at },
+            (None, Some(at), _) => Self::Suspended { at },
+            (None, None, false) => Self::Disabled,
+            (None, None, true) => Self::Enabled,
+        }
+    }
+
+    /// The status in one word: `deleted`, `suspended`, `disabled` or `enabled`.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Deleted { .. } => "deleted",
+            Self::Suspended { .. } => "suspended",
+            Self::Disabled => "disabled",
+            Self::Enabled => "enabled",
+        }
+    }
+}
+
+impl fmt::Display for ClientStatus {
+    /// Writes [`ClientStatus::as_str`].
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
     }
 }
 

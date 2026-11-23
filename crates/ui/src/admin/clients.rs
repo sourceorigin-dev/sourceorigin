@@ -8,8 +8,8 @@ use super::{
 };
 use crate::{
     clients::{
-        ClientDraft, ClientRow, ClientStatus, Revealed, SecretRow, choice, client_form,
-        client_status, secret_panel, secrets_list,
+        ClientDraft, ClientRow, Revealed, SecretRow, choice, client_form, client_status,
+        secret_panel, secrets_list,
     },
     developers::{SecretsState, app_secrets},
     form::{Checkbox, Lines},
@@ -18,7 +18,12 @@ use crate::{
 };
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
-use sourceorigin_common::{UserId, admin::Client, clients::ClientKind, protocol::oauth::Scope};
+use sourceorigin_common::{
+    UserId,
+    admin::Client,
+    clients::{ClientKind, ClientStatus},
+    protocol::oauth::Scope,
+};
 use topcoat::{
     Result,
     view::{View, component, view},
@@ -254,8 +259,6 @@ pub struct ClientPage<'a> {
     pub created_at: DateTime<Utc>,
     /// When its registration last changed.
     pub updated_at: DateTime<Utc>,
-    /// When it was deleted, if it was.
-    pub deleted_at: Option<DateTime<Utc>>,
     /// A confidential client's secrets, oldest first.
     pub secrets: &'a [SecretRow],
     /// Its approved origins, as browsers send them, and the pages removing them.
@@ -308,10 +311,10 @@ pub async fn client_list<'a>(rows: &'a [AdminClientRow<'a>], new: &'a str) -> Re
 #[component]
 async fn listed_status<'a>(client: &'a Client) -> Result<impl View> {
     let shown = match client.status() {
-        "enabled" => Badge::new("ok", "Enabled"),
-        "suspended" => Badge::new("danger", "Suspended"),
-        "deleted" => Badge::new("neutral", "Deleted"),
-        _ => Badge::new("warning", "Disabled"),
+        ClientStatus::Enabled => Badge::new("ok", "Enabled"),
+        ClientStatus::Suspended { .. } => Badge::new("danger", "Suspended"),
+        ClientStatus::Deleted { .. } => Badge::new("neutral", "Deleted"),
+        ClientStatus::Disabled => Badge::new("warning", "Disabled"),
     };
     Ok(view! { badge(shown: shown) })
 }
@@ -332,7 +335,7 @@ pub async fn client_page<'a>(page: &'a ClientPage<'a>, now: DateTime<Utc>) -> Re
             title: title,
             lead: client.id.to_string(),
             actions: view! {
-                if page.deleted_at.is_some() {
+                if let ClientStatus::Deleted { .. } = client.status {
                     <span class="badge neutral">"Deleted"</span>
                 } else {
                     client_status(client: client)
@@ -340,14 +343,19 @@ pub async fn client_page<'a>(page: &'a ClientPage<'a>, now: DateTime<Utc>) -> Re
                 if page.trusted { " " <span class="badge">"Trusted"</span> }
             },
         )
-        if let Some(at) = page.deleted_at {
-            <p class="notice">"Deleted on " moment(at: at) ". Its ID is never registered again."</p>
-        } else if let ClientStatus::Suspended { at } = client.status {
-            <p class="notice error">
-                "Suspended on " moment(at: at) ": it cannot sign users in, and its owner cannot enable it."
-            </p>
-        } else if client.status == ClientStatus::Disabled {
-            <p class="notice warning">"Disabled: it cannot sign users in until it is enabled."</p>
+        match client.status {
+            ClientStatus::Deleted { at } => {
+                <p class="notice">"Deleted on " moment(at: at) ". Its ID is never registered again."</p>
+            },
+            ClientStatus::Suspended { at } => {
+                <p class="notice error">
+                    "Suspended on " moment(at: at) ": it cannot sign users in, and its owner cannot enable it."
+                </p>
+            },
+            ClientStatus::Disabled => {
+                <p class="notice warning">"Disabled: it cannot sign users in until it is enabled."</p>
+            },
+            ClientStatus::Enabled => {},
         }
         <section class="card" aria-labelledby="registration-heading">
             <header><h2 id="registration-heading">"Registration"</h2></header>

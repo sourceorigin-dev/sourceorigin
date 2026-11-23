@@ -81,8 +81,7 @@ pub use admin::{
 };
 pub use asset::{Asset, FONTS, STYLESHEET};
 pub use clients::{
-    ClientDraft, ClientRow, ClientStatus, Connection, FieldError, Grace, Revealed, ScopeChoice,
-    SecretRow,
+    ClientDraft, ClientRow, Connection, FieldError, Grace, Revealed, ScopeChoice, SecretRow,
 };
 pub use developers::{
     AppChange, AppLink, AppSettingsState, AppTab, MISSING, NewAppChange, NewAppState, Registered,

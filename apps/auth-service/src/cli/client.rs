@@ -10,8 +10,8 @@ use sourceorigin_common::{
     ClientId, UserId,
     admin::{ApprovedOrigin, Client},
     clients::{
-        AllowedScopes, BackchannelLogoutUri, ClientKind, ClientRegistration, DisplayName,
-        PostLogoutUris, RedirectUri, RedirectUris, RelatedOrigin, ScopeName,
+        AllowedScopes, BackchannelLogoutUri, ClientKind, ClientRegistration, ClientStatus,
+        DisplayName, PostLogoutUris, RedirectUri, RedirectUris, RelatedOrigin, ScopeName,
     },
     config::{Origin, SecretReference},
 };
@@ -298,15 +298,14 @@ impl ClientCommand {
         owner.map_or_else(|| Cell::new("operator").style(Style::Muted), Cell::new)
     }
 
-    /// A client's status, coloured: `deleted`, `suspended`, `disabled` or
-    /// `enabled`. Deletion comes first, then a suspension.
-    fn status(deleted: bool, suspended: bool, enabled: bool) -> Cell {
-        match (deleted, suspended, enabled) {
-            (true, _, _) => Cell::new("deleted").style(Style::Muted),
-            (false, true, _) => Cell::new("suspended").style(Style::Bad),
-            (false, false, false) => Cell::new("disabled").style(Style::Notice),
-            (false, false, true) => Cell::new("enabled").style(Style::Good),
-        }
+    /// A client's status, coloured.
+    fn status(status: ClientStatus) -> Cell {
+        Cell::new(status).style(match status {
+            ClientStatus::Deleted { .. } => Style::Muted,
+            ClientStatus::Suspended { .. } => Style::Bad,
+            ClientStatus::Disabled => Style::Notice,
+            ClientStatus::Enabled => Style::Good,
+        })
     }
 }
 
@@ -321,11 +320,7 @@ report!([Client], self, out, {
             [
                 Cell::new(&client.id),
                 Cell::new(client.token_endpoint_auth_method),
-                ClientCommand::status(
-                    client.deleted_at.is_some(),
-                    client.suspended_at.is_some(),
-                    client.enabled,
-                ),
+                ClientCommand::status(client.status()),
                 client.allow_refresh.into(),
                 client.trusted.into(),
                 client.require_pushed_authorization_requests.into(),
@@ -351,11 +346,11 @@ report!(ClientDetails, self, out, {
         ("Kind", Cell::new(client.kind)),
         (
             "Status",
-            ClientCommand::status(
-                client.deleted_at.is_some(),
-                client.suspended_at.is_some(),
+            ClientCommand::status(ClientStatus::of(
                 client.enabled,
-            ),
+                client.suspended_at,
+                client.deleted_at,
+            )),
         ),
         ("Owner", ClientCommand::owner(client.owner_id)),
         ("Redirect URIs", list(&client.redirect_uris)),

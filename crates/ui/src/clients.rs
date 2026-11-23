@@ -10,7 +10,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sourceorigin_common::{
     ClientId,
-    clients::{ClientField, ClientKind},
+    clients::{ClientField, ClientKind, ClientStatus},
     protocol::oauth::Scope,
 };
 use std::{borrow::Cow, fmt};
@@ -18,33 +18,6 @@ use topcoat::{
     Result,
     view::{Child, View, component, view},
 };
-
-/// Whether a client signs users in.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ClientStatus {
-    /// An administrator suspended it, and it stays disabled until they lift that.
-    Suspended {
-        /// When.
-        at: DateTime<Utc>,
-    },
-    /// Its owner disabled it.
-    Disabled,
-    /// It signs users in.
-    Enabled,
-}
-
-impl ClientStatus {
-    /// The status of a client `enabled` or not, and suspended at `suspended_at`, if
-    /// ever: a suspension comes first.
-    #[must_use]
-    pub const fn of(enabled: bool, suspended_at: Option<DateTime<Utc>>) -> Self {
-        match (suspended_at, enabled) {
-            (Some(at), _) => Self::Suspended { at },
-            (None, false) => Self::Disabled,
-            (None, true) => Self::Enabled,
-        }
-    }
-}
 
 /// A client, as the pages show it.
 #[derive(Clone, Copy, Debug)]
@@ -392,10 +365,17 @@ const fn scope_description(scope: Scope) -> &'static str {
 pub(crate) async fn client_status<'a>(client: ClientRow<'a>) -> Result<impl View> {
     Ok(view! {
         <span class="badge neutral">(client.kind_name())</span>
-        if let ClientStatus::Suspended { .. } = client.status {
-            " " <span class="badge danger">"Suspended"</span>
-        } else if client.status == ClientStatus::Disabled {
-            " " <span class="badge warning">"Disabled"</span>
+        match client.status {
+            ClientStatus::Deleted { .. } => {
+                " " <span class="badge neutral">"Deleted"</span>
+            },
+            ClientStatus::Suspended { .. } => {
+                " " <span class="badge danger">"Suspended"</span>
+            },
+            ClientStatus::Disabled => {
+                " " <span class="badge warning">"Disabled"</span>
+            },
+            ClientStatus::Enabled => {},
         }
     })
 }
