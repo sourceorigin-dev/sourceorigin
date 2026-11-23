@@ -5,9 +5,16 @@
 
 # cargo-chef compiles the dependencies in a layer of their own, rebuilt only when
 # a manifest, Cargo.lock or the cargo config changes.
-FROM rust:1.99.0-bookworm AS chef
-RUN cargo install --locked cargo-chef@0.1.78
+# The base image only provides rustup: rust-toolchain.toml selects the Rust that
+# builds the images, stable as for development and CI, and rustup installs it
+# here. The `rust:1` tag moves with each stable release, so a new release
+# rebuilds this layer. Every later cargo command runs in /app, where that file
+# selects it.
+FROM rust:1-bookworm AS chef
 WORKDIR /app
+COPY rust-toolchain.toml ./
+RUN rustup toolchain install --profile minimal
+RUN cargo install --locked cargo-chef@0.1.78
 
 # The recipe lists the workspace's dependencies, from its manifests and lockfile.
 # The workspace's manifests need every member, so this copies the same sources as
