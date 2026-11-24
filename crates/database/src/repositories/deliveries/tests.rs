@@ -25,7 +25,7 @@ crate::test_channels! {
     Leased = "test_leased": String => u32;
     /// Retried and cancelled by an operator.
     Operated = "test_operated": String => u32;
-    /// Counted for the backlog gauges.
+    /// Counted for the backlog rows.
     Backlogged = "test_backlogged": String => u32;
     /// A channel as the previous release declares it during a deploy.
     OldRelease = "test_versions": String => OldMessage;

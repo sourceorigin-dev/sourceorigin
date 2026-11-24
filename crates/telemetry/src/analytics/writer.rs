@@ -9,7 +9,7 @@ use sourceorigin_common::ErrorChain;
 use std::{
     collections::HashMap,
     sync::{
-        OnceLock,
+        LazyLock, Mutex, OnceLock, PoisonError,
         atomic::{AtomicU64, Ordering},
     },
     time::Duration,
@@ -20,16 +20,20 @@ use tokio::{
     time::MissedTickBehavior,
 };
 
-/// Rows the queue holds before recording drops them: a few seconds of a busy
-/// server's rows, so a slow ClickHouse costs rows, never memory or latency.
-const QUEUE: usize = 10_000;
-/// Rows of one table sent at once, at most.
-const BATCH: usize = 5_000;
+/// Rows of one table the queue holds before recording drops that table's: a few
+/// seconds of a busy server's requests, so a slow ClickHouse costs rows, never
+/// memory or latency, and a flood of one table's rows, such as requests, never
+/// costs another's.
+const QUEUE: usize = 5_000;
+/// Rows of one table sent at once, at most: as many as it may queue.
+const BATCH: usize = QUEUE;
 /// How often queued rows are sent, so ClickHouse gets few, large inserts.
 const INTERVAL: Duration = Duration::from_secs(1);
 
-/// The installed writer's queue, until the process exits.
-static QUEUE_SENDER: OnceLock<mpsc::Sender<Message>> = OnceLock::new();
+/// The installed writer's queue, until the process exits. [`QUEUED`] bounds it.
+static QUEUE_SENDER: OnceLock<mpsc::UnboundedSender<Message>> = OnceLock::new();
+/// Rows each table has in the queue.
+static QUEUED: LazyLock<Mutex<HashMap<&'static str, usize>>> = LazyLock::new(Mutex::default);
 /// Rows dropped since the writer last reported them: queued while the queue was
 /// full, or in a batch ClickHouse refused or never answered.
 static DROPPED: AtomicU64 = AtomicU64::new(0);
@@ -69,9 +73,13 @@ pub(super) fn record<S: Serialize + ?Sized>(table: &'static str, signal: &S) {
     let Ok(line) = serde_json::to_string(&row) else {
         return;
     };
-    if queue.try_send(Message::Row(table, line)).is_err() {
+    let mut queued = QUEUED.lock().unwrap_or_else(PoisonError::into_inner);
+    let count = queued.entry(table).or_default();
+    if *count >= QUEUE || queue.send(Message::Row(table, line)).is_err() {
         DROPPED.fetch_add(1, Ordering::Relaxed);
+        return;
     }
+    *count += 1;
 }
 
 /// The installed writer, which `Telemetry::shutdown` flushes.
@@ -84,7 +92,7 @@ impl Writer {
     /// Starts sending queued rows to `store` on the current tokio runtime. Only
     /// the first writer of a process is installed: `None` for any later one.
     pub(crate) fn start(store: Store) -> Option<Self> {
-        let (sender, queue) = mpsc::channel(QUEUE);
+        let (sender, queue) = mpsc::unbounded_channel();
         QUEUE_SENDER.set(sender).ok()?;
         Some(Self {
             task: tokio::spawn(Self::run(store, queue)),
@@ -96,7 +104,7 @@ impl Writer {
     pub(crate) async fn flush(&self) {
         let (sent, done) = oneshot::channel();
         if let Some(queue) = QUEUE_SENDER.get()
-            && queue.send(Message::Flush(sent)).await.is_ok()
+            && queue.send(Message::Flush(sent)).is_ok()
         {
             done.await.ok();
         }
@@ -107,7 +115,7 @@ impl Writer {
 
     /// Batches rows by table, and sends each table's every [`INTERVAL`], or
     /// once it holds [`BATCH`] rows.
-    async fn run(store: Store, mut queue: mpsc::Receiver<Message>) {
+    async fn run(store: Store, mut queue: mpsc::UnboundedReceiver<Message>) {
         let mut batches: HashMap<&'static str, Vec<String>> = HashMap::new();
         let mut interval = tokio::time::interval(INTERVAL);
         interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
@@ -147,8 +155,16 @@ impl Writer {
         }
     }
 
-    /// Inserts `rows` into `table`, or drops and counts them.
+    /// Inserts `rows` into `table`, or drops and counts them. Either way they
+    /// leave the queue.
     async fn send(store: &Store, table: &'static str, rows: Vec<String>) {
+        if let Some(queued) = QUEUED
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get_mut(table)
+        {
+            *queued = queued.saturating_sub(rows.len());
+        }
         let count = u64::try_from(rows.len()).unwrap_or(u64::MAX);
         let body = Bytes::from(rows.join("\n"));
         if let Err(error) = store.insert(table, body).await {

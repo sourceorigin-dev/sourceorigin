@@ -65,7 +65,6 @@ use tracing_subscriber::{
     layer::SubscriberExt,
     util::SubscriberInitExt,
 };
-use uuid::Uuid;
 
 /// Instrumentation scope of every tracer.
 const SCOPE: &str = "sourceorigin";
@@ -83,7 +82,7 @@ const LOG_FILTER: Variable = Variable::new("RUST_LOG");
 /// Resource attribute naming the service.
 const SERVICE_NAME: &str = "service.name";
 /// Resource attribute naming this process, so replicas and command-line runs of
-/// one service each keep their own metric series.
+/// one service tell their spans and logs apart.
 const INSTANCE_ID: &str = "service.instance.id";
 
 /// Failures installing or flushing telemetry.
@@ -138,9 +137,8 @@ impl Telemetry {
     /// filtered by `RUST_LOG`, or else `default_filter`; spans always by
     /// `default_filter`, so quieter logs never lose traces. When OTLP export or
     /// analytics cannot start, `export` says whether that fails or only logs to
-    /// stderr, with a warning. Call it first, inside the tokio runtime:
-    /// instruments used before bind to no provider, and rows recorded before are
-    /// discarded.
+    /// stderr, with a warning. Call it first, inside the tokio runtime: rows
+    /// recorded before are discarded.
     ///
     /// # Errors
     /// Fails on an invalid filter, when a subscriber is already installed, and when
@@ -261,7 +259,10 @@ impl Telemetry {
             defaults.push(KeyValue::new(SERVICE_NAME, service));
         }
         if detected.get(&INSTANCE_ID.into()).is_none() {
-            defaults.push(KeyValue::new(INSTANCE_ID, Uuid::now_v7().to_string()));
+            defaults.push(KeyValue::new(
+                INSTANCE_ID,
+                analytics::Instance::current().as_str().to_owned(),
+            ));
         }
         Resource::builder().with_attributes(defaults).build()
     }

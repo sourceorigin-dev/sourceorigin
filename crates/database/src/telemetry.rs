@@ -6,7 +6,10 @@ use sourceorigin_common::{
     EventId, TraceId, UserId,
     events::{DomainEvent, HistoryActor, SignInFailure},
 };
-use sourceorigin_telemetry::{Telemetry, analytics::Signal};
+use sourceorigin_telemetry::{
+    Telemetry,
+    analytics::{Instance, Signal},
+};
 use std::time::Duration;
 
 sourceorigin_telemetry::signal! {
@@ -33,7 +36,9 @@ sourceorigin_telemetry::signal! {
 
 sourceorigin_telemetry::signal! {
     /// The connections a replica's database pool held, sampled every 15 seconds.
-    pub struct PoolSampled in "database_pool", kept 30 days, ordered by () {
+    pub struct PoolSampled in "database_pool", kept 30 days, ordered by (instance) {
+        /// The replica, or command-line run.
+        pub instance: Instance,
         /// Connections waiting for a query.
         pub idle: u32,
         /// Connections running one.
@@ -112,6 +117,7 @@ impl Database {
                 every.tick().await;
                 let idle = u32::try_from(pool.num_idle()).unwrap_or(u32::MAX);
                 PoolSampled {
+                    instance: Instance::current(),
                     idle,
                     used: pool.size().saturating_sub(idle),
                 }

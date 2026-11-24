@@ -26,7 +26,8 @@ pub(crate) use writer::Writer;
 
 use serde::{Serialize, Serializer};
 use sourceorigin_common::{ClientId, EventId, TraceId};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
+use uuid::Uuid;
 
 /// One kind of row, and the table that stores it. Declare one with
 /// [`signal!`](crate::signal), which implements this trait.
@@ -125,6 +126,38 @@ columns! {
     EventId => "UUID" key;
     Option<TraceId> => "Nullable(FixedString(32))";
     Option<Route> => "LowCardinality(Nullable(String))";
+    Instance => "LowCardinality(String)" key;
+}
+
+/// This process: a new UUID each time it starts, which its spans and logs
+/// carry as `service.instance.id` too, so the replicas of a service, and its
+/// command-line runs, tell their rows apart.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Instance(Arc<str>);
+
+impl Instance {
+    /// This process's.
+    #[must_use]
+    pub fn current() -> Self {
+        /// Chosen on first use.
+        static CURRENT: OnceLock<Instance> = OnceLock::new();
+        CURRENT
+            .get_or_init(|| Self(Arc::from(Uuid::now_v7().to_string())))
+            .clone()
+    }
+
+    /// The UUID, as text.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl Serialize for Instance {
+    /// Writes the UUID.
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.0)
+    }
 }
 
 /// A route template of a router, such as `/account/passkeys/{id}`: a column only

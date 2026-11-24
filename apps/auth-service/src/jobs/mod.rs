@@ -277,6 +277,8 @@ sourceorigin_telemetry::signal! {
         pub(crate) duration_ms: u64,
         /// Whether it stopped at its time budget with rows left to clean.
         pub(crate) overran: bool,
+        /// Whether a batch failed, ending it with what earlier ones changed.
+        pub(crate) failed: bool,
     }
 }
 
@@ -334,8 +336,8 @@ impl Cleanup {
     }
 
     /// Drains one pass, until it finds nothing, runs out of time or shutdown is
-    /// requested. Returns whether it ran out of time, or `None` when shutdown
-    /// stopped it.
+    /// requested, and records it as a [`CleanupRan`], failed or not. Returns
+    /// whether it ran out of time, or `None` when shutdown stopped it.
     async fn drain(
         &self,
         connection: &mut ExclusiveConnection,
@@ -343,33 +345,35 @@ impl Cleanup {
     ) -> Result<Option<bool>, DatabaseError> {
         let started = Instant::now();
         let deadline = started + self.budget;
-        let mut behind = Some(false);
-        let mut changed = Self::batch(connection).await?;
         let mut total = 0;
-        while changed > 0 {
-            total += changed;
-            if Instant::now() >= deadline {
-                tracing::warn!("expired authentication state cleanup is falling behind");
-                behind = Some(true);
-                break;
+        let ended = async {
+            let mut changed = Self::batch(connection).await?;
+            while changed > 0 {
+                total += changed;
+                if Instant::now() >= deadline {
+                    tracing::warn!("expired authentication state cleanup is falling behind");
+                    return Ok(Some(true));
+                }
+                if shutdown
+                    .unless(tokio::time::sleep(Self::PAUSE))
+                    .await
+                    .is_none()
+                {
+                    return Ok(None);
+                }
+                changed = Self::batch(connection).await?;
             }
-            if shutdown
-                .unless(tokio::time::sleep(Self::PAUSE))
-                .await
-                .is_none()
-            {
-                behind = None;
-                break;
-            }
-            changed = Self::batch(connection).await?;
+            Ok(Some(false))
         }
+        .await;
         CleanupRan {
             changed: total,
             duration_ms: u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
-            overran: behind == Some(true),
+            overran: matches!(ended, Ok(Some(true))),
+            failed: ended.is_err(),
         }
         .record();
-        Ok(behind)
+        ended
     }
 
     /// Changes the alerts after a pass that ended with `drained`, and returns

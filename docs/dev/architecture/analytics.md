@@ -24,6 +24,12 @@ sourceorigin_telemetry::signal! {
         pub kind: &'static str,
         /// The kind of actor that caused it, such as `user` or `operator`.
         pub actor: &'static str,
+        /// How the person authenticated, for a sign-in, a failed one or a new
+        /// account, such as `passkey`.
+        pub method: Option<&'static str>,
+        /// Why it happened, for a failed sign-in, a revoked grant or a failed code
+        /// redemption, such as `replayed`.
+        pub reason: Option<&'static str>,
         /// The event's ID in the audit history.
         pub event: EventId,
         /// The trace of the request or job that recorded it.
@@ -47,7 +53,7 @@ sourceorigin_telemetry::signal! {
 Record a row where it happens:
 
 ```rust
-EventRecorded { kind, actor, event, trace }.record();
+EventRecorded { kind, actor, method, reason, event, trace }.record();
 ```
 
 `record` queues the row and returns at once. It never fails and never waits.
@@ -65,6 +71,8 @@ implement it:
 | `EventId` | `UUID` |
 | `ClientId`, and its `Option` | `LowCardinality(String)`, and `LowCardinality(Nullable(String))` |
 | `Option<TraceId>` | `Nullable(FixedString(32))` |
+| `Option<Route>` | `LowCardinality(Nullable(String))` |
+| `Instance` | `LowCardinality(String)` |
 
 A vocabulary is a `&'static str`, such as a `str_enum!` value's `as_str()`, so
 no text a user or client typed can become one. A `String`, an email address, an
@@ -74,6 +82,12 @@ purge don't reach ClickHouse, so a signal never names an account.
 `EventRecorded` leaves out the account and the administrator, which the audit
 history keeps. Record only a registered client's `ClientId`, never one a
 request names before auth found the client: that one is text a caller typed.
+
+A `Route` is a route template, such as `/account/passkeys/{id}`: only
+`HttpTelemetry` builds one, from the template the router matched, so it is
+never a path a client sent. An `Instance` is the process's own UUID, which its
+spans and logs carry as `service.instance.id`, so the rows of several replicas
+can be told apart.
 
 `Column` is sealed: only `crates/telemetry/src/analytics/mod.rs` implements
 it. Add a type there only if it has the same guarantee. The guarantee holds as
@@ -108,15 +122,16 @@ its rights, so running replicas never lose them while it does.
 
 ## The writer
 
-`Telemetry::init` starts the writer when `ANALYTICS_URL` is set. Rows wait in a
-queue of 10,000, and a task sends each table's every second, or once 5,000
-wait, as one `INSERT … FORMAT JSONEachRow` over ClickHouse's HTTP interface,
-so ClickHouse gets few, large inserts. `Telemetry::shutdown` sends what is left
+`Telemetry::init` starts the writer when `ANALYTICS_URL` is set. Each table may
+have 5,000 rows waiting, and a task sends each table's every second, or once
+5,000 wait, as one `INSERT … FORMAT JSONEachRow` over ClickHouse's HTTP
+interface, so ClickHouse gets few, large inserts. `Telemetry::shutdown` sends what is left
 before the process exits.
 
-Analytics is best effort, like telemetry. When the queue is full, or
-ClickHouse refuses or doesn't answer an insert, the rows are dropped, never
-retried. The writer then logs `analytics rows dropped` with how many. A
+Analytics is best effort, like telemetry. When a table already has 5,000 rows
+waiting, or ClickHouse refuses or doesn't answer an insert, the rows are
+dropped, never retried. A table's limit is its own, so a flood of requests
+drops `requests` rows, never `events`. The writer then logs `analytics rows dropped` with how many. A
 request never waits for ClickHouse, and an outage costs rows, not memory. A
 failed insert's log keeps only ClickHouse's error code: its message can quote
 the rows.

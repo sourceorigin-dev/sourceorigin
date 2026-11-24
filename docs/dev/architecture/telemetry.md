@@ -26,7 +26,7 @@ telemetry for free and adds the rest in one line.
   the service, listener, method, route template, status, duration and trace. A
   request that matches no route logs `GET unmatched`, and its row has no route:
   its path is whatever the client sent, so it is never recorded. Health probes
-  log at debug level only.
+  log at debug level only, and record no row.
 - **A span per query.** `run!` wraps every query in a trace in a `db.query` span
   with its parameterized SQL (`db.query.text`), never its bind values. Queries
   outside a trace, such as an idle delivery worker's poll every second or a

@@ -2,7 +2,7 @@
 
 use crate::{
     Telemetry,
-    analytics::{Route, Signal},
+    analytics::{Instance, Route, Signal},
 };
 use axum::{
     Router,
@@ -44,6 +44,8 @@ crate::signal! {
     pub struct RequestServed in "requests", kept 30 days, ordered by (service, status) {
         /// The service that answered, such as `auth-service`.
         pub service: &'static str,
+        /// The process that answered.
+        pub instance: Instance,
         /// Its listener, when it has several, such as `admin`.
         pub listener: Option<&'static str>,
         /// The method, or `_OTHER` for one HTTP's conventions don't name.
@@ -93,7 +95,8 @@ impl HttpTelemetry {
             .flatten()
     }
 
-    /// Logs requests to `routes` at debug level only; they are still traced and recorded.
+    /// Logs requests to `routes` at debug level only, and records no row of
+    /// them; they are still traced.
     #[must_use]
     pub const fn quiet(self, routes: &'static [&'static str]) -> Self {
         Self {
@@ -190,8 +193,12 @@ impl HttpTelemetry {
                 access!(info);
             }
         });
+        if quiet {
+            return response;
+        }
         RequestServed {
             service: SERVICE.get().copied().unwrap_or("unknown"),
+            instance: Instance::current(),
             listener: this.listener,
             method,
             route,

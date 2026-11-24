@@ -225,7 +225,8 @@ pub enum DomainEvent {
         /// The granted scopes.
         scopes: Vec<String>,
     },
-    /// A refresh family was revoked. Rotations are not events; they are counted as metrics.
+    /// A refresh family was revoked. Rotations are not events: each is a
+    /// `tokens_issued` analytics row.
     #[serde(rename = "grant_revoked")]
     GrantRevoked {
         /// The client the family was issued to.
