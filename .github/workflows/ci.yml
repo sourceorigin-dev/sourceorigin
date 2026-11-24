@@ -187,7 +187,6 @@ jobs:
       clickhouse:
         image: ${{ github.event_name != 'push' && 'clickhouse/clickhouse-server:26.8.46.6' || '' }}
         env:
-          CLICKHOUSE_DB: sourceorigin
           CLICKHOUSE_USER: sourceorigin
           CLICKHOUSE_PASSWORD: scratch
           CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: '1'

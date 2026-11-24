@@ -75,8 +75,8 @@ async fn disabling_ends_sessions_and_is_recorded() {
         analytics
             .rows("events")
             .iter()
-            .any(|row| { row["kind"] == "account_disabled" && row["administrator"] == json!(id) }),
-        "the disablement's analytics row names its administrator"
+            .any(|row| row["kind"] == "account_disabled" && row.get("administrator").is_none()),
+        "the disablement's analytics row names no administrator"
     );
     assert!(
         harness

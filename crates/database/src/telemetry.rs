@@ -9,15 +9,14 @@ use sourceorigin_common::{
 use sourceorigin_telemetry::{Counter, Gauge, Label, Telemetry, analytics::Signal};
 
 sourceorigin_telemetry::signal! {
-    /// A domain event committed, as the audit history records it, without whom
-    /// it concerns: the history keeps that, under its own retention.
+    /// A domain event committed, as the audit history records it, without which
+    /// account it concerns or which administrator caused it: the history keeps
+    /// both, and its export and purge cover them.
     pub struct EventRecorded in "events", kept 400 days, ordered by (kind) {
         /// What happened, such as `signed_in`.
         pub kind: &'static str,
         /// The kind of actor that caused it, such as `user` or `operator`.
         pub actor: &'static str,
-        /// The administrator who caused it from the admin dashboard, if one did.
-        pub administrator: Option<UserId>,
         /// The event's ID in the audit history.
         pub event: EventId,
         /// The trace of the request or job that recorded it.
@@ -101,7 +100,6 @@ impl Committed {
         EventRecorded {
             kind,
             actor: self.actor.as_str(),
-            administrator: self.administrator,
             event: self.id,
             trace: Telemetry::current_trace_id(),
         }

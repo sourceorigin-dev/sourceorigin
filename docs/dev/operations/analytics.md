@@ -6,8 +6,10 @@ check how much disk it uses.
 
 Every environment and preview runs `clickhouse`, beside `postgres`, from
 `infra/piqueld.toml`. Auth writes its [signals](../architecture/analytics.md) there.
-Nothing else depends on it: when it is down, auth signs people in as usual and
-drops the rows it can't send.
+A deployment starts it before auth, so `migrate` can create its tables, but
+nothing waits on it after that. When it is down, auth signs people in as usual
+and drops the rows it can't send, and `migrate` warns that it could not reach
+it and lets the deployment go on.
 
 ## Sign in to ClickHouse
 
@@ -74,13 +76,12 @@ caps its memory at three quarters of the container's 1 GiB.
 | `sourceorigin` | `analytics-password` | the `migrate` job, and you on its pages | everything, and managing users |
 | `sourceorigin_writer` | `analytics-writer-password` | `auth` | insert rows |
 
-The image creates `sourceorigin` on its volume's first start, with the
-password it mounts then. Regenerating `analytics-password` later doesn't change
-it: change it in ClickHouse first, with
-`ALTER USER sourceorigin IDENTIFIED BY '<new password>'`, then store the same
-value as the secret and deploy. Every deployment's `migrate` resets
-`sourceorigin_writer`'s password to `analytics-writer-password`, so regenerate
-that one like [the database runtime password](secrets.md#the-database-runtime-password).
+The image configures `sourceorigin` from the password it mounts each time
+ClickHouse starts, so regenerating `analytics-password` takes effect on the
+next deployment, which restarts `clickhouse`. `migrate` creates
+`sourceorigin_writer` as a SQL user, and every deployment's `migrate` resets
+its password to `analytics-writer-password`, so regenerate that one like
+[the database runtime password](secrets.md#the-database-runtime-password).
 
 ## Locally
 

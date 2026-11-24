@@ -224,20 +224,25 @@ impl Telemetry {
     /// Returns the first provider that failed to flush, or that the flush took
     /// longer than `within`.
     pub async fn shutdown(self, within: Duration) -> Result<(), TelemetryError> {
-        let deadline = tokio::time::Instant::now() + within;
-        if let Some(analytics) = &self.analytics {
-            tokio::time::timeout_at(deadline, analytics.flush())
-                .await
-                .map_err(|source| TelemetryError::TimedOut(within, source))?;
-        }
+        let Self {
+            tracer,
+            meter,
+            logger,
+            analytics,
+        } = self;
         let (flushed, result) = tokio::sync::oneshot::channel();
         std::thread::spawn(move || {
-            let tracer = self.tracer.shutdown();
-            let meter = self.meter.map_or(Ok(()), |meter| meter.shutdown());
-            let logger = self.logger.map_or(Ok(()), |logger| logger.shutdown());
-            flushed.send(tracer.and(meter).and(logger)).ok();
+            let tracer = tracer.shutdown();
+            let meter = meter.map_or(Ok(()), |meter| meter.shutdown());
+            let logger = logger.map_or(Ok(()), |logger| logger.shutdown());
+            let _ = flushed.send(tracer.and(meter).and(logger));
         });
-        let flushed = tokio::time::timeout_at(deadline, result)
+        let analytics = async {
+            if let Some(analytics) = &analytics {
+                analytics.flush().await;
+            }
+        };
+        let ((), flushed) = tokio::time::timeout(within, async { tokio::join!(analytics, result) })
             .await
             .map_err(|source| TelemetryError::TimedOut(within, source))?;
         Ok(flushed??)

@@ -193,7 +193,11 @@ impl Store {
     #[cfg(any(test, feature = "test-util"))]
     pub async fn select(&self, query: &str) -> Result<String, StoreError> {
         let response = self
-            .send(None, Bytes::from(format!("{query} FORMAT TSV")))
+            .send(
+                &self.database,
+                None,
+                Bytes::from(format!("{query} FORMAT TSV")),
+            )
             .await?;
         let status = response.status();
         let text = response.text().await?;
@@ -219,7 +223,7 @@ impl Store {
     /// Inserts `rows`, one JSON object per line, into `table`.
     pub(crate) async fn insert(&self, table: &'static str, rows: Bytes) -> Result<(), StoreError> {
         let query = format!("INSERT INTO {table} FORMAT JSONEachRow");
-        let response = self.send(Some(&query), rows).await?;
+        let response = self.send(&self.database, Some(&query), rows).await?;
         if response.status().is_success() {
             return Ok(());
         }
@@ -232,9 +236,17 @@ impl Store {
         Err(StoreError::Insert { table, code })
     }
 
-    /// Runs one statement, e.g. a `CREATE TABLE`. `shown` is how errors quote it.
-    async fn execute(&self, statement: &str, shown: &str) -> Result<(), StoreError> {
-        let response = self.send(None, Bytes::from(statement.to_owned())).await?;
+    /// Runs one statement, e.g. a `CREATE TABLE`, in `database`. `shown` is how
+    /// errors quote it.
+    async fn execute(
+        &self,
+        database: &str,
+        statement: &str,
+        shown: &str,
+    ) -> Result<(), StoreError> {
+        let response = self
+            .send(database, None, Bytes::from(statement.to_owned()))
+            .await?;
         if response.status().is_success() {
             return Ok(());
         }
@@ -244,17 +256,18 @@ impl Store {
         })
     }
 
-    /// Sends `body` to this database: the statement itself, or the rows that
+    /// Sends `body` to `database`: the statement itself, or the rows that
     /// `insert`, an `INSERT` statement, reads.
     async fn send(
         &self,
+        database: &str,
         insert: Option<&str>,
         body: Bytes,
     ) -> Result<reqwest::Response, StoreError> {
         let mut url = self.endpoint.clone();
         url.query_pairs_mut()
             .extend_pairs(insert.map(|query| ("query", query)))
-            .append_pair("database", &self.database);
+            .append_pair("database", database);
         Ok(self
             .client
             .post(url)
@@ -265,18 +278,21 @@ impl Store {
             .await?)
     }
 
-    /// Creates every table of `tables` that does not exist, adds the columns
-    /// a table lacks, and sets each one's retention and comments; then, when
-    /// connected as the owner, creates or resets `writer`, allowed only to insert.
-    /// Running it again changes nothing. A column's type never changes: give
-    /// the new type a new column.
+    /// Creates the database and every table of `tables` that does not exist,
+    /// adds the columns a table lacks, and sets each one's retention and
+    /// comments; then, when connected as the owner, creates or resets `writer`,
+    /// allowed only to insert. Running it again changes nothing. A column's type
+    /// and a table's sort order never change: give a new type a new column, and
+    /// a new order a new table.
     ///
     /// # Errors
     /// Returns the first statement ClickHouse refuses.
     pub async fn migrate(&self, tables: &[Table], writer: Option<&Self>) -> Result<(), StoreError> {
+        let create = format!("CREATE DATABASE IF NOT EXISTS {}", self.database);
+        self.execute("system", &create, &create).await?;
         for table in tables {
             for statement in table.statements() {
-                self.execute(&statement, &statement).await?;
+                self.execute(&self.database, &statement, &statement).await?;
             }
         }
         if let Some(writer) = writer {
@@ -293,14 +309,18 @@ impl Store {
                     format!("ALTER USER {user} IDENTIFIED WITH sha256_password BY {password}"),
                     format!("ALTER USER {user}"),
                 ),
-                (format!("REVOKE ALL ON *.* FROM {user}"), String::new()),
+                // Replaces every other right at once, so the writer never lacks
+                // this one while running replicas insert.
                 (
-                    format!("GRANT INSERT ON {}.* TO {user}", self.database),
+                    format!(
+                        "GRANT INSERT ON {}.* TO {user} WITH REPLACE OPTION",
+                        self.database
+                    ),
                     String::new(),
                 ),
             ] {
                 let shown = if shown.is_empty() { &statement } else { &shown };
-                self.execute(&statement, shown).await?;
+                self.execute(&self.database, &statement, shown).await?;
             }
         }
         Ok(())

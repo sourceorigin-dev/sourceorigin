@@ -203,15 +203,15 @@ generate = { type = "random", bytes = 32, encoding = "base64url" }
 name = "audit-key"
 generate = { type = "random", bytes = 32, encoding = "hex" }
 
-# ClickHouse's `sourceorigin` user, which creates the analytics tables and the
-# writer, and signs in to its pages. `clickhouse` sets it on its first start only:
-# see docs/dev/operations/analytics.md before regenerating it.
+# The password of ClickHouse's `sourceorigin` user, which creates the analytics
+# database, its tables and the writer, and signs in to its pages. `clickhouse`
+# sets it on every start, so regenerating it takes effect on the next deployment.
 [[spec.secrets]]
 name = "analytics-password"
 generate = { type = "random", bytes = 32, encoding = "hex" }
 
-# The password of `sourceorigin_writer`, the ClickHouse user auth and sourceorigin.dev
-# insert rows as. `migrate` sets it on every deploy.
+# The password of `sourceorigin_writer`, the ClickHouse user auth inserts rows
+# as. `migrate` sets it on every deploy.
 [[spec.secrets]]
 name = "analytics-writer-password"
 generate = { type = "random", bytes = 32, encoding = "hex" }
@@ -409,9 +409,11 @@ command = ["pg_isready", "-h", "127.0.0.1", "-U", "sourceorigin", "-d", "sourceo
 name = "database"
 
 # The analytics database: every signal auth records, kept per table for its
-# declared retention (docs/dev/architecture/analytics.md). Its users are SQL
-# users: the image creates `sourceorigin` on the first start, allowed to manage
-# others, and `migrate` creates the writer.
+# declared retention (docs/dev/architecture/analytics.md). The image configures
+# `sourceorigin` from `analytics-password` on every start, allowed to manage
+# users; `migrate` creates the `sourceorigin` database, its tables, and the
+# writer as a SQL user. Auth works without it, but starts after it, so `migrate`
+# finds it running.
 [[spec.services]]
 name = "clickhouse"
 
@@ -424,7 +426,6 @@ target = "/etc/clickhouse-server/config.d/sourceorigin.xml"
 path = "infra/clickhouse/config.xml"
 
 [spec.services.environment]
-CLICKHOUSE_DB = "sourceorigin"
 CLICKHOUSE_USER = "sourceorigin"
 CLICKHOUSE_PASSWORD_FILE = "/run/secrets/analytics-password"
 CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT = "1"

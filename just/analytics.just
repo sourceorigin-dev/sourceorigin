@@ -11,7 +11,8 @@ test *ARGS:
     cargo nextest run --locked -p sourceorigin-telemetry --run-ignored only "$@"
 
 # TEST_ANALYTICS_URL and TEST_ANALYTICS_PASSWORD name its owner, `sourceorigin`,
-# on a free loopback port. The container has a name of its own, so worktrees
+# on a free loopback port, and the `sourceorigin` database, which a test's
+# `migrate` creates. The container has a name of its own, so worktrees
 # never share one. Needs Docker.
 # Run a command against a throwaway ClickHouse, e.g. `just analytics scratch -- just coverage`.
 [doc("Run a command against a throwaway ClickHouse, e.g. `just analytics scratch -- just coverage`.")]
@@ -24,7 +25,7 @@ scratch *ARGS:
     name="sourceorigin-analytics-$$-$RANDOM"
     trap 'docker rm --force "$name" >/dev/null 2>&1 || true' EXIT
     docker run --detach --name "$name" --publish 127.0.0.1::8123 \
-        --env CLICKHOUSE_DB=sourceorigin --env CLICKHOUSE_USER=sourceorigin \
+        --env CLICKHOUSE_USER=sourceorigin \
         --env CLICKHOUSE_PASSWORD=scratch --env CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1 \
         --volume "$PWD/infra/clickhouse/config.xml:/etc/clickhouse-server/config.d/sourceorigin.xml:ro" \
         "$image" >/dev/null
@@ -33,5 +34,10 @@ scratch *ARGS:
         curl --silent --fail "http://127.0.0.1:$port/ping" >/dev/null && break
         sleep 0.2
     done
+    curl --silent --fail "http://127.0.0.1:$port/ping" >/dev/null || {
+        echo "ClickHouse did not start; its log:" >&2
+        docker logs "$name" >&2
+        exit 1
+    }
     export TEST_ANALYTICS_URL="http://sourceorigin@127.0.0.1:$port/sourceorigin" TEST_ANALYTICS_PASSWORD=scratch
     "$@"

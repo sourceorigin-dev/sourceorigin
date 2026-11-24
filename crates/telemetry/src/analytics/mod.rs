@@ -70,18 +70,28 @@ pub struct ColumnDeclaration {
 /// A Rust type a signal's field may have, and the ClickHouse type that stores
 /// it. Only types that hold no free text and no directly identifying data
 /// implement it: a closed vocabulary is a `&'static str`, so no string a user
-/// or a client typed can become one.
-pub trait Column {
+/// or a client typed can become one. It is sealed: only this module implements
+/// it.
+pub trait Column: sealed::Sealed {
     /// The ClickHouse type, e.g. `LowCardinality(String)`.
     const TYPE: &'static str;
+}
+
+/// Keeps [`Column`] to the types this module names.
+mod sealed {
+    /// Implemented by every [`Column`](super::Column), here only.
+    pub trait Sealed {}
 }
 
 /// Implements [`Column`] for each `type => "ClickHouse type"` pair.
 macro_rules! columns {
     ($($ty:ty => $sql:literal,)+) => {
-        $(impl Column for $ty {
-            const TYPE: &'static str = $sql;
-        })+
+        $(
+            impl sealed::Sealed for $ty {}
+            impl Column for $ty {
+                const TYPE: &'static str = $sql;
+            }
+        )+
     };
 }
 
@@ -97,8 +107,8 @@ columns! {
     Option<&'static str> => "LowCardinality(Nullable(String))",
     UserId => "UUID",
     Option<UserId> => "Nullable(UUID)",
-    ClientId => "UUID",
-    Option<ClientId> => "Nullable(UUID)",
+    ClientId => "LowCardinality(String)",
+    Option<ClientId> => "LowCardinality(Nullable(String))",
     EventId => "UUID",
     Option<TraceId> => "Nullable(FixedString(32))",
 }

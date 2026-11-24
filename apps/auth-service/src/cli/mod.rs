@@ -97,7 +97,8 @@ enum Command {
     Serve,
     /// Apply database migrations, and create or extend the analytics tables.
     /// Connected as the schema owner, also create or reset the role other
-    /// commands connect as, and the analytics writer likewise.
+    /// commands connect as, and the analytics writer likewise. An analytics
+    /// migration that fails is only reported: analytics never blocks a deploy.
     Migrate,
     /// Inspect, rotate, revoke and rewrap signing keys, check token digest keys, and
     /// print the audit key's verifier key. Every replica picks up a signing
@@ -185,8 +186,13 @@ impl Command {
                 if let Some(role) = runtime_role {
                     database.provision(&role).await?;
                 }
-                if let Some((store, writer)) = analytics {
-                    store.migrate(ANALYTICS_TABLES, writer.as_ref()).await?;
+                if let Some((store, writer)) = analytics
+                    && let Err(error) = store.migrate(ANALYTICS_TABLES, writer.as_ref()).await
+                {
+                    out.warning(format_args!(
+                        "analytics tables not migrated: {}",
+                        ErrorChain(&error)
+                    ))?;
                 }
                 Ok(())
             }
@@ -319,8 +325,7 @@ impl Administration {
     }
 }
 
-/// Every signal's table, which `migrate` creates: those auth records, and
-/// sourceorigin.dev's web server, which shares its ClickHouse.
+/// Every signal's table, which `migrate` creates.
 const ANALYTICS_TABLES: &[Table] = &[EventRecorded::TABLE];
 
 /// How long telemetry may take to flush once a command ends. With `serve`'s
