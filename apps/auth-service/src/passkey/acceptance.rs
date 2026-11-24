@@ -7,12 +7,55 @@ use crate::security::{Credential, RequestContext};
 use serde_json::Value;
 use sourceorigin_common::{AccountStatus, AuthenticationMethod, PasskeyId, UserId, events::Actor};
 use sourceorigin_repository::{DatabaseError, DatabaseTransaction};
+use sourceorigin_telemetry::analytics::Product;
 use webauthn_rs::prelude::*;
 
 /// Signature counter location in webauthn-rs's serialized passkey representation.
 pub(super) const CREDENTIAL_COUNTER_POINTER: &str = "/cred/counter";
 /// Stable telemetry event name for a signature counter regression, a sign of a copied passkey.
 const COUNTER_REGRESSION_EVENT: &str = "auth.passkey_counter_regression";
+/// Transports location in webauthn-rs's serialized passkey representation.
+const CREDENTIAL_TRANSPORTS_POINTER: &str = "/cred/transports";
+
+sourceorigin_telemetry::signal! {
+    /// A passkey someone signed in or confirmed with, once that committed: which
+    /// kinds of passkeys people use, never whose.
+    pub(crate) product struct PasskeyUsed in "passkeys_used", kept 390 days, ordered by (synced) {
+        /// Whether it is backed up or synced between devices, as a password
+        /// manager's or a phone platform's passkeys are.
+        pub(crate) synced: bool,
+        /// Whether it may be synced, though it may not be now: a security key's
+        /// never is.
+        pub(crate) syncable: bool,
+        /// How the browser reaches it, as it said when the passkey was added:
+        /// `internal` (built in), `hybrid` (a phone), `usb`, `nfc`, `ble`, or
+        /// `unknown`.
+        pub(crate) transport: &'static str,
+    }
+}
+
+impl PasskeyUsed {
+    /// The row of `result`, an assertion of `credential`, as stored.
+    fn of(result: &AuthenticationResult, credential: &Value) -> Self {
+        let transport = credential
+            .pointer(CREDENTIAL_TRANSPORTS_POINTER)
+            .and_then(Value::as_array)
+            .and_then(|transports| transports.first())
+            .and_then(Value::as_str);
+        Self {
+            synced: result.backup_state(),
+            syncable: result.backup_eligible(),
+            transport: match transport {
+                Some("internal") => "internal",
+                Some("hybrid") => "hybrid",
+                Some("usb") => "usb",
+                Some("nfc") => "nfc",
+                Some("ble") => "ble",
+                _ => "unknown",
+            },
+        }
+    }
+}
 
 impl PasskeyApplication {
     /// Locks the account, whatever its status, then checks the latest stored
@@ -23,7 +66,7 @@ impl PasskeyApplication {
         tx: &mut DatabaseTransaction<'_>,
         user_id: UserId,
         result: &AuthenticationResult,
-    ) -> Result<A, PasskeyError> {
+    ) -> Result<(A, PasskeyUsed), PasskeyError> {
         if !result.user_verified() {
             return Err(PasskeyError::UserVerificationRequired);
         }
@@ -47,6 +90,7 @@ impl PasskeyApplication {
         if (counter > 0 || result.counter() > 0) && u64::from(result.counter()) <= counter {
             return Err(PasskeyError::CounterRegression);
         }
+        let used = PasskeyUsed::of(result, &stored.credential);
         let mut credential: Passkey =
             serde_json::from_value(stored.credential).map_err(PasskeyError::StoredCredential)?;
         credential
@@ -63,7 +107,7 @@ impl PasskeyApplication {
             return Err(PasskeyError::CredentialRevoked);
         }
         let credential = Self::credential(tx, stored.id).await?;
-        A::accept(status, stored.id, credential)
+        Ok((A::accept(status, stored.id, credential)?, used))
     }
 
     /// What an assertion of `passkey` signs in as: a recovery's passkey during its
@@ -97,7 +141,12 @@ impl PasskeyApplication {
             Ok(result) => {
                 let mut tx = self.database.begin().await?;
                 match Self::update_credential(&mut tx, user_id, &result).await {
-                    Ok(accepted) => return Ok((tx, accepted)),
+                    Ok((accepted, used)) => {
+                        if let Some(consent) = context.consent(&mut tx, user_id).await? {
+                            tx.after_commit(move || used.record(consent));
+                        }
+                        return Ok((tx, accepted));
+                    }
                     Err(error) => (error, Some(tx)),
                 }
             }

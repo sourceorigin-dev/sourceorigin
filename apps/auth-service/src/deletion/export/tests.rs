@@ -49,6 +49,7 @@ fn serializes_every_section_in_its_documented_shape() {
             status: AccountStatus::Active,
             created_at: at,
             updated_at: at,
+            usage_statistics: true,
         },
         picture: Some(Picture::new(
             StoredPicture {
@@ -202,7 +203,7 @@ fn serializes_every_section_in_its_documented_shape() {
         serde_json::to_value(&records).expect("export"),
         json!({
             "format": "sourceorigin.account-export",
-            "version": 6,
+            "version": 7,
             "exported_at": time,
             "profile": {
                 "id": user,
@@ -212,6 +213,7 @@ fn serializes_every_section_in_its_documented_shape() {
                 "status": "active",
                 "created_at": time,
                 "updated_at": time,
+                "usage_statistics": true,
             },
             "picture": {
                 "id": picture,

@@ -16,7 +16,7 @@ impl DomainEvent {
     /// left out, since the history shows only a refresh replay's, and every
     /// session's revocation is counted, its expiry included, though the history
     /// hides that one.
-    pub const HISTORY_KINDS: [&'static str; 34] = [
+    pub const HISTORY_KINDS: [&'static str; 35] = [
         "account_created",
         "signed_in",
         "session_revoked",
@@ -48,6 +48,7 @@ impl DomainEvent {
         "account_exported",
         "signed_out_everywhere",
         "notification_preference_changed",
+        "usage_statistics_changed",
         "account_deletion_scheduled",
         "account_restored",
         "compromise_reported",
@@ -164,6 +165,9 @@ impl DomainEvent {
             Self::NotificationPreferenceChanged(preference) => {
                 HistoryEntry::NotificationPreferenceChanged(*preference)
             }
+            Self::UsageStatisticsChanged { included } => HistoryEntry::UsageStatisticsChanged {
+                included: *included,
+            },
             Self::AccountDeletionScheduled { purge_after } => HistoryEntry::DeletionScheduled {
                 purge_after: *purge_after,
             },
@@ -370,6 +374,12 @@ pub enum HistoryEntry {
     /// The user turned a category of notifications' email on or off.
     #[serde(rename = "notifications.preference_changed")]
     NotificationPreferenceChanged(NotificationPreference),
+    /// The user included their account in usage statistics, or left them.
+    #[serde(rename = "account.usage_statistics_changed")]
+    UsageStatisticsChanged {
+        /// Whether it takes part from now on.
+        included: bool,
+    },
     /// The account was scheduled for deletion.
     #[serde(rename = "account.deletion_scheduled")]
     DeletionScheduled {
@@ -429,6 +439,7 @@ impl HistoryEntry {
             | Self::AccountExported
             | Self::SignedOutEverywhere
             | Self::NotificationPreferenceChanged(_)
+            | Self::UsageStatisticsChanged { .. }
             | Self::DeletionScheduled { .. }
             | Self::AccountRestored => true,
         }
@@ -481,6 +492,7 @@ impl HistoryEntry {
             | Self::AccountExported
             | Self::SignedOutEverywhere
             | Self::NotificationPreferenceChanged(_)
+            | Self::UsageStatisticsChanged { .. }
             | Self::DeletionScheduled { .. }
             | Self::AccountRestored => None,
         }

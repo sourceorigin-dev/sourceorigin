@@ -50,6 +50,10 @@ impl AccountPage for AccountData {
     ) -> Result<Applied<DataState>, AccountError> {
         Ok(match change {
             DataChange::Export => Applied::Download(Box::new(web.account.export(&owner).await?)),
+            DataChange::Statistics { included } => {
+                web.account.set_usage_statistics(&owner, included.0).await?;
+                Applied::Opened(DataState::default())
+            }
             DataChange::Delete { handle } => {
                 Applied::Deleted(web.account.delete_account(&owner, handle.trim()).await?)
             }
@@ -63,11 +67,14 @@ impl AccountPage for AccountData {
         state: DataState,
         outcome: (StatusCode, Messages<'_>),
     ) -> Result<Response, Failure> {
-        let profile = web.account.profile(&reader.viewer()).await?;
+        let viewer = reader.viewer();
+        let profile = web.account.profile(&viewer).await?;
+        let statistics = web.account.usage_statistics(&viewer).await?;
         let page = Child::new(view! { cx =>
             sourceorigin_ui::account_data(
                 page: settings::DATA,
                 handle: profile.handle.as_str(),
+                statistics: statistics,
                 grace_days: GRACE_PERIOD_DAYS,
                 state: state,
                 confirmed: reader.is_recent(),

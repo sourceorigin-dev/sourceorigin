@@ -24,8 +24,8 @@ downloaded".
 
 ## What the file holds
 
-- your profile: account ID, handle, display name, and when the account was
-  created,
+- your profile: account ID, handle, display name, when the account was
+  created, and whether it takes part in [usage statistics](usage-statistics.md),
 - your profile picture,
 - every handle the account holds or held, with their dates,
 - your email addresses, confirmed or not,

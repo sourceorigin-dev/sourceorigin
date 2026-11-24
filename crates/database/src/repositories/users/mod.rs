@@ -452,6 +452,59 @@ impl UserRepository<'_> {
             .replace('_', "\\_")
     }
 }
+impl UserRepository<'_> {
+    /// Whether the account `id` takes part in usage statistics: unless its owner
+    /// left them (`analytics_opt_outs`).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DatabaseError`] if the query fails.
+    pub async fn analytics_included(&mut self, id: UserId) -> Result<bool, DatabaseError> {
+        let left = run!(
+            self,
+            fetch_one,
+            sqlx::query_scalar!(
+                r#"SELECT EXISTS (SELECT FROM analytics_opt_outs WHERE user_id = $1) AS "left!""#,
+                id.as_uuid(),
+            )
+        )?;
+        Ok(!left)
+    }
+
+    /// Includes the account `id` in usage statistics, or leaves it out. Returns
+    /// whether that changed anything.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DatabaseError`] if the query fails.
+    pub async fn set_analytics_included(
+        &mut self,
+        id: UserId,
+        included: bool,
+    ) -> Result<bool, DatabaseError> {
+        let changed = if included {
+            run!(
+                self,
+                execute,
+                sqlx::query!(
+                    "DELETE FROM analytics_opt_outs WHERE user_id = $1",
+                    id.as_uuid(),
+                )
+            )?
+        } else {
+            run!(
+                self,
+                execute,
+                sqlx::query!(
+                    "INSERT INTO analytics_opt_outs (user_id) VALUES ($1) ON CONFLICT DO NOTHING",
+                    id.as_uuid(),
+                )
+            )?
+        };
+        Ok(changed.rows_affected() > 0)
+    }
+}
+
 /// Focused tests for this module and its security contracts.
 #[cfg(test)]
 mod tests;

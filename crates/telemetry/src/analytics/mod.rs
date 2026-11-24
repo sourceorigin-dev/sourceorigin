@@ -29,8 +29,8 @@ use sourceorigin_common::{ClientId, EventId, TraceId};
 use std::sync::{Arc, OnceLock};
 use uuid::Uuid;
 
-/// One kind of row, and the table that stores it. Declare one with
-/// [`signal!`](crate::signal), which implements this trait.
+/// One kind of row, about how SourceOrigin runs, and the table that stores it.
+/// Declare one with [`signal!`](crate::signal), which implements this trait.
 pub trait Signal: Serialize {
     /// The table, as `migrate` creates it.
     const TABLE: Table;
@@ -39,6 +39,40 @@ pub trait Signal: Serialize {
     /// waits: a full queue drops the row, and counts it.
     fn record(&self) {
         writer::record(Self::TABLE.name, self);
+    }
+}
+
+/// One kind of row about how people use SourceOrigin, which a person may keep
+/// out of: recording one takes their [`Consent`]. Declare one with
+/// `signal!`'s `product struct`.
+pub trait Product: Serialize {
+    /// The table, as `migrate` creates it.
+    const TABLE: Table;
+
+    /// Queues this row, as [`Signal::record`] does, with `consent` to show the
+    /// person it is about takes part in usage statistics.
+    fn record(&self, consent: Consent) {
+        let Consent(()) = consent;
+        writer::record(Self::TABLE.name, self);
+    }
+}
+
+/// That the person a [`Product`] row is about takes part in usage statistics:
+/// their account did not leave them, and their browser asks no
+/// [Global Privacy Control](https://globalprivacycontrol.org).
+#[derive(Clone, Copy, Debug)]
+pub struct Consent(());
+
+impl Consent {
+    /// The `Sec-GPC` header, `1` when the browser asks not to be tracked.
+    pub const GPC_HEADER: &str = "sec-gpc";
+
+    /// Consent, unless the account left usage statistics (`included` is false)
+    /// or the request carried `Sec-GPC: 1` (`gpc`). For a person who isn't
+    /// signed in, `included` is true.
+    #[must_use]
+    pub fn given(included: bool, gpc: bool) -> Option<Self> {
+        (included && !gpc).then_some(Self(()))
     }
 }
 
@@ -234,7 +268,18 @@ impl Serialize for Route {
 macro_rules! signal {
     (
         $(#[doc = $doc:literal])+
-        $vis:vis struct $name:ident in $table:literal,
+        $vis:vis product struct $($rest:tt)*
+    ) => {
+        $crate::signal!(@declare $crate::analytics::Product, [$($doc)+] $vis $($rest)*);
+    };
+    (
+        $(#[doc = $doc:literal])+
+        $vis:vis struct $($rest:tt)*
+    ) => {
+        $crate::signal!(@declare $crate::analytics::Signal, [$($doc)+] $vis $($rest)*);
+    };
+    (
+        @declare $trait:path, [$($doc:literal)+] $vis:vis $name:ident in $table:literal,
             kept $days:literal days, ordered by ($($key:ident),* $(,)?) {
             $($(#[doc = $field_doc:literal])+ $field_vis:vis $field:ident: $ty:ty,)+
         }
@@ -246,7 +291,7 @@ macro_rules! signal {
             $($(#[doc = $field_doc])+ $field_vis $field: $ty,)+
         }
 
-        impl $crate::analytics::Signal for $name {
+        impl $trait for $name {
             const TABLE: $crate::analytics::Table = $crate::analytics::Table {
                 name: $table,
                 description: &[$($doc),+],

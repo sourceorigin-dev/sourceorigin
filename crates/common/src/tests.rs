@@ -354,6 +354,7 @@ fn one_event_per_kind() -> Vec<events::DomainEvent> {
             category: notifications::EmailCategory::Announcements,
             email: false,
         }),
+        DomainEvent::UsageStatisticsChanged { included: false },
     ]
 }
 

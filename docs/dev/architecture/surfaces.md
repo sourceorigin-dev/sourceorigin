@@ -276,7 +276,7 @@ link, likewise, and confirming with a passkey by the session it confirms.
 | Connected apps | list, remove an app's access | |
 | Security history | read | report an entry |
 | Notifications | list, read, view email preferences | mark read or unread, change email preferences |
-| Account data | | download |
+| Account data | | download, leave or rejoin usage statistics |
 | OIDC clients (the developer console) | | all; administrators use `AdminService`'s |
 
 Downloading the account's data stays the owner's although administrators may

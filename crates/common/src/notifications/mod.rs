@@ -229,6 +229,7 @@ impl DomainEvent {
             },
             Self::HandleChanged { .. }
             | Self::NotificationPreferenceChanged(_)
+            | Self::UsageStatisticsChanged { .. }
             | Self::DisplayNameChanged { .. }
             | Self::PasskeyRenamed { .. }
             | Self::PictureRemoved {}
