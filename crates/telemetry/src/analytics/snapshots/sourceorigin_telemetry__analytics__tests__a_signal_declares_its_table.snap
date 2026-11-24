@@ -1,0 +1,80 @@
+---
+source: crates/telemetry/src/analytics/tests.rs
+expression: "Throttled::TABLE.statements().join(\";\\n\\n\")"
+---
+CREATE TABLE IF NOT EXISTS throttled (
+    time DateTime64(3, 'UTC') CODEC(DoubleDelta, ZSTD),
+    category LowCardinality(String) COMMENT 'Its rate category.',
+    refused UInt64 COMMENT 'How many requests it refused.',
+    first Bool COMMENT 'Whether it was the first.',
+    tiny UInt8 COMMENT 'A byte.',
+    short UInt16 COMMENT 'A short.',
+    word UInt32 COMMENT 'A word.',
+    signed Int64 COMMENT 'A signed number.',
+    fraction Float64 COMMENT 'A fraction.',
+    maybe LowCardinality(Nullable(String)) COMMENT 'A vocabulary value, if any.',
+    client LowCardinality(String) COMMENT 'A client.',
+    maybe_client LowCardinality(Nullable(String)) COMMENT 'A client, if any.',
+    event UUID COMMENT 'An event.',
+    trace Nullable(FixedString(32)) COMMENT 'A trace, if any.'
+) ENGINE = MergeTree
+PARTITION BY toYYYYMM(time)
+ORDER BY (category, time)
+TTL toDateTime(time) + INTERVAL 30 DAY
+COMMENT 'A request refused by a rate limit, with a column of every type.';
+
+ALTER TABLE throttled ADD COLUMN IF NOT EXISTS category LowCardinality(String) COMMENT 'Its rate category.';
+
+ALTER TABLE throttled COMMENT COLUMN category 'Its rate category.';
+
+ALTER TABLE throttled ADD COLUMN IF NOT EXISTS refused UInt64 COMMENT 'How many requests it refused.';
+
+ALTER TABLE throttled COMMENT COLUMN refused 'How many requests it refused.';
+
+ALTER TABLE throttled ADD COLUMN IF NOT EXISTS first Bool COMMENT 'Whether it was the first.';
+
+ALTER TABLE throttled COMMENT COLUMN first 'Whether it was the first.';
+
+ALTER TABLE throttled ADD COLUMN IF NOT EXISTS tiny UInt8 COMMENT 'A byte.';
+
+ALTER TABLE throttled COMMENT COLUMN tiny 'A byte.';
+
+ALTER TABLE throttled ADD COLUMN IF NOT EXISTS short UInt16 COMMENT 'A short.';
+
+ALTER TABLE throttled COMMENT COLUMN short 'A short.';
+
+ALTER TABLE throttled ADD COLUMN IF NOT EXISTS word UInt32 COMMENT 'A word.';
+
+ALTER TABLE throttled COMMENT COLUMN word 'A word.';
+
+ALTER TABLE throttled ADD COLUMN IF NOT EXISTS signed Int64 COMMENT 'A signed number.';
+
+ALTER TABLE throttled COMMENT COLUMN signed 'A signed number.';
+
+ALTER TABLE throttled ADD COLUMN IF NOT EXISTS fraction Float64 COMMENT 'A fraction.';
+
+ALTER TABLE throttled COMMENT COLUMN fraction 'A fraction.';
+
+ALTER TABLE throttled ADD COLUMN IF NOT EXISTS maybe LowCardinality(Nullable(String)) COMMENT 'A vocabulary value, if any.';
+
+ALTER TABLE throttled COMMENT COLUMN maybe 'A vocabulary value, if any.';
+
+ALTER TABLE throttled ADD COLUMN IF NOT EXISTS client LowCardinality(String) COMMENT 'A client.';
+
+ALTER TABLE throttled COMMENT COLUMN client 'A client.';
+
+ALTER TABLE throttled ADD COLUMN IF NOT EXISTS maybe_client LowCardinality(Nullable(String)) COMMENT 'A client, if any.';
+
+ALTER TABLE throttled COMMENT COLUMN maybe_client 'A client, if any.';
+
+ALTER TABLE throttled ADD COLUMN IF NOT EXISTS event UUID COMMENT 'An event.';
+
+ALTER TABLE throttled COMMENT COLUMN event 'An event.';
+
+ALTER TABLE throttled ADD COLUMN IF NOT EXISTS trace Nullable(FixedString(32)) COMMENT 'A trace, if any.';
+
+ALTER TABLE throttled COMMENT COLUMN trace 'A trace, if any.';
+
+ALTER TABLE throttled MODIFY COMMENT 'A request refused by a rate limit, with a column of every type.';
+
+ALTER TABLE throttled MODIFY TTL toDateTime(time) + INTERVAL 30 DAY SETTINGS materialize_ttl_after_modify = 0

@@ -67,10 +67,11 @@ just db test
 Tests that need PostgreSQL are marked `#[ignore]`, with a reason that names
 `TEST_DATABASE_URL`, so `just test` skips them.
 `just db test` starts a throwaway PostgreSQL 18 cluster that listens only on a
-Unix socket, runs every test of `auth-service` and `sourceorigin-repository` in it,
-ignored ones included, and deletes it. It then runs `just db prepare-check`,
-which fails if the committed query cache doesn't match the migrated schema
-exactly.
+Unix socket, and a throwaway ClickHouse in Docker for auth's [analytics
+tests](#analytics-tests), runs every test of `auth-service` and
+`sourceorigin-repository` in them, ignored ones included, and deletes them. It
+then runs `just db prepare-check`, which fails if the committed query cache
+doesn't match the migrated schema exactly.
 
 To use a database of your own instead, set `TEST_DATABASE_URL` to it. The tests
 create accounts in it and leave it migrated, and create more databases on its
@@ -117,6 +118,22 @@ never for what it asserts. Its pools wait up to a minute for a connection
 their events to be sealed, which every older transaction on the server holds
 back. nextest ends a test that runs five minutes as hung, as
 `.config/nextest.toml` sets.
+
+### Analytics tests
+
+```console
+just analytics test
+```
+
+Tests that need ClickHouse are marked `#[ignore]`, with a reason that names
+`TEST_ANALYTICS_URL`, and have `analytics` in their names. `just analytics test`
+starts a throwaway ClickHouse in Docker, the image `infra/piqueld.toml` runs, on
+a free loopback port, runs them, and deletes it. To run any command against
+one, use `just analytics scratch -- <command>`. `just db test` and
+`just coverage` run them too, in a scratch ClickHouse of their own unless
+`TEST_ANALYTICS_URL` names one, so they need Docker. A test
+that only checks which rows a change records captures them instead, with
+`AnalyticsCapture` (see [analytics](architecture/analytics.md#testing)).
 
 ### SDK test vectors
 
@@ -223,10 +240,11 @@ expressions included.
 | Rust unit tests, or one package's | `just test` / `just test -p auth-service` |
 | Rust docs with warnings denied, and the doc tests | `just doc` / `just doc-test` |
 | TypeScript SDK tests with coverage, and the runtime smoke test | `just web test` / `just web smoke` |
-| Database tests and the query cache check, in a scratch cluster | `just db test` |
+| Database tests and the query cache check, in a scratch cluster and a scratch ClickHouse (needs Docker) | `just db test` |
+| Tests that need ClickHouse, in a scratch one (needs Docker) | `just analytics test` |
 | Query cache check alone, against a migrated `TEST_DATABASE_URL` | `just db prepare-check` |
 | Coverage per crate of every Rust test, database tests included, into `target/lcov.info` | `just coverage` |
-| Any command against a scratch cluster | `just db scratch -- psql` |
+| Any command against a scratch cluster, or a scratch ClickHouse | `just db scratch -- psql` / `just analytics scratch -- env` |
 | Browser tests, against a running deployment | `just web test-browser` |
 | Register the browser tests' clients with auth on `localhost` | `just web browser-client` |
 | Dependency audits: cargo-deny's advisories, licenses, `*` requirements, banned crates and sources other than crates.io, and pnpm's | `just audit` (`just rust audit` / `just web audit`) |

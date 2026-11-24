@@ -123,10 +123,16 @@ fn configuration_reference_is_current() {
         )
         .into(),
         text: Section::render(
-            &[Section {
-                title: "Service",
-                variables: VARIABLES,
-            }],
+            &[
+                Section {
+                    title: "Service",
+                    variables: VARIABLES,
+                },
+                Section {
+                    title: "Analytics",
+                    variables: sourceorigin_telemetry::analytics::VARIABLES,
+                },
+            ],
             3,
             "the variables in `apps/web/src/main.rs`",
         )

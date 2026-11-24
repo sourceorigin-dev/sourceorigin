@@ -1,0 +1,107 @@
+//! How signals declare their tables, and what `migrate` runs for them.
+
+use super::Signal;
+use sourceorigin_common::{ClientId, EventId, TraceId};
+
+crate::signal! {
+    /// A request refused by a rate limit, with a column of every type.
+    struct Throttled in "throttled", kept 30 days, ordered by (category) {
+        /// Its rate category.
+        category: &'static str,
+        /// How many requests it refused.
+        refused: u64,
+        /// Whether it was the first.
+        first: bool,
+        /// A byte.
+        tiny: u8,
+        /// A short.
+        short: u16,
+        /// A word.
+        word: u32,
+        /// A signed number.
+        signed: i64,
+        /// A fraction.
+        fraction: f64,
+        /// A vocabulary value, if any.
+        maybe: Option<&'static str>,
+        /// A client.
+        client: ClientId,
+        /// A client, if any.
+        maybe_client: Option<ClientId>,
+        /// An event.
+        event: EventId,
+        /// A trace, if any.
+        trace: Option<TraceId>,
+    }
+}
+
+impl Throttled {
+    /// A row with every column set.
+    fn new(category: &'static str, refused: u64) -> Self {
+        Self {
+            category,
+            refused,
+            first: true,
+            tiny: 1,
+            short: 2,
+            word: 3,
+            signed: -4,
+            fraction: 0.5,
+            maybe: Some("value"),
+            client: ClientId::generated(&[1; 32]),
+            maybe_client: Some(ClientId::generated(&[2; 32])),
+            event: EventId::new(),
+            trace: TraceId::from_bytes([7; 16]),
+        }
+    }
+}
+
+/// A table's statements create it with every column, sorted by its keys then its
+/// time, and then bring an existing table to the declaration.
+#[test]
+fn a_signal_declares_its_table() {
+    insta::assert_snapshot!(Throttled::TABLE.statements().join(";\n\n"));
+}
+
+/// A capture sees a recorded row's columns, without its time.
+#[test]
+fn a_capture_sees_recorded_rows() {
+    let capture = super::AnalyticsCapture::start();
+    let row = Throttled::new("login", 2);
+    row.record();
+    let rows = capture.rows("throttled");
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0]["category"], "login");
+    assert_eq!(rows[0]["client"], row.client.as_str());
+    assert_eq!(rows[0]["trace"], "07".repeat(16));
+}
+
+/// `migrate` creates a signal's table, again without error, and a writer that
+/// may insert rows but read none; a recorded row reaches the table once flushed.
+#[tokio::test]
+#[ignore = "needs TEST_ANALYTICS_URL, a scratch ClickHouse: run `just analytics test`"]
+async fn migrate_provisions_a_writer_that_only_inserts() {
+    let owner = super::Store::test();
+    let writer = owner.as_user("test_writer", "writer-password");
+    for _ in 0..2 {
+        owner
+            .migrate(&[Throttled::TABLE], Some(&writer))
+            .await
+            .expect("migrated");
+    }
+    let started = super::Writer::start(writer.clone()).expect("the first writer");
+    Throttled::new("login", 3).record();
+    started.flush().await;
+    let stored = owner
+        .select("SELECT category, refused FROM throttled")
+        .await
+        .expect("selected");
+    assert_eq!(stored, "login\t3");
+    assert!(
+        writer
+            .select("SELECT count() FROM throttled")
+            .await
+            .is_err(),
+        "the writer may not read"
+    );
+}

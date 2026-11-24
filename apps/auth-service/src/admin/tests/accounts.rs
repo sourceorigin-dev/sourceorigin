@@ -41,6 +41,7 @@ async fn views_are_listed_only_when_asked_for() {
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn disabling_ends_sessions_and_is_recorded() {
     let capture = sourceorigin_telemetry::Telemetry::capture(crate::TELEMETRY_FILTER);
+    let analytics = sourceorigin_telemetry::analytics::AnalyticsCapture::start();
     let harness = Harness::new().await;
     let service = harness.service();
     let admin = harness.admin().await;
@@ -69,6 +70,13 @@ async fn disabling_ends_sessions_and_is_recorded() {
             has("event.kind", "account_disabled") && has("event.administrator", &id)
         }),
         "the disablement's log line names its administrator"
+    );
+    assert!(
+        analytics
+            .rows("events")
+            .iter()
+            .any(|row| row["kind"] == "account_disabled" && row.get("administrator").is_none()),
+        "the disablement's analytics row names no administrator"
     );
     assert!(
         harness

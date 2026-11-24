@@ -59,8 +59,11 @@ use invite::InviteCommand;
 use keys::KeysCommand;
 use output::Output;
 use sourceorigin_common::ErrorChain;
-use sourceorigin_repository::Database;
-use sourceorigin_telemetry::{Export, Telemetry};
+use sourceorigin_repository::{Database, EventRecorded};
+use sourceorigin_telemetry::{
+    Export, Telemetry,
+    analytics::{Signal, Store, Table},
+};
 use std::{process::ExitCode, time::Duration};
 use tracing::Instrument;
 use user::UserCommand;
@@ -92,8 +95,10 @@ pub struct Cli {
 enum Command {
     /// Serve the authentication service.
     Serve,
-    /// Apply database migrations. Connected as the schema owner, also create or
-    /// reset the role other commands connect as.
+    /// Apply database migrations, and create or extend the analytics tables.
+    /// Connected as the schema owner, also create or reset the role other
+    /// commands connect as, and the analytics writer likewise. An analytics
+    /// migration that fails is only reported: analytics never blocks a deploy.
     Migrate,
     /// Inspect, rotate, revoke and rewrap signing keys, check token digest keys, and
     /// print the audit key's verifier key. Every replica picks up a signing
@@ -156,7 +161,12 @@ enum Operation {
 impl Command {
     /// Executes this command, an administrative one as `operator` when given,
     /// printing to `out`, and returns the original startup or operation failure.
+    /// Analytics never blocks a migration: its failures only warn.
     async fn run(self, operator: Option<OperatorName>, out: Output) -> Result<(), CliError> {
+        let analytics = match self {
+            Self::Migrate => Store::migration_from_environment()?,
+            _ => None,
+        };
         let (config, runtime_role) = match self {
             Self::Migrate => AuthConfig::migration_from_environment()?,
             Self::Administration(Administration::Audit(AuditCommand::Prune { .. })) => {
@@ -172,6 +182,14 @@ impl Command {
                 database.run_migrations().await?;
                 if let Some(role) = runtime_role {
                     database.provision(&role).await?;
+                }
+                if let Some((store, writer)) = analytics
+                    && let Err(error) = store.migrate(ANALYTICS_TABLES, writer.as_ref()).await
+                {
+                    out.warning(format_args!(
+                        "analytics tables not migrated: {}",
+                        ErrorChain(&error)
+                    ))?;
                 }
                 Ok(())
             }
@@ -303,6 +321,9 @@ impl Administration {
         }
     }
 }
+
+/// Every signal's table, which `migrate` creates.
+const ANALYTICS_TABLES: &[Table] = &[EventRecorded::TABLE];
 
 /// How long telemetry may take to flush once a command ends. With `serve`'s
 /// drain ([`crate::Jobs::SHUTDOWN_GRACE`]), it bounds a stop to 9 seconds,

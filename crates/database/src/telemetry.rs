@@ -1,12 +1,28 @@
-//! What the database reports to telemetry: every committed event, as a log line
-//! and in counters, and the pool's connections.
+//! What the database reports to telemetry: every committed event, as a log line,
+//! in counters and as an analytics row, and the pool's connections.
 
 use crate::Database;
 use sourceorigin_common::{
-    EventId, UserId,
+    EventId, TraceId, UserId,
     events::{DomainEvent, HistoryActor, SignInFailure},
 };
-use sourceorigin_telemetry::{Counter, Gauge, Label};
+use sourceorigin_telemetry::{Counter, Gauge, Label, Telemetry, analytics::Signal};
+
+sourceorigin_telemetry::signal! {
+    /// A domain event committed, as the audit history records it, without which
+    /// account it concerns or which administrator caused it: the history keeps
+    /// both, and its export and purge cover them.
+    pub struct EventRecorded in "events", kept 390 days, ordered by (kind) {
+        /// What happened, such as `signed_in`.
+        pub kind: &'static str,
+        /// The kind of actor that caused it, such as `user` or `operator`.
+        pub actor: &'static str,
+        /// The event's ID in the audit history.
+        pub event: EventId,
+        /// The trace of the request or job that recorded it.
+        pub trace: Option<TraceId>,
+    }
+}
 
 /// Every committed event, by kind.
 static EVENTS: Counter<[Label; 1]> = Counter::new(
@@ -63,7 +79,8 @@ pub(crate) struct Committed {
 }
 
 impl Committed {
-    /// Logs the event in the current trace and counts it. It runs only after the
+    /// Logs the event in the current trace, counts it and records it as an
+    /// [`EventRecorded`] row. It runs only after the
     /// commit, so a rolled-back change is never counted; a commit whose answer is
     /// lost may go uncounted, so the stored history stays the record. The line names the
     /// event, its kind, the kind of actor and the pseudonymous IDs of the subject and
@@ -80,6 +97,13 @@ impl Committed {
             "event recorded"
         );
         EVENTS.add(1, &[("kind", kind)]);
+        EventRecorded {
+            kind,
+            actor: self.actor.as_str(),
+            event: self.id,
+            trace: Telemetry::current_trace_id(),
+        }
+        .record();
         match &self.event {
             DomainEvent::SignedIn { method, .. } => {
                 SIGN_INS.add(1, &[("method", method.as_str()), ("outcome", "success")]);

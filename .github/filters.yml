@@ -31,4 +31,4 @@ app:
   - '!infra/{piqueld,telemetry}.toml'
   - '!infra/telemetry/**'
 infra:
-  - '{infra/piqueld.toml,infra/telemetry.toml,infra/telemetry/*.yaml,justfile,just/infra.just,.github/workflows/ci.yml,.github/filters.yml}'
+  - '{infra/piqueld.toml,infra/telemetry.toml,infra/telemetry/*.yaml,infra/clickhouse/*.xml,justfile,just/infra.just,.github/workflows/ci.yml,.github/filters.yml}'

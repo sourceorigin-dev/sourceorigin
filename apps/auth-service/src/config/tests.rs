@@ -95,6 +95,14 @@ fn configuration_reference_is_current() {
             title: "Email",
             variables: email::VARIABLES,
         },
+        Section {
+            title: "Analytics",
+            variables: sourceorigin_telemetry::analytics::VARIABLES,
+        },
+        Section {
+            title: "Analytics migrations",
+            variables: sourceorigin_telemetry::analytics::OWNER_VARIABLES,
+        },
     ];
     GeneratedFile {
         path: concat!(

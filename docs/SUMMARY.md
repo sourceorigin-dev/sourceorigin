@@ -71,6 +71,7 @@
 - [Email addresses](dev/architecture/email.md)
 - [Data export and account deletion](dev/architecture/account-deletion.md)
 - [Telemetry](dev/architecture/telemetry.md)
+- [Analytics](dev/architecture/analytics.md)
 - [SDK design](dev/architecture/sdk.md)
 
 # Security
@@ -108,4 +109,5 @@
 - [Sign-in providers](dev/operations/sign-in-providers.md)
 - [Email](dev/operations/email.md)
 - [Telemetry stack](dev/operations/telemetry.md)
+- [Analytics database](dev/operations/analytics.md)
 - [Incidents](dev/operations/incidents.md)
