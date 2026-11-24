@@ -14,15 +14,12 @@ test-util = ["opentelemetry_sdk/testing"]
 [dependencies]
 sourceorigin-common = { workspace = true, features = ["client-spans", "config", "server"] }
 
-async-trait.workspace = true
 axum.workspace = true
 bytes.workspace = true
 chrono.workspace = true
 http.workspace = true
 opentelemetry.workspace = true
 opentelemetry_sdk.workspace = true
-opentelemetry-otlp.workspace = true
-opentelemetry-http.workspace = true
 opentelemetry-appender-tracing.workspace = true
 reqwest.workspace = true
 secrecy.workspace = true

@@ -23,12 +23,12 @@ web:
 deps:
   - '{Cargo.toml,**/Cargo.toml,Cargo.lock,deny.toml,package.json,**/package.json,pnpm-lock.yaml,pnpm-workspace.yaml,.github/workflows/ci.yml,.github/filters.yml}'
 # Everything the running service and its images are built from, and the
-# TypeScript SDK the browser suite also runs, which the piqueld manifests and
-# the telemetry configs are not.
+# TypeScript SDK the browser suite also runs, which the piqueld manifest and
+# ClickHouse's config are not.
 app:
   - '{Cargo.toml,Cargo.lock,rust-toolchain.toml,.cargo/**,justfile,just/**,package.json,pnpm-lock.yaml,playwright.config.ts,apps/**,crates/**,packages/auth/**,tests/browser/**,infra/**,docs/dev/security/audit-key.pub,.dockerignore,.github/workflows/ci.yml,.github/filters.yml}'
   - '!**/*.md'
-  - '!infra/{piqueld,telemetry}.toml'
-  - '!infra/telemetry/**'
+  - '!infra/piqueld.toml'
+  - '!infra/clickhouse/**'
 infra:
-  - '{infra/piqueld.toml,infra/telemetry.toml,infra/telemetry/*.yaml,infra/clickhouse/*.xml,justfile,just/infra.just,.github/workflows/ci.yml,.github/filters.yml}'
+  - '{infra/piqueld.toml,infra/clickhouse/*.xml,justfile,just/infra.just,.github/workflows/ci.yml,.github/filters.yml}'

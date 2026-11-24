@@ -30,10 +30,6 @@ invite_required = "true"
 audit_key = "audit-key"
 # See docs/dev/operations/replicas.md before raising it.
 auth_replicas = 1
-# Where auth, with the admin dashboard it serves, and sourceorigin.dev's web server
-# send telemetry: the `sourceorigin-observability` application's collector, imported below.
-# Empty sends none.
-otlp_endpoint = "http://collector.sourceorigin-observability:4318"
 # GitHub and Google sign-in. An empty client ID turns the provider off; its
 # secret is then mounted but never read, so environments without the provider
 # mount the unused placeholder. Production and staging each have their own OAuth
@@ -97,8 +93,6 @@ analytics_host = "analytics-${{ env.slug }}.dev.sourceorigin.dev"
 smtp_secret = "resend-dev"
 email_from = "Origin Account <security@dev.sourceorigin.dev>"
 invite_required = "false"
-# Previews keep their telemetry on stderr: the collector does not export to them.
-otlp_endpoint = ""
 
 # sourceorigin.dev, its own web server: the homepage and the policies. It redirects
 # every other path, with its query, to the same one on auth, so links to
@@ -153,14 +147,6 @@ name = "www"
 hostname = "${{ vars.www_host }}"
 redirect = { to = "https://${{ vars.web_host }}", status = 308, preserve_path = true }
 visibility = "public"
-
-# The collector of the `sourceorigin-observability` application (infra/telemetry.toml), as
-# `collector.sourceorigin-observability`. It has only a production environment, which staging
-# and production share; `deployment.environment.name` tells them apart.
-[[spec.imports]]
-application = "sourceorigin-observability"
-service = "collector"
-environment = "production"
 
 # Mounted as the client secret of a sign-in provider an environment leaves off,
 # since every mount needs a secret. Auth never reads it.
@@ -276,8 +262,6 @@ AUTH_GITHUB_CLIENT_ID = "${{ vars.github_client_id }}"
 AUTH_GITHUB_CLIENT_SECRET = "file:///run/secrets/github-client-secret"
 AUTH_GOOGLE_CLIENT_ID = "${{ vars.google_client_id }}"
 AUTH_GOOGLE_CLIENT_SECRET = "file:///run/secrets/google-client-secret"
-OTEL_EXPORTER_OTLP_ENDPOINT = "${{ vars.otlp_endpoint }}"
-OTEL_RESOURCE_ATTRIBUTES = "deployment.environment.name=${{ env.name }}"
 ANALYTICS_URL = "http://sourceorigin_writer@clickhouse:8123/sourceorigin"
 ANALYTICS_PASSWORD = "file:///run/secrets/analytics-writer-password"
 
@@ -323,8 +307,8 @@ port = 8080
 path = "/health/ready"
 
 # sourceorigin.dev's web server. It needs no database, and only the analytics
-# writer's secret, for its `requests` rows: it relies on auth only to sign people
-# in, through links and redirects.
+# writer's secret, for its rows, spans and logs: it relies on auth only to sign
+# people in, through links and redirects.
 [[spec.services]]
 name = "web"
 
@@ -340,8 +324,6 @@ target = "web"
 [spec.services.environment]
 WEB_LISTENER = "0.0.0.0:8080"
 WEB_AUTH_ORIGIN = "https://${{ vars.auth_host }}"
-OTEL_EXPORTER_OTLP_ENDPOINT = "${{ vars.otlp_endpoint }}"
-OTEL_RESOURCE_ATTRIBUTES = "deployment.environment.name=${{ env.name }}"
 ANALYTICS_URL = "http://sourceorigin_writer@clickhouse:8123/sourceorigin"
 ANALYTICS_PASSWORD = "file:///run/secrets/analytics-writer-password"
 
@@ -415,8 +397,9 @@ command = ["pg_isready", "-h", "127.0.0.1", "-U", "sourceorigin", "-d", "sourceo
 [[spec.volumes]]
 name = "database"
 
-# The analytics database: every signal auth records, kept per table for its
-# declared retention (docs/dev/architecture/analytics.md). The image configures
+# The analytics database: every signal auth and sourceorigin.dev record, kept per
+# table for its declared retention, and their spans and logs, kept 14 and 30 days
+# (docs/dev/architecture/analytics.md, docs/dev/architecture/telemetry.md). The image configures
 # `sourceorigin` from `analytics-password` on every start, allowed to manage
 # users; `migrate` creates the `sourceorigin` database, its tables, and the
 # writer as a SQL user. Auth works without it, but starts after it, so `migrate`

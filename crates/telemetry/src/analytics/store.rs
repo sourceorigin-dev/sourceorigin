@@ -257,7 +257,8 @@ impl Store {
             .await?)
     }
 
-    /// Creates the database and every table of `tables` that does not exist,
+    /// Creates the database, its `spans` and `logs` tables, and every table of
+    /// `tables` that does not exist,
     /// adds the columns a table lacks, and sets each one's retention and
     /// comments; then, when connected as the owner, creates or resets `writer`,
     /// allowed only to insert. Running it again changes nothing. A column's type
@@ -269,6 +270,9 @@ impl Store {
     pub async fn migrate(&self, tables: &[Table], writer: Option<&Self>) -> Result<(), StoreError> {
         let create = format!("CREATE DATABASE IF NOT EXISTS {}", self.database);
         self.execute("system", &create, &create).await?;
+        for statement in crate::export::TABLES {
+            self.execute(&self.database, statement, statement).await?;
+        }
         for table in tables {
             for statement in table.statements() {
                 self.execute(&self.database, &statement, &statement).await?;

@@ -69,7 +69,6 @@ sourceorigin-ui            = { version = "0.1.0", path = "crates/ui" }
 
 # External crates
 anyhow = "1"
-async-trait = "0.1"
 axum = "0.8"
 base64 = "0.22"
 bytes = "1"
@@ -84,11 +83,9 @@ ipnet = "2.12"
 # Only webauthn-rs uses OpenSSL; naming it here builds it vendored, so no build
 # needs the system's headers. Everything else uses aws-lc-rs.
 openssl = { version = "0.10", features = ["vendored"] }
-# OTLP/HTTP with protobuf, sent through the workspace's reqwest: no gRPC stack.
+# Traces and logs, which crates/telemetry writes to ClickHouse itself: no OTLP stack.
 opentelemetry = { version = "0.33", default-features = false, features = ["trace", "logs", "internal-logs"] }
 opentelemetry_sdk = { version = "0.33", default-features = false, features = ["trace", "logs", "internal-logs"] }
-opentelemetry-otlp = { version = "0.33", default-features = false, features = ["http-proto", "trace", "logs", "internal-logs"] }
-opentelemetry-http = { version = "0.33", default-features = false }
 opentelemetry-appender-tracing = "0.33"
 # The public suffix list, compiled in, for the domains WebAuthn related origins count.
 psl = "2.1"

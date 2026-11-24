@@ -5,9 +5,10 @@ more, and what never goes in it. What a metric would count or measure, such as
 every request's duration or every committed event, is an
 [analytics](analytics.md) row instead, and a chart is a query over them.
 
-Both services log to stderr. When `OTEL_EXPORTER_OTLP_ENDPOINT` is set, they
-also export traces and logs over OTLP/HTTP, to the `sourceorigin-observability`
-application in production (see [the telemetry stack](../operations/telemetry.md)).
+Both services log to stderr. When `ANALYTICS_URL` names the environment's
+ClickHouse, they also store their spans and logs there, in the `spans` and
+`logs` tables, beside the analytics rows (see
+[the analytics database](../operations/analytics.md) to read them).
 `sourceorigin-telemetry` (`crates/telemetry`) does both. A feature gets most of its
 telemetry for free and adds the rest in one line.
 
@@ -82,13 +83,13 @@ so the Rust SDK sends its requests, such as Google's signing-key fetches through
 
 ## What never goes in telemetry
 
-Everything a span or log line holds is exported. Never record a secret
+Everything a span or log line holds is stored. Never record a secret
 (cookie, code, token, ceremony state, invitation, client secret), a query string,
 a request header, a request path, a client IP or a user agent. Events keep IPs
 and user agents under their own retention rules. User IDs are pseudonymous, so
-they are allowed on spans and log lines. The collector also deletes `url.path`,
-`url.query`, `url.full`, `client.address` and `http.*.header.*` attributes, as a
-second line of defense.
+they are allowed on spans and log lines, which are kept 30 days at most. The
+exporters also drop `url.path`, `url.query`, `url.full`, `client.address` and
+`http.*.header.*` attributes, as a second line of defense.
 
 Some errors quote personal data, so they are logged with care:
 
@@ -108,36 +109,53 @@ runs a passkey sign-in and a code exchange through the production layers, with
 `Telemetry::capture`, and fails if any of their secrets is exported. Extend it
 when a flow handles a new kind of secret.
 
+## Storage
+
+The OpenTelemetry SDK's batch processors hand spans and log records to two
+exporters of `crates/telemetry/src/export`, which insert each batch into
+`spans` or `logs` as one `JSONEachRow` insert, through the analytics writer's
+`Store`, on the service's tokio runtime. `migrate` creates both tables, by
+day, with a bloom filter on the trace ID, so a lookup by trace reads little:
+
+| Table | Kept | One row per |
+| --- | --- | --- |
+| `spans` | 14 days | span: its trace, parent, name, kind, status, duration and attributes |
+| `logs` | 30 days | log record exported at the service's level: its trace, level, target, message and fields |
+
+The exporters drop `url.path`, `url.query`, `url.full`, `client.address` and
+`http.*.header.*` attributes, whoever sets them, as a second line of defense:
+auth never records them. Span events are not stored; the log records inside a
+span carry its trace ID instead.
+
 ## Configuration
 
-Only the standard variables, read by `Telemetry::init`:
+`ANALYTICS_URL` and `ANALYTICS_PASSWORD` (see
+[analytics](analytics.md#the-writer)), and the standard variables the SDK reads:
 
 | Variable | Meaning |
 | --- | --- |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP/HTTP base URL, e.g. `http://collector.sourceorigin-observability:4318`; unset or empty exports nothing |
-| `OTEL_SDK_DISABLED` | `true` keeps telemetry on stderr only |
 | `OTEL_SERVICE_NAME` | Overrides the default, `auth-service` or `sourceorigin-web` |
-| `OTEL_RESOURCE_ATTRIBUTES` | e.g. `deployment.environment.name=staging`, which dashboards filter on |
+| `OTEL_RESOURCE_ATTRIBUTES` | Extra resource attributes; a `service.instance.id` there replaces the process's own UUID on spans and logs |
 | `OTEL_TRACES_SAMPLER`, `OTEL_TRACES_SAMPLER_ARG` | Sampling; every trace is kept by default |
-| `OTEL_EXPORTER_OTLP_HEADERS` | Headers sent with every export request, such as a collector's credentials |
-| `OTEL_EXPORTER_OTLP_TIMEOUT` | Bound on each export request, in milliseconds; 10000 by default. The per-signal variants are not supported |
 | `RUST_LOG` | What is logged; spans keep the service's default filter. A value that does not parse stops every command |
 
-When export is configured but cannot start, such as on a malformed endpoint,
-`serve` and the web app refuse to start: a server must not run without the
-telemetry its alerts read. Every other `auth-service` command, such as
-`migrate` or an account repair, logs a warning and runs with logs on stderr
-only, so broken telemetry never blocks a break-glass fix.
+When `ANALYTICS_URL` or `ANALYTICS_PASSWORD` is set but invalid, `serve` and the
+web app refuse to start: a server must not run without the telemetry its alerts
+read. Every other `auth-service` command, such as `migrate` or an account
+repair, logs a warning and runs with logs on stderr only, so broken telemetry
+never blocks a break-glass fix. An unreachable ClickHouse never stops anything:
+its batches are dropped and the SDK logs the failure on stderr.
 
-Export goes through the workspace's `reqwest`, on the service's tokio runtime,
-in protobuf, whatever `OTEL_EXPORTER_OTLP_PROTOCOL` says. Shutdown flushes
-pending telemetry after the listeners stop, for up to 3 seconds (see
-[Stopping](../operations/deploying.md#stopping)).
+Shutdown flushes pending telemetry after the listeners stop, for up to 3
+seconds (see [Stopping](../operations/deploying.md#stopping)).
 
 ## Locally
 
 ```sh
-just infra telemetry   # Grafana, with both dashboards, at http://localhost:3000
-OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
-OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=local just auth serve
+just analytics scratch -- sh -c 'export ANALYTICS_URL=$TEST_ANALYTICS_URL ANALYTICS_PASSWORD=env://TEST_ANALYTICS_PASSWORD; just db migrate && just auth serve'
 ```
+
+This runs a throwaway ClickHouse, creates its tables, then serves auth with
+your own configuration, writing its spans, logs and rows there. The ClickHouse
+is deleted once auth stops. See
+[the analytics database](../operations/analytics.md#locally).
