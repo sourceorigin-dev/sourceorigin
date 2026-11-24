@@ -287,6 +287,8 @@ impl Fixture {
             email: false,
         };
         assert!((tx.notifications().set_preference(user_id, quiet).await).expect("preference"));
+        let left = tx.users().set_analytics_included(user_id, false).await;
+        assert!(left.expect("usage statistics"));
         let announcement = AnnouncementId::new();
         tx.announcements()
             .insert_draft(&DraftedAnnouncement {

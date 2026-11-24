@@ -128,8 +128,9 @@ if let Some(consent) = context.consent(&mut tx, user_id).await? {
 }
 ```
 
-A product row still names no account: consent decides whether a person is
-counted, never whether they can be told apart.
+A product row still names no account, and its time is kept to the day only, so
+it can't be lined up with the event of the sign-in or change it counts, which is
+kept to the millisecond. Consent decides whether a person is counted at all.
 
 ## Tables
 

@@ -93,6 +93,8 @@ to it from anywhere on the page.
 - [Undo a recovery](your-data/undo-a-recovery.md) that wasn't you.
 - [Download your data](your-data/export-your-data.md): everything SourceOrigin keeps
   about you, in one file.
+- [Leave usage statistics](your-data/usage-statistics.md), which count how
+  SourceOrigin is used.
 - [Delete your account](your-data/delete-your-account.md), and restore it
   within 30 days.
 

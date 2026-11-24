@@ -57,11 +57,25 @@ struct Stamped<'a, S: ?Sized> {
     signal: &'a S,
 }
 
-/// Queues `signal` for `table`, unless a test captures it; see
-/// [`Signal::record`](super::Signal::record).
-pub(super) fn record<S: Serialize + ?Sized>(table: &'static str, signal: &S) {
+/// How precisely a row's time is kept.
+#[derive(Clone, Copy, Debug)]
+pub(super) enum Stamp {
+    /// To the millisecond, as an operational row's.
+    Millisecond,
+    /// To the day, as a product row's: a time precise enough to line it up with
+    /// a sign-in's event would tell whose it is.
+    Day,
+}
+
+/// Queues `signal` for `table`, stamped to `stamp`, unless a test captures it;
+/// see [`Signal::record`](super::Signal::record).
+pub(super) fn record<S: Serialize + ?Sized>(table: &'static str, stamp: Stamp, signal: &S) {
+    let format = match stamp {
+        Stamp::Millisecond => "%Y-%m-%d %H:%M:%S%.3f",
+        Stamp::Day => "%Y-%m-%d 00:00:00.000",
+    };
     let row = Stamped {
-        time: Utc::now().format("%Y-%m-%d %H:%M:%S%.3f").to_string(),
+        time: Utc::now().format(format).to_string(),
         signal,
     };
     #[cfg(any(test, feature = "test-util"))]

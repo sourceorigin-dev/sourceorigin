@@ -18,8 +18,9 @@ const COUNTER_REGRESSION_EVENT: &str = "auth.passkey_counter_regression";
 const CREDENTIAL_TRANSPORTS_POINTER: &str = "/cred/transports";
 
 sourceorigin_telemetry::signal! {
-    /// A passkey someone signed in or confirmed with, once that committed: which
-    /// kinds of passkeys people use, never whose.
+    /// A passkey someone asserted with, to sign in, confirm, undo a recovery or
+    /// sign in to the admin dashboard, once that committed: which kinds of
+    /// passkeys people use, never whose.
     pub(crate) product struct PasskeyUsed in "passkeys_used", kept 390 days, ordered by (synced) {
         /// Whether it is backed up or synced between devices, as a password
         /// manager's or a phone platform's passkeys are.
@@ -27,9 +28,9 @@ sourceorigin_telemetry::signal! {
         /// Whether it may be synced, though it may not be now: a security key's
         /// never is.
         pub(crate) syncable: bool,
-        /// How the browser reaches it, as it said when the passkey was added:
-        /// `internal` (built in), `hybrid` (a phone), `usb`, `nfc`, `ble`, or
-        /// `unknown`.
+        /// How it can be reached, as the browser said when it was added, the most
+        /// specific way first: `internal` (built in), `hybrid` (a phone), `usb`,
+        /// `nfc`, `ble`, or `unknown`.
         pub(crate) transport: &'static str,
     }
 }
@@ -37,22 +38,21 @@ sourceorigin_telemetry::signal! {
 impl PasskeyUsed {
     /// The row of `result`, an assertion of `credential`, as stored.
     fn of(result: &AuthenticationResult, credential: &Value) -> Self {
-        let transport = credential
+        // Browsers list them in alphabetical order, so a platform passkey that
+        // also syncs to a phone says `hybrid` first: pick the most specific.
+        let listed = credential
             .pointer(CREDENTIAL_TRANSPORTS_POINTER)
-            .and_then(Value::as_array)
-            .and_then(|transports| transports.first())
-            .and_then(Value::as_str);
+            .and_then(Value::as_array);
+        let transport = ["internal", "hybrid", "usb", "nfc", "ble"]
+            .into_iter()
+            .find(|transport| {
+                listed.is_some_and(|listed| listed.iter().any(|value| value == transport))
+            })
+            .unwrap_or("unknown");
         Self {
             synced: result.backup_state(),
             syncable: result.backup_eligible(),
-            transport: match transport {
-                Some("internal") => "internal",
-                Some("hybrid") => "hybrid",
-                Some("usb") => "usb",
-                Some("nfc") => "nfc",
-                Some("ble") => "ble",
-                _ => "unknown",
-            },
+            transport,
         }
     }
 }

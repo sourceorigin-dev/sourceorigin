@@ -1,4 +1,5 @@
-//! `/settings/data`: downloading the account's data, and deleting the account.
+//! `/settings/data`: downloading the account's data, its part in usage
+//! statistics, and deleting the account.
 
 use crate::{
     account::{AccountError, Owner},

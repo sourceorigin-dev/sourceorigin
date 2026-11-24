@@ -64,13 +64,10 @@ const VIEWS: &str = DomainEvent::AccountViewed {}.kind();
 /// as one document: `{"format": "sourceorigin.account-export", "version": 7, …,
 /// "events": […]}`. Version 2 added the profile picture; version 3 moved
 /// dashboard sessions under the sessions they rest on. Version 4 added what
-/// ended and is still stored (revoked passkeys, unlinked identities, ended
-/// sessions), each session's apps, the owned apps' related origins, and every
-/// event about the account as stored, which replaced its history, deleted apps,
-/// notifications of kinds a newer release wrote, and received announcements;
-/// version 5 the known devices; in version 6, the profile's `handle_changed_at`
-/// is `null` until the handle first changes; version 7 added the profile's
-/// `usage_statistics`.
+/// ended and is still stored, each session's apps, the owned apps' related
+/// origins, every event about the account, notifications and announcements;
+/// version 5 the known devices; in version 6, `handle_changed_at` is `null`
+/// until the handle first changes; version 7 added `left_usage_statistics_at`.
 pub(crate) struct AccountExport {
     /// Every section but the events, read when the export starts.
     records: Records,
@@ -149,8 +146,8 @@ struct Profile {
     created_at: DateTime<Utc>,
     /// When the profile last changed.
     updated_at: DateTime<Utc>,
-    /// Whether the account takes part in usage statistics.
-    usage_statistics: bool,
+    /// When the account left usage statistics, or `null` while it takes part.
+    left_usage_statistics_at: Option<DateTime<Utc>>,
 }
 
 /// The profile picture: the JPEG auth stores and serves.
@@ -354,8 +351,8 @@ impl From<admin::Recovery> for Recovery {
 }
 
 impl Profile {
-    /// `user`'s every column, and whether it takes part in usage statistics.
-    fn new(user: StoredUser, usage_statistics: bool) -> Self {
+    /// `user`'s every column, and when it left usage statistics, if it did.
+    fn new(user: StoredUser, left_usage_statistics_at: Option<DateTime<Utc>>) -> Self {
         Self {
             id: user.id,
             handle: user.handle,
@@ -364,7 +361,7 @@ impl Profile {
             status: user.status,
             created_at: user.created_at,
             updated_at: user.updated_at,
-            usage_statistics,
+            left_usage_statistics_at,
         }
     }
 }
@@ -426,7 +423,7 @@ impl AccountExport {
             .find_by_id(user_id)
             .await?
             .ok_or(DatabaseError::NotFound)?;
-        let usage_statistics = tx.users().analytics_included(user_id).await?;
+        let left_usage_statistics_at = tx.users().analytics_left_at(user_id).await?;
         let picture = match tx.pictures().find(user_id).await? {
             Some(picture) => {
                 let image = tx.pictures().image_of(user_id).await?;
@@ -487,7 +484,7 @@ impl AccountExport {
                 .collect(),
             notification_preferences: tx.notifications().preferences(user_id).await?,
             announcements: tx.exports().announcements(user_id).await?,
-            profile: Profile::new(user, usage_statistics),
+            profile: Profile::new(user, left_usage_statistics_at),
         };
         Ok(Self {
             records,

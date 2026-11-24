@@ -460,15 +460,27 @@ impl UserRepository<'_> {
     ///
     /// Returns [`DatabaseError`] if the query fails.
     pub async fn analytics_included(&mut self, id: UserId) -> Result<bool, DatabaseError> {
-        let left = run!(
+        Ok(self.analytics_left_at(id).await?.is_none())
+    }
+
+    /// When the account `id`'s owner left usage statistics, or `None` while it
+    /// takes part.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DatabaseError`] if the query fails.
+    pub async fn analytics_left_at(
+        &mut self,
+        id: UserId,
+    ) -> Result<Option<DateTime<Utc>>, DatabaseError> {
+        run!(
             self,
-            fetch_one,
+            fetch_optional,
             sqlx::query_scalar!(
-                r#"SELECT EXISTS (SELECT FROM analytics_opt_outs WHERE user_id = $1) AS "left!""#,
+                "SELECT opted_out_at FROM analytics_opt_outs WHERE user_id = $1",
                 id.as_uuid(),
             )
-        )?;
-        Ok(!left)
+        )
     }
 
     /// Includes the account `id` in usage statistics, or leaves it out. Returns

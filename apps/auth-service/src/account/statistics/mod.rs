@@ -2,7 +2,8 @@
 //! product analytics about what its owner does, such as which kind of passkey
 //! they sign in with. See `docs/dev/architecture/analytics.md#consent`.
 //!
-//! Only the owner changes it, as their own privacy choice, and only they see it.
+//! Only the owner changes it, as their own privacy choice; administrators see
+//! its changes among the account's events.
 
 use super::{AccountError, AccountService, Owner, Viewer};
 use sourceorigin_common::events::DomainEvent;

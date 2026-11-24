@@ -38,7 +38,7 @@ pub trait Signal: Serialize {
     /// Queues this row, stamped with the current time, for its table. It never
     /// waits: a full queue drops the row, and counts it.
     fn record(&self) {
-        writer::record(Self::TABLE.name, self);
+        writer::record(Self::TABLE.name, writer::Stamp::Millisecond, self);
     }
 }
 
@@ -50,10 +50,12 @@ pub trait Product: Serialize {
     const TABLE: Table;
 
     /// Queues this row, as [`Signal::record`] does, with `consent` to show the
-    /// person it is about takes part in usage statistics.
+    /// person it is about takes part in usage statistics. Its time is kept to
+    /// the day only, so it can't be lined up with the event of the sign-in or
+    /// change it counts.
     fn record(&self, consent: Consent) {
         let Consent(()) = consent;
-        writer::record(Self::TABLE.name, self);
+        writer::record(Self::TABLE.name, writer::Stamp::Day, self);
     }
 }
 
@@ -239,6 +241,22 @@ impl Serialize for Route {
 /// use sourceorigin_telemetry::analytics::Signal;
 /// assert_eq!(Throttled::TABLE.columns[0].ty, "LowCardinality(String)");
 /// Throttled { category: "login" }.record();
+/// ```
+///
+/// A product signal, about how people use SourceOrigin, is a `product struct`:
+/// its `record` takes a [`Consent`], and it has no other.
+///
+/// ```compile_fail
+/// sourceorigin_telemetry::signal! {
+///     /// A passkey someone signed in with.
+///     pub product struct PasskeyUsed in "passkeys_used", kept 390 days, ordered by (synced) {
+///         /// Whether it is synced.
+///         pub synced: bool,
+///     }
+/// }
+///
+/// use sourceorigin_telemetry::analytics::Signal;
+/// PasskeyUsed { synced: true }.record();
 /// ```
 ///
 /// A nullable sort key does not compile:
