@@ -96,5 +96,7 @@ Auth queues every message as a delivery, which a worker sends (see
   meanwhile (see [the delivery queue](../architecture/delivery-queue.md#life-of-a-delivery)).
 
 `auth-service deliveries list --channel email --status failed` lists what didn't
-go out, and the Auth overview dashboard's **Deliveries** row charts the queue
-(see [telemetry](telemetry.md#dashboards)).
+go out, and the `delivery_attempts` and `delivery_backlogs` tables count the
+queue's attempts and backlog (see
+[the delivery queue](../architecture/delivery-queue.md#analytics) and
+[the analytics database](analytics.md)).

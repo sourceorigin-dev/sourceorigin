@@ -335,9 +335,9 @@ reads and changes the accounts and sessions auth stores.
 
 ### How you notice
 
-- The [Admin activity](telemetry.md#watch-administrator-activity) dashboard
-  shows changes nobody you know made: rights granted, accounts disabled or
-  viewed, refused sign-ins.
+- [Administrator activity](analytics.md#watch-administrator-activity) shows
+  changes nobody you know made: rights granted, accounts disabled or viewed,
+  refused sign-ins.
 - An owner asks about a change "By a SourceOrigin administrator" in their security
   history that they never asked for.
 - An administrator finds an entry in their own security history that isn't
@@ -378,9 +378,9 @@ while the command line may.
    Then return the account to its owner, following the evidence policy: enable
    it, since a recovery needs an active account, and recover it with `--revoke`
    (see [recover an account someone else held](administration.md#recover-an-account-someone-else-held)).
-4. Find what it did: **Actions by administrator** and **Administrative events**
-   on the Admin activity dashboard, the dashboard's **Events** page, and
-   `auth-service audit list`, such as `--kind administrator_granted`.
+4. Find what it did: [administrator activity](analytics.md#watch-administrator-activity),
+   the dashboard's **Events** page, and `auth-service audit list`, such as
+   `--kind administrator_granted`.
 5. Undo each change: revoke the rights it granted, enable the accounts it
    disabled, lift the suspensions it made, and undo the recoveries it started
    with `auth-service user undo-recovery`.
@@ -400,7 +400,8 @@ leaked, starting with the runbooks above.
 - `auth-service admin list` lists only the administrators you expect.
 - `auth-service account <handle> sessions list` lists no session you don't
   recognize.
-- The Admin activity dashboard shows only work you know of.
+- [Administrator activity](analytics.md#watch-administrator-activity) shows
+  only work you know of.
 - `auth-service audit verify` reports the chain intact.
 
 ## Auth is down
@@ -411,9 +412,14 @@ leaked, starting with the runbooks above.
 - `https://auth.sourceorigin.dev/health/ready` doesn't answer `204`. It checks the
   database and that the replica's signing keys were reloaded recently.
 - `piquelctl env show sourceorigin production` reports a service unhealthy.
-- The Auth overview dashboard's **Server errors** rise. Grafana keeps working,
-  since it never signs in through auth (see
-  [sign in to Grafana](telemetry.md#sign-in-to-grafana)).
+- Server errors rise in the `requests` table, which ClickHouse's `/play` page
+  shows without auth (see [sign in to ClickHouse](analytics.md#sign-in-to-clickhouse)):
+
+  ```sql
+  SELECT toStartOfMinute(time) AS minute, countIf(status >= 500) AS errors, count()
+  FROM sourceorigin.requests WHERE time > now() - INTERVAL 1 HOUR
+  GROUP BY minute ORDER BY minute
+  ```
 
 ### What to do
 
@@ -428,8 +434,13 @@ leaked, starting with the runbooks above.
    failed, production already restored the last successful deployment on its
    own. Otherwise, restore it: see
    [roll back production](deploying.md#roll-back-production).
-3. Read Grafana's Auth overview: **Server errors**, **Database connections**
-   and **Logs**.
+3. On `/play`, read the server errors above, the pool's connections in
+   `database_pool`, and the errors auth logged:
+
+   ```sql
+   SELECT time, target, body, attributes FROM sourceorigin.logs
+   WHERE level = 'ERROR' AND time > now() - INTERVAL 1 HOUR ORDER BY time DESC
+   ```
 4. If the replicas aren't ready because of the database, read
    `piquelctl env logs sourceorigin production --service postgres`.
 5. If they aren't ready because of their signing keys, the logs say which key
@@ -443,7 +454,7 @@ Meanwhile, every administrative operation runs at the terminal: the command
 line is the break-glass path when the dashboard or auth's pages are
 unreachable. `piquelctl app exec` needs a running auth container: if none
 runs, restore a deployment first. Nothing auth runs on needs auth to sign in: piqueld, the servers, the
-tailnet, PostgreSQL, DNS, the tunnel, Grafana and Resend (see
+tailnet, PostgreSQL, DNS, the tunnel, ClickHouse and Resend (see
 [recovering auth](../architecture/surfaces.md#recovering-auth)).
 
 ### Check that it's over
@@ -455,8 +466,7 @@ tailnet, PostgreSQL, DNS, the tunnel, Grafana and Resend (see
   `piquelctl env history sourceorigin production` and
   `piquelctl env url sourceorigin production` instead.
 - `https://auth.sourceorigin.dev/health/ready` answers `204`.
-- **Server errors** on the Auth overview dashboard are back to their usual
-  level.
+- Server errors in the `requests` table are back to their usual level.
 
 ## Mail not going out
 
@@ -464,9 +474,13 @@ tailnet, PostgreSQL, DNS, the tunnel, Grafana and Resend (see
 
 - Users don't receive verification, recovery, notice, invitation or
   announcement emails.
-- On the Auth overview dashboard's **Deliveries** row, a mail channel's
-  **Pending deliveries** grow, its **Oldest pending delivery** gets older, and
-  **Delivery attempts** show retries or failures.
+- A mail channel's backlog grows in `delivery_backlogs`, its oldest pending
+  delivery gets older, and `delivery_attempts` shows retries or failures:
+
+  ```sql
+  SELECT channel, max(pending), max(oldest_age_s) FROM sourceorigin.delivery_backlogs
+  WHERE time > now() - INTERVAL 1 HOUR GROUP BY channel
+  ```
 
 ### What to do
 

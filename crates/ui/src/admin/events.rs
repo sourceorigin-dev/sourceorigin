@@ -657,7 +657,7 @@ pub async fn event_rows<'a>(
                                 <summary>
                                     <code>(row.kind())</code>
                                     if let Some(trace_id) = row.event.trace_id {
-                                        " · trace " <span title="Search Grafana for this trace ID">(trace_id.to_string())</span>
+                                        " · trace " <span title="Look this trace ID up in the spans and logs tables">(trace_id.to_string())</span>
                                     }
                                 </summary>
                                 <pre><code>(row.raw())</code></pre>

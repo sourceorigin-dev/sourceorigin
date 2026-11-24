@@ -61,10 +61,11 @@ can recognise a case it doesn't name.
   the one that owns your own port. Never kill by name or pattern (`pkill -f`,
   `killall`): your own agent process has the worktree's path in its arguments,
   and other worktrees run the same binaries.
-- **Shared containers and ports:** `just auth mailpit` and
-  `just infra telemetry` start Docker containers with fixed names and ports, and
-  `just docs serve` takes port 3000. Another worktree may be using them: reuse
-  one that is running, and don't stop it.
+- **Shared containers and ports:** `just auth mailpit` starts a Docker
+  container with a fixed name and ports, and `just docs serve` takes port 3000.
+  Another worktree may be using them: reuse one that is running, and don't stop
+  it. `just analytics scratch` names its container after itself, and removes
+  it when done.
 
 ## Surfaces
 

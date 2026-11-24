@@ -24,9 +24,8 @@ deployment its own hostnames:
 | `staging` | `main`, on every push | `staging.sourceorigin.dev` | `auth.staging.sourceorigin.dev` | `admin.staging.sourceorigin.dev` | `docs.staging.sourceorigin.dev` | tailnet |
 | previews | a branch or a local worktree | `<slug>.dev.sourceorigin.dev` | `auth-<slug>.dev.sourceorigin.dev` | `admin-<slug>.dev.sourceorigin.dev` | `docs-<slug>.dev.sourceorigin.dev` | tailnet |
 
-A second application, `sourceorigin-observability` (`infra/telemetry.toml`), stores and shows
-staging's and production's traces and logs: see
-[the telemetry stack](telemetry.md).
+Each environment keeps its own traces, logs and analytics in its `clickhouse`:
+see [the analytics database](analytics.md).
 
 ## Before you start
 
@@ -47,7 +46,7 @@ staging's and production's traces and logs: see
     a proxied CNAME to the tunnel. On ports 80 and 443, each is an A record, and
     Caddy obtains its certificate over HTTP-01.
   - `admin.sourceorigin.dev`, `staging.sourceorigin.dev`, `*.staging.sourceorigin.dev`,
-    `*.dev.sourceorigin.dev` and `grafana.sourceorigin.dev` point at the apps node's tailnet
+    `*.dev.sourceorigin.dev` and `analytics.sourceorigin.dev` point at the apps node's tailnet
     addresses.
 
 ## Set up the environments

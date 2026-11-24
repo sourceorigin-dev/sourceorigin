@@ -23,13 +23,13 @@ before you change a listener, a role, a secret or an outbound call. The
  │ OIDC, sign-in pages, settings, console    admin dashboard              │
  │                                                                        │
  │ secrets mounted from piqueld: key-encryption key, token digest keys,   │
- │ audit key, SMTP and provider secrets, runtime role password            │
+ │ audit key, SMTP and provider secrets, database and analytics passwords │
  └──────┬─────────────┬──────────────┬──────────────┬─────────────┬───────┘
-        │ sourceorigin_auth │ HTTPS        │ HTTPS        │ SMTP, TLS   │ OTLP
+        │ sourceorigin_auth │ HTTPS        │ HTTPS        │ SMTP, TLS   │ HTTP
         ▼             ▼              ▼              ▼             ▼
-   PostgreSQL    GitHub,        logout URIs,   Resend relay   telemetry
-   (owner role:  Google         pictures:                     collector
-    migrate)                    public only
+   PostgreSQL    GitHub,        logout URIs,   Resend relay   ClickHouse
+   (owner role:  Google         pictures:                     (writer:
+    migrate)                    public only                   insert only)
 
  auth-service CLI ──▶ PostgreSQL directly: database access is the root of trust
 ```
@@ -235,15 +235,18 @@ code or kind, never the receiver's answer.
 
 ## Telemetry
 
-**What crosses:** traces and logs, over OTLP/HTTP to the telemetry
-application's collector, inside piqueld (`OTEL_EXPORTER_OTLP_ENDPOINT`).
+**What crosses:** spans, logs and analytics rows, over HTTP to the
+environment's ClickHouse on the application's private network
+(`ANALYTICS_URL`), as `sourceorigin_writer`, which may insert rows but read
+none.
 
 **What is checked:** nothing secret may be recorded: no cookie, code, token,
 ceremony state, invitation or client secret, no request path, query string,
 request header, client IP or user agent. An [analytics](../architecture/analytics.md)
 row's columns can only be numbers, vocabularies and a few IDs, so no user's
-ID, IP address or text can become one. The collector deletes path, query, address and header attributes as a
-second line of defense (`infra/telemetry/collector.yaml`), and a test fails if
+ID, IP address or text can become one. The exporters drop path, query, address
+and header attributes as a second line of defense
+(`crates/telemetry/src/export`), and a test fails if
 a sign-in or code exchange exports a secret
 ([what never goes in telemetry](../architecture/telemetry.md#what-never-goes-in-telemetry)).
 User IDs are pseudonymous and may appear.

@@ -1,7 +1,7 @@
 //! ClickHouse through its own client, `clickhouse`, over its HTTP interface:
 //! inserts as `JSONEachRow`, and the statements `migrate` runs.
 
-use super::Table;
+use super::{Table, TableKind};
 use bytes::Bytes;
 use secrecy::{ExposeSecret, SecretString};
 use sourceorigin_common::config::{ConfigurationError, SecretReference, Variable};
@@ -279,19 +279,19 @@ impl Store {
             })
     }
 
-    /// Creates the database and every table of `tables` that does not exist,
-    /// adds the columns a table lacks, and sets each one's retention and
-    /// comments; then, when connected as the owner, creates or resets `writer`,
-    /// allowed only to insert. Running it again changes nothing. A column's type
-    /// and a table's sort order never change: give a new type a new column, and
-    /// a new order a new table.
+    /// Creates the database, and every table of `tables` and its own `spans`
+    /// and `logs` that does not exist, adds the columns a table lacks, and sets
+    /// each one's retention and comments; then, when connected as the owner,
+    /// creates or resets `writer`, allowed only to insert. Running it again
+    /// changes nothing. A column's type and a table's sort order never change:
+    /// give a new type a new column, and a new order a new table.
     ///
     /// # Errors
     /// Returns the first statement ClickHouse refuses.
     pub async fn migrate(&self, tables: &[Table], writer: Option<&Self>) -> Result<(), StoreError> {
         let create = format!("CREATE DATABASE IF NOT EXISTS {}", self.database);
         self.execute("system", &create, &create).await?;
-        for table in tables {
+        for table in tables.iter().chain(crate::export::TABLES) {
             for statement in table.statements() {
                 self.execute(&self.database, &statement, &statement).await?;
             }
@@ -342,7 +342,7 @@ impl Store {
 
 impl Table {
     /// The statements that bring ClickHouse's table to this declaration.
-    pub(super) fn statements(&self) -> Vec<String> {
+    pub(crate) fn statements(&self) -> Vec<String> {
         let name = self.name;
         let comment = |lines: &[&str]| {
             Store::quoted(
@@ -354,8 +354,17 @@ impl Table {
             )
         };
         let ttl = format!("toDateTime(time) + INTERVAL {} DAY", self.retention_days);
+        let (precision, partition, index, settings) = match self.kind {
+            TableKind::Signal => (3, "toYYYYMM", "", ""),
+            TableKind::Telemetry => (
+                6,
+                "toYYYYMMDD",
+                ",\n    INDEX trace_index trace TYPE bloom_filter GRANULARITY 1",
+                "\nSETTINGS ttl_only_drop_parts = 1",
+            ),
+        };
         let mut create = format!(
-            "CREATE TABLE IF NOT EXISTS {name} (\n    time DateTime64(3, 'UTC') CODEC(DoubleDelta, ZSTD)"
+            "CREATE TABLE IF NOT EXISTS {name} (\n    time DateTime64({precision}, 'UTC') CODEC(DoubleDelta, ZSTD)"
         );
         for column in self.columns {
             write!(
@@ -370,7 +379,7 @@ impl Table {
         let order: Vec<&str> = self.order_by.iter().copied().chain(["time"]).collect();
         write!(
             create,
-            "\n) ENGINE = MergeTree\nPARTITION BY toYYYYMM(time)\nORDER BY ({})\nTTL {ttl}\nCOMMENT {}",
+            "{index}\n) ENGINE = MergeTree\nPARTITION BY {partition}(time)\nORDER BY ({})\nTTL {ttl}{settings}\nCOMMENT {}",
             order.join(", "),
             comment(self.description),
         )

@@ -56,6 +56,19 @@ pub struct Table {
     pub order_by: &'static [&'static str],
     /// Every column but `time`, which every table starts with.
     pub columns: &'static [ColumnDeclaration],
+    /// How its rows are kept.
+    pub kind: TableKind,
+}
+
+/// How a [`Table`]'s rows are kept.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TableKind {
+    /// A signal's: partitioned by month, each row's time to the millisecond.
+    Signal,
+    /// Spans' or log lines': partitioned by day, each row's time to the
+    /// microsecond, with a bloom filter on `trace`, so a lookup by trace reads
+    /// little, and a day's part dropped whole once every row in it expired.
+    Telemetry,
 }
 
 /// One column of a [`Table`].
@@ -263,6 +276,7 @@ macro_rules! signal {
                     ty: <$ty as $crate::analytics::Column>::TYPE,
                     description: &[$($field_doc),+],
                 }),+],
+                kind: $crate::analytics::TableKind::Signal,
             };
         }
     };
