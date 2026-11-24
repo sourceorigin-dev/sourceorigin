@@ -116,6 +116,8 @@ created with the value it mounts.
 | --- | --- | --- | --- |
 | `database-password` | `postgres`, the `migrate` job | the superuser `sourceorigin`'s password | takes effect on the next deployment, which restarts PostgreSQL: see [the database password](#the-database-password) |
 | `database-runtime-password` | `auth` | `sourceorigin_auth`'s password | takes effect on the next deployment: see [the database runtime password](#the-database-runtime-password) |
+| `analytics-password` | `clickhouse`, the `migrate` job | ClickHouse's owner `sourceorigin`'s password | nothing until you change it in ClickHouse too: see [users and secrets](analytics.md#users-and-secrets) |
+| `analytics-writer-password` | `auth` | `sourceorigin_writer`'s password, which `migrate` sets | takes effect on the next deployment, like [the database runtime password](#the-database-runtime-password) |
 | `key-encryption-key` | `auth` | `AUTH_KEY_ENCRYPTION_KEY`, which seals the signing keys in the database | don't: the stored signing keys would no longer open. Change it with a new secret instead, in two deployments and a `keys rewrap`, as [changing the key-encryption key](signing-keys.md#change-the-key-encryption-key) describes |
 | `token-digest-key` | `auth` | `AUTH_TOKEN_DIGEST_KEY` | ends every refresh token and login in progress under it: change it in two deployments instead, as [changing the token digest key](signing-keys.md#change-the-token-digest-key) describes |
 | `audit-key` | `auth`, in previews | the seed that signs a preview's audit checkpoints | makes the preview's earlier checkpoints fail verification |

@@ -20,7 +20,7 @@ preview-delete *args:
 
 # Each telemetry config is checked by the image infra/telemetry.toml runs it
 # with, so by the version that will read it. Needs piquelctl and Docker.
-# Validate the piqueld manifests and the telemetry configs.
+# Validate the piqueld manifests, the telemetry configs and ClickHouse's.
 check:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -32,6 +32,10 @@ check:
     run --entrypoint promtool "$(image prom/prometheus)" check config /etc/telemetry/prometheus.yaml
     run "$(image grafana/loki)" -config.file=/etc/telemetry/loki.yaml -verify-config
     run "$(image grafana/tempo)" -config.file=/etc/telemetry/tempo.yaml -config.verify=true
+    clickhouse=$(grep -o 'image = "clickhouse/clickhouse-server:[^"]*"' infra/piqueld.toml | cut -d '"' -f 2)
+    docker run --rm --volume "$PWD/infra/clickhouse/config.xml:/etc/clickhouse-server/config.d/sourceorigin.xml:ro" \
+        --entrypoint clickhouse "$clickhouse" extract-from-config \
+        --config-file /etc/clickhouse-server/config.xml --key=max_server_memory_usage_to_ram_ratio >/dev/null
 
 # Point auth at it with OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 and
 # OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=local.

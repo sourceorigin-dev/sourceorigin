@@ -118,6 +118,21 @@ their events to be sealed, which every older transaction on the server holds
 back. nextest ends a test that runs five minutes as hung, as
 `.config/nextest.toml` sets.
 
+### Analytics tests
+
+```console
+just analytics test
+```
+
+Tests that need ClickHouse are marked `#[ignore]`, with a reason that names
+`TEST_ANALYTICS_URL`. `just analytics test` starts a throwaway ClickHouse in
+Docker, the image `infra/piqueld.toml` runs, on a free loopback port, runs
+them, and deletes it. To run any command against one, use
+`just analytics scratch -- <command>`. `just coverage` runs them too, in a
+scratch ClickHouse of its own unless `TEST_ANALYTICS_URL` names one. A test
+that only checks which rows a change records captures them instead, with
+`AnalyticsCapture` (see [analytics](architecture/analytics.md#testing)).
+
 ### SDK test vectors
 
 The Rust and TypeScript SDKs run the same cases, in

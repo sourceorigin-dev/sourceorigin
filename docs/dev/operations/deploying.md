@@ -5,7 +5,7 @@ piqueld daemon, ship a change to staging and then to production, roll
 production back, and try a branch on a preview.
 
 `infra/piqueld.toml` deploys SourceOrigin as one piqueld application, `sourceorigin`,
-read from this repository. It runs four services in every environment:
+read from this repository. It runs five services in every environment:
 
 | Service | What it serves |
 | --- | --- |
@@ -13,6 +13,7 @@ read from this repository. It runs four services in every environment:
 | `web` | sourceorigin.dev: the homepage and the policies (see [sourceorigin.dev](#sourceorigindev)) |
 | `docs` | this book (see [documentation](#documentation)) |
 | `postgres` | the environment's database (see [database](#database)) |
+| `clickhouse` | the environment's analytics, with their pages on a private route (see [analytics database](analytics.md)) |
 
 The environments and previews share the manifest. Its variables give each
 deployment its own hostnames:

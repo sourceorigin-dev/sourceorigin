@@ -41,7 +41,8 @@ Keep implementations simple. Follow neighbouring modules and share repeated logi
   connections, migrations, typed repositories, transactions and storage
   vocabulary.
 - `sourceorigin-telemetry` (`crates/telemetry`): logs, traces and metrics, following
-  [telemetry.md](architecture/telemetry.md).
+  [telemetry.md](architecture/telemetry.md), and analytics signals, following
+  [analytics.md](architecture/analytics.md).
 - `sourceorigin-ui` (`crates/ui`): the Topcoat components and layouts of auth's
   server-rendered pages and of its emails' HTML and plain-text bodies, the
   strings they show, titles and notices included, and

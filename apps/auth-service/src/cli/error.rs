@@ -9,7 +9,7 @@ use sourceorigin_common::{
 };
 use sourceorigin_crypto::CryptoError;
 use sourceorigin_repository::{DatabaseConnectionError, DatabaseError};
-use sourceorigin_telemetry::TelemetryError;
+use sourceorigin_telemetry::{TelemetryError, analytics::StoreError};
 use thiserror::Error;
 
 /// Failures of startup and administrative commands, preserving their original causes.
@@ -24,6 +24,9 @@ pub(super) enum CliError {
     /// An administrative database operation failed.
     #[error("authentication database command failed")]
     Database(#[from] DatabaseError),
+    /// `migrate` could not bring the analytics tables to their declarations.
+    #[error("analytics migration failed")]
+    Analytics(#[from] StoreError),
     /// An administrative operation was refused or failed.
     #[error(transparent)]
     Admin(#[from] AdminError),

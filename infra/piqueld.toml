@@ -54,6 +54,7 @@ auth_host = "auth.sourceorigin.dev"
 www_host = "www.sourceorigin.dev"
 admin_host = "admin.sourceorigin.dev"
 docs_host = "docs.sourceorigin.dev"
+analytics_host = "analytics.sourceorigin.dev"
 smtp_secret = "resend-production"
 email_from = "Origin Account <security@sourceorigin.dev>"
 audit_key = "audit-key-production-2"
@@ -72,6 +73,7 @@ auth_host = "auth.staging.sourceorigin.dev"
 www_host = "www.staging.sourceorigin.dev"
 admin_host = "admin.staging.sourceorigin.dev"
 docs_host = "docs.staging.sourceorigin.dev"
+analytics_host = "analytics.staging.sourceorigin.dev"
 smtp_secret = "resend-dev"
 email_from = "Origin Account <security@dev.sourceorigin.dev>"
 audit_key = "audit-key-staging-2"
@@ -91,6 +93,7 @@ auth_host = "auth-${{ env.slug }}.dev.sourceorigin.dev"
 www_host = "www-${{ env.slug }}.dev.sourceorigin.dev"
 admin_host = "admin-${{ env.slug }}.dev.sourceorigin.dev"
 docs_host = "docs-${{ env.slug }}.dev.sourceorigin.dev"
+analytics_host = "analytics-${{ env.slug }}.dev.sourceorigin.dev"
 smtp_secret = "resend-dev"
 email_from = "Origin Account <security@dev.sourceorigin.dev>"
 invite_required = "false"
@@ -131,6 +134,17 @@ hostname = "${{ vars.docs_host }}"
 service = "docs"
 port = 8080
 visibility = "public"
+
+# ClickHouse's own pages, `/play` for SQL and `/dashboard` for its charts, reachable
+# only from the tailnet: a way to read the analytics that needs neither auth nor
+# its admin dashboard. They sign in as ClickHouse's `sourceorigin` user. See
+# docs/dev/operations/analytics.md.
+[[spec.routes]]
+name = "analytics"
+hostname = "${{ vars.analytics_host }}"
+service = "clickhouse"
+port = 8123
+visibility = "private"
 
 # Routes cannot be limited to one environment, so staging and previews redirect
 # their own `www` name too. The gateway answers; path and query are kept.
@@ -189,7 +203,22 @@ generate = { type = "random", bytes = 32, encoding = "base64url" }
 name = "audit-key"
 generate = { type = "random", bytes = 32, encoding = "hex" }
 
-# Applies migrations as the superuser, then creates or resets `sourceorigin_auth`.
+# ClickHouse's `sourceorigin` user, which creates the analytics tables and the
+# writer, and signs in to its pages. `clickhouse` sets it on its first start only:
+# see docs/dev/operations/analytics.md before regenerating it.
+[[spec.secrets]]
+name = "analytics-password"
+generate = { type = "random", bytes = 32, encoding = "hex" }
+
+# The password of `sourceorigin_writer`, the ClickHouse user auth and sourceorigin.dev
+# insert rows as. `migrate` sets it on every deploy.
+[[spec.secrets]]
+name = "analytics-writer-password"
+generate = { type = "random", bytes = 32, encoding = "hex" }
+
+# Applies migrations as the superuser, then creates or resets `sourceorigin_auth`;
+# likewise creates the analytics tables as ClickHouse's `sourceorigin`, then
+# creates or resets `sourceorigin_writer`.
 [[spec.jobs]]
 name = "migrate"
 service = "auth"
@@ -199,14 +228,20 @@ run = "before-rollout"
 [spec.jobs.environment]
 AUTH_DATABASE_OWNER_URL = "postgres://sourceorigin@postgres:5432/sourceorigin?sslmode=disable"
 AUTH_DATABASE_OWNER_PASSWORD = "file:///run/secrets/database-password"
+ANALYTICS_OWNER_URL = "http://sourceorigin@clickhouse:8123/sourceorigin"
+ANALYTICS_OWNER_PASSWORD = "file:///run/secrets/analytics-password"
 
 [[spec.jobs.secrets]]
 name = "database-password"
 target = "/run/secrets/database-password"
 
+[[spec.jobs.secrets]]
+name = "analytics-password"
+target = "/run/secrets/analytics-password"
+
 [[spec.services]]
 name = "auth"
-depends_on = ["postgres"]
+depends_on = ["postgres", "clickhouse"]
 replicas = "${{ vars.auth_replicas }}"
 
 [spec.services.source]
@@ -243,6 +278,12 @@ AUTH_GOOGLE_CLIENT_ID = "${{ vars.google_client_id }}"
 AUTH_GOOGLE_CLIENT_SECRET = "file:///run/secrets/google-client-secret"
 OTEL_EXPORTER_OTLP_ENDPOINT = "${{ vars.otlp_endpoint }}"
 OTEL_RESOURCE_ATTRIBUTES = "deployment.environment.name=${{ env.name }}"
+ANALYTICS_URL = "http://sourceorigin_writer@clickhouse:8123/sourceorigin"
+ANALYTICS_PASSWORD = "file:///run/secrets/analytics-writer-password"
+
+[[spec.services.secrets]]
+name = "analytics-writer-password"
+target = "/run/secrets/analytics-writer-password"
 
 [[spec.services.secrets]]
 name = "database-runtime-password"
@@ -366,3 +407,45 @@ command = ["pg_isready", "-h", "127.0.0.1", "-U", "sourceorigin", "-d", "sourceo
 
 [[spec.volumes]]
 name = "database"
+
+# The analytics database: every signal auth records, kept per table for its
+# declared retention (docs/dev/architecture/analytics.md). Its users are SQL
+# users: the image creates `sourceorigin` on the first start, allowed to manage
+# others, and `migrate` creates the writer.
+[[spec.services]]
+name = "clickhouse"
+
+[spec.services.source]
+type = "image"
+image = "clickhouse/clickhouse-server:26.8.46.6"
+
+[[spec.services.files]]
+target = "/etc/clickhouse-server/config.d/sourceorigin.xml"
+path = "infra/clickhouse/config.xml"
+
+[spec.services.environment]
+CLICKHOUSE_DB = "sourceorigin"
+CLICKHOUSE_USER = "sourceorigin"
+CLICKHOUSE_PASSWORD_FILE = "/run/secrets/analytics-password"
+CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT = "1"
+
+[[spec.services.secrets]]
+name = "analytics-password"
+target = "/run/secrets/analytics-password"
+
+[[spec.services.mounts]]
+volume = "analytics"
+target = "/var/lib/clickhouse"
+
+[spec.services.healthcheck]
+type = "http"
+port = 8123
+path = "/ping"
+
+# ClickHouse caps its own memory at three quarters of this.
+[spec.services.resources]
+cpu_millis = 1000
+memory_bytes = 1073741824 # 1 GiB
+
+[[spec.volumes]]
+name = "analytics"

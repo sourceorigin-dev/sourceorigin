@@ -39,3 +39,13 @@
 - `AUTH_SMTP_URL`: The SMTP relay auth sends through: `smtps://USER@HOST:465`, with implicit TLS, or `smtp://USER@HOST:587`, which requires STARTTLS. Only a loopback host, such as a local Mailpit, may be reached without TLS. Unset, email is off: adding an address is refused and queued messages are dropped.
 - `AUTH_SMTP_PASSWORD`: Where to read the password of the URL's user, through `env://NAME` or `file:///path`. Required when the URL names a user; never put it in the URL.
 - `AUTH_EMAIL_FROM`: The sender of every message. Default: `Origin Account <security@sourceorigin.dev>`.
+
+### Analytics
+
+- `ANALYTICS_URL`: The ClickHouse database analytics rows are written to, as an HTTP URL naming the user and the database, such as `http://sourceorigin_writer@clickhouse:8123/sourceorigin`. Unset or empty, rows are discarded.
+- `ANALYTICS_PASSWORD`: Where to read that user's password, through `env://NAME` or `file:///path`.
+
+### Analytics migrations
+
+- `ANALYTICS_OWNER_URL`: The ClickHouse user `migrate` connects as instead, in the same format as `ANALYTICS_URL`. `migrate` then creates or resets the user `ANALYTICS_URL` names, with the `ANALYTICS_PASSWORD` password, allowed only to insert rows. The owner must be allowed to manage users.
+- `ANALYTICS_OWNER_PASSWORD`: Where to read the owner's password, as for `ANALYTICS_PASSWORD`.

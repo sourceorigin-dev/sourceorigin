@@ -1,0 +1,25 @@
+---
+source: crates/telemetry/src/analytics/tests.rs
+expression: "Throttled::TABLE.statements().join(\";\\n\\n\")"
+---
+CREATE TABLE IF NOT EXISTS throttled (
+    time DateTime64(3, 'UTC') CODEC(DoubleDelta, ZSTD),
+    category LowCardinality(String) COMMENT 'Its rate category.',
+    refused UInt64 COMMENT 'How many requests it refused.'
+) ENGINE = MergeTree
+PARTITION BY toYYYYMM(time)
+ORDER BY (category, time)
+TTL toDateTime(time) + INTERVAL 30 DAY
+COMMENT 'A request refused by a rate limit.';
+
+ALTER TABLE throttled ADD COLUMN IF NOT EXISTS category LowCardinality(String) COMMENT 'Its rate category.';
+
+ALTER TABLE throttled COMMENT COLUMN category 'Its rate category.';
+
+ALTER TABLE throttled ADD COLUMN IF NOT EXISTS refused UInt64 COMMENT 'How many requests it refused.';
+
+ALTER TABLE throttled COMMENT COLUMN refused 'How many requests it refused.';
+
+ALTER TABLE throttled MODIFY COMMENT 'A request refused by a rate limit.';
+
+ALTER TABLE throttled MODIFY TTL toDateTime(time) + INTERVAL 30 DAY SETTINGS materialize_ttl_after_modify = 0

@@ -26,7 +26,7 @@ Options:
 Commands:
 
 - [`auth-service serve`](#auth-service-serve): Serve the authentication service.
-- [`auth-service migrate`](#auth-service-migrate): Apply database migrations. Connected as the schema owner, also create or reset the role other commands connect as.
+- [`auth-service migrate`](#auth-service-migrate): Apply database migrations, and create or extend the analytics tables. Connected as the schema owner, also create or reset the role other commands connect as, and the analytics writer likewise.
 - [`auth-service keys`](#auth-service-keys): Inspect, rotate, revoke and rewrap signing keys, check token digest keys, and print the audit key's verifier key. Every replica picks up a signing key change within a minute.
 - [`auth-service user`](#auth-service-user): Search, show, disable, reactivate and recover accounts.
 - [`auth-service invite`](#auth-service-invite): Create, list, resend and revoke signup invitations.
@@ -54,7 +54,7 @@ Options:
 
 ## `auth-service migrate`
 
-Apply database migrations. Connected as the schema owner, also create or reset the role other commands connect as.
+Apply database migrations, and create or extend the analytics tables. Connected as the schema owner, also create or reset the role other commands connect as, and the analytics writer likewise.
 
 ```text
 auth-service migrate [OPTIONS]
