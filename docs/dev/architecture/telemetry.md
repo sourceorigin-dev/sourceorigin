@@ -87,7 +87,7 @@ Everything a span or log line holds is stored. Never record a secret
 (cookie, code, token, ceremony state, invitation, client secret), a query string,
 a request header, a request path, a client IP or a user agent. Events keep IPs
 and user agents under their own retention rules. User IDs are pseudonymous, so
-they are allowed on spans and log lines, which are kept 30 days at most. The
+they are allowed on spans and log lines, which are kept about 30 days. The
 exporters also drop `url.path`, `url.query`, `url.full`, `client.address` and
 `http.*.header.*` attributes, as a second line of defense.
 
@@ -135,13 +135,13 @@ span carry its trace ID instead.
 | Variable | Meaning |
 | --- | --- |
 | `OTEL_SERVICE_NAME` | Overrides the default, `auth-service` or `sourceorigin-web` |
-| `OTEL_RESOURCE_ATTRIBUTES` | Extra resource attributes; a `service.instance.id` there replaces the process's own UUID on spans and logs |
+| `OTEL_RESOURCE_ATTRIBUTES` | Only its `service.name` and `service.instance.id` matter: the latter replaces the process's own UUID on spans and logs |
 | `OTEL_TRACES_SAMPLER`, `OTEL_TRACES_SAMPLER_ARG` | Sampling; every trace is kept by default |
 | `RUST_LOG` | What is logged; spans keep the service's default filter. A value that does not parse stops every command |
 
 When `ANALYTICS_URL` or `ANALYTICS_PASSWORD` is set but invalid, `serve` and the
-web app refuse to start: a server must not run without the telemetry its alerts
-read. Every other `auth-service` command, such as `migrate` or an account
+web app refuse to start: a server must not run without the telemetry its
+operators read. Every other `auth-service` command, such as `migrate` or an account
 repair, logs a warning and runs with logs on stderr only, so broken telemetry
 never blocks a break-glass fix. An unreachable ClickHouse never stops anything:
 its batches are dropped and the SDK logs the failure on stderr.

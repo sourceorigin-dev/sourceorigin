@@ -14,14 +14,22 @@ use opentelemetry_sdk::{logs::SdkLoggerProvider, trace::SdkTracerProvider};
 async fn analytics_spans_and_logs_reach_clickhouse() {
     let store = Store::test();
     store.migrate(&[], None).await.expect("migrated");
-    let source = Source::new(store.clone(), "exported", "instance").expect("a runtime");
+    let service = format!("exported-{}", uuid::Uuid::now_v7().simple());
+    let source = Source::new(store.clone(), &service, "instance").expect("a runtime");
     let tracer = SdkTracerProvider::builder()
         .with_simple_exporter(SpanRows(source.clone()))
         .build();
     let mut span = tracer.tracer("test").start("GET /items/{id}");
     span.set_attribute(KeyValue::new("http.route", "/items/{id}"));
     span.set_attribute(KeyValue::new("url.path", "/items/secret"));
-    span.set_attribute(KeyValue::new("http.request.header.cookie", "secret"));
+    for redacted in [
+        "url.query",
+        "url.full",
+        "http.request.header.cookie",
+        "http.response.header.set-cookie",
+    ] {
+        span.set_attribute(KeyValue::new(redacted, "secret"));
+    }
     span.end();
     let logger = SdkLoggerProvider::builder()
         .with_simple_exporter(LogRows(source))
@@ -33,15 +41,18 @@ async fn analytics_spans_and_logs_reach_clickhouse() {
     record.add_attribute("event.kind", "signed_in");
     log.emit(record);
     let spans = store
-        .select(
+        .select(&format!(
             "SELECT name, attributes['http.route'], length(attributes) FROM spans \
-             WHERE service = 'exported'",
-        )
+                 WHERE service = '{service}'"
+        ))
         .await
         .expect("spans");
     assert_eq!(spans, "GET /items/{id}\t/items/{id}\t1");
     let logs = store
-        .select("SELECT body, attributes['event.kind'], length(attributes) FROM logs WHERE service = 'exported'")
+        .select(&format!(
+            "SELECT body, attributes['event.kind'], length(attributes) FROM logs \
+             WHERE service = '{service}'"
+        ))
         .await
         .expect("logs");
     assert_eq!(logs, "event recorded\tsigned_in\t1");

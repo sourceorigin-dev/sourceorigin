@@ -257,9 +257,9 @@ impl Store {
             .await?)
     }
 
-    /// Creates the database, its `spans` and `logs` tables, and every table of
-    /// `tables` that does not exist,
-    /// adds the columns a table lacks, and sets each one's retention and
+    /// Creates the database, its `spans` and `logs` tables with their
+    /// retention, and every table of `tables` that does not exist, adds the
+    /// columns a signal's table lacks, and sets each one's retention and
     /// comments; then, when connected as the owner, creates or resets `writer`,
     /// allowed only to insert. Running it again changes nothing. A column's type
     /// and a table's sort order never change: give a new type a new column, and

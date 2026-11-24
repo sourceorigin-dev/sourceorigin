@@ -358,7 +358,8 @@ impl Cli {
     /// `--json`. Telemetry export never stops a command other than `serve`: when
     /// it cannot start, the command logs to stderr only, and a failed or late
     /// flush, such as to an unreachable ClickHouse, is only reported, so a
-    /// deploy's migration job and break-glass repairs still run. An unparseable `RUST_LOG` stops every command.
+    /// deploy's migration job and break-glass repairs still run. An
+    /// unparseable `RUST_LOG` stops every command.
     pub async fn run(self) -> ExitCode {
         let out = Output::new(self.json);
         let result = async {

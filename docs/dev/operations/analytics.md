@@ -13,7 +13,10 @@ admin dashboard to be read, so it works when they don't.
 A deployment starts it before auth, so `migrate` can create its tables, but
 nothing waits on it after that. When it is down, auth signs people in as usual
 and drops the rows it can't send, and `migrate` warns that it could not reach
-it and lets the deployment go on.
+it and lets the deployment go on. Check the migration job's output for
+`analytics tables not migrated` after a deployment that changed a table or a
+variable: until a `migrate` succeeds, ClickHouse refuses the rows it lacks a
+table for.
 
 ## Sign in to ClickHouse
 

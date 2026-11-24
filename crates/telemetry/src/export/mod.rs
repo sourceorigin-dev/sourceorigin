@@ -25,8 +25,8 @@ use tokio::runtime::{Handle, TryCurrentError};
 /// `ANALYTICS_URL`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Export {
-    /// Fail: a server must not run without the telemetry its alerts read, so a
-    /// broken configuration stops the deployment instead.
+    /// Fail: a server must not run without the telemetry its operators read, so
+    /// a broken configuration stops the deployment instead.
     Required,
     /// Log to stderr only, with a warning: a command-line run, such as a
     /// migration or an account repair, must work while telemetry is broken.
@@ -44,6 +44,8 @@ pub enum ExportError {
     Runtime(#[from] TryCurrentError),
 }
 
+/// The attribute a failed span's description is stored under.
+const STATUS_DESCRIPTION: &str = "otel.status_description";
 /// Attribute keys never stored, whoever sets them: they can hold a path, a
 /// query string, an address or a header. Auth never records them; this is the
 /// second line of defense.
@@ -52,10 +54,11 @@ const REDACTED: [&str; 4] = ["url.path", "url.query", "url.full", "client.addres
 const REDACTED_PREFIXES: [&str; 2] = ["http.request.header.", "http.response.header."];
 
 /// The tables spans and log records are stored in, which `migrate` creates
-/// beside the signals': kept for days, not months, and holding text, so they
-/// are not signals. Trace IDs have a bloom filter, so a lookup by trace reads
-/// little.
-pub(crate) const TABLES: [&str; 2] = [
+/// beside the signals', then sets their retention: kept for days, not months,
+/// and holding text, so they are not signals. Their columns are created only:
+/// a new one needs its own `ALTER TABLE` here. Trace IDs have a bloom filter,
+/// so a lookup by trace reads little.
+pub(crate) const TABLES: [&str; 4] = [
     "CREATE TABLE IF NOT EXISTS spans (
     time DateTime64(6, 'UTC') CODEC(DoubleDelta, ZSTD) COMMENT 'When the span started.',
     trace FixedString(32) COMMENT 'Its trace.',
@@ -64,8 +67,8 @@ pub(crate) const TABLES: [&str; 2] = [
     service LowCardinality(String) COMMENT 'The service, such as `auth-service`.',
     instance LowCardinality(String) COMMENT 'The process, a new UUID each start.',
     name LowCardinality(String) COMMENT 'Its name, such as `GET /login`.',
-    kind LowCardinality(String) COMMENT '`server`, `client` or `internal`.',
-    status LowCardinality(String) COMMENT '`error` when it failed, else `unset` or `ok`.',
+    kind LowCardinality(String) COMMENT '`server`, `client`, `internal`, `producer` or `consumer`.',
+    status LowCardinality(String) COMMENT '`error` when it failed, with its description in `otel.status_description`, else `unset` or `ok`.',
     duration_us UInt64 COMMENT 'How long it took, in microseconds.',
     attributes Map(LowCardinality(String), String) COMMENT 'Its attributes, as text.',
     INDEX trace_index trace TYPE bloom_filter GRANULARITY 1
@@ -81,7 +84,7 @@ COMMENT 'Every span of auth and sourceorigin.dev: a trace per request, job run a
     span FixedString(16) COMMENT 'The span it was logged in, or zeros.',
     service LowCardinality(String) COMMENT 'The service, such as `auth-service`.',
     instance LowCardinality(String) COMMENT 'The process, a new UUID each start.',
-    level LowCardinality(String) COMMENT '`ERROR`, `WARN`, `INFO` or `DEBUG`.',
+    level LowCardinality(String) COMMENT '`ERROR`, `WARN`, `INFO`, `DEBUG` or `TRACE`.',
     target LowCardinality(String) COMMENT 'The module that logged it.',
     body String COMMENT 'The message.',
     attributes Map(LowCardinality(String), String) COMMENT 'Its fields, as text.',
@@ -91,7 +94,9 @@ PARTITION BY toYYYYMMDD(time)
 ORDER BY (service, level, time)
 TTL toDateTime(time) + INTERVAL 30 DAY
 SETTINGS ttl_only_drop_parts = 1
-COMMENT 'Every log line of auth and sourceorigin.dev that stderr shows at info or above.'",
+COMMENT 'Every log line of auth and sourceorigin.dev their filter lets through, but the SDK\\'s and the HTTP stack\\'s.'",
+    "ALTER TABLE spans MODIFY TTL toDateTime(time) + INTERVAL 14 DAY SETTINGS materialize_ttl_after_modify = 0",
+    "ALTER TABLE logs MODIFY TTL toDateTime(time) + INTERVAL 30 DAY SETTINGS materialize_ttl_after_modify = 0",
 ];
 
 /// Who wrote a span or log record: the columns every row of both tables has.
@@ -242,7 +247,13 @@ impl SpanRows {
             attributes: Source::attributes(
                 span.attributes
                     .iter()
-                    .map(|KeyValue { key, value, .. }| (key.as_str(), Self::text(value))),
+                    .map(|KeyValue { key, value, .. }| (key.as_str(), Self::text(value)))
+                    .chain(match &span.status {
+                        Status::Error { description } if !description.is_empty() => {
+                            Some((STATUS_DESCRIPTION, description.to_string()))
+                        }
+                        _ => None,
+                    }),
             ),
         }
     }
