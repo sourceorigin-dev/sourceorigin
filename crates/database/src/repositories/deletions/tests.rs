@@ -103,7 +103,7 @@ async fn restore_tokens_expire_and_end_with_the_deletion() {
 
     // Leaving 'deleting' any other way, through a plain enable or disable, ends
     // the schedule too.
-    let mut users = crate::UserRepository::from_pool(&pool);
+    let mut users = UserRepository::from_pool(&pool);
     users
         .set_status(user, AccountStatus::Deleting)
         .await

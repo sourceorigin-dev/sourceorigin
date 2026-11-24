@@ -171,7 +171,7 @@ async fn userinfo_needs_the_openid_scope_and_an_unexpired_token() {
                     sub: flow.user_id.to_string(),
                     aud: sourceorigin_common::protocol::claims::Audience::One("api".into()),
                     client_id: flow.client.id.clone(),
-                    jti: sourceorigin_common::TokenId::new(),
+                    jti: TokenId::new(),
                     scope: scope.parse().expect("scopes"),
                     iat: now - chrono::Duration::minutes(10),
                     exp,
@@ -180,7 +180,7 @@ async fn userinfo_needs_the_openid_scope_and_an_unexpired_token() {
                         sourceorigin_common::protocol::claims::AuthenticationClaims::default(),
                     act: None,
                     cnf: None,
-                    profile: sourceorigin_common::protocol::claims::ProfileClaims::default(),
+                    profile: ProfileClaims::default(),
                     extra: (),
                 },
             )

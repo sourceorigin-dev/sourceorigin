@@ -16,9 +16,9 @@ async fn logout_receiver() -> (
     Arc<Mutex<Vec<String>>>,
 ) {
     let posted = Arc::new(Mutex::new(Vec::new()));
-    let receiver = axum::Router::new().route(
+    let receiver = Router::new().route(
         "/backchannel-logout",
-        axum::routing::post({
+        post({
             let posted = Arc::clone(&posted);
             async move |axum::Form(form): axum::Form<HashMap<String, String>>| {
                 posted
@@ -291,7 +291,7 @@ async fn an_unverifiable_hint_still_signs_out_and_stays_on_auth() {
 async fn a_hint_naming_another_account_says_so() {
     let flow = Flow::new(true, true).await;
     let (hint, sid) = id_token(&flow).await;
-    let other = crate::tests::Browser::new_account(&flow.app.database).await;
+    let other = Browser::new_account(&flow.app.database).await;
     let elsewhere = Flow {
         cookie: other.cookie,
         ..flow.clone()

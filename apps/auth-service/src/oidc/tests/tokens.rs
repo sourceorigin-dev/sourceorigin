@@ -311,10 +311,7 @@ async fn concurrent_refreshes_across_replicas() {
             successors.push(json(response).await["refresh_token"].clone());
         }
         if confidential {
-            assert!(
-                successors.iter().all(serde_json::Value::is_null),
-                "{successors:?}"
-            );
+            assert!(successors.iter().all(Value::is_null), "{successors:?}");
             assert_eq!(a.refresh(&token).await.status(), StatusCode::OK, "kept");
             continue;
         }

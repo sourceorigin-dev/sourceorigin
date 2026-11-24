@@ -729,7 +729,7 @@ async fn security_emails_carry_the_sign_out_link() {
         panic!("a security notification's email carries the link");
     };
     let link = url::Url::parse(&link).expect("URL");
-    assert_eq!(link.path(), routes::page::SIGN_OUT);
+    assert_eq!(link.path(), page::SIGN_OUT);
     let query: std::collections::HashMap<_, _> = link.query_pairs().into_owned().collect();
     let checked = config.sign_out_links.check(&crate::notifications::Link {
         id: query["id"].parse().expect("notification"),

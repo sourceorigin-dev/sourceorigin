@@ -13,7 +13,7 @@ impl TestApp {
             .insert_identity(&InsertExternalIdentity {
                 id: TokenId::new(),
                 user_id,
-                provider: sourceorigin_common::Provider::GitHub,
+                provider: Provider::GitHub,
                 issuer: ProviderEndpoints::new(Provider::GitHub)
                     .expect("GitHub facts")
                     .issuer

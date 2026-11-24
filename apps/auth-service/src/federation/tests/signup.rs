@@ -14,7 +14,7 @@ impl TestApp {
         headers: &HeaderMap,
         user: UserId,
     ) -> Result<Option<ProviderPicture>, FederationError> {
-        let actor = security::RequestContext::TEST.actor(Actor::Anonymous);
+        let actor = RequestContext::TEST.actor(Actor::Anonymous);
         FederationApplication::attach_signup(tx, &actor, &self.email, ip, pending, headers, user)
             .await
     }
@@ -40,7 +40,7 @@ async fn onboarding_commits_only_with_first_key_and_browser_and_never_claims_exi
     assert!(
         test.attach(
             &mut tx,
-            security::RequestContext::TEST.client_ip,
+            RequestContext::TEST.client_ip,
             pending.id,
             &headers,
             user
@@ -54,7 +54,7 @@ async fn onboarding_commits_only_with_first_key_and_browser_and_never_claims_exi
     assert!(
         test.attach(
             &mut tx,
-            security::RequestContext::TEST.client_ip,
+            RequestContext::TEST.client_ip,
             pending.id,
             &HeaderMap::new(),
             user
@@ -64,7 +64,7 @@ async fn onboarding_commits_only_with_first_key_and_browser_and_never_claims_exi
     );
     test.attach(
         &mut tx,
-        security::RequestContext::TEST.client_ip,
+        RequestContext::TEST.client_ip,
         pending.id,
         &headers,
         user,
@@ -90,7 +90,7 @@ async fn onboarding_commits_only_with_first_key_and_browser_and_never_claims_exi
     assert!(
         test.attach(
             &mut tx,
-            security::RequestContext::TEST.client_ip,
+            RequestContext::TEST.client_ip,
             pending.id,
             &headers,
             user
@@ -202,7 +202,7 @@ async fn signup_skips_an_address_an_account_being_deleted_holds() {
     let mut tx = test.app.database.begin().await.expect("tx");
     test.attach(
         &mut tx,
-        security::RequestContext::TEST.client_ip,
+        RequestContext::TEST.client_ip,
         pending.id,
         &headers,
         user,

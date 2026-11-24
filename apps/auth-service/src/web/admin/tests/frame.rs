@@ -154,15 +154,15 @@ async fn the_top_bar_finds_pages_and_accounts() {
 /// what the update changed.
 #[test]
 fn a_read_started_before_forgetting_is_not_kept() {
-    let mut cache = super::AttentionCache::default();
+    let mut cache = AttentionCache::default();
     let Err(started) = cache.fresh() else {
         panic!("nothing found yet");
     };
     cache.forget();
-    cache.keep(started, super::Attention::default());
+    cache.keep(started, Attention::default());
     let Err(now) = cache.fresh() else {
         panic!("the earlier read is dropped");
     };
-    cache.keep(now, super::Attention::default());
+    cache.keep(now, Attention::default());
     assert!(cache.fresh().is_ok(), "a read started since is kept");
 }

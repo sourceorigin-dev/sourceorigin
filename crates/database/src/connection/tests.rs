@@ -127,7 +127,7 @@ fn configuration_errors_name_the_setting_without_credentials() {
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn cleanup_skips_rows_locked_by_requests() {
     let pool = Database::test_pool().await;
-    let bucket = uuid::Uuid::now_v7().as_bytes().to_vec();
+    let bucket = Uuid::now_v7().as_bytes().to_vec();
     // Concurrent tests purge too and can delete the expired row before it is
     // locked, so insert it again until the request holds it.
     let request = loop {
@@ -173,7 +173,7 @@ async fn cleanup_skips_rows_locked_by_requests() {
 async fn cleanup_keeps_redeemed_codes_while_their_session_is_live() {
     let pool = Database::test_pool().await;
     let database = Database { pool: pool.clone() };
-    let [user, session, code, family] = [(); 4].map(|()| uuid::Uuid::now_v7());
+    let [user, session, code, family] = [(); 4].map(|()| Uuid::now_v7());
     let client = format!("purge_{user}");
     // One statement keeps the fixture short; foreign keys are checked at its end.
     sqlx::query(
@@ -209,7 +209,7 @@ async fn cleanup_keeps_redeemed_codes_while_their_session_is_live() {
     .await
     .expect("redeemed grant");
     let link = || async {
-        sqlx::query_scalar::<_, Option<uuid::Uuid>>(
+        sqlx::query_scalar::<_, Option<Uuid>>(
             "SELECT authorization_code_id FROM refresh_token_families WHERE id = $1",
         )
         .bind(family)
@@ -270,7 +270,7 @@ fn runtime_roles_need_plain_names() {
         &"a".repeat(64),
     ] {
         assert!(
-            matches!(role(user), Err(crate::DatabaseConnectionError::RoleName)),
+            matches!(role(user), Err(DatabaseConnectionError::RoleName)),
             "accepted {user}"
         );
     }
@@ -285,7 +285,7 @@ fn runtime_roles_need_plain_names() {
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn runtime_role_has_only_row_privileges() {
     let owner = Database::test().await;
-    let name = format!("sourceorigin_auth_{}", uuid::Uuid::now_v7().simple());
+    let name = format!("sourceorigin_auth_{}", Uuid::now_v7().simple());
     let config = config_for(&name);
     let role = RuntimeRole::new(&config, "runtime password").expect("role");
     // Overlapping runs, as two `migrate` jobs: one creates the role, the other
@@ -403,7 +403,7 @@ fn config_for(user: &str) -> DatabaseConfig {
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn provisioning_resets_what_it_does_not_grant() {
     let owner = Database::test().await;
-    let name = format!("sourceorigin_auth_{}", uuid::Uuid::now_v7().simple());
+    let name = format!("sourceorigin_auth_{}", Uuid::now_v7().simple());
     let role = RuntimeRole::new(&config_for(&name), "password").expect("role");
     owner.provision(&role).await.expect("create");
     let database: String = sqlx::query_scalar("SELECT current_database()::text")
@@ -456,7 +456,7 @@ async fn provisioning_refuses_roles_that_could_do_more() {
         .expect_err("the owner is refused");
     assert!(format!("{error:?}").contains("must not be the schema owner"));
 
-    let name = format!("sourceorigin_auth_{}", uuid::Uuid::now_v7().simple());
+    let name = format!("sourceorigin_auth_{}", Uuid::now_v7().simple());
     let role = RuntimeRole::new(&config_for(&name), "password").expect("role");
     for (setup, undo, refusal) in [
         (

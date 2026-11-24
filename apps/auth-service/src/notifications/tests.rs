@@ -282,7 +282,7 @@ async fn owners_choose_which_notifications_are_emailed() {
 
     let service = AccountService::new(harness.database.clone());
     service
-        .unsubscribe(alice.user_id, crate::security::RequestContext::TEST)
+        .unsubscribe(alice.user_id, RequestContext::TEST)
         .await
         .expect("unsubscribe");
     assert_eq!(preferences(&alice).await, announcements(false));
@@ -315,7 +315,7 @@ async fn the_sign_out_link_works_once_within_seven_days() {
         .expect("inbox")[0]
         .id;
     let service = AccountService::new(harness.database.clone());
-    let context = crate::security::RequestContext::TEST;
+    let context = RequestContext::TEST;
     let passkeys = harness
         .database
         .passkeys()
@@ -362,13 +362,16 @@ async fn the_sign_out_link_works_once_within_seven_days() {
         })
         .collect();
     assert_eq!(reasons.len(), 2, "{reasons:?}");
-    assert!(reasons.iter().all(|(reason, actor)| *reason
-        == sourceorigin_common::events::RevocationReason::SignOutLink
-        && *actor
-            == Actor::User {
-                user_id: alice.user_id,
-                session_id: None
-            }));
+    assert!(
+        reasons
+            .iter()
+            .all(|(reason, actor)| *reason == RevocationReason::SignOutLink
+                && *actor
+                    == Actor::User {
+                        user_id: alice.user_id,
+                        session_id: None
+                    })
+    );
     assert!(
         !service
             .sign_out_everywhere(id, context)
@@ -445,7 +448,7 @@ async fn support_signing_an_account_out_tells_its_owner_once() {
             &context,
             alice.user_id,
             sourceorigin_repository::SessionScope::All,
-            &sourceorigin_common::events::RevocationReason::Admin,
+            &RevocationReason::Admin,
         )
         .await
         .expect("revoke");
@@ -503,7 +506,7 @@ async fn every_use_of_the_sign_out_link_is_in_the_history() {
             })
             .collect()
     };
-    let context = crate::security::RequestContext::TEST;
+    let context = RequestContext::TEST;
     let first = latest().await;
     assert!(
         service

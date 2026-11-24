@@ -159,7 +159,7 @@ pub(crate) enum HttpSecurityError {
     MultipleForwardedHeaders,
     /// The forwarded header is not valid HTTP text.
     #[error("forwarded address is not HTTP text")]
-    ForwardedHeader(#[from] axum::http::header::ToStrError),
+    ForwardedHeader(#[from] header::ToStrError),
     /// The forwarded header does not contain a single IP address.
     #[error("forwarded address is not a single IP address")]
     ForwardedAddress(#[from] std::net::AddrParseError),

@@ -52,7 +52,7 @@ pub(crate) struct Fixture {
     /// Routes and persistence under test.
     app: PasskeyApplication,
     /// Where requests go: the passkey routes, or a replica of the whole service.
-    router: axum::Router,
+    router: Router,
     /// The software key that signs.
     key: SoftKey,
     /// HTTPS origin passed to the authenticator.
@@ -153,7 +153,7 @@ impl Fixture {
         id
     }
     /// Sends the next requests to `router`, such as one of [`Replicas`].
-    fn on(&mut self, router: &axum::Router) -> &mut Self {
+    fn on(&mut self, router: &Router) -> &mut Self {
         self.router = router.clone();
         self
     }
@@ -183,7 +183,7 @@ impl Fixture {
             .clone()
             .oneshot(
                 request
-                    .extension(crate::security::RequestContext::TEST)
+                    .extension(RequestContext::TEST)
                     .header("x-sourceorigin-csrf", "1")
                     .body(Body::from(body))
                     .expect("request"),

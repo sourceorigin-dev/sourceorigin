@@ -115,7 +115,7 @@ impl Interaction {
         }
         match (none, login, consent) {
             (true, false, false) => Some(Self::None),
-            (true, _, _) => Option::None,
+            (true, _, _) => None,
             (false, false, false) => Some(Self::AsNeeded),
             (false, true, false) => Some(Self::Login),
             (false, false, true) => Some(Self::Consent),
