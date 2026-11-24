@@ -60,7 +60,12 @@ impl Pager {
 /// The pager below a list of `what`: which items the page shows of how many, and
 /// the previous and next pages. A list that fits one page shows only its count.
 #[component]
-pub(crate) async fn pager<'a>(pages: &'a Pager, what: &'a str) -> Result<impl View> {
+pub(crate) async fn pager<'a>(
+    /// The page of items shown, among how many.
+    pages: &'a Pager,
+    /// What the items are called.
+    what: &'a str,
+) -> Result<impl View> {
     let paging = pages.paging;
     let shown = match paging.range() {
         Some((first, last)) => format!("{first}–{last} of {} {what}", paging.total),
@@ -90,12 +95,16 @@ pub(crate) async fn pager<'a>(pages: &'a Pager, what: &'a str) -> Result<impl Vi
 /// the whole page as `actions`, beside them.
 #[component]
 pub async fn page_head(
-    #[into] title: String,
+    /// What the page is titled.
+    #[into]
+    title: String,
     #[into]
     #[default]
+    /// A paragraph under the title, if any.
     lead: Option<String>,
     #[into]
     #[default]
+    /// What acts on the whole page.
     actions: Child<'_>,
 ) -> Result<impl View> {
     Ok(view! {
@@ -114,7 +123,10 @@ pub async fn page_head(
 /// A text, `body`, as paragraphs, keeping its line breaks: an announcement's as
 /// its administrators wrote it, or any notification's.
 #[component]
-pub(crate) async fn announcement_text<'a>(body: &'a str) -> Result<impl View> {
+pub(crate) async fn announcement_text<'a>(
+    /// The text.
+    body: &'a str,
+) -> Result<impl View> {
     let paragraphs = Announcement::paragraphs(body);
     Ok(view! {
         for lines in &paragraphs {
@@ -133,7 +145,10 @@ pub(crate) async fn announcement_text<'a>(body: &'a str) -> Result<impl View> {
 /// What a page says: the `alert` of a change that failed, and the `notice` of
 /// the one just made.
 #[component]
-pub(crate) async fn page_messages<'a>(messages: Messages<'a>) -> Result<impl View> {
+pub(crate) async fn page_messages<'a>(
+    /// The failure and the notice to show.
+    messages: Messages<'a>,
+) -> Result<impl View> {
     Ok(view! {
         // A refused setting is said beside its input instead.
         if let Some(Alert::Page(alert)) = messages.alert {
@@ -161,8 +176,11 @@ pub(crate) async fn page_messages<'a>(messages: Messages<'a>) -> Result<impl Vie
 pub(crate) async fn alert_notice<'a>(
     #[into]
     #[default]
+    /// Why the change failed, if it did.
     message: Option<&'a str>,
-    #[default] passkey: bool,
+    /// Whether the notice is the passkey script's placeholder.
+    #[default]
+    passkey: bool,
 ) -> Result<impl View> {
     Ok(view! {
         if message.is_some() || passkey {
@@ -183,12 +201,21 @@ pub(crate) async fn alert_notice<'a>(
 /// into it as it opens; one that does autofocuses its input.
 #[component]
 pub(crate) async fn dialog<'a>(
+    /// The dialog's element ID, which a button names to open it.
     id: &'a str,
+    /// What the dialog is titled.
     title: &'a str,
+    /// Whether the dialog is open as the page loads.
     shown: bool,
+    /// Where closing it goes.
     back: &'a str,
-    #[default] alert: Option<&'a str>,
-    #[default] focus_close: bool,
+    /// Why the last attempt failed, if it did.
+    #[default]
+    alert: Option<&'a str>,
+    /// Whether the focus moves to the close button as it opens.
+    #[default]
+    focus_close: bool,
+    /// What the dialog holds.
     child: Child<'_>,
 ) -> Result<impl View> {
     let heading = format!("{id}-title");
@@ -223,7 +250,10 @@ pub(crate) async fn dialog<'a>(
 /// clicking again blurs it. A checkbox, visually hidden, holds whether it shows,
 /// so it needs no script.
 #[component]
-pub(crate) async fn private_address<'a>(address: &'a str) -> Result<impl View> {
+pub(crate) async fn private_address<'a>(
+    /// The email address.
+    address: &'a str,
+) -> Result<impl View> {
     Ok(view! {
         <label class="private-address">
             <input type="checkbox" aria-label="Show address">
@@ -237,9 +267,13 @@ pub(crate) async fn private_address<'a>(address: &'a str) -> Result<impl View> {
 /// `data-confirm-first` when [`Label::confirms_first`].
 #[component]
 pub(crate) async fn navigation<'a, T: Label>(
+    /// What the navigation is named for assistive technology.
     label: &'a str,
+    /// The navigation's CSS class.
     class: &'a str,
+    /// The links, each with its URL.
     links: &'a [(T, &'a str)],
+    /// The link marked as the current page.
     current: T,
 ) -> Result<impl View> {
     Ok(view! {

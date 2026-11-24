@@ -106,9 +106,13 @@ pub struct SessionRow<'a> {
 /// inviting someone.
 #[component]
 pub async fn user_search<'a>(
+    /// What was searched for.
     q: &'a str,
+    /// The accounts found.
     rows: &'a [UserRow<'a>],
+    /// The pages through them.
     pages: &'a Pager,
+    /// Where someone is invited.
     invite: &'a str,
 ) -> Result<impl View> {
     let total = pages.paging.total;
@@ -196,12 +200,19 @@ pub struct AccountPages<'a> {
 /// `recent` events, linking `all_events`.
 #[component]
 pub async fn user_page<'a>(
+    /// The account.
     detail: &'a UserDetail,
+    /// Where its profile picture is, if it has one.
     picture: Option<&'a str>,
+    /// The pages that change it, or why there are none.
     pages: Result<AccountPages<'a>, &'a str>,
+    /// Where a message is sent to it.
     message: &'a str,
+    /// Its sessions.
     sessions: &'a [SessionRow<'a>],
+    /// Its latest events.
     recent: &'a [EventRow<'a>],
+    /// Where all its events are listed.
     all_events: &'a str,
 ) -> Result<impl View> {
     let user = &detail.user;
@@ -279,9 +290,13 @@ pub async fn user_page<'a>(
 /// `account` when ending them all, and each session by the account's `handle`.
 #[component]
 async fn session_list<'a>(
+    /// The account's sessions.
     sessions: &'a [SessionRow<'a>],
+    /// The pages that end them, or why there are none.
     pages: Result<AccountPages<'a>, &'a str>,
+    /// The account's ID, for the passkey dialog.
     account: &'a str,
+    /// The account's handle, for the passkey dialog.
     handle: &'a str,
 ) -> Result<impl View> {
     Ok(view! {
@@ -334,9 +349,13 @@ async fn session_list<'a>(
 /// nothing. The passkey dialog names the account as `named`.
 #[component]
 async fn account_actions<'a>(
+    /// The account.
     user: &'a User,
+    /// The pages that change it, or why there are none.
     pages: Result<AccountPages<'a>, &'a str>,
+    /// Where a message is sent to it.
     message: &'a str,
+    /// What the account is called in the dialogs.
     named: &'a str,
 ) -> Result<impl View> {
     let target = Some(named);
@@ -394,17 +413,23 @@ pub struct MessagePreview<'a> {
 /// confirmation, and changing its text again.
 #[component]
 pub async fn message_page<'a>(
+    /// The handle of the account written to.
     handle: &'a str,
+    /// Where the account's page is.
     back: &'a str,
+    /// The values the form holds.
     form: &'a MessageUser,
     #[into]
     #[default]
+    /// The account, if it was found.
     target: Option<Target<'a>>,
     #[into]
     #[default]
+    /// The email as it will be sent, if one is shown.
     preview: Option<MessagePreview<'a>>,
     #[into]
     #[default]
+    /// Why the last attempt was refused, if it was.
     refusal: Option<&'a str>,
 ) -> Result<impl View> {
     let change = Change::Message;
@@ -463,7 +488,10 @@ pub async fn message_page<'a>(
 /// when each was added, never by name: a recovery's passkey was named by whoever
 /// used its link.
 #[component]
-async fn credentials<'a>(detail: &'a UserDetail) -> Result<impl View> {
+async fn credentials<'a>(
+    /// The account.
+    detail: &'a UserDetail,
+) -> Result<impl View> {
     Ok(view! {
         <section class="card">
             <header><h2>"Emails " <span class="count">(detail.emails.len().to_string())</span></h2></header>

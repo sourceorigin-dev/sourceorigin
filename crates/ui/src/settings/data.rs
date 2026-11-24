@@ -44,10 +44,15 @@ impl Query for DataState {}
 /// confirmation for them.
 #[component]
 pub async fn account_data<'a>(
+    /// Where the page is, which its changes post to.
     page: &'a str,
+    /// The handle the owner types to confirm deleting the account.
     handle: &'a str,
+    /// Days the owner has to cancel deletion.
     grace_days: i64,
+    /// What the page is showing of the download and the deletion.
     state: DataState,
+    /// Whether the deletion form is confirmed.
     confirmed: bool,
 ) -> Result<impl View> {
     Ok(view! {
@@ -116,7 +121,9 @@ pub async fn account_data<'a>(
 /// unless its owner signs in at `sign_in` with their passkey before then.
 #[component]
 pub async fn account_deleted<'a>(
+    /// When the account is purged.
     purge_after: DateTime<Utc>,
+    /// Where the owner signs in to stop it.
     sign_in: &'a str,
 ) -> Result<impl View> {
     Ok(view! {

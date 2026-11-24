@@ -150,14 +150,24 @@ pub struct ProfilePages<'a> {
 /// when another tab removed the picture.
 #[component]
 pub async fn profile_settings<'a>(
+    /// Where the page is, which its changes post to.
     page: &'a str,
+    /// Who the account is.
     who: Who<'a>,
+    /// Whether a picture is stored.
     stored: bool,
+    /// When the handle may next change, if not now.
     changeable_at: Option<DateTime<Utc>>,
+    /// Which dialog is open, and what the last attempt said.
     state: &'a ProfileState,
+    /// Whom the page is shown to.
     audience: Audience<'a>,
-    #[default] pages: Option<ProfilePages<'a>>,
-    #[default] alert: Option<&'a str>,
+    /// Where the pages that change the profile are, if the viewer may change it.
+    #[default]
+    pages: Option<ProfilePages<'a>>,
+    /// Why the last attempt failed, if it did.
+    #[default]
+    alert: Option<&'a str>,
 ) -> Result<impl View> {
     let handle = format!("@{}", who.handle);
     let shown = state
@@ -257,13 +267,21 @@ pub async fn profile_settings<'a>(
 /// with the `alert` saying why its change was refused.
 #[component]
 async fn profile_dialogs<'a>(
+    /// Where the page is, which its changes post to.
     page: &'a str,
+    /// Who the account is.
     who: Who<'a>,
+    /// Whether a picture is stored.
     stored: bool,
+    /// When the handle may next change, if not now.
     changeable_at: Option<DateTime<Utc>>,
+    /// What the last attempt said.
     state: &'a ProfileState,
+    /// The dialog that is open, if any.
     shown: Option<ProfileDialog>,
+    /// Whom the page is shown to.
     audience: Audience<'a>,
+    /// Why the last attempt failed, if it did.
     alert: Option<&'a str>,
 ) -> Result<impl View> {
     let available = move |which: ProfileDialog| which.available(audience, stored, changeable_at);

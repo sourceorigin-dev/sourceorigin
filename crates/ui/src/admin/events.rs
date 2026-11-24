@@ -551,16 +551,24 @@ const UUID_PATTERN: &str =
 /// by itself), the events, and the `pages` through them.
 #[component]
 pub async fn event_list<'a>(
+    /// Where the filter form posts.
     action: &'a str,
     #[into]
     #[default]
+    /// The account filtered on, if any.
     user: Option<String>,
     #[into]
     #[default]
+    /// The event kind filtered on, if any.
     kind: Option<&'a str>,
-    #[default] views: bool,
+    /// Whether administrators' views of accounts are shown.
+    #[default]
+    views: bool,
+    /// Where showing or hiding those views goes.
     toggle_views: &'a str,
+    /// The events, newest first.
     rows: &'a [EventRow<'a>],
+    /// The pages through the events.
     pages: &'a Pager,
 ) -> Result<impl View> {
     Ok(view! {
@@ -615,7 +623,10 @@ pub async fn event_list<'a>(
 /// A feed of events, each in words, linking the account it concerns and the one
 /// that caused it, with its stored JSON behind a disclosure.
 #[component]
-pub async fn event_rows<'a>(rows: &'a [EventRow<'a>]) -> Result<impl View> {
+pub async fn event_rows<'a>(
+    /// The events.
+    rows: &'a [EventRow<'a>],
+) -> Result<impl View> {
     Ok(view! {
         if rows.is_empty() {
             <p class="empty">"No event."</p>

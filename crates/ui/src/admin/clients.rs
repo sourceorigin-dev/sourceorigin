@@ -176,11 +176,15 @@ impl Registration<'_> {
 /// the last attempt was refused.
 #[component]
 pub async fn client_registration<'a>(
+    /// The client being registered or changed.
     registration: Registration<'a>,
+    /// The settings the form holds.
     settings: &'a OperatorDraft,
+    /// Where the form posts.
     action: &'a str,
     #[into]
     #[default]
+    /// Why the last attempt was refused, if it was.
     refusal: Option<&'a str>,
 ) -> Result<impl View> {
     let (title, lead, label) = registration.words();
@@ -272,7 +276,12 @@ pub struct ClientPage<'a> {
 /// The OIDC clients, each linking its page, with the page registering a client
 /// at `new`.
 #[component]
-pub async fn client_list<'a>(rows: &'a [AdminClientRow<'a>], new: &'a str) -> Result<impl View> {
+pub async fn client_list<'a>(
+    /// The clients.
+    rows: &'a [AdminClientRow<'a>],
+    /// Where a client is registered.
+    new: &'a str,
+) -> Result<impl View> {
     Ok(view! {
         page_head(
             title: "Clients",
@@ -309,7 +318,10 @@ pub async fn client_list<'a>(rows: &'a [AdminClientRow<'a>], new: &'a str) -> Re
 
 /// A listed client's status, as a badge.
 #[component]
-async fn listed_status<'a>(client: &'a Client) -> Result<impl View> {
+async fn listed_status<'a>(
+    /// The client.
+    client: &'a Client,
+) -> Result<impl View> {
     let shown = match client.status() {
         ClientStatus::Enabled => Badge::new("ok", "Enabled"),
         ClientStatus::Suspended { .. } => Badge::new("danger", "Suspended"),
@@ -323,7 +335,12 @@ async fn listed_status<'a>(client: &'a Client) -> Result<impl View> {
 /// if it does not, its changes, a confidential client's secrets, and the
 /// origins its pages sign users in on.
 #[component]
-pub async fn client_page<'a>(page: &'a ClientPage<'a>, now: DateTime<Utc>) -> Result<impl View> {
+pub async fn client_page<'a>(
+    /// The client.
+    page: &'a ClientPage<'a>,
+    /// The time the page is as of.
+    now: DateTime<Utc>,
+) -> Result<impl View> {
     let client = page.client;
     let title = if client.name.is_empty() {
         client.id.as_str()
@@ -412,14 +429,21 @@ pub async fn client_page<'a>(page: &'a ClientPage<'a>, now: DateTime<Utc>) -> Re
 /// the `reason` typed. `refusal` says why the last rotation was refused.
 #[component]
 pub async fn client_secrets<'a>(
+    /// The page the secrets belong on.
     page: &'a str,
+    /// The client's name.
     name: &'a str,
+    /// The client's secrets.
     secrets: &'a [SecretRow],
+    /// The time lifetimes are counted from.
     now: DateTime<Utc>,
+    /// The secret a rotation just made, if any.
     state: &'a SecretsState,
+    /// What the reason field holds.
     reason: &'a str,
     #[into]
     #[default]
+    /// Why the last attempt was refused, if it was.
     refusal: Option<&'a str>,
 ) -> Result<impl View> {
     Ok(view! {
@@ -431,7 +455,12 @@ pub async fn client_secrets<'a>(
 
 /// A client just registered: its first `secret`, shown once, then its `page`.
 #[component]
-pub async fn client_created<'a>(secret: &'a Revealed, page: &'a str) -> Result<impl View> {
+pub async fn client_created<'a>(
+    /// The first secret.
+    secret: &'a Revealed,
+    /// The client's page.
+    page: &'a str,
+) -> Result<impl View> {
     Ok(view! {
         secret_panel(secret: secret, page: page, next: page)
     })
@@ -440,7 +469,10 @@ pub async fn client_created<'a>(secret: &'a Revealed, page: &'a str) -> Result<i
 /// What `page`'s client is: how it signs users in, who manages it, its settings
 /// and when it was registered, changed and last used.
 #[component]
-async fn client_facts<'a>(page: &'a ClientPage<'a>) -> Result<impl View> {
+async fn client_facts<'a>(
+    /// The client.
+    page: &'a ClientPage<'a>,
+) -> Result<impl View> {
     let client = page.client;
     let yes_no = |yes: bool, said: &'static str| if yes { said } else { "No" };
     Ok(view! {
@@ -499,7 +531,9 @@ async fn client_facts<'a>(page: &'a ClientPage<'a>) -> Result<impl View> {
 /// or enabling it, suspending it or lifting its suspension, and deleting it.
 #[component]
 async fn client_actions<'a>(
+    /// The client.
     client: ClientRow<'a>,
+    /// The changes the dashboard makes to it.
     changes: &'a ClientChanges,
 ) -> Result<impl View> {
     Ok(view! {

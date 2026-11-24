@@ -207,7 +207,10 @@ impl Inline {
 
 /// An email's HTML document.
 #[component]
-async fn email<'a>(mail: &'a Mail) -> Result<impl View> {
+async fn email<'a>(
+    /// The email.
+    mail: &'a Mail,
+) -> Result<impl View> {
     Ok(view! {
         <!DOCTYPE html>
         <html lang="en">
@@ -228,7 +231,10 @@ async fn email<'a>(mail: &'a Mail) -> Result<impl View> {
 /// An email as the dashboard shows it before it is sent: what its HTML body
 /// says, drawn by the stylesheet, and its plain-text body below, folded.
 #[component]
-pub async fn email_preview<'a>(mail: &'a Mail) -> Result<impl View> {
+pub async fn email_preview<'a>(
+    /// The email.
+    mail: &'a Mail,
+) -> Result<impl View> {
     Ok(view! {
         <div class="email-preview">
             mail_body(mail: mail, look: Look::Classes)
@@ -242,7 +248,12 @@ pub async fn email_preview<'a>(mail: &'a Mail) -> Result<impl View> {
 
 /// What an email says, between its greeting and its sign-off, styled by `look`.
 #[component]
-async fn mail_body<'a>(mail: &'a Mail, look: Look) -> Result<impl View> {
+async fn mail_body<'a>(
+    /// The email.
+    mail: &'a Mail,
+    /// How the body is styled.
+    look: Look,
+) -> Result<impl View> {
     Ok(view! {
         <p>"Hello,"</p>
         for block in &mail.blocks {
@@ -274,7 +285,10 @@ async fn mail_body<'a>(mail: &'a Mail, look: Look) -> Result<impl View> {
 
 /// A paragraph's runs.
 #[component]
-async fn runs<'a>(inlines: &'a [Inline]) -> Result<impl View> {
+async fn runs<'a>(
+    /// The runs of text.
+    inlines: &'a [Inline],
+) -> Result<impl View> {
     Ok(view! {
         for inline in inlines {
             match inline {

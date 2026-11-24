@@ -59,7 +59,9 @@ impl InvitationRow<'_> {
 /// Who administers Origin Auth, with the page granting rights at `grant`.
 #[component]
 pub async fn administrator_list<'a>(
+    /// The administrators.
     rows: &'a [AdministratorRow<'a>],
+    /// Where rights are granted.
     grant: &'a str,
 ) -> Result<impl View> {
     Ok(view! {
@@ -104,12 +106,17 @@ pub async fn administrator_list<'a>(
 /// cannot sign in, gets none. `refusal` says why the last grant was refused.
 #[component]
 pub async fn grant_search<'a>(
+    /// Where the search posts.
     action: &'a str,
+    /// What was searched for.
     q: &'a str,
+    /// The accounts found.
     rows: &'a [UserRow<'a>],
+    /// The pages through them.
     pages: &'a Pager,
     #[into]
     #[default]
+    /// Why the last attempt was refused, if it was.
     refusal: Option<&'a str>,
 ) -> Result<impl View> {
     let change = Change::GrantAdministrator;
@@ -182,9 +189,13 @@ pub async fn grant_search<'a>(
 /// and whether signup is `required` to start with one.
 #[component]
 pub async fn invitation_list<'a>(
+    /// The invitations.
     rows: &'a [InvitationRow<'a>],
+    /// Where an invitation is created.
     create: &'a str,
+    /// The time expiry is judged at.
     now: DateTime<Utc>,
+    /// Whether signing up needs an invitation.
     required: bool,
 ) -> Result<impl View> {
     let lead = if required {
@@ -234,8 +245,11 @@ pub async fn invitation_list<'a>(
 /// shown only now, or the address it was mailed to. Both go back to `back`.
 #[component]
 pub async fn invitation_created<'a>(
+    /// How the invitation was sent.
     sent: &'a InvitationSent,
+    /// When it expires.
     expires_at: DateTime<Utc>,
+    /// Where the page goes back to.
     back: &'a str,
 ) -> Result<impl View> {
     let (title, lead) = match sent {

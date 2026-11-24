@@ -61,7 +61,9 @@ pub struct AccountOverview<'a> {
 /// in `links`.
 #[component]
 pub async fn account_overview<'a>(
+    /// What the page shows.
     overview: AccountOverview<'a>,
+    /// Where each tile leads.
     links: OverviewLinks<'a>,
 ) -> Result<impl View> {
     let devices = overview.devices;

@@ -134,7 +134,10 @@ impl Icon {
 
 /// The icon `kind`, decorative: the text beside it names what it stands for.
 #[component]
-pub(crate) async fn icon(kind: Icon) -> Result<impl View> {
+pub(crate) async fn icon(
+    /// Which icon.
+    kind: Icon,
+) -> Result<impl View> {
     Ok(view! {
         <svg class="icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
             for path in kind.paths() {

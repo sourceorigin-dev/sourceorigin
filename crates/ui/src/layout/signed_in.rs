@@ -243,7 +243,12 @@ pub(crate) struct Shell<'a> {
 /// page as `child`, and the status bar. The browser's `preferences` pick the
 /// theme switch shown.
 #[component]
-pub async fn shell<'a>(frame: &'a Shell<'a>, child: Child<'_>) -> Result<impl View> {
+pub async fn shell<'a>(
+    /// What the shell shows around the page.
+    frame: &'a Shell<'a>,
+    /// The page.
+    child: Child<'_>,
+) -> Result<impl View> {
     let reference = frame.reference.map(|reference| reference.to_string());
     Ok(view! {
         <div class="shell">
@@ -273,7 +278,10 @@ pub async fn shell<'a>(frame: &'a Shell<'a>, child: Child<'_>) -> Result<impl Vi
 /// The sidebar of [`shell`]: the brand and the width toggle, the groups of
 /// links, then the theme switch, signing out and who is signed in.
 #[component]
-async fn sidebar<'a>(frame: &'a Shell<'a>) -> Result<impl View> {
+async fn sidebar<'a>(
+    /// What the shell shows.
+    frame: &'a Shell<'a>,
+) -> Result<impl View> {
     Ok(view! {
         <aside class="sidebar">
             <div class="top">
@@ -348,7 +356,10 @@ async fn sidebar<'a>(frame: &'a Shell<'a>) -> Result<impl View> {
 /// The top bar of [`shell`]: the menu button of the drawer, the crumb, the search,
 /// if the area has one, the shortcuts, and the avatar.
 #[component]
-async fn topbar<'a>(frame: &'a Shell<'a>) -> Result<impl View> {
+async fn topbar<'a>(
+    /// What the shell shows.
+    frame: &'a Shell<'a>,
+) -> Result<impl View> {
     Ok(view! {
         // Boxed, so the page's type stops at the search: its results nest deeper
         // than the compiler follows a page's type.
@@ -402,7 +413,14 @@ async fn topbar<'a>(frame: &'a Shell<'a>) -> Result<impl View> {
 /// to `action` and coming back to `here`. The stylesheet turns its chevron
 /// around once collapsed, and hides it on phones, where the sidebar is a drawer.
 #[component]
-async fn sidebar_toggle<'a>(action: &'a str, here: &'a str, collapsed: bool) -> Result<impl View> {
+async fn sidebar_toggle<'a>(
+    /// Where the form posts.
+    action: &'a str,
+    /// The page to come back to.
+    here: &'a str,
+    /// Whether the sidebar is collapsed.
+    collapsed: bool,
+) -> Result<impl View> {
     let (value, title) = if collapsed {
         (Sidebar::Expanded, "Expand the sidebar")
     } else {
@@ -421,7 +439,12 @@ async fn sidebar_toggle<'a>(action: &'a str, here: &'a str, collapsed: bool) -> 
 /// The form choosing the theme, posting to `action` and coming back to `here`:
 /// a button for each theme, of which the stylesheet shows the one not in use.
 #[component]
-async fn theme_toggle<'a>(action: &'a str, here: &'a str) -> Result<impl View> {
+async fn theme_toggle<'a>(
+    /// Where the form posts.
+    action: &'a str,
+    /// The page to come back to.
+    here: &'a str,
+) -> Result<impl View> {
     Ok(view! {
         <form class="theme-toggle" method="post" action=(action)>
             <input type="hidden" name="return_to" value=(here)>
@@ -453,7 +476,13 @@ pub(crate) enum AvatarSize {
 /// for an administrator. It is decorative beside their name, so it has no text of
 /// its own.
 #[component]
-pub(crate) async fn avatar<'a>(who: Who<'a>, #[default] size: AvatarSize) -> Result<impl View> {
+pub(crate) async fn avatar<'a>(
+    /// Whose picture it is.
+    who: Who<'a>,
+    /// How large it is.
+    #[default]
+    size: AvatarSize,
+) -> Result<impl View> {
     let class = class!(
         "avatar",
         "admin" if who.administrator,

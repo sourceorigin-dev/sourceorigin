@@ -25,13 +25,22 @@ use topcoat::{
 /// authorization already used.
 #[component]
 pub async fn consent<'a>(
+    /// What the application is called.
     client: &'a str,
+    /// Where the browser is sent back to.
     host: &'a str,
-    #[default] registered_by: Option<&'a str>,
+    /// Who registered the application, if known.
+    #[default]
+    registered_by: Option<&'a str>,
+    /// The account signed in.
     account: &'a str,
+    /// What the application asks to receive.
     scopes: &'a [String],
+    /// Where the decision posts.
     action: &'a str,
+    /// Where to sign in as another account.
     sign_in: &'a str,
+    /// The pending authorization.
     transaction: &'a str,
 ) -> Result<impl View> {
     Ok(view! {
@@ -112,10 +121,15 @@ impl LogoutNotice {
 /// if one asked, back to `action`, a link to `keep` the session, and any `notice`.
 #[component]
 pub async fn logout<'a>(
+    /// Where the confirmation posts.
     action: &'a str,
+    /// The application's request fields, sent back.
     fields: &'a [(&'a str, &'a str)],
+    /// Where keeping the session goes.
     keep: &'a str,
-    #[default] notice: Option<LogoutNotice>,
+    /// What the page says about the request, if anything.
+    #[default]
+    notice: Option<LogoutNotice>,
 ) -> Result<impl View> {
     Ok(view! {
         <div>
@@ -140,9 +154,14 @@ pub async fn logout<'a>(
 /// onwards as its label and URL.
 #[component]
 pub async fn failure<'a>(
+    /// Why the flow cannot go on.
     code: &'a ErrorCode,
-    #[default] description: Option<&'a str>,
-    #[default] link: Option<(&'a str, &'a str)>,
+    /// What the request got wrong, when the user may see it.
+    #[default]
+    description: Option<&'a str>,
+    /// Where the user may go on, with what to call it.
+    #[default]
+    link: Option<(&'a str, &'a str)>,
 ) -> Result<impl View> {
     let message = match code {
         ErrorCode::InvalidRequest => {
@@ -192,7 +211,12 @@ pub enum Onward {
 /// application's loopback address: a link to `href`, which leads `to` there, that
 /// the user follows instead.
 #[component]
-pub async fn onward(href: &str, to: Onward) -> Result<impl View> {
+pub async fn onward(
+    /// Where the step leads.
+    href: &str,
+    /// Where the link leads.
+    to: Onward,
+) -> Result<impl View> {
     let (title, lead) = match to {
         Onward::Application => (
             "Return to the application".to_owned(),

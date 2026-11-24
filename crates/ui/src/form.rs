@@ -404,7 +404,12 @@ impl Precision {
 /// A moment, in UTC, at `precision`. Its `datetime` is to the second, as HTML
 /// allows no more than three fractional digits.
 #[component]
-pub(crate) async fn time(at: DateTime<Utc>, precision: Precision) -> Result<impl View> {
+pub(crate) async fn time(
+    /// The moment.
+    at: DateTime<Utc>,
+    /// How exactly it is shown.
+    precision: Precision,
+) -> Result<impl View> {
     Ok(view! {
         <time datetime=(at.to_rfc3339_opts(SecondsFormat::Secs, true))>(precision.write(at))</time>
     })
@@ -412,7 +417,11 @@ pub(crate) async fn time(at: DateTime<Utc>, precision: Precision) -> Result<impl
 
 /// The hidden inputs sending `fields`.
 #[component]
-pub(crate) async fn hidden(#[into] fields: Fields) -> Result<impl View> {
+pub(crate) async fn hidden(
+    /// The fields to send.
+    #[into]
+    fields: Fields,
+) -> Result<impl View> {
     let pairs = fields.pairs()?;
     Ok(view! {
         for (name, value) in &pairs {
@@ -433,23 +442,41 @@ pub(crate) async fn hidden(#[into] fields: Fields) -> Result<impl View> {
 /// the script lets its passkey button work again as soon as it posted.
 #[component]
 pub(crate) async fn change_form<'a>(
+    /// Where the form posts.
     action: &'a str,
-    #[into] change: Fields,
-    #[into] label: String,
-    #[default] class: &'a str,
-    #[default] on: Option<bool>,
+    /// The change the form makes, sent as hidden inputs.
+    #[into]
+    change: Fields,
+    /// What the button says.
+    #[into]
+    label: String,
+    /// The button's CSS class.
+    #[default]
+    class: &'a str,
+    /// Whether the setting the change toggles is on; this makes the button a switch.
+    #[default]
+    on: Option<bool>,
     #[into]
     #[default]
+    /// What the button is named for assistive technology, if not its label.
     aria_label: Option<String>,
-    #[default] confirm: bool,
-    #[default] download: bool,
+    /// Whether a passkey confirms the change first.
+    #[default]
+    confirm: bool,
+    /// Whether the response is a file, so the page stays.
+    #[default]
+    download: bool,
     #[into]
     #[default]
+    /// What the reason field holds, if the form asks for one.
     reason: Option<&'a str>,
     #[into]
     #[default]
+    /// Where cancelling goes, if it can.
     cancel: Option<String>,
-    #[default] child: Child<'_>,
+    /// The inputs the user fills in.
+    #[default]
+    child: Child<'_>,
 ) -> Result<impl View> {
     Ok(view! {
         <form
@@ -491,9 +518,13 @@ pub(crate) async fn change_form<'a>(
 /// enables it.
 #[component]
 pub(crate) async fn switch<'a>(
+    /// Whether the setting is on.
     on: bool,
+    /// What the switch is called.
     label: &'a str,
-    #[default] disabled: bool,
+    /// Whether the switch only shows the setting.
+    #[default]
+    disabled: bool,
 ) -> Result<impl View> {
     Ok(view! {
         <button role="switch" aria-checked=(if on { "true" } else { "false" }) disabled=(disabled)>
@@ -560,12 +591,21 @@ impl Ceremony<'_> {
 /// that fails says why in the form.
 #[component]
 pub(crate) async fn passkey_form<'a>(
+    /// Where the form posts.
     action: &'a str,
+    /// The passkey ceremony the script runs first.
     ceremony: Ceremony<'a>,
-    #[into] change: Fields,
+    /// The change the form makes, sent as hidden inputs.
+    #[into]
+    change: Fields,
+    /// What the button says.
     label: &'a str,
-    #[default] class: &'a str,
-    #[default] child: Child<'_>,
+    /// The button's CSS class.
+    #[default]
+    class: &'a str,
+    /// The inputs the ceremony reads.
+    #[default]
+    child: Child<'_>,
 ) -> Result<impl View> {
     let (recover, undo) = match ceremony {
         Ceremony::Recover { token } => (Some(token), None),
@@ -597,10 +637,13 @@ pub(crate) async fn passkey_form<'a>(
 /// save it with Google Password Manager, where it is saved.
 #[component]
 pub(crate) async fn new_passkey<'a>(
+    /// What the name input is labelled.
     label: &'a str,
     #[into]
     #[default]
+    /// What the name input starts as, if anything.
     value: Option<&'a str>,
+    /// Whether the browser is on Android.
     android: bool,
 ) -> Result<impl View> {
     Ok(view! {
@@ -632,15 +675,29 @@ pub(crate) async fn new_passkey<'a>(
 /// gone by then. With `alert_replaces_missing`, the alert says why alone.
 #[component]
 pub(crate) async fn fragment_form<'a>(
+    /// Where the form posts.
     action: &'a str,
-    #[into] change: Fields,
+    /// The change the form makes, sent as hidden inputs.
+    #[into]
+    change: Fields,
+    /// The fragment values the link must carry.
     fragments: &'a [&'a str],
+    /// What the button says.
     label: &'a str,
+    /// Why the button stays disabled without scripts.
     unavailable: &'a str,
-    #[default] alert: Option<&'a str>,
-    #[default] alert_replaces_missing: bool,
-    #[into] missing: Child<'_>,
-    #[default] child: Child<'_>,
+    /// Why the last attempt failed, if it did.
+    #[default]
+    alert: Option<&'a str>,
+    /// Whether the alert is shown without the missing-values notice.
+    #[default]
+    alert_replaces_missing: bool,
+    /// What shows when the link lacks a value.
+    #[into]
+    missing: Child<'_>,
+    /// What the form holds.
+    #[default]
+    child: Child<'_>,
 ) -> Result<impl View> {
     Ok(view! {
         alert_notice(message: alert)
@@ -665,9 +722,14 @@ pub(crate) async fn fragment_form<'a>(
 /// focus with `focus`.
 #[component]
 pub(crate) async fn handle_input<'a>(
+    /// Whether the handle is a new one, checked against the handle rules.
     new: bool,
-    #[default] value: Option<&'a str>,
-    #[default] focus: bool,
+    /// What the input holds, if anything.
+    #[default]
+    value: Option<&'a str>,
+    /// Whether the input starts focused.
+    #[default]
+    focus: bool,
 ) -> Result<impl View> {
     Ok(view! {
         <label>
@@ -698,15 +760,26 @@ pub(crate) async fn handle_input<'a>(
 /// text button, a `secondary` one, or a `danger` one for a removal.
 #[component]
 pub(crate) async fn open<'a>(
+    /// The page opened.
     page: &'a str,
-    #[into] opens: Fields,
+    /// The query sent to it.
+    #[into]
+    opens: Fields,
+    /// What the button says.
     label: &'a str,
     #[into]
     #[default]
+    /// What the button is named for assistive technology, if not its label.
     aria_label: Option<String>,
-    #[default] disabled: bool,
-    #[default] secondary: bool,
-    #[default] danger: bool,
+    /// Whether the button is disabled.
+    #[default]
+    disabled: bool,
+    /// Whether the button is a secondary one.
+    #[default]
+    secondary: bool,
+    /// Whether the button is a danger one.
+    #[default]
+    danger: bool,
 ) -> Result<impl View> {
     let class = if danger {
         "danger small"

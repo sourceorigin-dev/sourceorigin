@@ -15,13 +15,17 @@ use topcoat::{
 /// verification from here checks against.
 #[component]
 pub async fn audit_page<'a>(
+    /// The checkpoints shown.
     page: &'a AuditPage,
+    /// The keys the chain is verified with.
     keys: VerificationKeys,
     #[into]
     #[default]
+    /// Why the last attempt to verify was refused, if it was.
     refusal: Option<&'a str>,
     #[into]
     #[default]
+    /// Where the next page of checkpoints is, if there is one.
     later: Option<String>,
 ) -> Result<impl View> {
     // Without a committed key, the CLI checks against the one the notice saves.
@@ -82,7 +86,12 @@ pub async fn audit_page<'a>(
 /// with the form that verifies it again, warning of keys a compromised server
 /// could hold if they are `uncommitted`.
 #[component]
-async fn chain_card<'a>(page: &'a AuditPage, uncommitted: bool) -> Result<impl View> {
+async fn chain_card<'a>(
+    /// The checkpoints the card summarizes.
+    page: &'a AuditPage,
+    /// Whether events are recorded that no checkpoint covers yet.
+    uncommitted: bool,
+) -> Result<impl View> {
     let chain = &page.chain;
     let point = |point: &Option<ChainPoint>| {
         point

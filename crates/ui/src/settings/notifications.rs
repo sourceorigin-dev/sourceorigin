@@ -121,7 +121,12 @@ impl InboxPage<'_> {
 /// marked, with marking every one read; or, for an administrator, each one's
 /// text, read or not.
 #[component]
-pub async fn inbox<'a>(rows: &'a [InboxRow<'a>], page: InboxPage<'a>) -> Result<impl View> {
+pub async fn inbox<'a>(
+    /// The notifications, newest first.
+    rows: &'a [InboxRow<'a>],
+    /// What the page shows around them.
+    page: InboxPage<'a>,
+) -> Result<impl View> {
     let owner = page.audience.owns();
     let before = page.shown.before;
     let older = page
@@ -220,7 +225,10 @@ async fn email_button() -> Result<impl View> {
 /// button turning its email on or off for the owner, read-only for an
 /// administrator. A change reopens it, showing what changed.
 #[component]
-async fn email_preferences<'a>(page: InboxPage<'a>) -> Result<impl View> {
+async fn email_preferences<'a>(
+    /// What the page shows.
+    page: InboxPage<'a>,
+) -> Result<impl View> {
     let owner = page.audience.owns();
     Ok(view! {
         dialog(id: EMAIL_DIALOG, title: "Email preferences", shown: page.shown.email, back: page.page, alert: page.alert, focus_close: true,
@@ -279,7 +287,10 @@ pub enum UnsubscribeStep<'a> {
 
 /// The page an announcement's unsubscribe link opens, at `step`.
 #[component]
-pub async fn unsubscribe(step: UnsubscribeStep<'_>) -> Result<impl View> {
+pub async fn unsubscribe(
+    /// The step the page is at.
+    step: UnsubscribeStep<'_>,
+) -> Result<impl View> {
     Ok(view! {
         match step {
             UnsubscribeStep::Confirm { action } => {
@@ -311,7 +322,12 @@ pub async fn unsubscribe(step: UnsubscribeStep<'_>) -> Result<impl View> {
 /// What the overview says while `unread` notifications are unread, linking the
 /// inbox at `page`; nothing once every one is read.
 #[component]
-pub(crate) async fn unread_hint(unread: u64, page: &str) -> Result<impl View> {
+pub(crate) async fn unread_hint(
+    /// How many notifications are unread.
+    unread: u64,
+    /// Where the inbox is.
+    page: &str,
+) -> Result<impl View> {
     let said = match unread {
         1 => "You have an unread notification".to_owned(),
         unread => format!("You have {unread} unread notifications"),
@@ -353,7 +369,10 @@ pub enum SignOutStep<'a> {
 /// The page a security notification's email links to sign the account out
 /// everywhere, without signing in, at `step`.
 #[component]
-pub async fn sign_out_everywhere(step: SignOutStep<'_>) -> Result<impl View> {
+pub async fn sign_out_everywhere(
+    /// The step the page is at.
+    step: SignOutStep<'_>,
+) -> Result<impl View> {
     Ok(view! {
         match step {
             SignOutStep::Confirm { action } => {
@@ -409,7 +428,12 @@ pub struct NotificationPage<'a> {
 /// history keeps it, which the owner may report as not theirs where the history
 /// allows, what it offers to do, and marking it unread.
 #[component]
-pub async fn notification<'a>(row: InboxRow<'a>, page: NotificationPage<'a>) -> Result<impl View> {
+pub async fn notification<'a>(
+    /// The notification.
+    row: InboxRow<'a>,
+    /// What the page shows around it.
+    page: NotificationPage<'a>,
+) -> Result<impl View> {
     let reportable = page.entry.filter(|entry| entry.reportable);
     Ok(view! {
         <article class="card" aria-labelledby="notification-heading">

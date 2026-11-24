@@ -87,12 +87,19 @@ pub struct ProviderRow<'a> {
 /// `recovery` that can still be undone, only its passkey can be removed.
 #[component]
 pub async fn sign_in_methods<'a>(
+    /// Where the page is, which its changes post to.
     page: &'a str,
+    /// The account's passkeys.
     passkeys: &'a [Passkey],
+    /// The social sign-in providers.
     providers: &'a [ProviderRow<'a>],
+    /// Which row is open, and what the last attempt said.
     state: &'a SignInState,
+    /// Whom the page is shown to.
     audience: Audience<'a>,
+    /// Whether the browser is on Android.
     android: bool,
+    /// The recovery in progress, if any.
     recovery: Option<&'a Recovery>,
 ) -> Result<impl View> {
     Ok(view! {
@@ -117,11 +124,17 @@ pub async fn sign_in_methods<'a>(
 /// The passkeys section of [`sign_in_methods`].
 #[component]
 async fn passkey_list<'a>(
+    /// Where the page is, which its changes post to.
     page: &'a str,
+    /// The account's passkeys.
     passkeys: &'a [Passkey],
+    /// Which row is open, and what the last attempt said.
     state: &'a SignInState,
+    /// Whom the page is shown to.
     audience: Audience<'a>,
+    /// Whether the browser is on Android.
     android: bool,
+    /// The recovery in progress, if any.
     recovery: Option<&'a Recovery>,
 ) -> Result<impl View> {
     let count = passkeys.len();
@@ -187,11 +200,17 @@ async fn passkey_list<'a>(
 /// removal row, even from a hand-made link.
 #[component]
 async fn passkey_row<'a>(
+    /// Where the page is, which its changes post to.
     page: &'a str,
+    /// The passkey.
     passkey: &'a Passkey,
+    /// Whether a recovery added it.
     recovered: bool,
+    /// Whether it can be removed.
     removable: bool,
+    /// Which row is open, and what the last attempt said.
     state: &'a SignInState,
+    /// Whom the page is shown to.
     audience: Audience<'a>,
 ) -> Result<impl View> {
     let id = passkey.id;
@@ -277,7 +296,12 @@ async fn passkey_row<'a>(
 /// Adding a passkey, which the passkey script runs, then posts the form to `page`,
 /// which says so. On Android, it offers Google Password Manager.
 #[component]
-async fn enroll(page: &str, android: bool) -> Result<impl View> {
+async fn enroll(
+    /// Where the page is, which its changes post to.
+    page: &str,
+    /// Whether the browser is on Android.
+    android: bool,
+) -> Result<impl View> {
     Ok(view! {
         passkey_form(
             action: page,
@@ -293,9 +317,13 @@ async fn enroll(page: &str, android: bool) -> Result<impl View> {
 /// The social sign-in section of [`sign_in_methods`].
 #[component]
 async fn social<'a>(
+    /// Where the page is, which its changes post to.
     page: &'a str,
+    /// The providers.
     providers: &'a [ProviderRow<'a>],
+    /// Which row is open, and what the last attempt said.
     state: &'a SignInState,
+    /// Whom the page is shown to.
     audience: Audience<'a>,
 ) -> Result<impl View> {
     let linked = providers
@@ -336,9 +364,13 @@ async fn social<'a>(
 /// The open unlinking row takes the focus.
 #[component]
 async fn provider_row<'a>(
+    /// Where the page is, which its changes post to.
     page: &'a str,
+    /// The provider.
     row: ProviderRow<'a>,
+    /// Whether its unlinking row is open.
     unlinking: bool,
+    /// Whom the page is shown to.
     audience: Audience<'a>,
 ) -> Result<impl View> {
     let provider = row.provider;

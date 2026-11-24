@@ -134,12 +134,23 @@ pub struct PreferenceChange {
 /// by search engines.
 #[component]
 pub async fn document<'a>(
+    /// What the page is titled.
     title: &'a str,
+    /// Where the stylesheet is.
     stylesheet: &'a str,
-    #[default] scripts: &'a [&'a str],
-    #[default] preferences: Preferences,
-    #[default] admin: bool,
-    #[default] indexable: bool,
+    /// Where the page's scripts are.
+    #[default]
+    scripts: &'a [&'a str],
+    /// The theme and sidebar the browser prefers.
+    #[default]
+    preferences: Preferences,
+    /// Whether the page is the dashboard's.
+    #[default]
+    admin: bool,
+    /// Whether search engines may index the page.
+    #[default]
+    indexable: bool,
+    /// The page.
     child: Child<'_>,
 ) -> Result<impl View> {
     Ok(view! {

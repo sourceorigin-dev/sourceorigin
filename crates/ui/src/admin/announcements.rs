@@ -153,7 +153,9 @@ fn audience(announcement: &Announcement) -> String {
 /// `create`.
 #[component]
 pub async fn announcement_list<'a>(
+    /// The announcements, newest first.
     rows: &'a [AdminAnnouncementRow<'a>],
+    /// Where an announcement is drafted.
     create: &'a str,
 ) -> Result<impl View> {
     Ok(view! {
@@ -190,11 +192,15 @@ pub async fn announcement_list<'a>(
 /// its emails fared and how many recipients read it.
 #[component]
 pub async fn announcement_page<'a>(
+    /// The announcement.
     detail: &'a AnnouncementDetail,
+    /// The accounts chosen to receive it, each with its page.
     accounts: &'a [(&'a User, String)],
+    /// The email as it will be sent.
     preview: &'a Mail,
     #[into]
     #[default]
+    /// The draft-only actions, if it is still a draft.
     drafts: Option<DraftActions<'a>>,
 ) -> Result<impl View> {
     let announcement = &detail.announcement;
@@ -316,12 +322,17 @@ pub struct FoundAccount<'a> {
 /// as saved, after the dashboard's passkey confirmation; "Save draft" needs none.
 #[component]
 pub async fn announcement_form<'a>(
+    /// The change the form makes.
     change: Change,
+    /// Where the form goes back to.
     back: &'a str,
+    /// The values the form holds.
     form: &'a DraftAnnouncement,
+    /// The accounts the search found.
     found: &'a [FoundAccount<'a>],
     #[into]
     #[default]
+    /// Why the last attempt was refused, if it was.
     refusal: Option<&'a str>,
 ) -> Result<impl View> {
     let chosen = form.audience == AnnouncementAudience::Accounts;
@@ -379,7 +390,9 @@ pub async fn announcement_form<'a>(
 /// chooses everyone.
 #[component]
 async fn chosen_accounts<'a>(
+    /// The announcement being drafted.
     form: &'a DraftAnnouncement,
+    /// The accounts the search found.
     found: &'a [FoundAccount<'a>],
 ) -> Result<impl View> {
     let find = form.find.trim();
