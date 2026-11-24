@@ -123,15 +123,37 @@ impl Fixture {
 
     /// Seals, holding the sealer's `lock`, until every committed event is sealed.
     async fn seal_with(&self, lock: &mut ExclusiveConnection) {
+        self.drain(lock, async |lock| {
+            self.sealer.seal(lock).await.expect("seal");
+        })
+        .await;
+    }
+
+    /// Runs `pass` with the sealer's `lock` until every committed event is
+    /// sealed, and returns how many passes sealed some. Events are sealed only
+    /// once every older transaction on the cluster has ended, and other tests'
+    /// can delay that, so a pass may seal nothing.
+    async fn drain(
+        &self,
+        lock: &mut ExclusiveConnection,
+        mut pass: impl AsyncFnMut(&mut ExclusiveConnection),
+    ) -> usize {
+        let mut sealing = 0;
         tokio::time::timeout(SEALED_WITHIN, async {
-            while self.unsealed().await > 0 {
-                if self.sealer.seal(lock).await.expect("seal") == 0 {
+            while let unsealed @ 1.. = self.unsealed().await {
+                pass(&mut *lock).await;
+                if self.unsealed().await < unsealed {
+                    sealing += 1;
+                } else {
+                    // wall-clock: other tests' transactions on the shared cluster
+                    // hold sealing back, and PostgreSQL signals nothing when they end.
                     tokio::time::sleep(Duration::from_millis(20)).await;
                 }
             }
         })
         .await
         .expect("every committed event is sealed");
+        sealing
     }
 
     /// Takes the sealer's lock, which is the fixture's own: advisory locks are per
@@ -1050,22 +1072,12 @@ async fn sealing_goes_on_when_a_checkpoint_fails() {
         fixture.record_in(&mut tx).await;
     }
     tx.commit().await.expect("commit");
-    // Events are sealed only once every older transaction has ended, and other
-    // tests' transactions can delay that, so passes that seal nothing don't count.
-    let mut sealing = 0;
-    tokio::time::timeout(SEALED_WITHIN, async {
-        while let unsealed @ 1.. = fixture.unsealed().await {
-            let pass = fixture.sealer.pass(&mut lock, None).await;
+    let sealing = fixture
+        .drain(&mut lock, async |lock| {
+            let pass = fixture.sealer.pass(lock, None).await;
             assert!(matches!(pass, Err(AuditError::Broken(_))), "{pass:?}");
-            if fixture.unsealed().await < unsealed {
-                sealing += 1;
-            } else {
-                tokio::time::sleep(Duration::from_millis(20)).await;
-            }
-        }
-    })
-    .await
-    .expect("every committed event is sealed");
+        })
+        .await;
     lock.release().await.expect("release");
     assert_eq!(sealing, 1, "{sealing} passes sealed events");
 }
@@ -1105,23 +1117,26 @@ async fn signing_resumes_above_too_many_untrusted_checkpoints() {
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn a_failed_checkpoint_is_retried_after_the_interval() {
-    let every = Duration::from_millis(1_500);
-    let mut fixture = Fixture::sealed_six().await;
-    fixture.sealer = fixture
-        .sealer
-        .checkpointing_every(TimeDelta::from_std(every).expect("interval"));
-    fixture.record(1).await;
+    let every = TimeDelta::minutes(5);
+    let mut fixture = Fixture::new().await;
+    fixture.sealer = fixture.sealer.checkpointing_every(every);
+    fixture.record(7).await;
     let mut lock = fixture.lock().await;
     fixture.seal_with(&mut lock).await;
+    // The sealer's own checkpoint at 6, signed an interval ago, so the next is due.
+    fixture
+        .store_checkpoint(&fixture.audit.key, 6, -every)
+        .await;
     fixture
         .tamper(Tamper::EditPayload(7, serde_json::json!({})))
         .await;
-    // The checkpoint at 6 was just signed, and checkpoints have whole seconds.
-    tokio::time::sleep(every * 2).await;
     let broken = |result: &Result<(), AuditError>| matches!(result, Err(AuditError::Broken(_)));
     assert!(broken(&fixture.sealer.checkpoint(&mut lock).await));
     assert!(fixture.sealer.checkpoint(&mut lock).await.is_ok(), "waits");
-    tokio::time::sleep(every).await;
+    // Paused only for the jump, so the queries keep their real timeouts.
+    tokio::time::pause();
+    tokio::time::advance(every.to_std().expect("interval")).await;
+    tokio::time::resume();
     assert!(
         broken(&fixture.sealer.checkpoint(&mut lock).await),
         "tries again"
@@ -1145,14 +1160,11 @@ async fn checkpoints_keep_their_interval_while_batches_stay_full() {
     }
     tx.commit().await.expect("commit");
     let mut lock = fixture.lock().await;
-    tokio::time::timeout(SEALED_WITHIN, async {
-        while fixture.unsealed().await > 0 {
-            fixture.sealer.pass(&mut lock, None).await.expect("pass");
-            tokio::time::sleep(Duration::from_millis(20)).await;
-        }
-    })
-    .await
-    .expect("every committed event is sealed");
+    fixture
+        .drain(&mut lock, async |lock| {
+            fixture.sealer.pass(lock, None).await.expect("pass");
+        })
+        .await;
     lock.release().await.expect("release");
     let checkpoints = fixture
         .database

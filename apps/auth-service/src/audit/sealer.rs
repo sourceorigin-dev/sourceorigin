@@ -17,8 +17,9 @@ use sourceorigin_repository::{ChainLink, Checkpoint, ExclusiveConnection, LockKe
 use sourceorigin_telemetry::Counter;
 use std::{
     sync::{Arc, Mutex, PoisonError},
-    time::{Duration, Instant},
+    time::Duration,
 };
+use tokio::time::Instant;
 
 /// Checkpoints the sealer passed over because none of the environment's audit
 /// keys verifies them, counted each time it looks for one to build on.
@@ -44,7 +45,7 @@ pub(crate) struct Sealer {
     batch: u32,
     /// When an attempt to sign a checkpoint last ended in failure. The next try
     /// waits as long as the interval, so a broken chain is not recomputed on
-    /// every pass.
+    /// every pass. Tokio's clock, which tests move.
     failed_at: Mutex<Option<Instant>>,
 }
 
