@@ -1,4 +1,5 @@
-//! The account's data: downloading it, and deleting the account.
+//! The account's data: downloading it, its part in usage statistics, and
+//! deleting the account.
 
 use super::Part;
 use crate::{

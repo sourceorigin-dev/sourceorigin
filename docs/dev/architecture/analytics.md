@@ -42,7 +42,7 @@ sourceorigin_telemetry::signal! {
   comments become the table's and the columns' comments, so ClickHouse
   describes its own tables.
 - **`time`** comes first in every table: when the row was recorded, in
-  milliseconds.
+  milliseconds, or the day for a [product signal](#consent).
 - **`kept`** is the retention: ClickHouse deletes a row that many days after
   its time.
 - **`ordered by`** names the fields rows are sorted by, before their time.
@@ -128,9 +128,11 @@ if let Some(consent) = context.consent(&mut tx, user_id).await? {
 }
 ```
 
-A product row still names no account, and its time is kept to the day only, so
-it can't be lined up with the event of the sign-in or change it counts, which is
-kept to the millisecond. Consent decides whether a person is counted at all.
+A product row still names no account. Its time holds the day only, and the
+writer sends product tables once an hour, so neither the row nor its insert,
+which ClickHouse's query log times, points to the moment of the sign-in or
+change it counts. On a day with a single sign-in, the day alone still does:
+consent decides whether a person is counted at all.
 
 ## Tables
 

@@ -50,9 +50,9 @@ pub trait Product: Serialize {
     const TABLE: Table;
 
     /// Queues this row, as [`Signal::record`] does, with `consent` to show the
-    /// person it is about takes part in usage statistics. Its time is kept to
-    /// the day only, so it can't be lined up with the event of the sign-in or
-    /// change it counts.
+    /// person it is about takes part in usage statistics. Its time holds the
+    /// day only, and it is sent with its hour's others, so neither points to the
+    /// moment of the sign-in or change it counts.
     fn record(&self, consent: Consent) {
         let Consent(()) = consent;
         writer::record(Self::TABLE.name, writer::Stamp::Day, self);
@@ -226,8 +226,8 @@ impl Serialize for Route {
 /// Declares a [`Signal`]: a struct whose fields are [`Column`]s, and the table
 /// that stores it, with how long rows are kept and the columns they are sorted
 /// by, each a [`Key`]. Every table also has a `time` column, the time the row
-/// was recorded, and sorts by it last. Doc comments are required: they document
-/// the table.
+/// was recorded, to the day for a product signal, and sorts by it last. Doc
+/// comments are required: they document the table.
 ///
 /// ```
 /// sourceorigin_telemetry::signal! {

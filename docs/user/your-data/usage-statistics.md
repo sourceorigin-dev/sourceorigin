@@ -11,9 +11,9 @@ who you are. You can leave yours out at any time.
   security key's is, and how your browser reaches it: built in, on a phone, or
   over USB, NFC or Bluetooth.
 
-Each count holds only that kind, and the day it happened. It doesn't hold your
-account, your name, your email address or your IP address, and its day can't be
-lined up with your sign-in. Counts are kept up to 13 months.
+Each count holds only that kind, and the day it happened, not the time. It
+doesn't hold your account, your name, your email address or your IP address.
+Counts are kept up to 13 months.
 
 SourceOrigin also keeps service logs and counts that keep it running, such as
 how long pages take and how many sign-ins fail. Those are part of running the
@@ -27,15 +27,16 @@ for how long.
 2. Under **Usage statistics**, turn off **Include my activity in usage
    statistics**.
 
-From then on, nothing you do is counted in usage statistics. Turn it back on the same way. Each
-change is recorded in your **Security history**, as "Usage statistics turned
-off" or "Usage statistics turned on".
+From then on, nothing you do is counted in usage statistics. Turn it back on the
+same way. Each change is recorded in your **Security history**, as "Usage
+statistics turned off" or "Usage statistics turned on".
 
 ## Global Privacy Control
 
 If your browser sends [Global Privacy Control](https://globalprivacycontrol.org),
 a setting some browsers and extensions offer to ask sites not to track you,
-nothing you do in that browser is counted, whatever this setting says.
+nothing you do in that browser is counted in usage statistics, whatever this
+setting says.
 
 ## Check that it works
 

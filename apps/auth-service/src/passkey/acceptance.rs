@@ -38,22 +38,26 @@ sourceorigin_telemetry::signal! {
 impl PasskeyUsed {
     /// The row of `result`, an assertion of `credential`, as stored.
     fn of(result: &AuthenticationResult, credential: &Value) -> Self {
-        // Browsers list them in alphabetical order, so a platform passkey that
-        // also syncs to a phone says `hybrid` first: pick the most specific.
+        Self {
+            synced: result.backup_state(),
+            syncable: result.backup_eligible(),
+            transport: Self::transport(credential),
+        }
+    }
+
+    /// The most specific transport `credential` lists. Browsers list them in
+    /// alphabetical order, so a platform passkey that also syncs to a phone
+    /// says `hybrid` first.
+    fn transport(credential: &Value) -> &'static str {
         let listed = credential
             .pointer(CREDENTIAL_TRANSPORTS_POINTER)
             .and_then(Value::as_array);
-        let transport = ["internal", "hybrid", "usb", "nfc", "ble"]
+        ["internal", "hybrid", "usb", "nfc", "ble"]
             .into_iter()
             .find(|transport| {
                 listed.is_some_and(|listed| listed.iter().any(|value| value == transport))
             })
-            .unwrap_or("unknown");
-        Self {
-            synced: result.backup_state(),
-            syncable: result.backup_eligible(),
-            transport,
-        }
+            .unwrap_or("unknown")
     }
 }
 
@@ -291,5 +295,21 @@ impl Acceptance for Accepted {
             AccountStatus::Disabled => Ok(Self::Disabled(passkey)),
             AccountStatus::Deleting => Err(PasskeyError::AccountInactive),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! Which transport a passkey's row names.
+    use super::PasskeyUsed;
+    use serde_json::json;
+
+    /// The most specific listed transport wins, whatever the list's order.
+    #[test]
+    fn the_most_specific_transport_counts() {
+        let transport = |listed| PasskeyUsed::transport(&json!({"cred": {"transports": listed}}));
+        assert_eq!(transport(json!(["hybrid", "internal"])), "internal");
+        assert_eq!(transport(json!(["nfc", "usb"])), "usb");
+        assert_eq!(transport(json!(null)), "unknown");
     }
 }

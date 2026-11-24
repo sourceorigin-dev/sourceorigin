@@ -76,6 +76,17 @@ fn a_capture_sees_recorded_rows() {
     assert_eq!(rows[0]["trace"], "07".repeat(16));
 }
 
+/// A product row keeps only its day.
+#[test]
+fn a_product_row_keeps_only_its_day() {
+    use super::writer::Stamp;
+    assert!(Stamp::Day.now().ends_with(" 00:00:00.000"));
+    assert_eq!(
+        Stamp::Millisecond.now().len(),
+        "2026-01-01 00:00:00.000".len()
+    );
+}
+
 /// A table at its limit drops its own rows, while another table's still queue.
 #[tokio::test]
 async fn a_full_table_drops_only_its_own_rows() {
