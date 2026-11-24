@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM event_personal_data p USING domain_events e\n        WHERE p.event_id = e.id AND e.subject_user_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "27cdde51b9fe970ccfe9f375821f799de1a46dff626397bb8d8684e6654e6fd6"
+}

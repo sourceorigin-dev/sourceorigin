@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO sessions (\n            id, user_id, authentication_methods, authenticated_at, expires_at, last_seen_at\n        ) VALUES ($1, $2, '[]', now() - interval '2 hours', now() - interval '1 hour',\n            now() - interval '2 hours')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "001d3aebd8987f77d93448470194a42db291b2a964a0ada162c01bc2d908df38"
+}

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO passkey_credentials (id, credential_id, user_id, credential, friendly_name)\n        VALUES ($1, uuid_send($1), $2, '{}', 'Restore test')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cc49b8883302209859b67ac5eb6b8a3a1821dc3928d2ccba8f9829410a478f2e"
+}

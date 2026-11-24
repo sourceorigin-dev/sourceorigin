@@ -359,7 +359,7 @@ impl AlertRepository<'_> {
         run!(
             self,
             execute,
-            sqlx::query(
+            sqlx::query!(
                 r"DO $$ BEGIN
                     IF current_database() NOT LIKE 'test\_%' THEN
                         RAISE EXCEPTION 'add_update_written_elsewhere runs only on Database::isolated';

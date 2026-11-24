@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE user_emails SET verified_at=now(),is_primary=true WHERE id=$1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0f35eeac8f28474ccdaf3664e55e2fe9a7372bd727c43f3935e8c8d228e17219"
+}

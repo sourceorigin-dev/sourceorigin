@@ -25,21 +25,21 @@ async fn client(pool: &PgPool) -> ClientId {
     let client: ClientId = format!("locks_{}", UserId::new())
         .parse()
         .expect("client ID");
-    sqlx::query(
+    sqlx::query!(
         "INSERT INTO oidc_clients (
             id, display_name, allowed_scopes, allowed_audiences, allow_refresh
         ) VALUES ($1, 'Lock test', '[\"openid\"]', '[\"test\"]', true)",
+        client.as_str()
     )
-    .bind(client.as_str())
     .execute(pool)
     .await
     .expect("client");
-    sqlx::query(
+    sqlx::query!(
         "INSERT INTO oidc_redirect_uris (client_id, uri, kind, origin)
         VALUES ($1, $2, 'authorization', 'https://client.example')",
+        client.as_str(),
+        REDIRECT_URI
     )
-    .bind(client.as_str())
-    .bind(REDIRECT_URI)
     .execute(pool)
     .await
     .expect("redirect");
@@ -97,20 +97,20 @@ impl Grant {
             code: TokenId::new(),
             code_digest: TokenId::new().as_uuid().as_bytes().repeat(2),
         };
-        sqlx::query(
+        sqlx::query!(
             "INSERT INTO authorization_codes (
                 id, secret_digest, client_id, user_id, session_id, redirect_uri,
                 pkce_challenge, scopes, audience, expires_at, authentication, digest_key
             ) VALUES ($1, $2, $3, $4, $5, $6, 'challenge', '[\"openid\"]', 'test',
                 now() + interval '1 minute', $7, 'test')",
+            grant.code.as_uuid(),
+            &grant.code_digest,
+            client.as_str(),
+            grant.user.as_uuid(),
+            grant.session.as_uuid(),
+            REDIRECT_URI,
+            serde_json::to_value(authentication()).expect("authentication")
         )
-        .bind(grant.code.as_uuid())
-        .bind(&grant.code_digest)
-        .bind(client.as_str())
-        .bind(grant.user.as_uuid())
-        .bind(grant.session.as_uuid())
-        .bind(REDIRECT_URI)
-        .bind(sqlx::types::Json(authentication()))
         .execute(&mut *tx)
         .await
         .expect("code");
@@ -197,11 +197,13 @@ async fn independent_refreshes_share_client_and_logout_does_not_deadlock() {
     second_tx.rollback().await.expect("rollback");
 
     let mut logout = pool.begin().await.expect("logout transaction");
-    sqlx::query("UPDATE sessions SET revoked_at=now() WHERE id=$1")
-        .bind(grant.session.as_uuid())
-        .execute(&mut *logout)
-        .await
-        .expect("lock session");
+    sqlx::query!(
+        "UPDATE sessions SET revoked_at=now() WHERE id=$1",
+        grant.session.as_uuid()
+    )
+    .execute(&mut *logout)
+    .await
+    .expect("lock session");
     let mut rotation = pool.begin().await.expect("rotation transaction");
     let rotation_backend = Database::backend(&mut rotation).await;
     let rotation_task = tokio::spawn(async move {
@@ -247,17 +249,21 @@ async fn replay_revokes_family_despite_invalid_scopes() {
             .await
             .family(&mut TokenRepository::from_pool(&pool), &client)
             .await;
-        for statement in [
+        sqlx::query!(
             "UPDATE refresh_tokens SET consumed_at=now() WHERE id=$1",
+            token.as_uuid(),
+        )
+        .execute(&pool)
+        .await
+        .expect("consumed token");
+        sqlx::query!(
             "UPDATE refresh_token_families SET scopes='[1]'
             WHERE id=(SELECT family_id FROM refresh_tokens WHERE id=$1)",
-        ] {
-            sqlx::query(statement)
-                .bind(token.as_uuid())
-                .execute(&pool)
-                .await
-                .expect("consumed token with invalid scopes");
-        }
+            token.as_uuid(),
+        )
+        .execute(&pool)
+        .await
+        .expect("invalid scopes");
         let mut tx = pool.begin().await.expect("transaction");
         let result = TokenRepository::from_transaction(&mut tx)
             .redeem_refresh(
@@ -308,36 +314,44 @@ async fn a_kept_token_writes_nothing_and_holds_its_locks_until_commit() {
     // Whether another transaction can take each lock a refresh needs exclusively.
     let available = async || {
         let mut free = Vec::new();
-        for (statement, id) in [
-            (
-                "SELECT 1 FROM users WHERE id = $1 FOR NO KEY UPDATE NOWAIT",
-                grant.user.as_uuid(),
-            ),
-            (
-                "SELECT 1 FROM sessions WHERE id = $1 FOR UPDATE NOWAIT",
-                grant.session.as_uuid(),
-            ),
-            (
-                "SELECT 1 FROM refresh_token_families WHERE id = $1 FOR UPDATE NOWAIT",
-                family.as_uuid(),
-            ),
-        ] {
+        for lock in 0..3 {
             let mut probe = pool.begin().await.expect("probe");
-            free.push(
-                match sqlx::query(statement).bind(id).execute(&mut *probe).await {
-                    Ok(_) => true,
-                    Err(error)
-                        if error
-                            .as_database_error()
-                            .and_then(sqlx::error::DatabaseError::code)
-                            .as_deref()
-                            == Some("55P03") =>
-                    {
-                        false
-                    }
-                    Err(error) => panic!("probe: {error}"),
-                },
-            );
+            let attempt = match lock {
+                0 => sqlx::query!(
+                    r#"SELECT 1 AS "one!" FROM users WHERE id = $1 FOR NO KEY UPDATE NOWAIT"#,
+                    grant.user.as_uuid(),
+                )
+                .fetch_all(&mut *probe)
+                .await
+                .map(|_| ()),
+                1 => sqlx::query!(
+                    r#"SELECT 1 AS "one!" FROM sessions WHERE id = $1 FOR UPDATE NOWAIT"#,
+                    grant.session.as_uuid(),
+                )
+                .fetch_all(&mut *probe)
+                .await
+                .map(|_| ()),
+                _ => sqlx::query!(
+                    r#"SELECT 1 AS "one!" FROM refresh_token_families WHERE id = $1 FOR UPDATE NOWAIT"#,
+                    family.as_uuid(),
+                )
+                .fetch_all(&mut *probe)
+                .await
+                .map(|_| ()),
+            };
+            free.push(match attempt {
+                Ok(()) => true,
+                Err(error)
+                    if error
+                        .as_database_error()
+                        .and_then(sqlx::error::DatabaseError::code)
+                        .as_deref()
+                        == Some("55P03") =>
+                {
+                    false
+                }
+                Err(error) => panic!("probe: {error}"),
+            });
             probe.rollback().await.expect("rollback probe");
         }
         free
@@ -509,11 +523,13 @@ async fn code_replay_waits_for_first_redemption_and_revokes_its_family() {
             .expect("first redemption");
         let (token, digest) = grant.family(&mut first.tokens(), &client).await;
         if !redeemable {
-            sqlx::query("DELETE FROM oidc_redirect_uris WHERE client_id = $1")
-                .bind(client.as_str())
-                .execute(&pool)
-                .await
-                .expect("remove redirect URI");
+            sqlx::query!(
+                "DELETE FROM oidc_redirect_uris WHERE client_id = $1",
+                client.as_str()
+            )
+            .execute(&pool)
+            .await
+            .expect("remove redirect URI");
         }
         let mut replay = DatabaseTransaction::new(pool.begin().await.expect("replay"));
         let replay_backend = Database::backend(&mut replay.inner).await;
@@ -602,14 +618,14 @@ async fn session_revocation_ends_its_families_and_only_its_owners() {
     let mine = Grant::new(&pool, &client).await;
     let theirs = Grant::new(&pool, &client).await;
     let expired = SessionId::new();
-    sqlx::query(
+    sqlx::query!(
         "INSERT INTO sessions (
             id, user_id, authentication_methods, authenticated_at, expires_at, last_seen_at
         ) VALUES ($1, $2, '[]', now() - interval '2 hours', now() - interval '1 hour',
             now() - interval '2 hours')",
+        expired.as_uuid(),
+        mine.user.as_uuid()
     )
-    .bind(expired.as_uuid())
-    .bind(mine.user.as_uuid())
     .execute(&pool)
     .await
     .expect("expired session");
@@ -705,11 +721,13 @@ async fn removal_expires_codes_an_earlier_exchange_still_sees_live() {
     // `now()` is fixed when a transaction begins, so the code expires after the
     // exchange began and before the removal does.
     let mut exchange = DatabaseTransaction::new(pool.begin().await.expect("exchange"));
-    sqlx::query("UPDATE authorization_codes SET expires_at = clock_timestamp() WHERE id = $1")
-        .bind(grant.code.as_uuid())
-        .execute(&pool)
-        .await
-        .expect("expire");
+    sqlx::query!(
+        "UPDATE authorization_codes SET expires_at = clock_timestamp() WHERE id = $1",
+        grant.code.as_uuid()
+    )
+    .execute(&pool)
+    .await
+    .expect("expire");
     let mut removal = DatabaseTransaction::new(pool.begin().await.expect("removal"));
     removal
         .oidc()

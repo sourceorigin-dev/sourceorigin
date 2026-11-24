@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE handles SET released_at = now() - interval '366 days' WHERE handle = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b81ac5aea158f98eb10c23d67060325528e27d8359b3cf9e610f7ec08e8eb749"
+}

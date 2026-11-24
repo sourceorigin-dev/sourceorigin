@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SAVEPOINT duplicate_email",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "96090b62d6e14a6a0b598caaaa41a6c7f78eaa9c8b9d4537a530d8caa97a0812"
+}

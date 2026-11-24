@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO notifications (id, user_id, payload)\n        VALUES ($1, $2, '{\"kind\": \"from_a_newer_release\"}')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d056d984a7c40db9ce0dfd4871248c64ed3fccf337b5caf4f065fcb71c264d33"
+}

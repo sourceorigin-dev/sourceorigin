@@ -126,11 +126,13 @@ async fn ended_records_go_after_their_retention() {
             "recovery new"
         ]
     );
-    sqlx::query("UPDATE handles SET released_at = now() - interval '366 days' WHERE handle = $1")
-        .bind(&handle.handle)
-        .execute(&pool)
-        .await
-        .expect("a year on");
+    sqlx::query!(
+        "UPDATE handles SET released_at = now() - interval '366 days' WHERE handle = $1",
+        &handle.handle
+    )
+    .execute(&pool)
+    .await
+    .expect("a year on");
     maintenance().await;
     assert_eq!(
         remaining().await,

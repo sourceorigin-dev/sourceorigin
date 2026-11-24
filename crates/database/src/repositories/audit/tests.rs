@@ -5,6 +5,10 @@ use uuid::Uuid;
 
 /// Runs `sql`, bound to `id`, in a savepoint, so a refusal leaves the surrounding
 /// transaction usable. Returns the error code of a refusal.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "Callers pass each guarded statement, to see it refused"
+)]
 async fn attempt(connection: &mut PgConnection, sql: &str, id: Uuid) -> Result<(), String> {
     let mut savepoint = connection.begin().await.expect("savepoint");
     let result = sqlx::query(sql).bind(id).execute(&mut *savepoint).await;
@@ -114,8 +118,8 @@ async fn sealed_history_is_guarded() {
         refused,
         "only pruning anchors"
     );
-    sqlx::query("SELECT set_config('sourceorigin.audit_prune', 'on', true)")
-        .execute(&mut *tx)
+    sqlx::query!(r#"SELECT set_config('sourceorigin.audit_prune', 'on', true) AS "setting!""#)
+        .fetch_one(&mut *tx)
         .await
         .expect("prune setting");
     assert_eq!(

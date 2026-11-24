@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE account_recoveries\n            SET completed_at = completed_at - interval '15 days',\n                settles_at = clock_timestamp()\n            WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5edc133349cdc977a40117f35ce123a37da056e46aaae34077f03451b8517096"
+}

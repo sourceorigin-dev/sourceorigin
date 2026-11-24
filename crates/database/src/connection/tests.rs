@@ -131,20 +131,22 @@ async fn cleanup_skips_rows_locked_by_requests() {
     // Concurrent tests purge too and can delete the expired row before it is
     // locked, so insert it again until the request holds it.
     let request = loop {
-        sqlx::query(
+        sqlx::query!(
             "INSERT INTO request_limits (bucket, requests, expires_at)
             VALUES ($1, 1, now() - interval '1 minute')",
+            &bucket
         )
-        .bind(&bucket)
         .execute(&pool)
         .await
         .expect("expired limit");
         let mut request = pool.begin().await.expect("request transaction");
-        let locked = sqlx::query("SELECT 1 FROM request_limits WHERE bucket=$1 FOR UPDATE")
-            .bind(&bucket)
-            .fetch_optional(&mut *request)
-            .await
-            .expect("lock");
+        let locked = sqlx::query!(
+            r#"SELECT 1 AS "one!" FROM request_limits WHERE bucket=$1 FOR UPDATE"#,
+            &bucket
+        )
+        .fetch_optional(&mut *request)
+        .await
+        .expect("lock");
         if locked.is_some() {
             break request;
         }
@@ -178,8 +180,7 @@ async fn cleanup_keeps_redeemed_codes_while_their_session_is_live() {
     let [user, session, code, family] = [(); 4].map(|()| Uuid::now_v7());
     let client = format!("purge_{user}");
     // One statement keeps the fixture short; foreign keys are checked at its end.
-    sqlx::query(
-        "WITH account AS (
+    sqlx::query!("WITH account AS (
             INSERT INTO users (id, display_name) VALUES ($1, 'Purge')
         ), browser AS (
             INSERT INTO sessions (
@@ -193,20 +194,14 @@ async fn cleanup_keeps_redeemed_codes_while_their_session_is_live() {
                 id, secret_digest, client_id, user_id, session_id, redirect_uri,
                 pkce_challenge, scopes, audience, expires_at, consumed_at, authentication,
                 digest_key
-            ) VALUES ($3, convert_to($3::text, 'UTF8'), $5, $1, $2, 'https://client.example',
+            ) VALUES ($3, convert_to($3::uuid::text, 'UTF8'), $5, $1, $2, 'https://client.example',
                 'challenge', '[]', 'test', now() - interval '2 days', now() - interval '2 days', '{}',
                 'test')
         )
         INSERT INTO refresh_token_families (
             id, user_id, client_id, session_id, authorization_code_id, audience, scopes,
             authentication
-        ) VALUES ($4, $1, $5, $2, $3, 'test', '[]', '{}')",
-    )
-    .bind(user)
-    .bind(session)
-    .bind(code)
-    .bind(family)
-    .bind(&client)
+        ) VALUES ($4, $1, $5, $2, $3, 'test', '[]', '{}')", user, session, code, family, &client)
     .execute(&pool)
     .await
     .expect("redeemed grant");
@@ -225,11 +220,13 @@ async fn cleanup_keeps_redeemed_codes_while_their_session_is_live() {
         .await
         .expect("purge");
     assert_eq!(link().await, Some(code), "a live grant keeps its code");
-    sqlx::query("UPDATE sessions SET revoked_at = now() WHERE id = $1")
-        .bind(session)
-        .execute(&pool)
-        .await
-        .expect("end session");
+    sqlx::query!(
+        "UPDATE sessions SET revoked_at = now() WHERE id = $1",
+        session
+    )
+    .execute(&pool)
+    .await
+    .expect("end session");
     database
         .maintenance()
         .purge_expired_auth_state(1000)
@@ -285,6 +282,10 @@ fn runtime_roles_need_plain_names() {
 /// service's cleanup still works with it, and overlapping provisioning runs are safe.
 #[tokio::test]
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "Each listed statement, DDL and `COPY` included, runs as the runtime role to see it refused"
+)]
 async fn runtime_role_has_only_row_privileges() {
     let owner = Database::test().await;
     let name = format!("sourceorigin_auth_{}", Uuid::now_v7().simple());
@@ -301,9 +302,9 @@ async fn runtime_role_has_only_row_privileges() {
 
     // Rolled back, since other tests consume every event.
     let mut append = runtime.pool.begin().await.expect("begin");
-    sqlx::query(
+    sqlx::query!(
         "INSERT INTO domain_events (id, kind, version, payload, actor)
-        VALUES (uuidv7(), 'test', 1, '{}', '{}')",
+        VALUES (uuidv7(), 'test', 1, '{}', '{}')"
     )
     .execute(&mut *append)
     .await
@@ -324,10 +325,10 @@ async fn runtime_role_has_only_row_privileges() {
         .await
         .expect("lock unsealed events");
     seal.rollback().await.expect("rollback");
-    sqlx::query(
+    sqlx::query!(
         "UPDATE domain_events
         SET chain_position = chain_position, chain_hash = chain_hash, chain_format = chain_format
-        WHERE false",
+        WHERE false"
     )
     .execute(&runtime.pool)
     .await
@@ -556,8 +557,8 @@ async fn statements_and_lock_waits_past_their_limits_fail() {
         .fetch_one(&mut *slow.inner)
         .await
         .expect("statement limit");
-    let cancelled = sqlx::query("SELECT pg_sleep(1)")
-        .execute(&mut *slow.inner)
+    let cancelled = sqlx::query!(r#"SELECT 1 AS "one!" FROM pg_sleep(1)"#)
+        .fetch_all(&mut *slow.inner)
         .await
         .map_err(DatabaseError::from);
     assert!(
@@ -569,9 +570,8 @@ async fn statements_and_lock_waits_past_their_limits_fail() {
     // A key no other test takes.
     let key = i64::from_be_bytes(*b"timeout!");
     let mut holder = database.begin().await.expect("transaction");
-    sqlx::query("SELECT pg_advisory_xact_lock($1)")
-        .bind(key)
-        .execute(&mut *holder.inner)
+    sqlx::query!(r#"SELECT 1 AS "one!" FROM pg_advisory_xact_lock($1)"#, key)
+        .fetch_all(&mut *holder.inner)
         .await
         .expect("lock");
     let mut waiter = database.begin().await.expect("transaction");
@@ -581,9 +581,8 @@ async fn statements_and_lock_waits_past_their_limits_fail() {
         .fetch_one(&mut *waiter.inner)
         .await
         .expect("lock limit");
-    let unavailable = sqlx::query("SELECT pg_advisory_xact_lock($1)")
-        .bind(key)
-        .execute(&mut *waiter.inner)
+    let unavailable = sqlx::query!(r#"SELECT 1 AS "one!" FROM pg_advisory_xact_lock($1)"#, key)
+        .fetch_all(&mut *waiter.inner)
         .await
         .map_err(DatabaseError::from);
     assert!(
@@ -617,6 +616,10 @@ async fn insert_event(connection: &mut PgConnection) -> Uuid {
 
 /// Erasing a purged owner's origins removes values from `details` as `runtime`;
 /// no update may add or change one.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "Each listed `UPDATE` runs as the runtime role to see it allowed or refused"
+)]
 async fn assert_personal_data_only_erases(runtime: &Database) {
     for (statement, allowed) in [
         (
@@ -630,11 +633,11 @@ async fn assert_personal_data_only_erases(runtime: &Database) {
     ] {
         let mut probe = runtime.pool.begin().await.expect("begin");
         let event = insert_event(&mut probe).await;
-        sqlx::query(
+        sqlx::query!(
             "INSERT INTO event_personal_data (event_id, details)
             VALUES ($1, '{\"/origin\": \"https://a.example\", \"/name\": \"A\"}')",
+            event
         )
-        .bind(event)
         .execute(&mut *probe)
         .await
         .expect("personal data");
@@ -657,6 +660,10 @@ async fn assert_personal_data_only_erases(runtime: &Database) {
 /// inserts must be JSON auth can read back, or sealing would fail on it.
 /// `personal_data_is_recorded_only_with_its_event` covers attaching personal data
 /// to an older event, which needs a committed event, so a database of its own.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "`refusal` takes a statement to run as the runtime role, and a payload is bound as text, which `query!` cannot check against `jsonb`"
+)]
 async fn assert_history_is_never_forged(runtime: &Database) {
     for payload in [
         r#"{"n": 1e400}"#.to_owned(),

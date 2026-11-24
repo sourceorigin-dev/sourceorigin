@@ -109,11 +109,13 @@ async fn personal_data_is_stored_apart_and_erases() {
         );
     }
 
-    sqlx::query("DELETE FROM event_personal_data WHERE event_id = $1")
-        .bind(stored.id.as_uuid())
-        .execute(&pool)
-        .await
-        .expect("erase");
+    sqlx::query!(
+        "DELETE FROM event_personal_data WHERE event_id = $1",
+        stored.id.as_uuid()
+    )
+    .execute(&pool)
+    .await
+    .expect("erase");
     let [erased] = <[StoredEvent; 1]>::try_from(history().await).expect("one event");
     assert_eq!(
         erased.event,
@@ -229,11 +231,11 @@ async fn related_origins_are_personal_but_older_events_still_read() {
     assert_eq!(payloads[1].version, 2);
     assert_eq!(payloads[1].payload["origin"], ERASED);
 
-    sqlx::query(
+    sqlx::query!(
         "DELETE FROM event_personal_data p USING domain_events e
         WHERE p.event_id = e.id AND e.subject_user_id = $1",
+        user.as_uuid()
     )
-    .bind(user.as_uuid())
     .execute(&pool)
     .await
     .expect("erase");
@@ -425,12 +427,14 @@ async fn an_alert_updates_note_erases_with_its_event() {
     });
     let alert_id = AlertId::new();
     // Cleared, so it is not the current alert other tests raise.
-    sqlx::query("INSERT INTO alerts (id, payload, version, cleared_at) VALUES ($1, $2, 1, now())")
-        .bind(alert_id.as_uuid())
-        .bind(serde_json::to_value(&alert).expect("payload"))
-        .execute(&pool)
-        .await
-        .expect("alert");
+    sqlx::query!(
+        "INSERT INTO alerts (id, payload, version, cleared_at) VALUES ($1, $2, 1, now())",
+        alert_id.as_uuid(),
+        serde_json::to_value(&alert).expect("payload")
+    )
+    .execute(&pool)
+    .await
+    .expect("alert");
     let context = EventContext {
         actor: Actor::Cli {
             os_user: "ops".into(),
@@ -461,10 +465,12 @@ async fn an_alert_updates_note_erases_with_its_event() {
     };
     assert_eq!(note().await.as_deref(), Some("Restoring from backup"));
 
-    sqlx::query("DELETE FROM event_personal_data WHERE event_id = $1")
-        .bind(event.as_uuid())
-        .execute(&pool)
-        .await
-        .expect("erase");
+    sqlx::query!(
+        "DELETE FROM event_personal_data WHERE event_id = $1",
+        event.as_uuid()
+    )
+    .execute(&pool)
+    .await
+    .expect("erase");
     assert_eq!(note().await, None);
 }

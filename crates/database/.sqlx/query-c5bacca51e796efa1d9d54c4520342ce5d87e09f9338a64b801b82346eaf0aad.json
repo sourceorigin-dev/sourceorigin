@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE deliveries SET leased_until = clock_timestamp() WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c5bacca51e796efa1d9d54c4520342ce5d87e09f9338a64b801b82346eaf0aad"
+}

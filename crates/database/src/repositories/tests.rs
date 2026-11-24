@@ -15,12 +15,12 @@ async fn undecodable_columns_are_invalid_stored_data() {
     // Unique across runs: a v7's bytes with the version bits set to 4.
     let v4 = uuid::Builder::from_random_bytes(*uuid::Uuid::now_v7().as_bytes()).into_uuid();
     let handle = Handle::parse(&format!("v4-{}", &v4.simple().to_string()[20..])).expect("handle");
-    sqlx::query(
+    sqlx::query!(
         "WITH account AS (INSERT INTO users(id,display_name) VALUES($1,'Decode test'))
         INSERT INTO handles(handle,user_id) VALUES($2,$1)",
+        v4,
+        handle.as_str()
     )
-    .bind(v4)
-    .bind(handle.as_str())
     .execute(&pool)
     .await
     .expect("user with a v4 id");
@@ -33,17 +33,15 @@ async fn undecodable_columns_are_invalid_stored_data() {
 
     let user = UserId::new();
     let session = SessionId::new();
-    sqlx::query("INSERT INTO users(id,display_name) VALUES($1,'Decode test')")
-        .bind(user.as_uuid())
-        .execute(&pool)
-        .await
-        .expect("user");
-    sqlx::query(
-        "INSERT INTO sessions(id,user_id,authentication_methods,authenticated_at,expires_at,last_seen_at)
-        VALUES($1,$2,'[\"unknown\"]',now(),now()+interval '1 day',now())",
+    sqlx::query!(
+        "INSERT INTO users(id,display_name) VALUES($1,'Decode test')",
+        user.as_uuid()
     )
-    .bind(session.as_uuid())
-    .bind(user.as_uuid())
+    .execute(&pool)
+    .await
+    .expect("user");
+    sqlx::query!("INSERT INTO sessions(id,user_id,authentication_methods,authenticated_at,expires_at,last_seen_at)
+        VALUES($1,$2,'[\"unknown\"]',now(),now()+interval '1 day',now())", session.as_uuid(), user.as_uuid())
     .execute(&pool)
     .await
     .expect("session with an unknown method");

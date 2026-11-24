@@ -663,6 +663,10 @@ impl AuditRepository<'_> {
 
     /// Enables or disables the guard triggers of every audit table, for
     /// [`Self::tamper`].
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "DDL takes no bind parameters, so the statement is formatted from literals"
+    )]
     async fn guards(&mut self, enabled: bool) -> Result<(), DatabaseError> {
         let toggle = if enabled { "ENABLE" } else { "DISABLE" };
         for table in ["domain_events", "audit_checkpoints", "audit_anchor"] {

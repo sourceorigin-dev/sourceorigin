@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO event_personal_data (event_id, details)\n            VALUES ($1, '{\"/origin\": \"https://a.example\", \"/name\": \"A\"}')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7ea7b1122936117c7ea1adfa5625c1bdb970a6377d315ae460948c62bd80eae3"
+}

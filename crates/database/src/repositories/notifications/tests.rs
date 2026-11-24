@@ -128,12 +128,12 @@ async fn pages_continue_across_equal_times() {
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn newer_kinds_read_as_unknown() {
     let (database, user) = account("future").await;
-    sqlx::query(
+    sqlx::query!(
         r#"INSERT INTO notifications (id, user_id, payload)
         VALUES ($1, $2, '{"kind": "from_a_newer_release"}')"#,
+        NotificationId::new().as_uuid(),
+        user.as_uuid()
     )
-    .bind(NotificationId::new().as_uuid())
-    .bind(user.as_uuid())
     .execute(&database.pool)
     .await
     .expect("insert");

@@ -35,11 +35,13 @@ async fn handle_lookup_hides_disabled_accounts_and_revoked_passkeys() {
         };
         assert_eq!(listed().await, 1);
         if disable {
-            sqlx::query("UPDATE users SET status = 'disabled' WHERE id = $1")
-                .bind(user.as_uuid())
-                .execute(&pool)
-                .await
-                .expect("disable");
+            sqlx::query!(
+                "UPDATE users SET status = 'disabled' WHERE id = $1",
+                user.as_uuid()
+            )
+            .execute(&pool)
+            .await
+            .expect("disable");
         } else {
             assert!(passkeys.revoke(key.id, user).await.expect("revoke"));
         }
@@ -56,12 +58,12 @@ async fn accounts_keep_at_most_100_passkeys() {
     let user = UserRepository::from_pool(&pool)
         .insert_named("passkeys")
         .await;
-    sqlx::query(
+    sqlx::query!(
         "INSERT INTO passkey_credentials (id, credential_id, user_id, credential, friendly_name)
         SELECT uuidv7(), uuid_send(uuidv7()), $1, '{}', 'Passkey test'
         FROM generate_series(1, 100)",
+        user.as_uuid()
     )
-    .bind(user.as_uuid())
     .execute(&pool)
     .await
     .expect("100 passkeys");
@@ -80,11 +82,11 @@ async fn accounts_keep_at_most_100_passkeys() {
         ),
         "a 101st passkey"
     );
-    sqlx::query(
+    sqlx::query!(
         "UPDATE passkey_credentials SET revoked_at = now()
         WHERE id = (SELECT id FROM passkey_credentials WHERE user_id = $1 LIMIT 1)",
+        user.as_uuid()
     )
-    .bind(user.as_uuid())
     .execute(&pool)
     .await
     .expect("revoke one");

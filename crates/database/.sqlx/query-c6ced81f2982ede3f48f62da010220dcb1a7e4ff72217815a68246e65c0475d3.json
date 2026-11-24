@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE domain_events\n        SET chain_position = chain_position, chain_hash = chain_hash, chain_format = chain_format\n        WHERE false",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "c6ced81f2982ede3f48f62da010220dcb1a7e4ff72217815a68246e65c0475d3"
+}

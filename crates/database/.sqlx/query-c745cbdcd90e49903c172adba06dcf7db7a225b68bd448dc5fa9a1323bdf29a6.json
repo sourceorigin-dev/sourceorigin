@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO oidc_redirect_uris (client_id, uri, kind, origin)\n        VALUES ($1, $2, 'authorization', 'https://client.example')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c745cbdcd90e49903c172adba06dcf7db7a225b68bd448dc5fa9a1323bdf29a6"
+}
