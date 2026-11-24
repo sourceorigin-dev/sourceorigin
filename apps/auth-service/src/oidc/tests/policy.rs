@@ -24,7 +24,7 @@ async fn suspending_an_app_during_an_exchange_issues_nothing() {
     let exchanging = flow.clone();
     let exchange =
         tokio::spawn(async move { exchanging.exchange(&code, Flow::verifier(), None).await });
-    until_blocked(&mut suspension, 1).await;
+    suspension.until_blocked(1).await;
     suspension.commit().await.expect("commit");
 
     let response = exchange.await.expect("exchange");
@@ -124,7 +124,7 @@ async fn consent_waits_for_an_owners_change_to_the_app() {
             .await
             .status()
     });
-    until_blocked(&mut change, 1).await;
+    change.until_blocked(1).await;
     change
         .oidc()
         .lock_client(&flow.client.id)

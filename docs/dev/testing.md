@@ -89,8 +89,9 @@ A new database test starts from the fixtures in `crates/database/src/fixtures.rs
 `Database::test()` connects with the limits every connection of the service has,
 and `Database::test_config` configures a pool of your own with them.
 `insert_named` creates an account, `InsertSession::lasting` describes a session,
-`known_history` lists an account's events, and `test_channels!` declares channels
-whose deliveries a test inserts itself.
+`known_history` lists an account's events, `until_blocked` waits until other
+transactions queue behind a lock a transaction holds, and `test_channels!`
+declares channels whose deliveries a test inserts itself.
 Another crate's tests get them through the `test-util` feature. A test in
 `crates/database` that inserts rows with plain SQL connects through
 `Database::test_pool()` instead, and auth-service's tests use `Replicas`,

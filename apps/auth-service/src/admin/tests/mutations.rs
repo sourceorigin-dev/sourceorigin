@@ -28,7 +28,7 @@ async fn mutations_recheck_the_confirmation_after_waiting() {
     let (result, ()) = tokio::join!(
         service.disable_user(&operator, user.user_id, reason),
         async {
-            until_blocked(&mut logout, 1).await;
+            logout.until_blocked(1).await;
             assert!(
                 operator.confirmation_left() > Duration::zero(),
                 "the mutation waits while its caller is still confirmed"
@@ -73,7 +73,7 @@ async fn waiting_mutations_hold_no_caller_locks() {
     let (result, ()) = tokio::join!(
         service.disable_user(&operator, user.user_id, reason),
         async {
-            until_blocked(&mut switch, 1).await;
+            switch.until_blocked(1).await;
             // The switch revokes the caller's session without a deadlock.
             admin.sign_out(&mut switch).await;
             switch.commit().await.expect("commit");

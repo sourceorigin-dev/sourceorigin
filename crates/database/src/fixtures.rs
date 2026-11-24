@@ -2,7 +2,10 @@
 //! sessions, delivery channels and an account's event history. This crate's
 //! tests use them, and so do other crates' tests, behind the `test-util` feature.
 
-use crate::{Database, DatabaseConfig, EventRepository, InsertSession, InsertUser, UserRepository};
+use crate::{
+    Database, DatabaseConfig, DatabaseTransaction, EventRepository, InsertSession, InsertUser,
+    UserRepository,
+};
 use chrono::{TimeDelta, Utc};
 use sourceorigin_common::{
     Handle, SessionId, UserId,
@@ -153,6 +156,31 @@ impl EventRepository<'_> {
             .into_iter()
             .map(|stored| stored.event.known().cloned().expect("a known event"))
             .collect()
+    }
+}
+
+impl DatabaseTransaction<'_> {
+    /// Waits until `waiters` other transactions wait for a lock this one holds,
+    /// directly or queued behind another waiter, so a test orders concurrent work
+    /// on what the database is doing.
+    ///
+    /// # Panics
+    ///
+    /// Panics if a query fails, or fewer transactions wait within ten seconds.
+    #[expect(
+        clippy::expect_used,
+        reason = "test-only fixture; documented under `# Panics`"
+    )]
+    pub async fn until_blocked(&mut self, waiters: i64) {
+        tokio::time::timeout(Duration::from_secs(10), async {
+            while self.blocked_transactions().await.expect("lock waits") < waiters {
+                // wall-clock: PostgreSQL shows lock waits only in its catalog views,
+                // and signals nothing when one starts.
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("the other transactions wait for the holder's lock");
     }
 }
 

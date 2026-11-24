@@ -13,7 +13,7 @@ use crate::{
     security::{BrowserCookie, CONFIRMATION_MAX_AGE},
     tests::{
         AUTH_ORIGIN, Browser, Replicas, change, pending_sign_in, registration, sign_out,
-        until_blocked, unusable_passkey, verified_address,
+        unusable_passkey, verified_address,
     },
 };
 use axum::{
@@ -505,7 +505,7 @@ async fn changes_check_the_administrator_again_after_waiting() {
     let (result, ()) = tokio::join!(
         fixture.rename(operator(revoked, Utc::now()), user, passkeys[0]),
         async {
-            until_blocked(&mut revocation, 1).await;
+            revocation.until_blocked(1).await;
             revocation.commit().await.expect("commit");
         }
     );
@@ -528,7 +528,7 @@ async fn changes_check_the_administrator_again_after_waiting() {
     let (result, ()) = tokio::join!(
         fixture.rename(fixture.operator(Duration::zero()), user, passkeys[0]),
         async {
-            until_blocked(&mut grant, 1).await;
+            grant.until_blocked(1).await;
             grant.commit().await.expect("commit");
         }
     );
@@ -650,7 +650,7 @@ async fn a_confirmation_while_waiting_does_not_count() {
         .expect("account lock");
     let path = passkey::ITEM.replace("{id}", &PasskeyId::new().to_string());
     let ((status, body), ()) = tokio::join!(social.call(&routes, Method::DELETE, &path), async {
-        until_blocked(&mut confirmation, 1).await;
+        confirmation.until_blocked(1).await;
         confirmation
             .sessions()
             .confirm_passkey(social.session_id, PasskeyId::new(), Utc::now())

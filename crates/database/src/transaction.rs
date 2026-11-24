@@ -198,14 +198,13 @@ impl<'a> DatabaseTransaction<'a> {
     }
 
     /// Counts the other transactions waiting for a lock this one holds, directly
-    /// or queued behind another such waiter, so tests can order concurrent work
-    /// on what the database is doing rather than on sleeps.
+    /// or queued behind another such waiter, for [`Self::until_blocked`].
     ///
     /// # Errors
     ///
     /// Returns [`DatabaseError`] if the query fails.
     #[cfg(any(test, feature = "test-util"))]
-    pub async fn blocked_transactions(&mut self) -> Result<i64, DatabaseError> {
+    pub(crate) async fn blocked_transactions(&mut self) -> Result<i64, DatabaseError> {
         sqlx::query_scalar!(
             // `pg_locks` is read afresh by every query; `pg_stat_activity` would
             // keep the backends this transaction saw first.

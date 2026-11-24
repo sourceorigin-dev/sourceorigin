@@ -6,7 +6,7 @@ use super::*;
 use crate::{
     account::{AccountError, AccountService, Owner},
     security::Session,
-    tests::{Browser, Replicas, change, register, registration, replace, until_blocked},
+    tests::{Browser, Replicas, change, register, registration, replace},
 };
 use sourceorigin_common::{AuthenticationMethod, UserId, clients::RedirectUris};
 use sourceorigin_repository::Database;
@@ -82,7 +82,7 @@ impl Account {
             .expect("lock")
             .expect("account");
         let (result, ()) = tokio::join!(change(&client), async {
-            until_blocked(&mut holder, 1).await;
+            holder.until_blocked(1).await;
             let session = holder.sessions().find_by_id(stale.session_id).await;
             let session = session.expect("lookup").expect("session");
             let passkey = AuthenticationMethod::Passkey.into();

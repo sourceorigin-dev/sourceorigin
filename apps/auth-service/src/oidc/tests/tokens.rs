@@ -376,7 +376,7 @@ async fn a_refresh_that_waits_for_an_undo_or_disablement_issues_nothing() {
             .expect("user");
         let refreshing = flow.clone();
         let refresh = tokio::spawn(async move { refreshing.refresh(&token).await });
-        until_blocked(&mut holder, 1).await;
+        holder.until_blocked(1).await;
         if disable {
             holder
                 .users()

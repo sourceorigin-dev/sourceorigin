@@ -326,18 +326,6 @@ async fn purge_as_callers_do(tx: &mut DatabaseTransaction<'_>, user: UserId) {
     assert!(tx.deletions().purge(user).await.expect("purge"));
 }
 
-/// Waits until `waiters` transactions wait for `holder`, directly or behind
-/// another that does.
-async fn until_blocked(holder: &mut DatabaseTransaction<'_>, waiters: i64) {
-    tokio::time::timeout(std::time::Duration::from_secs(10), async {
-        while holder.blocked_transactions().await.expect("lock waits") < waiters {
-            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-        }
-    })
-    .await
-    .expect("the other transaction waits for the holder's lock");
-}
-
 /// The announcement deliveries queued to `user`.
 async fn deliveries_to(pool: &PgPool, user: UserId, id: AnnouncementId) -> i64 {
     sqlx::query_scalar(
@@ -384,7 +372,7 @@ async fn sending_and_purging_wait_for_each_other() {
     purge_as_callers_do(&mut purge, purged).await;
     let mut sending = DatabaseTransaction::new(pool.begin().await.expect("transaction"));
     let (sent, ()) = tokio::join!(send_in(&mut sending, everyone, 1), async {
-        until_blocked(&mut purge, 1).await;
+        purge.until_blocked(1).await;
         purge.commit().await.expect("commit");
     });
     assert!(sent.is_some(), "sent without the purged account");
@@ -422,7 +410,7 @@ async fn sending_and_purging_wait_for_each_other() {
         purge.commit().await.expect("commit");
     };
     tokio::join!(purge, async {
-        until_blocked(&mut sending, 1).await;
+        sending.until_blocked(1).await;
         sending.commit().await.expect("commit");
     });
     assert_eq!(deliveries_to(&pool, purged, chosen).await, 0);
@@ -467,7 +455,7 @@ async fn purging_the_last_recipients_at_once_deletes_the_text() {
         other.commit().await.expect("commit");
     };
     tokio::join!(other, async {
-        until_blocked(&mut purge, 1).await;
+        purge.until_blocked(1).await;
         purge.commit().await.expect("commit");
     });
     let announcements = AnnouncementRepository::from_pool(&pool).find(id).await;
@@ -503,7 +491,7 @@ async fn a_draft_saved_during_its_accounts_purges_goes_with_them() {
     };
     // Both purges wait: one for the draft, the other behind it.
     tokio::join!(purge(named[0]), purge(named[1]), async {
-        until_blocked(&mut drafting, 2).await;
+        drafting.until_blocked(2).await;
         drafting.commit().await.expect("commit");
     });
     let left = AnnouncementRepository::from_pool(&pool).find(id).await;

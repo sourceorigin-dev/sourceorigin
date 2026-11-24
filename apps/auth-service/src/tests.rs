@@ -730,17 +730,6 @@ pub(crate) async fn sign_out(
     .await
 }
 
-/// Waits until `waiters` other transactions wait for a lock `holder` holds.
-pub(crate) async fn until_blocked(holder: &mut DatabaseTransaction<'_>, waiters: i64) {
-    tokio::time::timeout(std::time::Duration::from_secs(10), async {
-        while holder.blocked_transactions().await.expect("lock waits") < waiters {
-            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-        }
-    })
-    .await
-    .expect("the operation waits for the holder's lock");
-}
-
 /// Issues the refresh grant `family` to `client` from `user_id`'s session
 /// `session_id`, as a code exchange would, and returns its first refresh token's
 /// ID and digest.

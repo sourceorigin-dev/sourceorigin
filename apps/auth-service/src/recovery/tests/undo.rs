@@ -1,7 +1,7 @@
 //! Undoing a recovery: who may, what it takes back, and what the pages read of it.
 
 use super::*;
-use crate::{passkey::VerifiedRecoveryUndo, tests::until_blocked};
+use crate::passkey::VerifiedRecoveryUndo;
 use sourceorigin_common::events::SignInFailure;
 
 /// Undoing a recovery in probation, with a passkey from before it and no
@@ -94,7 +94,7 @@ async fn an_undo_and_a_client_deletion_never_deadlock() {
         let admin = scenario.admin();
         async move { admin.undo_recovery(&cli(), user, recovery_reason()).await }
     });
-    until_blocked(&mut holder, 1).await;
+    holder.until_blocked(1).await;
     holder
         .oidc()
         .delete_client(&client)

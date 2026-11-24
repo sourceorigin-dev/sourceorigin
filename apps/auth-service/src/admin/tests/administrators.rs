@@ -139,7 +139,7 @@ async fn the_last_active_administrator_stays() {
         service.disable_user(&cli, a.user_id, reason("Away")),
         service.revoke_administrator(&cli, b.user_id, reason("Asked by email")),
         async {
-            until_blocked(&mut held, 2).await;
+            held.until_blocked(2).await;
             held.commit().await.expect("commit");
         }
     );

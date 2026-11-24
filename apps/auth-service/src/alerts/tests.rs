@@ -157,7 +157,7 @@ async fn concurrent_raises_leave_one_alert() {
         let database = database.clone();
         async move { found(&database, Some(broken(5))).await }
     });
-    crate::tests::until_blocked(&mut first, 1).await;
+    first.until_blocked(1).await;
     first.commit().await.expect("commit");
     second.await.expect("second raise");
     let raised = recorded(&database).await;

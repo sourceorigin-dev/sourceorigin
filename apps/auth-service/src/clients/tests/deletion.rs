@@ -176,7 +176,7 @@ async fn deletion_and_refresh_rotation_never_deadlock() {
         .await
         .expect("hold the first family");
     let deletion = granting.delete();
-    until_blocked(&mut holder, 1).await;
+    holder.until_blocked(1).await;
     holder
         .tokens()
         .redeem_refresh(
@@ -225,7 +225,7 @@ async fn deletion_skips_families_granted_while_it_waits() {
         .await
         .expect("hold the family");
     let deletion = granting.delete();
-    until_blocked(&mut holder, 1).await;
+    holder.until_blocked(1).await;
     let (token, digest) = granting.grant(fresh).await;
     let mut rotation = granting.database.begin().await.expect("transaction");
     rotation
@@ -274,7 +274,7 @@ async fn deletion_and_logout_never_deadlock() {
         .await
         .expect("hold the lowest family");
     let deletion = granting.delete();
-    until_blocked(&mut holder, 1).await;
+    holder.until_blocked(1).await;
     let logout = tokio::spawn({
         let database = granting.database.clone();
         let (user, session) = (granting.user.user_id, granting.user.session_id);
@@ -284,7 +284,7 @@ async fn deletion_and_logout_never_deadlock() {
             tx.commit().await
         }
     });
-    until_blocked(&mut holder, 2).await;
+    holder.until_blocked(2).await;
     holder.commit().await.expect("commit");
     deletion.await.expect("task").expect("deletion");
     logout.await.expect("task").expect("logout");
