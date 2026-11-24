@@ -129,7 +129,10 @@ async fn administrators_reserve_handles_until_they_give_them_out() {
     let look_alike = Handle::parse(&format!("kept{suffix}")).expect("handle");
     let handles = crate::handles::Handles::new(&harness.database);
     let reserved = |result: Result<(), HandlesError>| matches!(result, Err(HandlesError::Refused(HandleError::Reserved(name))) if name == kept.as_str());
-    assert!(handles.ensure_unreserved(&kept).await.is_ok());
+    handles
+        .ensure_unreserved(&kept)
+        .await
+        .expect("should be accepted");
     service
         .reserve_handle(&cli(), kept.clone(), reason("For the new CTO"))
         .await
@@ -188,7 +191,10 @@ async fn administrators_reserve_handles_until_they_give_them_out() {
             .await,
         Err(AdminError::HandleNotReserved)
     ));
-    assert!(handles.ensure_unreserved(&kept).await.is_ok());
+    handles
+        .ensure_unreserved(&kept)
+        .await
+        .expect("should be accepted");
     let problems = service.check_handles(&cli()).await.expect("check");
     assert!(!problems.iter().any(|problem| problem.user_id == user));
 }

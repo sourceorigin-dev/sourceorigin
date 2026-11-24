@@ -64,7 +64,7 @@ fn announcements_go_to_bounded_accounts() {
             AnnouncementRecipients::Accounts(vec![UserRef::Handle("ada".into()); count]);
         AnnouncementDraft::new(letter, recipients, false)
     };
-    assert!(draft(1_000).is_ok());
+    draft(1_000).expect("should be accepted");
     assert!(matches!(draft(0), Err(AdminError::NoRecipients)));
     assert!(matches!(draft(1_001), Err(AdminError::TooManyRecipients)));
 }
@@ -73,7 +73,7 @@ fn announcements_go_to_bounded_accounts() {
 #[test]
 fn reasons_are_bounded_visible_text() {
     for valid in ["Spam".to_owned(), "é".repeat(500)] {
-        assert!(Reason::parse(valid).is_ok());
+        Reason::parse(valid).expect("should be accepted");
     }
     for invalid in [String::new(), " \t ".into(), "a\nb".into(), "é".repeat(501)] {
         assert!(matches!(

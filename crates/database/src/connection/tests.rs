@@ -260,8 +260,8 @@ fn runtime_roles_need_plain_names() {
             "password",
         )
     };
-    assert!(role("sourceorigin_auth").is_ok());
-    assert!(role(&"a".repeat(63)).is_ok());
+    role("sourceorigin_auth").expect("should be accepted");
+    role(&"a".repeat(63)).expect("should be accepted");
     for user in [
         "SourceOrigin",
         "1auth",

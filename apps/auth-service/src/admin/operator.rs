@@ -390,6 +390,6 @@ mod tests {
         assert_eq!(host(Some(" \n"), Ok(Some("env"))).expect("HOSTNAME"), "env");
         assert_eq!(host(None, Ok(Some("env"))).expect("HOSTNAME"), "env");
         assert_eq!(host(Some(""), Ok(None)).expect("no name"), UNKNOWN);
-        assert!(host(None, invalid()).is_err());
+        host(None, invalid()).expect_err("should be rejected");
     }
 }

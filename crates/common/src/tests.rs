@@ -35,7 +35,7 @@ fn vocabulary_round_trips() {
             .vocabulary,
         "Example"
     );
-    assert!(serde_json::from_str::<Example>("\"unknown\"").is_err());
+    serde_json::from_str::<Example>("\"unknown\"").expect_err("should be rejected");
 }
 
 open_str_enum! {
@@ -64,12 +64,13 @@ fn open_vocabulary_keeps_unknown_values() {
 fn ids_are_canonical_uuid_v7() {
     let id = UserId::new();
     assert_eq!(id.to_string().parse::<UserId>(), Ok(id));
-    assert!(
-        "00000000-0000-4000-8000-000000000000"
-            .parse::<UserId>()
-            .is_err()
-    );
-    assert!(id.to_string().to_uppercase().parse::<UserId>().is_err());
+    "00000000-0000-4000-8000-000000000000"
+        .parse::<UserId>()
+        .expect_err("should be rejected");
+    id.to_string()
+        .to_uppercase()
+        .parse::<UserId>()
+        .expect_err("should be rejected");
     let error = "not-a-uuid".parse::<UserId>().expect_err("UUID syntax");
     assert!(std::error::Error::source(&error).is_some());
 }

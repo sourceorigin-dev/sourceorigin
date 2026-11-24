@@ -273,9 +273,9 @@ fn authentication_requirements_follow_auth() {
         acr: Some(Acr::Social),
         max_age: None,
     };
-    assert!(check(Acr::PhishingResistant, 0, social).is_ok());
+    check(Acr::PhishingResistant, 0, social).expect("should be accepted");
     let recent = StepUpRequirement::passkey_within(300);
-    assert!(check(Acr::PhishingResistant, 330, recent).is_ok());
+    check(Acr::PhishingResistant, 330, recent).expect("should be accepted");
     assert!(matches!(
         check(Acr::PhishingResistant, 331, recent),
         Err(TokenError::InsufficientUserAuthentication(requirement)) if requirement == recent

@@ -26,10 +26,11 @@ fn sealed_values_open_only_with_their_key_and_associated_data() {
         modified[index] ^= 1;
         assert!(kek.open(&modified, b"kid-1rsa").is_err(), "byte {index}");
     }
-    assert!(kek.open(&sealed[..NONCE_LEN], b"kid-1rsa").is_err());
+    kek.open(&sealed[..NONCE_LEN], b"kid-1rsa")
+        .expect_err("should be rejected");
 
     let encoded = Secret::generate().expect("secret").encoded();
-    assert!(KeyEncryptionKey::parse(&encoded).is_ok());
+    KeyEncryptionKey::parse(&encoded).expect("should be accepted");
     for invalid in [format!("{encoded}="), "not base64!".to_owned()] {
         assert!(matches!(
             KeyEncryptionKey::parse(&invalid),

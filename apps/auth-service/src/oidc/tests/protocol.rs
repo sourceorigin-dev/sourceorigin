@@ -166,12 +166,12 @@ fn scope_sets_preserve_existing_wire_semantics() {
     assert!(scopes.allowed_by(&stored));
     assert!(!scopes.allowed_by(&[Scope::OpenId.as_str().into()]));
     assert_eq!(Scopes::from_stored(&stored), Ok(scopes));
-    assert!(Scopes::parse(" ").is_err());
+    Scopes::parse(" ").expect_err("should be rejected");
     let too_many = (0..=MAX_SCOPES)
         .map(|index| format!("scope{index}"))
         .collect::<Vec<_>>()
         .join(" ");
-    assert!(Scopes::parse(&too_many).is_err());
+    Scopes::parse(&too_many).expect_err("should be rejected");
 }
 
 /// Checks purpose binding, the length bound and exact opaque envelope/secret round

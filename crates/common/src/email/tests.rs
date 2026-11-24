@@ -65,7 +65,7 @@ fn normalizes_unicode_and_enforces_component_limits() {
             .as_str(),
         "é@example.com"
     );
-    assert!(NormalizedEmail::parse(&format!("{}@example.com", "a".repeat(64))).is_ok());
+    NormalizedEmail::parse(&format!("{}@example.com", "a".repeat(64))).expect("should be accepted");
     assert_eq!(
         NormalizedEmail::parse(&format!("{}@example.com", "a".repeat(65))),
         Err(InvalidEmail::LocalPartTooLong(65))

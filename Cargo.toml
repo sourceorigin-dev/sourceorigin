@@ -44,6 +44,7 @@ panic = "warn"
 todo = "warn"
 unreachable = "warn"
 map_err_ignore = "warn"
+assertions_on_result_states = "warn"
 unimplemented = "warn"
 dbg_macro = "warn"
 # `let _ =` hides a `#[must_use]` result, such as a dropped error.

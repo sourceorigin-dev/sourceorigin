@@ -291,8 +291,8 @@ fn confirmation_needs_a_terminal_or_yes() {
         ask(false, false, "y\n"),
         Err(CliError::Unconfirmed)
     ));
-    assert!(ask(true, false, "").is_ok());
-    assert!(ask(false, true, "y\n").is_ok());
+    ask(true, false, "").expect("should be accepted");
+    ask(false, true, "y\n").expect("should be accepted");
     assert!(matches!(ask(false, true, "\n"), Err(CliError::Declined)));
     assert!(matches!(ask(false, true, "no\n"), Err(CliError::Declined)));
 }

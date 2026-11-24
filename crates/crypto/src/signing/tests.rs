@@ -48,7 +48,7 @@ fn verifies_types_signatures_issuers_and_times_at_the_given_time() {
         token,
         Err(CryptoError::Claims(ClaimsError::Expired(exp))) if exp == at(-1)
     ));
-    assert!(hint.is_ok());
+    hint.expect("an expired hint is read");
     for changes in [
         json!({"iss": "https://evil.example"}),
         json!({"nbf": at(31).timestamp()}),
@@ -74,10 +74,8 @@ fn verifies_types_signatures_issuers_and_times_at_the_given_time() {
     let token = keys
         .sign(TokenType::Access, &claims(&json!({})))
         .expect("sign access token");
-    assert!(
-        keys.verify::<AccessTokenClaims>(&token, TokenType::Access, ISSUER, now())
-            .is_ok()
-    );
+    keys.verify::<AccessTokenClaims>(&token, TokenType::Access, ISSUER, now())
+        .expect("should be accepted");
     assert!(matches!(
         keys.verify::<IdTokenClaims>(&token, TokenType::Id, ISSUER, now()),
         Err(CryptoError::InvalidToken)
@@ -155,20 +153,17 @@ fn key_set_verifies_by_kid_and_limits_retired_keys_to_hints() {
     let keys = KeySet::new(active, published, vec![retired.public_key().clone()]).expect("key set");
     let by_active = keys.sign(TokenType::Id, &claims).expect("sign");
     for token in [&by_active, &by_retiring] {
-        assert!(
-            keys.verify::<IdTokenClaims>(token, TokenType::Id, ISSUER, now())
-                .is_ok()
-        );
-        assert!(keys.verify_id_token_hint(token, ISSUER, now()).is_ok());
+        keys.verify::<IdTokenClaims>(token, TokenType::Id, ISSUER, now())
+            .expect("should be accepted");
+        keys.verify_id_token_hint(token, ISSUER, now())
+            .expect("should be accepted");
     }
     assert!(matches!(
         keys.verify::<IdTokenClaims>(&by_retired, TokenType::Id, ISSUER, now()),
         Err(CryptoError::UnknownKey)
     ));
-    assert!(
-        keys.verify_id_token_hint(&by_retired, ISSUER, now())
-            .is_ok()
-    );
+    keys.verify_id_token_hint(&by_retired, ISSUER, now())
+        .expect("should be accepted");
     assert!(matches!(
         keys.verify_id_token_hint(&by_unknown, ISSUER, now()),
         Err(CryptoError::UnknownKey)

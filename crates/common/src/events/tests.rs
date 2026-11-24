@@ -87,7 +87,9 @@ fn user_agent_family_text_round_trips() {
     };
     assert_eq!(family.to_string(), "firefox/linux");
     assert_eq!("firefox/linux".parse(), Ok(family));
-    assert!("firefox".parse::<UserAgentFamily>().is_err());
+    "firefox"
+        .parse::<UserAgentFamily>()
+        .expect_err("should be rejected");
     assert_eq!(
         "samsung/harmony_os".parse(),
         Ok(UserAgentFamily {
