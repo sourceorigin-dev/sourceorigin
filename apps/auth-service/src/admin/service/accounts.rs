@@ -308,7 +308,7 @@ impl AdminService {
     ///
     /// # Errors
     /// Fails when the operator may not read, or the query fails.
-    pub async fn check_handles(
+    pub(crate) async fn check_handles(
         &self,
         operator: &Operator,
     ) -> Result<Vec<HandleProblem>, AdminError> {
@@ -345,7 +345,7 @@ impl AdminService {
     /// Fails when the operator may not make changes, the account is unknown, or
     /// the handle is reserved, taken, retired, a look-alike or already the
     /// account's.
-    pub async fn rename_handle(
+    pub(crate) async fn rename_handle(
         &self,
         operator: &Operator,
         user_id: UserId,
@@ -369,7 +369,7 @@ impl AdminService {
     ///
     /// # Errors
     /// Fails when no released handle, or purged account's, is `handle`.
-    pub async fn release_handle(
+    pub(crate) async fn release_handle(
         &self,
         operator: &Operator,
         handle: Handle,

@@ -31,7 +31,7 @@ impl Kinds {
 /// How often something happened in the last hour, against an hour's usual
 /// count over the last week.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct Rate {
+pub(crate) struct Rate {
     /// In the last hour.
     pub last_hour: u64,
     /// Per hour, averaged over the week before, rounded up.
@@ -58,7 +58,7 @@ impl Rate {
 
 /// What needs an administrator's attention.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Problem {
+pub(crate) enum Problem {
     /// Alerts are open: nobody posted an update on them yet.
     OpenAlerts(u64),
     /// Far more sign-ins failed in the last hour than usually do.
@@ -74,7 +74,7 @@ pub enum Problem {
 
 /// What the overview shows.
 #[derive(Clone, Debug)]
-pub struct Overview {
+pub(crate) struct Overview {
     /// Rejected passkey and provider authentications.
     pub failed_sign_ins: Rate,
     /// Browsers signing in.
@@ -102,7 +102,7 @@ pub struct Overview {
 impl Overview {
     /// What needs attention, most pressing first.
     #[must_use]
-    pub fn problems(&self) -> Vec<Problem> {
+    pub(crate) fn problems(&self) -> Vec<Problem> {
         let mut problems = Vec::new();
         if self.open_alerts > 0 {
             problems.push(Problem::OpenAlerts(self.open_alerts));

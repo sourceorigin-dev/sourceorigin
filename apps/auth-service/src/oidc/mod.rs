@@ -24,7 +24,7 @@ pub(crate) use authorize::{
     AuthorizationDecision, AuthorizationView, RecoveryQuestion, TransactionQuery,
 };
 use error::Challenge;
-pub use error::OidcConfigError;
+pub(crate) use error::OidcConfigError;
 pub(crate) use error::{OAuthCode, OAuthError, Reject};
 pub(crate) use inline::{InlineClaim, InlineResponse};
 pub(crate) use logout::{LogoutQuery, LogoutView};

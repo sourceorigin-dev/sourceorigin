@@ -35,6 +35,10 @@
 //! ```
 // A library leaves printing to its caller: it returns errors and logs through tracing.
 #![warn(clippy::print_stdout, clippy::print_stderr)]
+#![expect(
+    unreachable_pub,
+    reason = "`#[component]` makes a public props struct beside each public component, which the crate never exports"
+)]
 
 /// The admin dashboard, and auth's page handing administrators off to it.
 mod admin;

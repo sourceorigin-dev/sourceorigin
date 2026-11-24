@@ -13,7 +13,7 @@ use sourceorigin_repository::DatabaseError;
 
 /// Failures of an administrative operation, or of signing its administrator in.
 #[derive(Debug, thiserror::Error)]
-pub enum AdminError {
+pub(crate) enum AdminError {
     /// The administrator's auth session ended, or their account was disabled.
     #[error("your session has ended; sign in again")]
     SessionEnded,

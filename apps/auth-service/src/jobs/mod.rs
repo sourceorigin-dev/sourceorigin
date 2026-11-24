@@ -85,7 +85,7 @@ impl Shutdown {
 }
 
 /// Every background job of the service, running until [`Self::shutdown`].
-pub struct Jobs {
+pub(crate) struct Jobs {
     /// One task per job.
     tasks: JoinSet<()>,
     /// Set to `true` on shutdown.
@@ -105,7 +105,7 @@ impl Jobs {
     /// # Errors
     /// Fails if the committed audit keys are malformed, or the outbound HTTP
     /// client cannot initialize.
-    pub fn start(
+    pub(crate) fn start(
         database: &Database,
         config: &AuthConfig,
         store: &KeyStore,
@@ -155,7 +155,7 @@ impl Jobs {
     ///
     /// # Errors
     /// Returns the first job loop that panicked. Runs that panic are only logged.
-    pub async fn shutdown(mut self) -> Result<(), JoinError> {
+    pub(crate) async fn shutdown(mut self) -> Result<(), JoinError> {
         self.shutdown.send_replace(true);
         let mut panicked = None;
         let drained = tokio::time::timeout(

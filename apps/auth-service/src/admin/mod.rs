@@ -20,15 +20,15 @@ mod sign_in;
 /// Validated inputs.
 mod types;
 
-pub use error::AdminError;
+pub(crate) use error::AdminError;
 pub(crate) use operation::AdminOperation;
 use operator::AdminSession;
-pub use operator::{Operator, OperatorName};
+pub(crate) use operator::{Operator, OperatorName};
 pub(crate) use overview::{Kinds, Overview, Problem};
 pub(crate) use service::ALERTS_SHOWN;
-pub use service::AdminService;
+pub(crate) use service::AdminService;
 pub(crate) use sign_in::{DashboardCookie, DashboardSignIn, SignedInAdmin};
-pub use types::{
+pub(crate) use types::{
     AnnouncementDraft, AnnouncementRecipients, GracePeriod, HandleProblem, InvalidLifetime,
     InviteExpiry, Letter, Reason, UserRef,
 };

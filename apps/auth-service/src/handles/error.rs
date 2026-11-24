@@ -10,7 +10,7 @@ use thiserror::Error;
 /// settings and the admin operations share it, mapped to HTTP once in
 /// `From<HandlesError>`.
 #[derive(Debug, Error)]
-pub enum HandlesError {
+pub(crate) enum HandlesError {
     /// The handle breaks the syntax, or is reserved.
     #[error(transparent)]
     Refused(#[from] HandleError),

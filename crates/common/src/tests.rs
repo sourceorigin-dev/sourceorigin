@@ -1,4 +1,9 @@
 //! Focused tests for exported vocabulary expansion and identifier syntax.
+#![expect(
+    unreachable_pub,
+    reason = "The vocabulary macros make their items public, which a test-private enum cannot reach."
+)]
+
 use super::*;
 
 str_enum! {

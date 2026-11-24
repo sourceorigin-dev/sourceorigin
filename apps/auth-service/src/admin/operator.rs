@@ -46,7 +46,7 @@ const VIEW_WINDOW: Duration = Duration::hours(1);
 /// Who runs an administrative operation: an administrator through the admin
 /// dashboard, or an operator at the command line.
 #[derive(Clone, Debug)]
-pub enum Operator {
+pub(crate) enum Operator {
     /// An administrator, signed in to the dashboard.
     Admin(AdminSession),
     /// An operator running `auth-service`.
@@ -62,12 +62,12 @@ pub enum Operator {
 /// 64 characters, without whitespace or control characters, and never
 /// `unknown`, so no change is recorded as nobody's.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct OperatorName(String);
+pub(crate) struct OperatorName(String);
 
 /// An operator's name that breaks [`OperatorName`]'s rule.
 #[derive(Debug, Error)]
 #[error("must be 1 to 64 characters without spaces, and not `unknown`")]
-pub struct InvalidOperatorName;
+pub(crate) struct InvalidOperatorName;
 
 impl FromStr for OperatorName {
     type Err = InvalidOperatorName;
@@ -103,7 +103,7 @@ impl OperatorName {
 /// one, from the dashboard's session cookie: no other code can act as an
 /// administrator.
 #[derive(Clone, Copy, Debug)]
-pub struct AdminSession {
+pub(crate) struct AdminSession {
     /// The administrator's account.
     pub(super) user_id: UserId,
     /// The auth session the dashboard's session rests on.
@@ -147,7 +147,7 @@ impl Operator {
     /// only way to attribute one, so no change is recorded without why. Its owner,
     /// when it changes an account, sees the reason in their history.
     #[must_use]
-    pub fn context(&self, reason: &Reason) -> EventContext {
+    pub(crate) fn context(&self, reason: &Reason) -> EventContext {
         EventContext {
             reason: Some(reason.clone().into_inner()),
             ..self.reading()

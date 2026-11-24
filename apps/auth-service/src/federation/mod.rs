@@ -38,7 +38,7 @@ use url::Url;
 mod error;
 /// Pending evidence, signup attachment, linking and unlinking.
 mod identities;
-pub use error::FederationConfigError;
+pub(crate) use error::FederationConfigError;
 pub(crate) use error::FederationError;
 pub(crate) use identities::{PendingKind, PendingView};
 /// Provider protocol facts and verified identity exchange.

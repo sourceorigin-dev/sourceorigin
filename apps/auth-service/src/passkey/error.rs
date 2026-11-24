@@ -283,7 +283,7 @@ impl From<WebauthnError> for PasskeyError {
 
 /// Failure to initialize `WebAuthn` from validated configuration.
 #[derive(Debug, thiserror::Error)]
-pub enum PasskeyConfigError {
+pub(crate) enum PasskeyConfigError {
     /// `WebAuthn` rejected its validated configuration.
     #[error("WebAuthn initialization failed")]
     Webauthn(#[from] WebauthnError),

@@ -19,7 +19,7 @@ use topcoat::{
 
 /// A link of the sidebar.
 #[derive(Clone, Copy, Debug)]
-pub struct NavItem<'a> {
+pub(crate) struct NavItem<'a> {
     /// Its icon.
     pub icon: Icon,
     /// Its label, also its title once the sidebar is collapsed to icons.
@@ -36,7 +36,7 @@ pub struct NavItem<'a> {
 
 /// A group of the sidebar's links, under its label, if any.
 #[derive(Clone, Copy, Debug)]
-pub struct NavGroup<'a> {
+pub(crate) struct NavGroup<'a> {
     /// Its label, in the sidebar's small type.
     pub label: Option<&'a str>,
     /// Its links.
@@ -196,7 +196,7 @@ impl Shortcut<'_> {
 
 /// The frame of a signed-in page: what every part of the shell shows.
 #[derive(Clone, Copy, Debug)]
-pub struct Shell<'a> {
+pub(crate) struct Shell<'a> {
     /// Where the brand links.
     pub home: &'a str,
     /// The part of SourceOrigin the page belongs to, after the brand.

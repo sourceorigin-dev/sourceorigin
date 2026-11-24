@@ -48,7 +48,7 @@ mod settings;
 mod types;
 
 pub(crate) use confirmation::AdminProof;
-pub use error::PasskeyConfigError;
+pub(crate) use error::PasskeyConfigError;
 pub(crate) use error::PasskeyError;
 pub(crate) use recovery::VerifiedRecoveryUndo;
 use types::PasskeyKind;

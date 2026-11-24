@@ -10,7 +10,7 @@ use thiserror::Error;
 /// An account whose current handle the handle rules refuse, as `handle check`
 /// lists it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct HandleProblem {
+pub(crate) struct HandleProblem {
     /// The account.
     pub user_id: UserId,
     /// Its current handle.
@@ -42,7 +42,7 @@ const DEFAULT_INVITE_EXPIRY: i64 = 7 * MINUTES_PER_DAY;
 
 /// A whole number of minutes, written in its largest whole unit, e.g. `365d`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Minutes(i64);
+pub(crate) struct Minutes(i64);
 
 impl fmt::Display for Minutes {
     /// Writes `0`, or the number of days, hours or minutes with its unit.
@@ -65,17 +65,17 @@ impl fmt::Display for Minutes {
 /// write it the same way, as a string.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
 #[serde(try_from = "String")]
-pub struct Lifetime<const MIN: i64, const MAX: i64>(Minutes);
+pub(crate) struct Lifetime<const MIN: i64, const MAX: i64>(Minutes);
 
 /// How long a signup link stays valid: 1 hour to 365 days.
-pub type InviteExpiry = Lifetime<MINUTES_PER_HOUR, { 365 * MINUTES_PER_DAY }>;
+pub(crate) type InviteExpiry = Lifetime<MINUTES_PER_HOUR, { 365 * MINUTES_PER_DAY }>;
 /// How long a client's earlier secrets keep working after a rotation: up to 30 days.
-pub type GracePeriod = Lifetime<0, { 30 * MINUTES_PER_DAY }>;
+pub(crate) type GracePeriod = Lifetime<0, { 30 * MINUTES_PER_DAY }>;
 
 /// A lifetime that is malformed or out of bounds.
 #[derive(Debug, Error)]
 #[error("must be a whole number followed by m, h or d, from {min} to {max}, e.g. 24h")]
-pub struct InvalidLifetime {
+pub(crate) struct InvalidLifetime {
     /// The shortest lifetime allowed.
     min: Minutes,
     /// The longest lifetime allowed.
@@ -98,7 +98,7 @@ impl<const MIN: i64, const MAX: i64> Lifetime<MIN, MAX> {
 
     /// The lifetime as a duration.
     #[must_use]
-    pub const fn duration(self) -> Duration {
+    pub(crate) const fn duration(self) -> Duration {
         Duration::minutes(self.0.0)
     }
 }
@@ -112,15 +112,15 @@ impl Default for InviteExpiry {
 
 impl GracePeriod {
     /// None: earlier secrets stop at once.
-    pub const NONE: Self = Self::within(0);
+    pub(crate) const NONE: Self = Self::within(0);
     /// An hour.
-    pub const HOUR: Self = Self::within(MINUTES_PER_HOUR);
+    pub(crate) const HOUR: Self = Self::within(MINUTES_PER_HOUR);
     /// A day, when none is given.
-    pub const DAY: Self = Self::within(MINUTES_PER_DAY);
+    pub(crate) const DAY: Self = Self::within(MINUTES_PER_DAY);
     /// A week.
-    pub const WEEK: Self = Self::within(7 * MINUTES_PER_DAY);
+    pub(crate) const WEEK: Self = Self::within(7 * MINUTES_PER_DAY);
     /// 30 days, the longest.
-    pub const MONTH: Self = Self::within(30 * MINUTES_PER_DAY);
+    pub(crate) const MONTH: Self = Self::within(30 * MINUTES_PER_DAY);
 }
 
 impl Default for GracePeriod {
@@ -175,14 +175,14 @@ impl<const MIN: i64, const MAX: i64> FromStr for Lifetime<MIN, MAX> {
 
 /// Why an administrator acted: 1 to 500 characters, not blank, no control characters.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Reason(String);
+pub(crate) struct Reason(String);
 
 impl Reason {
     /// Accepts `value` unchanged if it satisfies the rule.
     ///
     /// # Errors
     /// [`AdminError::InvalidReason`] when it does not.
-    pub fn parse(value: String) -> Result<Self, AdminError> {
+    pub(crate) fn parse(value: String) -> Result<Self, AdminError> {
         if value.trim().is_empty()
             || value.chars().count() > MAX_REASON_CHARS
             || value.chars().any(char::is_control)
@@ -227,7 +227,7 @@ const MAX_CHOSEN_ACCOUNTS: usize = 1_000;
 /// What administrators write to accounts, in an announcement or a message: its
 /// subject and text, checked.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Letter {
+pub(crate) struct Letter {
     /// The email's subject: one line of 1 to 150 characters, trimmed.
     pub(crate) subject: String,
     /// Its text: 1 to 20,000 characters, trimmed, with `\n` line breaks and no
@@ -242,7 +242,7 @@ impl Letter {
     /// # Errors
     /// [`AdminError::InvalidSubject`] or [`AdminError::InvalidBody`] when either
     /// breaks its rule.
-    pub fn new(subject: &str, body: &str) -> Result<Self, AdminError> {
+    pub(crate) fn new(subject: &str, body: &str) -> Result<Self, AdminError> {
         let subject = subject.trim();
         if subject.is_empty()
             || subject.chars().count() > MAX_SUBJECT_CHARS
@@ -270,7 +270,7 @@ impl Letter {
 /// An announcement's draft, as an operator writes it: its subject and text, and
 /// whom it goes to.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct AnnouncementDraft {
+pub(crate) struct AnnouncementDraft {
     /// Its subject and text.
     pub(super) letter: Letter,
     /// Whom it goes to.
@@ -281,7 +281,7 @@ pub struct AnnouncementDraft {
 
 /// Whom an announcement goes to, as an operator names them.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum AnnouncementRecipients {
+pub(crate) enum AnnouncementRecipients {
     /// Every account, as of its sending.
     Everyone,
     /// The accounts named, at least one and at most 1,000.
@@ -295,7 +295,7 @@ impl AnnouncementDraft {
     /// # Errors
     /// [`AdminError::NoRecipients`] or [`AdminError::TooManyRecipients`] for too
     /// few or many chosen accounts.
-    pub fn new(
+    pub(crate) fn new(
         letter: Letter,
         recipients: AnnouncementRecipients,
         essential: bool,
@@ -320,7 +320,7 @@ impl AnnouncementDraft {
 /// account (a value with an `@` other than the leading one of `@handle`), or its
 /// current handle, with or without that `@`.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum UserRef {
+pub(crate) enum UserRef {
     /// The account's ID.
     Id(UserId),
     /// A verified address an active account owns.
