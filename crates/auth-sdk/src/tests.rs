@@ -800,9 +800,11 @@ async fn cancelled_fetches_leave_keys_unavailable() {
         Arc::new(ManualClock::at(1_767_225_600)),
     );
     let token = vector_token("access-valid");
-    let cancelled =
-        tokio::time::timeout(std::time::Duration::from_millis(100), verify(&keys, &token)).await;
-    assert!(cancelled.is_err(), "the fetch never completes");
+    // Cancelled once the server accepts its connection.
+    tokio::select! {
+        verified = verify(&keys, &token) => panic!("the fetch never completes: {verified:?}"),
+        accepted = silent.accept() => drop(accepted.expect("the fetch connects")),
+    }
     assert!(matches!(
         verify(&keys, &token).await,
         Err(TokenError::Keys(KeyError::Unavailable))

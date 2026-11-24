@@ -57,7 +57,7 @@ struct Down;
 /// 500 when it fails, so auth retries; an invalid token never reaches it.
 #[tokio::test]
 async fn backchannel_logout_hands_tokens_to_the_handler() {
-    let endpoint = TokenEndpoint::start(Duration::ZERO).await;
+    let endpoint = TokenEndpoint::start().await;
     let issuer = endpoint.issuer(&clock());
     let response = post_logout(
         &login_app(&issuer),
@@ -126,7 +126,7 @@ async fn backchannel_logout_hands_tokens_to_the_handler() {
 /// refused as invalid without reaching the handler, even around a valid token.
 #[tokio::test]
 async fn backchannel_logout_refuses_large_requests() {
-    let endpoint = TokenEndpoint::start(Duration::ZERO).await;
+    let endpoint = TokenEndpoint::start().await;
     let handled = Arc::new(Mutex::new(0));
     let app = login_app_with(&endpoint.issuer(&clock()), |routes| {
         let handled = handled.clone();
