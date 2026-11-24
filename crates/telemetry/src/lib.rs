@@ -159,7 +159,7 @@ impl Telemetry {
             Err(error) if export == Export::Optional => (None, Some(error)),
             Err(error) => return Err(TelemetryError::Analytics(error)),
         };
-        let _ = http::SERVICE.set(service);
+        http::SERVICE.set(service).ok();
         let resource = Self::resource(service);
         let mut tracer = SdkTracerProvider::builder().with_resource(resource.clone());
         let mut logger = None;

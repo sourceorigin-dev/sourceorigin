@@ -130,8 +130,9 @@ columns! {
 }
 
 /// This process: a new UUID each time it starts, which its spans and logs
-/// carry as `service.instance.id` too, so the replicas of a service, and its
-/// command-line runs, tell their rows apart.
+/// carry as `service.instance.id` too, unless `OTEL_RESOURCE_ATTRIBUTES` names
+/// another, so the replicas of a service, and its command-line runs, tell their
+/// rows apart.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Instance(Arc<str>);
 

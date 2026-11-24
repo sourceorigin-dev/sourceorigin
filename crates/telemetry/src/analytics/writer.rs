@@ -24,7 +24,7 @@ use tokio::{
 /// seconds of a busy server's requests, so a slow ClickHouse costs rows, never
 /// memory or latency, and a flood of one table's rows, such as requests, never
 /// costs another's.
-const QUEUE: usize = 5_000;
+pub(super) const QUEUE: usize = 5_000;
 /// Rows of one table sent at once, at most: as many as it may queue.
 const BATCH: usize = QUEUE;
 /// How often queued rows are sent, so ClickHouse gets few, large inserts.
@@ -33,10 +33,11 @@ const INTERVAL: Duration = Duration::from_secs(1);
 /// The installed writer's queue, until the process exits. [`QUEUED`] bounds it.
 static QUEUE_SENDER: OnceLock<mpsc::UnboundedSender<Message>> = OnceLock::new();
 /// Rows each table has in the queue.
-static QUEUED: LazyLock<Mutex<HashMap<&'static str, usize>>> = LazyLock::new(Mutex::default);
-/// Rows dropped since the writer last reported them: queued while the queue was
-/// full, or in a batch ClickHouse refused or never answered.
-static DROPPED: AtomicU64 = AtomicU64::new(0);
+pub(super) static QUEUED: LazyLock<Mutex<HashMap<&'static str, usize>>> =
+    LazyLock::new(Mutex::default);
+/// Rows dropped since the writer last reported them: recorded while their
+/// table's queue was full, or in a batch ClickHouse refused or never answered.
+pub(super) static DROPPED: AtomicU64 = AtomicU64::new(0);
 
 /// What the queue carries.
 enum Message {

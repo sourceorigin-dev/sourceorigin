@@ -35,10 +35,11 @@ before you change a listener, a role, a secret or an outbound call. The
 ```
 
 `sourceorigin-web` and the documentation also sit behind the public routes, but hold
-no state, and the documentation no secret: sourceorigin.dev links to auth and never
-shares its database, keys or process ([surfaces](../architecture/surfaces.md#sourceorigindev)).
-It holds the analytics writer's password, for its `requests` rows, so whoever
-takes it over can insert rows into any analytics table, but read none.
+no state: sourceorigin.dev links to auth and never shares its database, keys or
+process ([surfaces](../architecture/surfaces.md#sourceorigindev)). The
+documentation holds no secret, and sourceorigin.dev only the analytics writer's
+password, for its `requests` rows, so whoever takes it over can insert rows
+into any analytics table, but read none.
 
 ## The internet and the public listener
 

@@ -37,7 +37,7 @@ sourceorigin_telemetry::signal! {
 sourceorigin_telemetry::signal! {
     /// The connections a replica's database pool held, sampled every 15 seconds.
     pub struct PoolSampled in "database_pool", kept 30 days, ordered by (instance) {
-        /// The replica, or command-line run.
+        /// The replica.
         pub instance: Instance,
         /// Connections waiting for a query.
         pub idle: u32,
