@@ -9,7 +9,7 @@ Your account lives at [auth.sourceorigin.dev](https://auth.sourceorigin.dev). It
 at `auth.sourceorigin.dev/settings`, manage your passkeys, email addresses, devices,
 the apps you signed in to, your notifications and your data.
 
-![The settings overview: active sessions, connected apps, recent security activity and devices](../images/account/settings.png)
+![The settings overview: active sessions, connected apps, recommendations to add a backup passkey and an email address, recent security activity and devices](../images/account/settings.png)
 
 ## Recommendations
 
