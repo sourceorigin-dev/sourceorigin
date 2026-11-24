@@ -281,20 +281,20 @@ async fn purge_leaves_nothing_that_references_or_identifies_the_account() {
     // Read from the catalog: joining information_schema's views for the same
     // rows takes a minute against a migrated test database.
     let references = || async {
-        sqlx::query_as::<_, (String, String, i64)>(
-            "SELECT
-            c.conrelid::regclass::text, source.attname::text,
+        sqlx::query!(
+            r#"SELECT
+            c.conrelid::regclass::text AS "table!", source.attname::text AS "column!",
             (xpath('/row/c/text()', query_to_xml(format(
                 'SELECT count(*) AS c FROM %s WHERE %I = %L',
-                c.conrelid::regclass, source.attname, $1
-            ), FALSE, TRUE, '')))[1]::text::bigint
+                c.conrelid::regclass, source.attname, $1::text
+            ), FALSE, TRUE, '')))[1]::text::bigint AS "rows!"
         FROM pg_constraint c
         CROSS JOIN unnest(c.conkey, c.confkey) AS k(source_key, target_key)
         JOIN pg_attribute source ON source.attrelid = c.conrelid AND source.attnum = k.source_key
         JOIN pg_attribute target ON target.attrelid = c.confrelid AND target.attnum = k.target_key
-        WHERE c.contype = 'f' AND c.confrelid = 'users'::regclass AND target.attname = 'id'",
+        WHERE c.contype = 'f' AND c.confrelid = 'users'::regclass AND target.attname = 'id'"#,
+            user.to_string(),
         )
-        .bind(user.to_string())
         .fetch_all(&pool)
         .await
         .expect("references")
@@ -302,7 +302,7 @@ async fn purge_leaves_nothing_that_references_or_identifies_the_account() {
     let unseeded: Vec<_> = references()
         .await
         .into_iter()
-        .filter(|(_, _, rows)| *rows == 0)
+        .filter(|row| row.rows == 0)
         .collect();
     assert!(
         unseeded.is_empty(),
@@ -315,7 +315,7 @@ async fn purge_leaves_nothing_that_references_or_identifies_the_account() {
     let remaining: Vec<_> = references()
         .await
         .into_iter()
-        .filter(|(_, _, rows)| *rows > 0)
+        .filter(|row| row.rows > 0)
         .collect();
     assert!(remaining.is_empty(), "{remaining:?}");
 

@@ -423,18 +423,18 @@ async fn provisioning_resets_what_it_does_not_grant() {
     );
     under_provisioning_lock(&owner, &setup).await;
     owner.provision(&role).await.expect("reset");
-    let (settings, create): (i64, bool) = sqlx::query_as(
-        "SELECT
+    let remains = sqlx::query!(
+        r#"SELECT
             (SELECT count(*) FROM pg_db_role_setting s JOIN pg_roles r ON r.oid = s.setrole
-            WHERE r.rolname = $1),
-            has_database_privilege($1, current_database(), 'CREATE')
-            OR has_schema_privilege($1, 'public', 'CREATE')",
+            WHERE r.rolname = $1) AS "settings!",
+            (has_database_privilege($1, current_database(), 'CREATE')
+            OR has_schema_privilege($1, 'public', 'CREATE')) AS "create!""#,
+        &name,
     )
-    .bind(&name)
     .fetch_one(&owner.pool)
     .await
     .expect("what remains");
-    assert_eq!((settings, create), (0, false));
+    assert_eq!((remains.settings, remains.create), (0, false));
     under_provisioning_lock(&owner, &format!("DROP OWNED BY {name}; DROP ROLE {name}")).await;
 }
 

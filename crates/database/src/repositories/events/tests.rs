@@ -86,15 +86,16 @@ async fn personal_data_is_stored_apart_and_erases() {
     assert_eq!(stored.actor.known(), Some(&context(user).actor));
     assert_eq!(stored.origin, Personal::Value(context(user).origin));
     assert_eq!(stored.reason, context(user).reason);
-    let (event_row, personal_row): (String, String) = sqlx::query_as(
-        "SELECT to_jsonb(e)::text, to_jsonb(p)::text
+    let rows = sqlx::query!(
+        r#"SELECT to_jsonb(e)::text AS "event!", to_jsonb(p)::text AS "personal!"
         FROM domain_events e JOIN event_personal_data p ON p.event_id = e.id
-        WHERE e.id = $1",
+        WHERE e.id = $1"#,
+        stored.id.as_uuid(),
     )
-    .bind(stored.id.as_uuid())
     .fetch_one(&pool)
     .await
     .expect("rows");
+    let (event_row, personal_row) = (rows.event, rows.personal);
     for personal in [
         subject.as_str(),
         "192.0.2.7",
@@ -218,15 +219,15 @@ async fn related_origins_are_personal_but_older_events_still_read() {
             RecordedEvent::Known(approved(RecordedOrigin::Sealed(origin.clone()))),
         ]
     );
-    let payloads: Vec<(i16, Value)> = sqlx::query_as(
+    let payloads = sqlx::query!(
         "SELECT version, payload FROM domain_events WHERE subject_user_id = $1 ORDER BY sequence",
+        user.as_uuid(),
     )
-    .bind(user.as_uuid())
     .fetch_all(&pool)
     .await
     .expect("payloads");
-    assert_eq!(payloads[1].0, 2);
-    assert_eq!(payloads[1].1["origin"], ERASED);
+    assert_eq!(payloads[1].version, 2);
+    assert_eq!(payloads[1].payload["origin"], ERASED);
 
     sqlx::query(
         "DELETE FROM event_personal_data p USING domain_events e

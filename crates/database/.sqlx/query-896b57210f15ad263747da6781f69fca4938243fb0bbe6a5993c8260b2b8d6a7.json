@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n            c.conrelid::regclass::text AS \"table!\", source.attname::text AS \"column!\",\n            (xpath('/row/c/text()', query_to_xml(format(\n                'SELECT count(*) AS c FROM %s WHERE %I = %L',\n                c.conrelid::regclass, source.attname, $1::text\n            ), FALSE, TRUE, '')))[1]::text::bigint AS \"rows!\"\n        FROM pg_constraint c\n        CROSS JOIN unnest(c.conkey, c.confkey) AS k(source_key, target_key)\n        JOIN pg_attribute source ON source.attrelid = c.conrelid AND source.attnum = k.source_key\n        JOIN pg_attribute target ON target.attrelid = c.confrelid AND target.attnum = k.target_key\n        WHERE c.contype = 'f' AND c.confrelid = 'users'::regclass AND target.attname = 'id'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "table!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "column!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "rows!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "896b57210f15ad263747da6781f69fca4938243fb0bbe6a5993c8260b2b8d6a7"
+}
