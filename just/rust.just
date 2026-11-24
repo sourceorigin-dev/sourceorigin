@@ -42,7 +42,7 @@ unused:
 # Advisories, licenses, wildcard requirements and sources other than crates.io,
 # as deny.toml configures them. Every feature is on, so the audit covers what
 # the SDKs' features pull in even when no workspace crate enables them.
-[doc("Advisories, licenses, wildcards and sources other than crates.io, by cargo-deny.")]
+[doc("Advisories, licenses, wildcards, banned crates and sources other than crates.io, by cargo-deny.")]
 audit:
     @cargo deny --all-features check
 
