@@ -406,7 +406,9 @@ which fails the lint job; a block that must stay is an `#[expect(unsafe_code, re
 
 ## Documentation and tests
 
-Give every item a concise, useful doc comment, private items included. Explain
+Give every item a concise, useful doc comment, private items included, a
+component's parameters too: it says what goes in and what comes out or happens
+(`missing_docs_in_private_items` enforces it). Explain
 security reasoning, protocol quirks, ordering and locking where they are not obvious.
 Keep documentation current. Tests should cover meaningful logic and boundaries;
 avoid repeated smoke tests. Run checks relevant to changed code while iterating,

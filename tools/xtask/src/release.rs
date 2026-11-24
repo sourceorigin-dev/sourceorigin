@@ -7,6 +7,7 @@ use std::{fmt::Write as _, fs};
 
 /// A release of the workspace version, from `HEAD`.
 pub(crate) struct Release<'a> {
+    /// The workspace released.
     workspace: &'a Workspace,
     /// The workspace version, such as `0.2.0`.
     version: String,
@@ -16,6 +17,10 @@ pub(crate) struct Release<'a> {
 }
 
 impl<'a> Release<'a> {
+    /// A release of `workspace`'s current version, which only prints what it would do when `dry_run`.
+    ///
+    /// # Errors
+    /// Fails if the published crates do not share one version.
     pub(crate) fn new(workspace: &'a Workspace, dry_run: bool) -> Result<Self> {
         Ok(Self {
             workspace,
@@ -242,8 +247,10 @@ enum Section {
 }
 
 impl Section {
+    /// Every section, in the order the notes list them.
     const ALL: [Self; 4] = [Self::Breaking, Self::Features, Self::Fixes, Self::Other];
 
+    /// The section's heading in the release notes.
     fn title(self) -> &'static str {
         match self {
             Self::Breaking => "Breaking changes",
