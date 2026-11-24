@@ -515,7 +515,7 @@ impl AccountExport {
                 };
                 tracing::error!(error = %ErrorChain(&error), "account export failed");
                 // The browser may already be gone.
-                let _ = sender.send(Err(error)).await;
+                sender.send(Err(error)).await.ok();
             }
             .in_current_span(),
         );

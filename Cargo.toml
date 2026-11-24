@@ -44,6 +44,8 @@ todo = "warn"
 unreachable = "warn"
 unimplemented = "warn"
 dbg_macro = "warn"
+# `let _ =` hides a `#[must_use]` result, such as a dropped error.
+let_underscore_must_use = "warn"
 # Every exception names its lint with `#[expect]` and says why.
 allow_attributes = "warn"
 allow_attributes_without_reason = "warn"

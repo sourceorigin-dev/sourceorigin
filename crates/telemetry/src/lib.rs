@@ -203,7 +203,7 @@ impl Telemetry {
             let tracer = self.tracer.shutdown();
             let meter = self.meter.map_or(Ok(()), |meter| meter.shutdown());
             let logger = self.logger.map_or(Ok(()), |logger| logger.shutdown());
-            let _ = flushed.send(tracer.and(meter).and(logger));
+            flushed.send(tracer.and(meter).and(logger)).ok();
         });
         let flushed = tokio::time::timeout(within, result)
             .await

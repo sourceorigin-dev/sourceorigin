@@ -63,7 +63,7 @@ impl Shutdown {
     /// Resolves once shutdown has been requested.
     pub(crate) async fn requested(&self) {
         // An error means the runner is gone, which is a shutdown too.
-        let _ = self.0.clone().wait_for(|&requested| requested).await;
+        self.0.clone().wait_for(|&requested| requested).await.ok();
     }
 
     /// Runs `work` unless shutdown is requested first: its output, or `None`

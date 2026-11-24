@@ -106,7 +106,8 @@ fn configuration_reference_is_current() {
             &sections,
             3,
             "the variables in `apps/auth-service/src/config`",
-        ),
+        )
+        .expect("rendered"),
     }
     .write_or_compare()
     .expect("current reference");

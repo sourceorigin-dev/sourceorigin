@@ -261,7 +261,7 @@ impl Output {
     /// it is ignored, since the command fails anyway.
     pub(super) fn error(&self, error: &(dyn Error + 'static)) {
         let causes = std::iter::successors(error.source(), |&cause| cause.source());
-        let _ = if self.0.json {
+        (if self.0.json {
             self.event(&Event::Error {
                 message: error.to_string(),
                 causes: causes.map(ToString::to_string).collect(),
@@ -276,7 +276,8 @@ impl Output {
                     Ok(())
                 })
                 .map_err(CliError::Output)
-        };
+        })
+        .ok();
     }
 
     /// Asks `question` on standard error with a `[y/N]` suffix, and reads the
