@@ -352,3 +352,24 @@ async fn each_step_of_an_authorization_is_counted() {
         assert_eq!(columns, ["client", "step"]);
     }
 }
+
+/// An account that left usage statistics counts no step of its sign-ins, even
+/// those before its session is checked against the request.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL"]
+async fn an_account_that_left_usage_statistics_counts_no_step() {
+    let analytics = sourceorigin_telemetry::analytics::AnalyticsCapture::start();
+    let flow = Flow::new(false, false).await;
+    let left = flow
+        .app
+        .database
+        .users()
+        .set_analytics_included(flow.user_id, false)
+        .await;
+    assert!(left.expect("left"));
+    flow.code(Scope::OpenId.as_str()).await;
+    assert_eq!(
+        analytics.rows("authorization_steps"),
+        Vec::<serde_json::Value>::new()
+    );
+}
