@@ -33,10 +33,12 @@ for how long.
    statistics**.
 
 From then on, nothing you do while signed in is counted in usage statistics.
+Turn the setting back on the same way. Each change is recorded in your
+**Security history**, as "Usage statistics turned off" or "Usage statistics
+turned on".
+
 Before you sign in, SourceOrigin can't know it's you, so the first steps of a
 sign-in to an app are counted unless your browser sends Global Privacy Control.
-Turn it back on the same way. Each change is recorded in your **Security
-history**, as "Usage statistics turned off" or "Usage statistics turned on".
 
 ## Global Privacy Control
 

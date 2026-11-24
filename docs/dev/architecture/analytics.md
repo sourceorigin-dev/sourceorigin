@@ -118,7 +118,7 @@ silent `prompt=none` check involves no person and counts nothing.
 It implements `Product` instead of `Signal`, and its `record` takes a
 `Consent`, so a product row can't be recorded without one. A `Consent` comes
 from `RequestContext::consent`, inside a transaction, or `consent_of`, before
-one begins, and only when:
+one begins, given the signed-in account if any, and only when:
 
 - the account didn't leave usage statistics, on its **Your data** page, which
   keeps a row in `analytics_opt_outs` (see

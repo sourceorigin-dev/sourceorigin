@@ -127,6 +127,8 @@ impl OidcApplication {
         let mut transaction = self.database.begin().await?;
         let step = match input.decision {
             ConsentDecision::Approve => "authorized",
+            // An unsupported decision is refused below, so its rollback counts
+            // nothing.
             ConsentDecision::Deny | ConsentDecision::Unsupported => "denied",
         };
         let client = pending.client_id.clone();

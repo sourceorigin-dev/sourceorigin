@@ -353,8 +353,7 @@ async fn each_step_of_an_authorization_is_counted() {
     }
 }
 
-/// An account that left usage statistics counts no step of its sign-ins, even
-/// those before its session is checked against the request.
+/// An account that left usage statistics counts no step of its sign-ins.
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn an_account_that_left_usage_statistics_counts_no_step() {

@@ -26,7 +26,6 @@ use sourceorigin_common::{
     clients::RelatedOrigin,
     events::{Actor, InlineSignIn},
 };
-use sourceorigin_telemetry::analytics::Consent;
 use std::time::Duration;
 use url::Url;
 use webauthn_rs::prelude::PublicKeyCredential;
@@ -96,10 +95,7 @@ impl PasskeyApplication {
             .oidc
             .claim_inline(&mut tx, &client_id, &input.request_uri)
             .await?;
-        let consent = match claim.hinted_user_id {
-            Some(user) => context.consent(&mut tx, user).await?,
-            None => Consent::given(true, context.gpc),
-        };
+        let consent = context.consent(&mut tx, claim.hinted_user_id).await?;
         let client = client_id.clone();
         tx.after_commit(move || AuthorizationStep::count(consent, &client, "requested"));
         let (challenge, state) = app.discoverable()?;
@@ -185,7 +181,7 @@ impl PasskeyApplication {
             .oidc
             .complete_inline(&mut tx, &claim, &session, &client_id, &origin)
             .await?;
-        let consent = context.consent(&mut tx, user_id).await?;
+        let consent = context.consent(&mut tx, Some(user_id)).await?;
         tx.after_commit(move || AuthorizationStep::count(consent, &client_id, "authorized"));
         tx.commit().await?;
         Ok(Json(response))

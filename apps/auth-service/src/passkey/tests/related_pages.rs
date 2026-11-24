@@ -149,10 +149,12 @@ impl Fixture {
 
 /// A page on an approved origin signs its account in without a cookie, and gets a
 /// code that only its PKCE verifier redeems, once. The sign-in creates a session
-/// recorded with the page's client and origin.
+/// recorded with the page's client and origin, and counts as an app's sign-in
+/// requested and authorized.
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn related_pages_sign_in_for_pkce_bound_codes() {
+    let analytics = sourceorigin_telemetry::analytics::AnalyticsCapture::start();
     let mut fixture = Fixture::new().await;
     let replicas = Replicas::new().await;
     fixture.on(&replicas.a);
@@ -191,6 +193,13 @@ async fn related_pages_sign_in_for_pkce_bound_codes() {
         assert_eq!(answer["state"], "page-state");
         assert_eq!(answer["iss"], AUTH_ORIGIN);
         codes.push(answer["code"].as_str().expect("code").to_owned());
+        let steps = analytics.rows("authorization_steps");
+        let steps: Vec<&str> = steps
+            .iter()
+            .filter_map(|row| row["step"].as_str())
+            .collect();
+        assert_eq!(steps.last(), Some(&"authorized"), "{steps:?}");
+        assert!(steps.contains(&"requested"), "{steps:?}");
         let assertion = fixture.assertion_for(page.origin.url().clone(), &started);
         let replay = fixture
             .post_from(

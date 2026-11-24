@@ -48,14 +48,19 @@ impl RequestContext {
     }
 
     /// Consent to record a product analytics row about `user`'s activity in
-    /// this request, unless the account left usage statistics or the browser
-    /// asked for Global Privacy Control.
+    /// this request, read inside `tx`, unless the account left usage statistics
+    /// or the browser asked for Global Privacy Control. With no `user`, before
+    /// anyone signs in, only Global Privacy Control decides.
     pub(crate) async fn consent(
         &self,
         tx: &mut DatabaseTransaction<'_>,
-        user: UserId,
+        user: Option<UserId>,
     ) -> Result<Option<Consent>, DatabaseError> {
-        let included = !self.gpc && tx.users().analytics_included(user).await?;
+        let included = match user {
+            _ if self.gpc => false,
+            Some(user) => tx.users().analytics_included(user).await?,
+            None => true,
+        };
         Ok(Consent::given(included, self.gpc))
     }
 

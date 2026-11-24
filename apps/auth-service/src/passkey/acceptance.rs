@@ -146,7 +146,7 @@ impl PasskeyApplication {
                 let mut tx = self.database.begin().await?;
                 match Self::update_credential(&mut tx, user_id, &result).await {
                     Ok((accepted, used)) => {
-                        if let Some(consent) = context.consent(&mut tx, user_id).await? {
+                        if let Some(consent) = context.consent(&mut tx, Some(user_id)).await? {
                             tx.after_commit(move || used.record(consent));
                         }
                         return Ok((tx, accepted));
