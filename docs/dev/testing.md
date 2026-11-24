@@ -67,8 +67,9 @@ just db test
 Tests that need PostgreSQL are marked `#[ignore]`, with a reason that names
 `TEST_DATABASE_URL`, so `just test` skips them.
 `just db test` starts a throwaway PostgreSQL 18 cluster that listens only on a
-Unix socket, runs every test of `auth-service` and `sourceorigin-repository` in it,
-ignored ones included, and deletes it. It then runs `just db prepare-check`,
+Unix socket, and a throwaway ClickHouse in Docker for auth's
+[analytics tests](#analytics-tests), runs every test of `auth-service` and
+`sourceorigin-repository` in them, ignored ones included, and deletes them. It then runs `just db prepare-check`,
 which fails if the committed query cache doesn't match the migrated schema
 exactly.
 
@@ -239,10 +240,11 @@ expressions included.
 | Rust unit tests, or one package's | `just test` / `just test -p auth-service` |
 | Rust docs with warnings denied, and the doc tests | `just doc` / `just doc-test` |
 | TypeScript SDK tests with coverage, and the runtime smoke test | `just web test` / `just web smoke` |
-| Database tests and the query cache check, in a scratch cluster | `just db test` |
+| Database tests and the query cache check, in a scratch cluster and a scratch ClickHouse (needs Docker) | `just db test` |
+| Tests that need ClickHouse, in a scratch one (needs Docker) | `just analytics test` |
 | Query cache check alone, against a migrated `TEST_DATABASE_URL` | `just db prepare-check` |
 | Coverage per crate of every Rust test, database tests included, into `target/lcov.info` | `just coverage` |
-| Any command against a scratch cluster | `just db scratch -- psql` |
+| Any command against a scratch cluster, or a scratch ClickHouse | `just db scratch -- psql` / `just analytics scratch -- env` |
 | Browser tests, against a running deployment | `just web test-browser` |
 | Register the browser tests' clients with auth on `localhost` | `just web browser-client` |
 | Dependency audits: cargo-deny's advisories, licenses, `*` requirements, banned crates and sources other than crates.io, and pnpm's | `just audit` (`just rust audit` / `just web audit`) |

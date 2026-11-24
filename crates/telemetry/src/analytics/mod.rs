@@ -86,36 +86,45 @@ mod sealed {
 }
 
 /// Implements [`Column`] for each `type => "ClickHouse type"` pair.
+/// A type followed by `key` is also a [`Key`].
 macro_rules! columns {
-    ($($ty:ty => $sql:literal,)+) => {
+    ($($ty:ty => $sql:literal $($key:ident)?;)+) => {
         $(
             impl sealed::Sealed for $ty {}
             impl Column for $ty {
                 const TYPE: &'static str = $sql;
             }
+            $(columns!(@$key $ty);)?
         )+
+    };
+    (@key $ty:ty) => {
+        impl Key for $ty {}
     };
 }
 
+/// A [`Column`] rows may be sorted by: any but a nullable one, which ClickHouse
+/// refuses as a sort key.
+pub trait Key: Column {}
+
 columns! {
-    bool => "Bool",
-    u8 => "UInt8",
-    u16 => "UInt16",
-    u32 => "UInt32",
-    u64 => "UInt64",
-    i64 => "Int64",
-    f64 => "Float64",
-    &'static str => "LowCardinality(String)",
-    Option<&'static str> => "LowCardinality(Nullable(String))",
-    ClientId => "LowCardinality(String)",
-    Option<ClientId> => "LowCardinality(Nullable(String))",
-    EventId => "UUID",
-    Option<TraceId> => "Nullable(FixedString(32))",
+    bool => "Bool" key;
+    u8 => "UInt8" key;
+    u16 => "UInt16" key;
+    u32 => "UInt32" key;
+    u64 => "UInt64" key;
+    i64 => "Int64" key;
+    f64 => "Float64";
+    &'static str => "LowCardinality(String)" key;
+    Option<&'static str> => "LowCardinality(Nullable(String))";
+    ClientId => "LowCardinality(String)" key;
+    Option<ClientId> => "LowCardinality(Nullable(String))";
+    EventId => "UUID" key;
+    Option<TraceId> => "Nullable(FixedString(32))";
 }
 
 /// Declares a [`Signal`]: a struct whose fields are [`Column`]s, and the table
 /// that stores it, with how long rows are kept and the columns they are sorted
-/// by. Every table also has a `time` column, the time the row was recorded, and
+/// by, each a [`Key`]. Every table also has a `time` column, the time the row was recorded, and
 /// sorts by it last. Doc comments are required: they document the table.
 ///
 /// ```
@@ -132,7 +141,19 @@ columns! {
 /// Throttled { category: "login" }.record();
 /// ```
 ///
-/// A field that could hold free text, such as a `String`, does not compile:
+/// A nullable sort key does not compile:
+///
+/// ```compile_fail
+/// sourceorigin_telemetry::signal! {
+///     /// A request refused by a rate limit.
+///     pub struct Throttled in "throttled", kept 30 days, ordered by (category) {
+///         /// Its rate category, if it has one.
+///         pub category: Option<&'static str>,
+///     }
+/// }
+/// ```
+///
+/// Nor does a field that could hold free text, such as a `String`:
 ///
 /// ```compile_fail
 /// sourceorigin_telemetry::signal! {
@@ -165,8 +186,10 @@ macro_rules! signal {
                 description: &[$($doc),+],
                 retention_days: $days,
                 order_by: &[$({
-                    // Fails to compile unless the key is one of the fields.
-                    let _ = |row: &$name| { let _ = &row.$key; };
+                    const _: fn(&$name) = |row: &$name| {
+                        fn key<T: $crate::analytics::Key>(_: &T) {}
+                        key(&row.$key);
+                    };
                     stringify!($key)
                 }),*],
                 columns: &[$($crate::analytics::ColumnDeclaration {

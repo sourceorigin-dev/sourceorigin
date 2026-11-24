@@ -91,7 +91,8 @@ impl Store {
 
     /// What `migrate` connects with: the owner, with the writer it provisions,
     /// when `ANALYTICS_OWNER_URL` is set; otherwise the writer alone, which then
-    /// needs the rights to create the database and its tables itself. `None` without `ANALYTICS_URL`.
+    /// needs the rights to create the database and its tables itself. `None`
+    /// without `ANALYTICS_URL`.
     ///
     /// # Errors
     /// Fails when a variable is malformed, a password cannot be read, or the

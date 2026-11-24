@@ -41,8 +41,8 @@ sourceorigin_telemetry::signal! {
   its time.
 - **`ordered by`** names the fields rows are sorted by, before their time.
   Name what queries filter on most, fewest distinct values first. A name that
-  isn't a field doesn't compile, and an `Option` field can't be one: ClickHouse
-  refuses to sort by it.
+  isn't a field doesn't compile, and neither does an `Option` field, which
+  ClickHouse refuses to sort by: a sort key must be a `Key`.
 
 Record a row where it happens:
 
