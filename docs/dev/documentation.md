@@ -158,7 +158,7 @@ by hand: keep them few, since those pages change without notice.
 Give each image alt text that says what it shows, for readers who can't see it:
 
 ```markdown
-![The settings overview: active sessions, connected apps, recent security activity and devices](../images/account/settings.png)
+![The settings overview: active sessions, connected apps, recommendations to add a backup passkey and an email address, recent security activity and devices](../images/account/settings.png)
 ```
 
 ## Links

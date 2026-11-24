@@ -203,6 +203,7 @@ test('the overview recommends what a new account lacks', async ({ page, context 
   await expect(shown).toHaveCount(2);
   await expect(shown.first()).toContainText('Add a backup passkey');
   const second = (await shown.nth(1).locator('strong').textContent()) ?? '';
+  expect(second).not.toBe('');
   await passkey.getByRole('button', { name: 'Not now', exact: true }).click();
   await expect(passkey).toHaveCount(0);
   await expect(shown.first()).toContainText(second);

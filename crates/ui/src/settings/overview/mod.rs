@@ -58,7 +58,8 @@ pub struct AccountOverview<'a> {
     pub security_events_week: u64,
     /// The newest entries of the security history.
     pub activity: &'a [HistoryRow<'a>],
-    /// What the account holds, to name what the entries refer to.
+    /// What the account holds, to name what the entries refer to and to see what
+    /// it still lacks.
     pub holds: Holdings<'a>,
     /// The social sign-in providers, to offer one not yet linked.
     pub providers: &'a [ProviderRow<'a>],
