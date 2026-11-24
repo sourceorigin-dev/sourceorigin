@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT f.revoked_at IS NOT NULL AS \"revoked!\"\n            FROM refresh_token_families f\n            JOIN refresh_tokens t ON t.family_id = f.id\n            WHERE t.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "revoked!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "01f9557b2c159d884761e5ca5deb987c7130875aa5648f09a6c712e897ee4846"
+}

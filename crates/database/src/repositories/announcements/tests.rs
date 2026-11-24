@@ -328,13 +328,13 @@ async fn purge_as_callers_do(tx: &mut DatabaseTransaction<'_>, user: UserId) {
 
 /// The announcement deliveries queued to `user`.
 async fn deliveries_to(pool: &PgPool, user: UserId, id: AnnouncementId) -> i64 {
-    sqlx::query_scalar(
-        "SELECT count(*) FROM deliveries
+    sqlx::query_scalar!(
+        r#"SELECT count(*) AS "count!" FROM deliveries
         WHERE channel = 'announcement' AND recipient = to_jsonb($1::text)
-        AND payload = to_jsonb($2::text)",
+        AND payload = to_jsonb($2::text)"#,
+        user.to_string(),
+        id.to_string(),
     )
-    .bind(user.to_string())
-    .bind(id.to_string())
     .fetch_one(pool)
     .await
     .expect("deliveries")

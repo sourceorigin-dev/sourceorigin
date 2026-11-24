@@ -164,10 +164,10 @@ async fn versions_are_per_event() {
             .iter()
             .collect::<Vec<_>>()
     );
-    let versions: Vec<i16> = sqlx::query_scalar(
+    let versions = sqlx::query_scalar!(
         "SELECT version FROM domain_events WHERE subject_user_id = $1 ORDER BY sequence",
+        user.as_uuid(),
     )
-    .bind(user.as_uuid())
     .fetch_all(&pool)
     .await
     .expect("versions");

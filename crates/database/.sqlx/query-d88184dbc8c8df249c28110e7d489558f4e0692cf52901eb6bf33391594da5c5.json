@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT channel FROM deliveries WHERE recipient = to_jsonb($1::text) ORDER BY channel",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "channel",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "d88184dbc8c8df249c28110e7d489558f4e0692cf52901eb6bf33391594da5c5"
+}

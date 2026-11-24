@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT family_id AS \"family_id!: TokenId\" FROM refresh_tokens WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "family_id!: TokenId",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "be0e81fa07d8f3fb653e83ca9436e8ab3173a6b4af8d44587ecf80a669a2a78d"
+}

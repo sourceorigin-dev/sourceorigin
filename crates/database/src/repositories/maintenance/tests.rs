@@ -66,8 +66,8 @@ async fn ended_records_go_after_their_retention() {
     // Other tests' announcements to everyone reach this account too, so only its
     // own rows count.
     let remaining = || async {
-        sqlx::query_scalar::<_, String>(
-            "SELECT 'passkey ' || friendly_name FROM passkey_credentials WHERE user_id = $1
+        sqlx::query_scalar!(
+            r#"SELECT 'passkey ' || friendly_name AS "remaining!" FROM passkey_credentials WHERE user_id = $1
             UNION ALL SELECT 'identity ' || split_part(subject, '-', 1)
             FROM external_login_identities WHERE user_id = $1
             UNION ALL SELECT 'recovery ' || CASE WHEN cancelled_at IS NULL THEN 'new' ELSE 'old' END
@@ -80,10 +80,10 @@ async fn ended_records_go_after_their_retention() {
             JOIN announcements a ON a.id = r.announcement_id
             WHERE r.user_id = $1 AND a.body = $1::text
             UNION ALL SELECT 'handle ' || handle FROM handles WHERE handle = $2
-            ORDER BY 1",
+            ORDER BY 1"#,
+            user.as_uuid(),
+            &handle.handle,
         )
-        .bind(user.as_uuid())
-        .bind(&handle.handle)
         .fetch_all(&pool)
         .await
         .expect("remaining")
@@ -98,10 +98,10 @@ async fn ended_records_go_after_their_retention() {
     maintenance().await;
     // The announcement to everyone stays, saying it no longer knows whom it
     // reached rather than counting no one.
-    let kept: uuid::Uuid = sqlx::query_scalar(
+    let kept = sqlx::query_scalar!(
         "SELECT id FROM announcements WHERE body = $1 AND subject = 'old to everyone'",
+        user.to_string(),
     )
-    .bind(user.to_string())
     .fetch_one(&pool)
     .await
     .expect("announcement to everyone");
