@@ -126,6 +126,15 @@ async fn finish<C: Channel>(
         .await
 }
 
+/// Ends the lease of delivery `id`'s attempt now, as if it ran out.
+async fn expire_lease(pool: &PgPool, id: DeliveryId) {
+    sqlx::query("UPDATE deliveries SET leased_until = clock_timestamp() WHERE id = $1")
+        .bind(id.as_uuid())
+        .execute(pool)
+        .await
+        .expect("expire the lease");
+}
+
 /// A permanent failure.
 fn failed() -> DeliveryOutcome {
     DeliveryOutcome::Failed {
@@ -228,10 +237,8 @@ async fn an_expired_lease_is_claimed_again_and_the_stale_outcome_discarded() {
     clear::<Leased>(&pool).await;
     let id = insert::<Leased>(&pool).await;
 
-    let stale = claim::<Leased>(&pool, Duration::from_millis(1))
-        .await
-        .expect("first claim");
-    tokio::time::sleep(Duration::from_millis(20)).await;
+    let stale = claim::<Leased>(&pool, LEASE).await.expect("first claim");
+    expire_lease(&pool, id).await;
     let current = claim::<Leased>(&pool, LEASE)
         .await
         .expect("the expired lease is claimed again");
@@ -315,11 +322,7 @@ async fn operators_retry_and_cancel_deliveries() {
     let pool = Database::test_pool().await;
     clear::<Operated>(&pool).await;
     let id = insert::<Operated>(&pool).await;
-    // The test cancels, retries and looks again within the first attempt's lease,
-    // in a few queries that may each take a second on a loaded machine, then waits
-    // it out once.
-    let lease = Duration::from_secs(5);
-    let next = async || claim::<Operated>(&pool, lease).await;
+    let next = async || claim::<Operated>(&pool, LEASE).await;
     let repository = || DeliveryRepository::from_pool(&pool);
 
     let attempt = next().await.expect("first attempt");
@@ -339,7 +342,7 @@ async fn operators_retry_and_cancel_deliveries() {
         next().await.is_none(),
         "the cancelled attempt's lease holds"
     );
-    tokio::time::sleep(lease).await;
+    expire_lease(&pool, id).await;
     let retried = next().await.expect("retried");
     assert_eq!((retried.id, retried.attempts), (id, 2));
     assert!(

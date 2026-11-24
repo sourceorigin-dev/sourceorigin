@@ -234,6 +234,38 @@ impl Database {
         .map_err(Into::into)
     }
 
+    /// Opens a dedicated connection with the pool's settings and takes `key`'s
+    /// session lock, waiting with no lock limit for as long as `statement` lets
+    /// one statement run. The connection keeps `statement` as its statement
+    /// limit and gets the pool's lock limit back.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DatabaseError::Timeout`] if connecting takes too long,
+    /// [`DatabaseError::Cancelled`] if the lock is still held when `statement`
+    /// ends the wait, or another [`DatabaseError`] if a query fails.
+    pub(crate) async fn lock_dedicated(
+        &self,
+        key: LockKey,
+        statement: Duration,
+    ) -> Result<PgConnection, DatabaseError> {
+        let mut connection = self.connect_dedicated(&self.pool.connect_options()).await?;
+        for limit in [
+            Limit::STATEMENT.at(statement),
+            Limit::LOCK.at(Duration::ZERO),
+        ] {
+            limit.set(Scope::Session).fetch_one(&mut connection).await?;
+        }
+        sqlx::query!("SELECT pg_advisory_lock($1)", key.id())
+            .fetch_one(&mut connection)
+            .await?;
+        Limit::LOCK
+            .set(Scope::Session)
+            .fetch_one(&mut connection)
+            .await?;
+        Ok(connection)
+    }
+
     /// Checks availability with a bounded, non-sensitive query.
     ///
     /// # Errors
@@ -298,19 +330,8 @@ impl Database {
     /// wait past its limit, or the applied history differs from the embedded
     /// migrations.
     pub async fn run_migrations(&self) -> Result<(), DatabaseError> {
-        let mut connection = self.connect_dedicated(&self.pool.connect_options()).await?;
-        for limit in [
-            Limit::STATEMENT.at(MIGRATION_STATEMENT_TIMEOUT),
-            Limit::LOCK.at(Duration::ZERO),
-        ] {
-            limit.set(Scope::Session).fetch_one(&mut connection).await?;
-        }
-        sqlx::query!("SELECT pg_advisory_lock($1)", LockKey::Migrations.id())
-            .fetch_one(&mut connection)
-            .await?;
-        Limit::LOCK
-            .set(Scope::Session)
-            .fetch_one(&mut connection)
+        let mut connection = self
+            .lock_dedicated(LockKey::Migrations, MIGRATION_STATEMENT_TIMEOUT)
             .await?;
         MIGRATOR
             .run(&mut connection)

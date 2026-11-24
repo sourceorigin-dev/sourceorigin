@@ -1,7 +1,15 @@
 //! Advisory locks that let one replica at a time run a job.
 
+#[cfg(any(test, feature = "test-util"))]
+use crate::connection::{Limit, Scope};
 use crate::{Database, DatabaseError, DatabaseTransaction};
 use sqlx::{Connection, PgConnection};
+#[cfg(any(test, feature = "test-util"))]
+use std::time::Duration;
+
+/// Longest [`Database::exclusive`] waits for a lock another session holds.
+#[cfg(any(test, feature = "test-util"))]
+const EXCLUSIVE_WAIT: Duration = Duration::from_secs(30);
 
 /// Advisory lock keys: session-level ones, one per exclusive job, and
 /// transaction-level ones that serialize a kind of change. The values are stable
@@ -96,6 +104,27 @@ impl Database {
             connection.close().await?;
             Ok(None)
         }
+    }
+
+    /// Opens a connection with the pool's settings and takes `key`'s lock,
+    /// waiting up to 30 seconds while another session holds it, so a
+    /// test takes its turn with the job or test that holds it. The connection
+    /// then has the pool's limits again.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DatabaseError::Timeout`] if connecting takes longer than the
+    /// pool's acquire timeout, [`DatabaseError::Cancelled`] if the lock is
+    /// still held after 30 seconds, or another [`DatabaseError`] if a query
+    /// fails.
+    #[cfg(any(test, feature = "test-util"))]
+    pub async fn exclusive(&self, key: LockKey) -> Result<ExclusiveConnection, DatabaseError> {
+        let mut connection = self.lock_dedicated(key, EXCLUSIVE_WAIT).await?;
+        Limit::STATEMENT
+            .set(Scope::Session)
+            .fetch_one(&mut connection)
+            .await?;
+        Ok(ExclusiveConnection { connection, key })
     }
 }
 
