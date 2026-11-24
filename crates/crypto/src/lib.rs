@@ -2,6 +2,8 @@
 //! Rust SDK; no browser or database policy.
 // docs.rs labels feature-gated items with the features they need.
 #![cfg_attr(docsrs, feature(doc_cfg))]
+// A library leaves printing to its caller: it returns errors and logs through tracing.
+#![warn(clippy::print_stdout, clippy::print_stderr)]
 /// The one RS256 verifier auth and the SDK share, and compact JWS splitting.
 mod jws;
 /// Ed25519 signed notes, for audit checkpoints.

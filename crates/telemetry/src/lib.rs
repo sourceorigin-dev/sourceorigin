@@ -16,6 +16,8 @@
 //!
 //! Everything a span, log line or label holds may be exported. Never record a
 //! secret, a request path or query string, or a request header.
+// A library leaves printing to its caller: it returns errors and logs through tracing.
+#![warn(clippy::print_stdout, clippy::print_stderr)]
 
 /// OTLP export through the workspace's `reqwest`.
 mod export;
