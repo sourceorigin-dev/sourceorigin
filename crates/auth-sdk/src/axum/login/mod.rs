@@ -95,10 +95,11 @@ impl CookieNames {
 #[serde(try_from = "String", into = "String")]
 pub struct ReturnTo(String);
 
-/// A `return_to` that is not a same-origin relative path.
+/// A `return_to` that is not a same-origin relative path. Its source names the
+/// rule the path breaks.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 #[error("return_to must be a same-origin path")]
-pub struct InvalidReturnTo;
+pub struct InvalidReturnTo(#[source] return_to::InvalidReturnTo);
 
 impl ReturnTo {
     /// The site root.
@@ -120,7 +121,7 @@ impl FromStr for ReturnTo {
     fn from_str(path: &str) -> Result<Self, Self::Err> {
         path.parse::<return_to::ReturnTo>()
             .map(|path| Self(path.into()))
-            .map_err(|_| InvalidReturnTo)
+            .map_err(InvalidReturnTo)
     }
 }
 

@@ -53,10 +53,10 @@ struct Token<'a> {
 impl<'a> Token<'a> {
     /// Splits a bounded token into exactly three parts and parses its header.
     fn parse(token: &'a str) -> Result<Self, CryptoError> {
-        let split = Compact::split(token).map_err(|_| CryptoError::InvalidToken)?;
+        let split = Compact::split(token).map_err(CryptoError::MalformedToken)?;
         Ok(Self {
             header: serde_json::from_slice(split.header())?,
-            compact: split.decode().map_err(|_| CryptoError::InvalidToken)?,
+            compact: split.decode().map_err(CryptoError::MalformedToken)?,
         })
     }
 }
@@ -77,7 +77,7 @@ impl PublicKey {
     /// Rejects malformed keys, keys every SDK would refuse to verify with, and
     /// invalid key identifiers.
     pub fn from_jwk(jwk: Jwk) -> Result<Self, CryptoError> {
-        jwk.kid.parse::<KeyId>().map_err(|_| CryptoError::KeyId)?;
+        jwk.kid.parse::<KeyId>().map_err(CryptoError::KeyId)?;
         let key = match jwk.kty {
             KeyType::Rsa => Rs256VerifyingKey::new(
                 &URL_SAFE_NO_PAD.decode(&jwk.n)?,

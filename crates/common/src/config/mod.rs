@@ -278,6 +278,10 @@ impl SecretReference {
     ///
     /// # Errors
     /// Reports a missing, non-UTF-8, unreadable or empty secret.
+    #[expect(
+        clippy::map_err_ignore,
+        reason = "The error of a non-UTF-8 variable returns the secret's own bytes"
+    )]
     pub fn resolve(&self) -> Result<SecretBytes, SecretError> {
         let bytes = match &self.0 {
             // var_os keeps the value out of the error, unlike env::var.

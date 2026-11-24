@@ -25,6 +25,7 @@ use aws_lc_rs::{
 };
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use secrecy::{ExposeSecret, SecretBox, SecretString, zeroize::Zeroizing};
+use sourceorigin_common::protocol::jwt::InvalidKeyId;
 use sourceorigin_common::protocol::registered::ClaimsError;
 use std::fmt;
 use thiserror::Error;
@@ -64,7 +65,10 @@ pub enum CryptoError {
     UnusableKey(#[source] KeyDefect),
     /// The key identifier cannot safely appear in JWT headers.
     #[error("signing key ID must contain 1 to 128 characters without whitespace")]
-    KeyId,
+    KeyId(#[source] InvalidKeyId),
+    /// A token's compact framing is malformed.
+    #[error("JWT framing is invalid")]
+    MalformedToken(#[source] Malformed),
     /// A JWT segment contains malformed JSON.
     #[error("invalid JWT JSON")]
     Json(#[from] serde_json::Error),
@@ -104,12 +108,18 @@ pub enum CryptoError {
     /// A verifier key is malformed, not Ed25519, or has the wrong key ID.
     #[error("note verifier key must be <name>+<hex key ID>+<base64 Ed25519 key>")]
     NoteVerifierKey,
+    /// A verifier key's base64 is malformed.
+    #[error("note verifier key is not valid base64")]
+    NoteVerifierKeyEncoding(#[source] base64::DecodeError),
     /// Note text does not end with a newline, or holds another control character.
     #[error("note text must end with a newline and contain no other control characters")]
     NoteText,
     /// A note has no signature block, or a malformed signature line.
     #[error("signed note is malformed")]
     NoteFormat,
+    /// A signature line's base64 is malformed.
+    #[error("signed note's signature is not valid base64")]
+    NoteSignatureEncoding(#[source] base64::DecodeError),
     /// A signature by a known key does not verify.
     #[error("note signature is invalid")]
     NoteSignature,
@@ -159,6 +169,10 @@ impl Secret {
     /// Rejects invalid encoding and lengths other than 32 bytes.
     pub fn parse(value: &str) -> Result<Self, CryptoError> {
         let bytes = Zeroizing::new(URL_SAFE_NO_PAD.decode(value)?);
+        #[expect(
+            clippy::map_err_ignore,
+            reason = "`TryFromSliceError` carries nothing beyond the length mismatch `SecretLength` names"
+        )]
         let bytes: &[u8; SECRET_BYTES] = bytes
             .as_slice()
             .try_into()

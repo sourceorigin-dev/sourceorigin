@@ -68,9 +68,11 @@ impl AuditKeys {
                 Some(text) if text.head == stored && text.time == checkpoint.created_at => None,
                 _ => Some(ChainProblem::CheckpointMalformed),
             },
-            Err(CryptoError::NoteFormat | CryptoError::NoteText) => {
-                Some(ChainProblem::CheckpointMalformed)
-            }
+            Err(
+                CryptoError::NoteFormat
+                | CryptoError::NoteSignatureEncoding(_)
+                | CryptoError::NoteText,
+            ) => Some(ChainProblem::CheckpointMalformed),
             Err(CryptoError::NoteSignature | CryptoError::NoteUnverified) => {
                 Some(ChainProblem::CheckpointSignature)
             }

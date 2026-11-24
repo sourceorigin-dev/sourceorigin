@@ -67,6 +67,10 @@ impl SealingKey {
         let nonce = Nonce::try_assume_unique_for_key(nonce)?;
         let mut opened = Zeroizing::new(rest.to_vec());
         // A failed tag check says nothing more than this variant does.
+        #[expect(
+            clippy::map_err_ignore,
+            reason = "The provider's `Unspecified` carries nothing, by design"
+        )]
         let length = self
             .0
             .open_in_place(nonce, Aad::from(aad), &mut opened)

@@ -506,9 +506,14 @@ impl FromStr for TraceId {
             return Err(invalid());
         }
         let mut bytes = [0; 16];
-        for (byte, pair) in bytes.iter_mut().zip(value.as_bytes().as_chunks::<2>().0) {
-            let pair = std::str::from_utf8(pair).map_err(|_| invalid())?;
-            *byte = u8::from_str_radix(pair, 16).map_err(|_| invalid())?;
+        let digit = |digit: u8| {
+            char::from(digit)
+                .to_digit(16)
+                .and_then(|digit| u8::try_from(digit).ok())
+                .ok_or_else(invalid)
+        };
+        for (byte, [high, low]) in bytes.iter_mut().zip(value.as_bytes().as_chunks().0) {
+            *byte = digit(*high)? << 4 | digit(*low)?;
         }
         Self::from_bytes(bytes).ok_or_else(invalid)
     }

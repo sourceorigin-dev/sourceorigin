@@ -166,6 +166,10 @@ impl ClientSettings {
         id: ClientId,
         kind: ClientKind,
     ) -> Result<ClientRegistration, InvalidSetting> {
+        #[expect(
+            clippy::map_err_ignore,
+            reason = "The message names the scope and the allowed ones, which `InvalidScope` does not"
+        )]
         let scopes = self
             .allowed_scopes
             .iter()

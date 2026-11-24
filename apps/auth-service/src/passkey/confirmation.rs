@@ -145,6 +145,10 @@ impl PasskeyApplication {
         owner: &Owner,
         assertion: &str,
     ) -> Result<AdminProof, ApiError> {
+        #[expect(
+            clippy::map_err_ignore,
+            reason = "serde_json's message can quote the passkey assertion, which the response must not"
+        )]
         let input: AuthenticationFinish = serde_json::from_str(assertion)
             .map_err(|_| ApiError::bad_request("The passkey proof is malformed. Try again."))?;
         let session = owner.session();

@@ -569,6 +569,10 @@ impl<const MAX_AGE: u32> Confirmed<MAX_AGE> {
 
     /// Rejects a session without a recent enough passkey confirmation. Handlers
     /// that need one only for some changes call it on the session they locked.
+    #[expect(
+        clippy::map_err_ignore,
+        reason = "`StepUpRequired` says what to ask the user for, which is all the handler needs of the unmet requirement"
+    )]
     pub(crate) fn check(session: &StoredSession) -> Result<(), SessionError> {
         let authentication = SessionAuthentication::from(session);
         Self::REQUIREMENT

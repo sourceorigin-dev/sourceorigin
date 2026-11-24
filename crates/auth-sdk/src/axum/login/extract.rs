@@ -123,6 +123,10 @@ impl SignedIn {
     ///
     /// # Errors
     /// The [`StepUp`] asking for `P`'s requirement.
+    #[expect(
+        clippy::map_err_ignore,
+        reason = "The `StepUp` answer asks to sign in again, which says why; the unmet requirement adds nothing for the app"
+    )]
     pub fn require<P: AuthenticationPolicy>(&self) -> Result<(), StepUp> {
         let authentication = &self.claims().authentication;
         TokenError::require_authentication(

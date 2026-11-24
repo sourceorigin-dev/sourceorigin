@@ -53,11 +53,11 @@ fn rejects_invalid_headers() {
         ),
         (
             "Bearer max_age=soon",
-            ChallengeError::InvalidValue("max_age"),
+            ChallengeError::InvalidMaxAge("soon".parse::<u32>().expect_err("not a number")),
         ),
         (
             "Bearer error_description=\"say \\\"hi\\\"\"",
-            ChallengeError::InvalidValue("error_description"),
+            ChallengeError::InvalidErrorDescription(InvalidDescription),
         ),
     ] {
         assert_eq!(header.parse::<BearerChallenge>(), Err(expected), "{header}");

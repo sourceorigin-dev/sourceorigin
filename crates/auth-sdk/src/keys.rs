@@ -16,7 +16,7 @@ use sourceorigin_common::protocol::{
     sdk::{ErrorCategory, ErrorReason, SdkError},
 };
 pub use sourceorigin_crypto::KeyDefect;
-use sourceorigin_crypto::{Compact, Malformed, Rs256VerifyingKey, VerifyError};
+use sourceorigin_crypto::{Compact, Rs256VerifyingKey, VerifyError};
 use std::{
     fmt,
     sync::{Arc, Mutex, MutexGuard, PoisonError},
@@ -101,16 +101,15 @@ impl<'a> Jws<'a> {
     /// 16 KiB, with a JSON header; [`TokenError::UnsupportedCriticalHeader`] if that
     /// header sets `crit`.
     pub fn parse(token: &'a str) -> Result<Self, TokenError> {
-        let malformed = |malformed: Malformed| TokenError::Malformed(malformed.0);
-        let split = Compact::split(token).map_err(malformed)?;
-        let header: JwsHeader = serde_json::from_slice(split.header())
-            .map_err(|_| TokenError::Malformed("the header is not a JWS header"))?;
+        let split = Compact::split(token).map_err(TokenError::Malformed)?;
+        let header: JwsHeader =
+            serde_json::from_slice(split.header()).map_err(TokenError::MalformedHeader)?;
         if header.crit.is_some() {
             return Err(TokenError::UnsupportedCriticalHeader);
         }
         Ok(Self {
             header,
-            compact: split.decode().map_err(malformed)?,
+            compact: split.decode().map_err(TokenError::Malformed)?,
         })
     }
 

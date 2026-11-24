@@ -48,8 +48,14 @@ impl NoteKey {
         // `from_str_radix` never sees the sign it would otherwise accept.
         let mut seed = Zeroizing::new([0; SEED_BYTES]);
         for (index, byte) in seed.iter_mut().enumerate() {
-            *byte = u8::from_str_radix(&hex[index * 2..index * 2 + 2], 16)
-                .map_err(|_| CryptoError::NoteKeySeed)?;
+            #[expect(
+                clippy::map_err_ignore,
+                reason = "The seed was checked to be hex digits above, so this cannot fail"
+            )]
+            {
+                *byte = u8::from_str_radix(&hex[index * 2..index * 2 + 2], 16)
+                    .map_err(|_| CryptoError::NoteKeySeed)?;
+            }
         }
         Self::from_seed(name, &seed)
     }
@@ -65,6 +71,10 @@ impl NoteKey {
     /// Builds the key and its verifier from a 32-byte seed.
     fn from_seed(name: &str, seed: &[u8; SEED_BYTES]) -> Result<Self, CryptoError> {
         let key = Ed25519KeyPair::from_seed_unchecked(seed)?;
+        #[expect(
+            clippy::map_err_ignore,
+            reason = "`TryFromSliceError` carries nothing, and an Ed25519 public key always has 32 bytes"
+        )]
         let public = key
             .public_key()
             .as_ref()
@@ -187,10 +197,14 @@ impl FromStr for NoteVerifier {
         };
         let key = STANDARD
             .decode(key)
-            .map_err(|_| CryptoError::NoteVerifierKey)?;
+            .map_err(CryptoError::NoteVerifierKeyEncoding)?;
         let Some((&ED25519_ID, public)) = key.split_first() else {
             return Err(CryptoError::NoteVerifierKey);
         };
+        #[expect(
+            clippy::map_err_ignore,
+            reason = "`TryFromSliceError` carries nothing beyond the length mismatch `NoteVerifierKey` names"
+        )]
         let public = public
             .try_into()
             .map_err(|_| CryptoError::NoteVerifierKey)?;
@@ -286,11 +300,15 @@ impl NoteVerifiers {
                 .ok_or(CryptoError::NoteFormat)?;
             let signature = STANDARD
                 .decode(signature)
-                .map_err(|_| CryptoError::NoteFormat)?;
+                .map_err(CryptoError::NoteSignatureEncoding)?;
             if signature.len() <= KEY_ID_BYTES {
                 return Err(CryptoError::NoteFormat);
             }
             let (id, signature) = signature.split_at(KEY_ID_BYTES);
+            #[expect(
+                clippy::map_err_ignore,
+                reason = "`TryFromSliceError` carries nothing beyond the length mismatch `NoteFormat` names"
+            )]
             let id = u32::from_be_bytes(id.try_into().map_err(|_| CryptoError::NoteFormat)?);
             for verifier in self.0.iter().filter(|key| key.name == name && key.id == id) {
                 if !verifier.verifies(text, signature) {

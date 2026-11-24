@@ -167,6 +167,10 @@ pub(super) async fn send(cx: &Cx, form: Option<Form<SendAnnouncement>>) -> Resul
     let admin = App::confirmed(cx).await?;
     let service = &App::of(cx).service;
     let id = *path_param::<Announcement>(cx)?;
+    #[expect(
+        clippy::map_err_ignore,
+        reason = "The answer names what the form lacks, and a query's parse error can quote what was sent"
+    )]
     let checked: SendAnnouncement = parse_query_params(cx)
         .map_err(|_| Error::from(bad_request("name the revision the draft's page showed")))?;
     let back = href!(show, Announcement(id)).resolve(cx);
