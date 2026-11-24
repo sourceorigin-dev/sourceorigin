@@ -195,7 +195,8 @@ test('the top bar finds settings as the owner types', async ({ browser }) => {
 test('the overview recommends what a new account lacks', async ({ page, context }) => {
   await addPasskeys(context, page);
   await signUp(page, `recommend-${Date.now().toString(36)}`);
-  const shown = page.locator('section.hint:visible');
+  const recommendations = page.locator('.hints > section');
+  const shown = page.locator('.hints > section:visible');
   const passkey = shown.filter({ hasText: 'Add a backup passkey' });
   // Its picture and display name are still the defaults, so the profile is
   // recommended too.
@@ -205,6 +206,8 @@ test('the overview recommends what a new account lacks', async ({ page, context 
   await passkey.getByRole('button', { name: 'Not now', exact: true }).click();
   await expect(passkey).toHaveCount(0);
   await expect(shown.first()).toContainText(second);
+  // The next one, if the deployment offers a third, takes its place.
+  await expect(shown).toHaveCount(Math.min(2, (await recommendations.count()) - 1));
 
   await page.reload();
   await expect(shown.first()).toContainText(second);

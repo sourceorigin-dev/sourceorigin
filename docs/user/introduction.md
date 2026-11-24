@@ -23,8 +23,8 @@ important first:
 2. **Add an email address**, while you have no
    [confirmed address](account/email-addresses.md). Recovery links and
    [security alerts](account/security-alerts.md) go to it. If you added one
-   that isn't confirmed yet, the overview names it instead, with **Resend
-   link**.
+   that isn't confirmed yet, it says **Confirm your email address** instead,
+   with **Resend link**.
 3. **You can still link GitHub** (or Google), while one SourceOrigin offers
    isn't [linked](account/sign-in-methods.md#link-github-or-google).
 4. **Finish your profile**, while your [profile](account/profile.md) has no

@@ -255,8 +255,11 @@ fragment form's button starts disabled, with a `data-unavailable` note saying wh
 until the script finds it can work. While a ceremony runs, its form's button is
 disabled and says it waits for the passkey, and the form's last error hides. A
 `data-dismiss` element shows unless the browser's local storage holds its key,
-which a `data-dismisses` button with that key stores as it hides the element;
-without local storage, it shows on every page. A hint renders hidden, so it never
+which a `data-dismisses` button with that key stores, with the time, as it hides
+the element; without local storage, it shows on every page. With
+`data-dismiss-days`, a dismissal lapses after that many days. Inside a
+`data-dismiss-limit` element, only that many show at once, so dismissing one shows
+the next. A hint renders hidden, so it never
 flashes once dismissed, and the recovery question renders shown, so it asks without
 scripts too. A `data-replace-url` element makes a page that shows a secret reload
 by `GET`, and the copy script (`assets/copy.js`) makes a `data-copy` button copy a

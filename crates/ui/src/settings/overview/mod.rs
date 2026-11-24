@@ -127,7 +127,8 @@ impl Recommendation<'_> {
     fn key(self) -> String {
         match self {
             Self::Passkey => "sourceorigin-recommend:passkey".to_owned(),
-            Self::Email { .. } => "sourceorigin-recommend:email".to_owned(),
+            Self::Email { pending: None } => "sourceorigin-recommend:email".to_owned(),
+            Self::Email { pending: Some(_) } => "sourceorigin-recommend:confirm-email".to_owned(),
             Self::Provider(provider) => format!("sourceorigin-link:{}", provider.as_str()),
             Self::Profile => "sourceorigin-recommend:profile".to_owned(),
         }
@@ -157,9 +158,7 @@ impl Recommendation<'_> {
         match self {
             Self::Passkey => "Add a backup passkey".to_owned(),
             Self::Email { pending: None } => "Add an email address".to_owned(),
-            Self::Email {
-                pending: Some(email),
-            } => format!("Confirm {}", email.address),
+            Self::Email { pending: Some(_) } => "Confirm your email address".to_owned(),
             Self::Provider(provider) => format!("You can still link {}", provider.name()),
             Self::Profile => "Finish your profile".to_owned(),
         }
@@ -192,7 +191,6 @@ async fn recommendation_hint<'a>(
 ) -> Result<impl View> {
     let key = recommendation.key();
     let days = recommendation.returns_after().map(|days| days.to_string());
-    let anchored = |page: &str, part: Part| format!("{page}#{}", part.id());
     Ok(view! {
         <section class="hint" data-dismiss=(key.as_str()) data-dismiss-days=(days) hidden="">
             icon(kind: recommendation.icon())
@@ -202,10 +200,10 @@ async fn recommendation_hint<'a>(
             </div>
             match recommendation {
                 Recommendation::Passkey => {
-                    <a class="button small" href=(anchored(links.sign_in, Part::AddPasskey))>"Add a passkey"</a>
+                    <a class="button small" href=(Part::AddPasskey.on(links.sign_in))>"Add a passkey"</a>
                 }
                 Recommendation::Email { pending: None } => {
-                    <a class="button small" href=(anchored(links.emails, Part::AddAddress))>"Add an address"</a>
+                    <a class="button small" href=(Part::AddAddress.on(links.emails))>"Add an address"</a>
                 }
                 Recommendation::Email { pending: Some(email) } => {
                     change_form(
@@ -343,120 +341,4 @@ fn sessions_detail(browsers: usize, other: usize) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    //! What the overview recommends.
-    use super::*;
-    use sourceorigin_common::{
-        EmailId, PasskeyId,
-        protocol::api::{Identity, Passkey},
-    };
-
-    /// The keys of what `overview` recommends, in order, with a pending
-    /// address's title.
-    fn recommended(overview: &AccountOverview<'_>) -> Vec<String> {
-        overview
-            .recommendations()
-            .into_iter()
-            .map(|recommendation| match recommendation {
-                Recommendation::Email { pending: Some(_) } => recommendation.title(),
-                _ => recommendation.key(),
-            })
-            .collect()
-    }
-
-    /// A new account lacks everything, most pressing first; an account holding
-    /// each lacks nothing. An unconfirmed address asks to be confirmed, and no
-    /// address is asked for while SourceOrigin sends no email.
-    #[test]
-    fn recommends_what_the_account_lacks_most_pressing_first() {
-        let passkey = |name: &str| Passkey {
-            friendly_name: name.to_owned(),
-            id: PasskeyId::new(),
-            created_at: Utc::now(),
-        };
-        let one = [passkey("Laptop")];
-        let two = [passkey("Laptop"), passkey("Phone")];
-        let pending = [EmailRow {
-            id: EmailId::new(),
-            address: "alice@example.com",
-            verified: false,
-            primary: false,
-        }];
-        let confirmed = [EmailRow {
-            verified: true,
-            primary: true,
-            ..pending[0]
-        }];
-        let github = Identity {
-            provider: Provider::GitHub,
-            linked_email: None,
-        };
-        let unlinked = [
-            ProviderRow {
-                provider: Provider::GitHub,
-                identity: None,
-                enabled: true,
-            },
-            ProviderRow {
-                provider: Provider::Google,
-                identity: None,
-                enabled: false,
-            },
-        ];
-        let linked = [ProviderRow {
-            identity: Some(&github),
-            ..unlinked[0]
-        }];
-        let new = AccountOverview {
-            devices: &[],
-            apps: &[],
-            app_sign_ins_week: 0,
-            security_events_week: 0,
-            activity: &[],
-            holds: Holdings {
-                passkeys: &one,
-                ..Holdings::default()
-            },
-            providers: &unlinked,
-            sends: true,
-            confirmed: false,
-            default_profile: true,
-            now: Utc::now(),
-            unread: 0,
-        };
-        assert_eq!(
-            recommended(&new),
-            [
-                "sourceorigin-recommend:passkey",
-                "sourceorigin-recommend:email",
-                "sourceorigin-link:github",
-                "sourceorigin-recommend:profile",
-            ],
-            "a disabled provider is never offered"
-        );
-        let held = AccountOverview {
-            holds: Holdings {
-                passkeys: &two,
-                emails: &confirmed,
-                ..Holdings::default()
-            },
-            providers: &linked,
-            default_profile: false,
-            ..new
-        };
-        assert_eq!(recommended(&held), Vec::<String>::new());
-        let unconfirmed = AccountOverview {
-            holds: Holdings {
-                emails: &pending,
-                ..held.holds
-            },
-            ..held
-        };
-        assert_eq!(recommended(&unconfirmed), ["Confirm alice@example.com"]);
-        let silent = AccountOverview {
-            sends: false,
-            ..unconfirmed
-        };
-        assert_eq!(recommended(&silent), Vec::<String>::new());
-    }
-}
+mod tests;
