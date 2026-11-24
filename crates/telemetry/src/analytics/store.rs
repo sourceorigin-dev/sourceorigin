@@ -310,8 +310,6 @@ impl Store {
                     format!("ALTER USER {user} IDENTIFIED WITH sha256_password BY {password}"),
                     format!("ALTER USER {user}"),
                 ),
-                // Replaces every other right at once, so the writer never lacks
-                // this one while running replicas insert.
                 (
                     format!(
                         "GRANT INSERT ON {}.* TO {user} WITH REPLACE OPTION",

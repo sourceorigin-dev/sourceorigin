@@ -620,8 +620,8 @@ async fn account_apps_remove_withdraws_the_consent() {
 #[tokio::test]
 #[ignore = "needs TEST_ANALYTICS_URL, a scratch ClickHouse: run `just analytics test`"]
 async fn every_analytics_table_migrates() {
-    sourceorigin_telemetry::analytics::Store::test()
-        .migrate(super::ANALYTICS_TABLES, None)
+    Store::test()
+        .migrate(ANALYTICS_TABLES, None)
         .await
         .expect("migrated");
 }

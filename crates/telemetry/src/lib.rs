@@ -235,7 +235,7 @@ impl Telemetry {
             let tracer = tracer.shutdown();
             let meter = meter.map_or(Ok(()), |meter| meter.shutdown());
             let logger = logger.map_or(Ok(()), |logger| logger.shutdown());
-            let _ = flushed.send(tracer.and(meter).and(logger));
+            flushed.send(tracer.and(meter).and(logger)).ok();
         });
         let analytics = async {
             if let Some(analytics) = &analytics {

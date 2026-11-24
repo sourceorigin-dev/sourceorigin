@@ -163,9 +163,6 @@ impl Command {
     /// printing to `out`, and returns the original startup or operation failure.
     /// Analytics never blocks a migration: its failures only warn.
     async fn run(self, operator: Option<OperatorName>, out: Output) -> Result<(), CliError> {
-        // `migrate` connects as the schema owner when one is configured, then
-        // provisions the role every other command connects as. Pruning connects
-        // as the owner too, since that role may not delete events.
         let analytics = match self {
             Self::Migrate => Store::migration_from_environment()?,
             _ => None,

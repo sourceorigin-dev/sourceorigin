@@ -104,6 +104,9 @@ macro_rules! columns {
 
 /// A [`Column`] rows may be sorted by: any but a nullable one, which ClickHouse
 /// refuses as a sort key.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can't be in `ordered by`: ClickHouse refuses a nullable sort key"
+)]
 pub trait Key: Column {}
 
 columns! {
@@ -113,7 +116,7 @@ columns! {
     u32 => "UInt32" key;
     u64 => "UInt64" key;
     i64 => "Int64" key;
-    f64 => "Float64";
+    f64 => "Float64" key;
     &'static str => "LowCardinality(String)" key;
     Option<&'static str> => "LowCardinality(Nullable(String))";
     ClientId => "LowCardinality(String)" key;
@@ -124,8 +127,9 @@ columns! {
 
 /// Declares a [`Signal`]: a struct whose fields are [`Column`]s, and the table
 /// that stores it, with how long rows are kept and the columns they are sorted
-/// by, each a [`Key`]. Every table also has a `time` column, the time the row was recorded, and
-/// sorts by it last. Doc comments are required: they document the table.
+/// by, each a [`Key`]. Every table also has a `time` column, the time the row
+/// was recorded, and sorts by it last. Doc comments are required: they document
+/// the table.
 ///
 /// ```
 /// sourceorigin_telemetry::signal! {

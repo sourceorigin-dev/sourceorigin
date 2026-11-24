@@ -124,7 +124,7 @@ impl Writer {
                     }
                     Some(Message::Flush(done)) => {
                         Self::send_all(&store, &mut batches).await;
-                        let _ = done.send(());
+                        done.send(()).ok();
                     }
                     None => return Self::send_all(&store, &mut batches).await,
                 },

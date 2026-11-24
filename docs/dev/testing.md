@@ -67,11 +67,11 @@ just db test
 Tests that need PostgreSQL are marked `#[ignore]`, with a reason that names
 `TEST_DATABASE_URL`, so `just test` skips them.
 `just db test` starts a throwaway PostgreSQL 18 cluster that listens only on a
-Unix socket, and a throwaway ClickHouse in Docker for auth's
-[analytics tests](#analytics-tests), runs every test of `auth-service` and
-`sourceorigin-repository` in them, ignored ones included, and deletes them. It then runs `just db prepare-check`,
-which fails if the committed query cache doesn't match the migrated schema
-exactly.
+Unix socket, and a throwaway ClickHouse in Docker for auth's [analytics
+tests](#analytics-tests), runs every test of `auth-service` and
+`sourceorigin-repository` in them, ignored ones included, and deletes them. It
+then runs `just db prepare-check`, which fails if the committed query cache
+doesn't match the migrated schema exactly.
 
 To use a database of your own instead, set `TEST_DATABASE_URL` to it. The tests
 create accounts in it and leave it migrated, and create more databases on its
