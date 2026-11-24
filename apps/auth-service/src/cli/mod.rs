@@ -43,6 +43,10 @@ use crate::{
     AuthConfig, SERVICE_NAME, TELEMETRY_FILTER,
     account::AccountOperation,
     admin::{AdminOperation, OperatorName},
+    deliveries::{BacklogCounted, DeliveryAttempted},
+    jobs::{CleanupRan, JobCounted},
+    oidc::TokensIssued,
+    security::Throttled,
 };
 use account::AccountCommand;
 use admin::AdminCommand;
@@ -59,9 +63,9 @@ use invite::InviteCommand;
 use keys::KeysCommand;
 use output::Output;
 use sourceorigin_common::ErrorChain;
-use sourceorigin_repository::{Database, EventRecorded};
+use sourceorigin_repository::{Database, EventRecorded, PoolSampled};
 use sourceorigin_telemetry::{
-    Export, Telemetry,
+    Export, RequestServed, Telemetry,
     analytics::{Signal, Store, Table},
 };
 use std::{process::ExitCode, time::Duration};
@@ -322,8 +326,19 @@ impl Administration {
     }
 }
 
-/// Every signal's table, which `migrate` creates.
-const ANALYTICS_TABLES: &[Table] = &[EventRecorded::TABLE];
+/// Every signal's table, which `migrate` creates: auth's, and the requests
+/// sourceorigin.dev's web server records too.
+const ANALYTICS_TABLES: &[Table] = &[
+    EventRecorded::TABLE,
+    PoolSampled::TABLE,
+    RequestServed::TABLE,
+    TokensIssued::TABLE,
+    Throttled::TABLE,
+    DeliveryAttempted::TABLE,
+    BacklogCounted::TABLE,
+    CleanupRan::TABLE,
+    JobCounted::TABLE,
+];
 
 /// How long telemetry may take to flush once a command ends. With `serve`'s
 /// drain ([`crate::Jobs::SHUTDOWN_GRACE`]), it bounds a stop to 9 seconds,

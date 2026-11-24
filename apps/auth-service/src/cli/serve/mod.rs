@@ -66,7 +66,7 @@ impl Command {
             )),
             None => None,
         };
-        database.observe_connections();
+        database.sample_connections();
         let jobs = Jobs::start(&database, &config, &store, &keys)?;
         tracing::info!(address=%config.public_listener,"authentication service listening");
         let (stop, _) = watch::channel(false);

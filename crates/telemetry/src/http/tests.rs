@@ -1,5 +1,6 @@
 //! What the HTTP layer records of a request.
 use super::*;
+use crate::analytics::AnalyticsCapture;
 use axum::{body::Body, http::StatusCode, routing::get};
 use tower::ServiceExt;
 
@@ -21,11 +22,17 @@ async fn send(uri: &str) -> Response {
 }
 
 /// A matched request is named by its route template and never records its
-/// query; a failure is marked and returns its trace ID.
+/// query; a failure is marked and returns its trace ID. Its row names the
+/// template too.
 #[tokio::test]
 async fn spans_name_the_route_and_mark_failures() {
     let capture = Telemetry::capture("info");
+    let analytics = AnalyticsCapture::start();
     let response = send("/items/secret-id?token=secret-token").await;
+    let rows = analytics.rows("requests");
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0]["route"], "/items/{id}");
+    assert_eq!(rows[0]["status"], 500);
     let span = capture.spans().pop().expect("server span");
     assert_eq!(span.name, "GET /items/{id}");
     assert_eq!(
@@ -42,12 +49,17 @@ async fn spans_name_the_route_and_mark_failures() {
 }
 
 /// An unmatched request records neither its path nor its query: its access log
-/// line names it `unmatched`.
+/// line names it `unmatched`, and its row no route.
 #[tokio::test]
 async fn unmatched_requests_record_no_path() {
     let capture = Telemetry::capture("info");
+    let analytics = AnalyticsCapture::start();
     let response = send("/alice@example.com?token=secret-token").await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    let rows = analytics.rows("requests");
+    assert_eq!(rows.len(), 1);
+    assert!(rows[0]["route"].is_null());
+    assert!(!rows[0].to_string().contains("alice"));
     assert!(
         !response
             .headers()

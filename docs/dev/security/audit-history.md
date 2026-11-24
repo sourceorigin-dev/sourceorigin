@@ -107,8 +107,8 @@ environment's audit keys, and its own, or on the anchor if it is newer: it
 recomputes the chain from there, checking each event's hash and order. The
 database cannot check signatures, so someone with auth's database role but not
 the key could add a checkpoint that does not verify. The sealer logs every such
-newer checkpoint as an error, counts it in
-`sourceorigin.auth.audit.untrusted_checkpoints` each time it passes over it, and
+newer checkpoint as an error, counts them in a `job_counts` [analytics](../architecture/analytics.md)
+row (`untrusted_checkpoints`) each time it passes over them, and
 recomputes nothing while one holds the head's position. It cannot postpone
 signing past the next sealed event, after which the next checkpoint follows it.
 `audit verify` keeps reporting it. The sealer and `/audit/checkpoints/latest`
@@ -211,10 +211,10 @@ minutes one replica checks the newest recorded verification, other than one
 made with `--key`, and once that is six hours old, whoever made it, verifies the
 whole chain with the dashboard's keys (below) and records it as the
 `audit_verification` job. After each check, that
-replica's `sourceorigin.auth.audit.broken` gauge says whether the newest recorded
-verification found the chain broken (1) or intact (0), leaving out those made
-with `--key`, as the alert does. A replica that has not checked lately reports
-nothing, so an absent gauge does not mean intact. A verification that
+replica records a `job_counts` [analytics](../architecture/analytics.md) row
+(`audit_broken`) saying whether the newest recorded verification found the
+chain broken (1) or intact (0), leaving out those made with `--key`, as the
+alert does. No recent row does not mean intact. A verification that
 finds the chain broken raises the `audit_chain_broken` alert, which the
 dashboard's Alerts tab and `auth-service alerts list` show,
 and the next one that finds it intact clears it. One with keys given with

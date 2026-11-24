@@ -70,7 +70,7 @@ auth's, and `HttpSecurity::admin` for the dashboard's.
 Each listener runs at most 64 requests at once (`HttpSecurity::admit`). The next
 one answers `503` with `Retry-After: 1` at once, before any check that could
 query the database, so a flood is refused instead of queueing for the pool. It
-counts `sourceorigin.auth.throttled{category="overloaded"}`, and any origin may read
+records a `throttled` [analytics](analytics.md) row with the category `overloaded`, and any origin may read
 the refusal. The public and admin listeners each have their own limit, and
 health probes take no slot.
 
@@ -149,7 +149,7 @@ auth's pages never blocks a passkey ceremony, and the dashboard's searches never
 block its pages: `/search`, which the top bar asks as the administrator types,
 and the live searches' refreshes, which the search script marks with
 `x-sourceorigin-live`, spend the `search` budget. An exhausted budget answers `429`
-with `Retry-After: 60` and counts `sourceorigin.auth.throttled{category}`. Discovery and
+with `Retry-After: 60` and records a `throttled` row with its category. Discovery and
 health probes spend nothing, and an unmatched path has no route, so it spends
 nothing either.
 

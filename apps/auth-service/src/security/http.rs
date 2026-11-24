@@ -25,7 +25,7 @@ use sourceorigin_common::{
 };
 use sourceorigin_crypto::Digest;
 use sourceorigin_repository::{Database, DatabaseError};
-use sourceorigin_telemetry::{Counter, HttpTelemetry, Label};
+use sourceorigin_telemetry::{HttpTelemetry, analytics::Signal};
 use std::{
     net::{IpAddr, SocketAddr},
     sync::Arc,
@@ -38,13 +38,14 @@ use tokio::sync::{Semaphore, SemaphorePermit};
 pub(crate) const FETCH_SITE_HEADER: &str = "sec-fetch-site";
 /// Trusted ingress must overwrite this header with exactly one client address.
 pub(super) const FORWARDED_FOR_HEADER: &str = "x-forwarded-for";
-/// Requests refused because their client's budget was exhausted, by category, or
-/// because too many were in flight, as `overloaded`.
-static THROTTLED: Counter<[Label; 1]> = Counter::new(
-    "sourceorigin.auth.throttled",
-    "{request}",
-    "Requests refused by rate limits, by rate category, or as overloaded.",
-);
+sourceorigin_telemetry::signal! {
+    /// A request refused because its client's budget was exhausted, or because
+    /// too many were in flight.
+    pub(crate) struct Throttled in "throttled", kept 90 days, ordered by (category) {
+        /// The budget's rate category, such as `login`, or `overloaded`.
+        pub(crate) category: &'static str,
+    }
+}
 /// The fixed window request budgets count in.
 const RATE_WINDOW: StdDuration = StdDuration::from_mins(1);
 /// Deadline includes origin checks, rate-limit persistence and the handler.
@@ -361,7 +362,10 @@ impl HttpSecurity {
             return Ok(None);
         }
         let Ok(permit) = self.in_flight.try_acquire() else {
-            THROTTLED.add(1, &[("category", "overloaded")]);
+            Throttled {
+                category: "overloaded",
+            }
+            .record();
             return Err(HttpSecurityError::Overloaded);
         };
         Ok(Some(permit))
@@ -520,7 +524,10 @@ impl HttpSecurity {
                 .allow_request(bucket.as_bytes(), self.requests_per_minute, RATE_WINDOW)
                 .await?
             {
-                THROTTLED.add(1, &[("category", category.as_str())]);
+                Throttled {
+                    category: category.as_str(),
+                }
+                .record();
                 return Err(HttpSecurityError::RateLimited);
             }
             let context = RequestContext::new(client_ip, request.headers());

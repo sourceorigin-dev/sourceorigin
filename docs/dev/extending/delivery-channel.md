@@ -2,7 +2,7 @@
 
 This guide adds a channel to the outbound delivery queue: a kind of message auth
 sends to another system, such as an audit witness's checkpoints. The queue
-already gives every channel its guarantees, retries, leases, metrics and
+already gives every channel its guarantees, retries, leases, analytics and
 operations; a channel supplies what it stores and how it sends.
 [The delivery queue](../architecture/delivery-queue.md) describes how the queue
 works.
@@ -19,7 +19,7 @@ The examples follow the back-channel logout channel:
   channel's maximum age.
 - The channel in `auth-service deliveries` and on the dashboard's Deliveries
   page, which list, retry and cancel any channel's deliveries, and in the
-  delivery metrics, labelled by its name.
+  delivery analytics rows, by its name.
 
 ## Before you start
 

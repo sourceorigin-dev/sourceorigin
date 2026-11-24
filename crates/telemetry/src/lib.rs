@@ -1,24 +1,22 @@
 //! Telemetry for service executables: logs on stderr always, OpenTelemetry
-//! traces, metrics and logs over OTLP/HTTP when `OTEL_EXPORTER_OTLP_ENDPOINT` is
-//! set, and analytics rows in ClickHouse when `ANALYTICS_URL` is.
+//! traces and logs over OTLP/HTTP when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, and
+//! analytics rows in ClickHouse when `ANALYTICS_URL` is.
 //!
-//! Features use it five ways:
+//! Features use it four ways:
 //!
 //! - **Spans and logs:** the `tracing` macros. Every request and job run has a
 //!   trace, and each log line inside it carries its trace ID, on stderr and in
 //!   exported logs.
 //! - **HTTP servers:** [`HttpTelemetry`] gives each request of a router one server
-//!   span, an access log line and the `http.server.request.duration` histogram.
+//!   span, an access log line and a `requests` row.
 //! - **HTTP clients:** [`SendTraced::send_traced`] sends a `reqwest` request in a
 //!   client span.
-//! - **Metrics:** a `static` [`Counter`], [`Histogram`] or [`Gauge`], labelled with
-//!   [`Labels`] whose values are `&'static str`, so no ID, name or address can
-//!   label a metric.
 //! - **Analytics:** a [`signal!`] row, recorded with
 //!   [`Signal::record`](analytics::Signal::record) and kept in ClickHouse, whose
-//!   fields can only be numbers, vocabularies and pseudonymous IDs.
+//!   fields can only be numbers, vocabularies and pseudonymous IDs. What a
+//!   metric would count or measure is a row, and a chart is a query.
 //!
-//! Everything a span, log line or label holds may be exported. Never record a
+//! Everything a span or log line holds may be exported. Never record a
 //! secret, a request path or query string, or a request header.
 #![warn(clippy::print_stdout, clippy::print_stderr)]
 
@@ -28,10 +26,8 @@ extern crate self as sourceorigin_telemetry;
 pub mod analytics;
 /// OTLP export through the workspace's `reqwest`.
 mod export;
-/// Server spans, access logs and request durations for axum routers.
+/// Server spans, access logs and `requests` rows for axum routers.
 mod http;
-/// Instruments declared as `static`s.
-mod metrics;
 
 /// In-memory capture of what tests would export.
 #[cfg(any(test, feature = "test-util"))]
@@ -40,8 +36,7 @@ mod capture;
 #[cfg(any(test, feature = "test-util"))]
 pub use capture::Capture;
 pub use export::{Export, ExportError};
-pub use http::HttpTelemetry;
-pub use metrics::{Counter, Gauge, Histogram, Instrument, Label, Labels};
+pub use http::{HttpTelemetry, RequestServed};
 /// What `signal!` derives with, so its callers need no serde of their own.
 #[doc(hidden)]
 pub use serde as __serde;
@@ -52,8 +47,7 @@ use export::Exporters;
 use opentelemetry::{KeyValue, trace::TraceContextExt};
 use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
 use opentelemetry_sdk::{
-    Resource, error::OTelSdkError, logs::SdkLoggerProvider, metrics::SdkMeterProvider,
-    trace::SdkTracerProvider,
+    Resource, error::OTelSdkError, logs::SdkLoggerProvider, trace::SdkTracerProvider,
 };
 use sourceorigin_common::{
     ErrorChain, TraceId,
@@ -73,7 +67,7 @@ use tracing_subscriber::{
 };
 use uuid::Uuid;
 
-/// Instrumentation scope of every tracer and meter.
+/// Instrumentation scope of every tracer.
 const SCOPE: &str = "sourceorigin";
 /// Added to every filter: this crate's spans and access logs, the client spans of
 /// [`SendTraced`], and the SDK's own warnings, such as failed exports.
@@ -133,8 +127,6 @@ pub enum TelemetryError {
 pub struct Telemetry {
     /// Assigns trace IDs, and exports spans when exporting.
     tracer: SdkTracerProvider,
-    /// Exports metrics, when exporting.
-    meter: Option<SdkMeterProvider>,
     /// Exports logs, when exporting.
     logger: Option<SdkLoggerProvider>,
     /// Sends analytics rows, when `ANALYTICS_URL` is set.
@@ -169,17 +161,12 @@ impl Telemetry {
             Err(error) if export == Export::Optional => (None, Some(error)),
             Err(error) => return Err(TelemetryError::Analytics(error)),
         };
+        let _ = http::SERVICE.set(service);
         let resource = Self::resource(service);
         let mut tracer = SdkTracerProvider::builder().with_resource(resource.clone());
-        let (mut meter, mut logger) = (None, None);
+        let mut logger = None;
         if let Some(exporters) = exporters {
             tracer = tracer.with_batch_exporter(exporters.spans);
-            let provider = SdkMeterProvider::builder()
-                .with_resource(resource.clone())
-                .with_periodic_exporter(exporters.metrics)
-                .build();
-            opentelemetry::global::set_meter_provider(provider.clone());
-            meter = Some(provider);
             logger = Some(
                 SdkLoggerProvider::builder()
                     .with_resource(resource)
@@ -189,7 +176,6 @@ impl Telemetry {
         }
         let telemetry = Self {
             tracer: tracer.build(),
-            meter,
             logger,
             analytics: store.and_then(AnalyticsWriter::start),
         };
@@ -226,16 +212,14 @@ impl Telemetry {
     pub async fn shutdown(self, within: Duration) -> Result<(), TelemetryError> {
         let Self {
             tracer,
-            meter,
             logger,
             analytics,
         } = self;
         let (flushed, result) = tokio::sync::oneshot::channel();
         std::thread::spawn(move || {
             let tracer = tracer.shutdown();
-            let meter = meter.map_or(Ok(()), |meter| meter.shutdown());
             let logger = logger.map_or(Ok(()), |logger| logger.shutdown());
-            flushed.send(tracer.and(meter).and(logger)).ok();
+            flushed.send(tracer.and(logger)).ok();
         });
         let analytics = async {
             if let Some(analytics) = &analytics {

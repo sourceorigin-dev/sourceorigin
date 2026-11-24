@@ -24,8 +24,9 @@ pub use capture::AnalyticsCapture;
 pub use store::{OWNER_VARIABLES, Store, StoreError, VARIABLES};
 pub(crate) use writer::Writer;
 
-use serde::Serialize;
+use serde::{Serialize, Serializer};
 use sourceorigin_common::{ClientId, EventId, TraceId};
+use std::sync::Arc;
 
 /// One kind of row, and the table that stores it. Declare one with
 /// [`signal!`](crate::signal), which implements this trait.
@@ -123,6 +124,33 @@ columns! {
     Option<ClientId> => "LowCardinality(Nullable(String))";
     EventId => "UUID" key;
     Option<TraceId> => "Nullable(FixedString(32))";
+    Option<Route> => "LowCardinality(Nullable(String))";
+}
+
+/// A route template of a router, such as `/account/passkeys/{id}`: a column only
+/// [`HttpTelemetry`](crate::HttpTelemetry) builds, from the router's own table,
+/// so it is never a path a client sent.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Route(Arc<str>);
+
+impl Route {
+    /// The template a request matched.
+    pub(crate) fn matched(path: &axum::extract::MatchedPath) -> Self {
+        Self(Arc::from(path.as_str()))
+    }
+
+    /// The template, as written in the router.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl Serialize for Route {
+    /// Writes the template.
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.0)
+    }
 }
 
 /// Declares a [`Signal`]: a struct whose fields are [`Column`]s, and the table

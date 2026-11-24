@@ -4,7 +4,7 @@ use super::{AuditChain, AuditError, AuditKeys, Chain, CheckpointText, TrustedChe
 use crate::{
     alerts::Alerts,
     config::AuditConfig,
-    jobs::{ExclusiveJob, Shutdown},
+    jobs::{ExclusiveJob, JobCounted, Shutdown},
 };
 use chrono::{SubsecRound, TimeDelta, Utc};
 use sourceorigin_common::{
@@ -14,20 +14,12 @@ use sourceorigin_common::{
 };
 use sourceorigin_crypto::NoteKey;
 use sourceorigin_repository::{ChainLink, Checkpoint, ExclusiveConnection, LockKey, SealedEvent};
-use sourceorigin_telemetry::Counter;
+use sourceorigin_telemetry::analytics::Signal;
 use std::{
     sync::{Arc, Mutex, PoisonError},
     time::Duration,
 };
 use tokio::time::Instant;
-
-/// Checkpoints the sealer passed over because none of the environment's audit
-/// keys verifies them, counted each time it looks for one to build on.
-static UNTRUSTED_CHECKPOINTS: Counter = Counter::new(
-    "sourceorigin.auth.audit.untrusted_checkpoints",
-    "{checkpoint}",
-    "Checkpoints newer than the newest one that verifies, counted each time the sealer passes over them.",
-);
 
 /// Seals events in safe consumer order, on one replica at a time, and signs a
 /// checkpoint of the head every five minutes while there are new events.
@@ -156,7 +148,11 @@ impl Sealer {
         let TrustedCheckpoint { trusted, untrusted } =
             self.keys.newest_trusted(&mut tx.audit()).await?;
         if let Some(newest) = untrusted.first() {
-            UNTRUSTED_CHECKPOINTS.add(untrusted.len() as u64, &());
+            JobCounted {
+                count: "untrusted_checkpoints",
+                value: u64::try_from(untrusted.len()).unwrap_or(u64::MAX),
+            }
+            .record();
             tracing::error!(
                 count = untrusted.len(),
                 newest = newest.position,

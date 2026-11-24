@@ -216,24 +216,21 @@ running release may decode it: it fails
 at its channel's `MAX_AGE`, and you can retry it once a release that decodes it
 runs again, or cancel it.
 
-### Metrics
+### Analytics
 
-Labelled by `channel`, and the attempt counter also by a closed `outcome`, never
-by destination, client or user. The Auth
-overview dashboard charts them in its Deliveries row.
+Each attempt and each backlog count is an [analytics](analytics.md) row, by
+`channel`, never by destination, client or user.
 
-| Metric | Kind | Meaning |
+| Table | One row per | Columns |
 | --- | --- | --- |
-| `sourceorigin.auth.deliveries.attempts{channel, outcome}` | Counter | Attempts by outcome, counted where the worker records it: `succeeded`, `retried`, `failed`, or `lease_lost` when its claim token no longer held the delivery and the outcome was discarded |
-| `sourceorigin.auth.deliveries.pending{channel}` | Gauge | Deliveries waiting for an attempt, or being attempted |
-| `sourceorigin.auth.deliveries.oldest_pending_age{channel}` | Gauge, seconds | Time since the oldest pending delivery was created, or last retried by an operator |
+| `delivery_attempts` | attempt, once the worker recorded its outcome | `outcome`: `succeeded`, `retried`, `failed`, or `lease_lost` when its claim token no longer held the delivery and the outcome was discarded |
+| `delivery_backlogs` | count, every 30 seconds on each replica | `pending`, the deliveries waiting for an attempt or being attempted, and `oldest_age_s`, the seconds since the oldest was created or last retried by an operator |
 
 An attempt whose outcome could not be recorded, because the database failed, is
-logged and not counted; its lease expires and it is attempted again. Every
-replica counts each channel's pending deliveries every 30 seconds, through
-`deliveries_due_idx`, and reports the same queue-wide numbers, so dashboards
-take their maximum rather than their sum. A failed count drops the channel's
-gauges until the next one succeeds.
+logged and records no row; its lease expires and it is attempted again. Every
+replica counts each channel's pending deliveries through `deliveries_due_idx`
+and records the same queue-wide numbers, so a chart takes their maximum per
+interval rather than their sum. A failed count is logged and records nothing.
 
 ## Channels
 
