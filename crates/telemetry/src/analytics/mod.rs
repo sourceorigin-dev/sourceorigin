@@ -52,7 +52,8 @@ pub trait Product: Serialize {
     /// Queues this row, as [`Signal::record`] does, with `consent` to show the
     /// person it is about takes part in usage statistics. Its time holds the
     /// day only, and it is sent with its hour's others, so neither points to the
-    /// moment of the sign-in or change it counts.
+    /// moment of the sign-in or change it counts, unless it is its hour's only
+    /// one.
     fn record(&self, consent: Consent) {
         let Consent(()) = consent;
         writer::record(Self::TABLE.name, writer::Stamp::Day, self);

@@ -87,6 +87,27 @@ fn a_product_row_keeps_only_its_day() {
     );
 }
 
+/// A product table's rows wait for the hour, and then go first.
+#[test]
+fn product_rows_wait_for_the_hour_then_go_first() {
+    use super::writer::{Batches, Stamp, Writer};
+    let row = || vec!["{}".to_owned()];
+    let mut batches: Batches = [
+        ("requests", (Stamp::Millisecond, row())),
+        ("passkeys_used", (Stamp::Day, row())),
+    ]
+    .into();
+    let tables = |due: Vec<(&'static str, Vec<String>)>| {
+        due.into_iter().map(|(table, _)| table).collect::<Vec<_>>()
+    };
+    assert_eq!(tables(Writer::due(&mut batches, false)), ["requests"]);
+    batches.get_mut("requests").expect("requests").1 = row();
+    assert_eq!(
+        tables(Writer::due(&mut batches, true)),
+        ["passkeys_used", "requests"]
+    );
+}
+
 /// A table at its limit drops its own rows, while another table's still queue.
 #[tokio::test]
 async fn a_full_table_drops_only_its_own_rows() {

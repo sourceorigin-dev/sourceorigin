@@ -30,7 +30,7 @@ const BATCH: usize = QUEUE;
 /// How often queued rows are sent, so ClickHouse gets few, large inserts.
 const INTERVAL: Duration = Duration::from_secs(1);
 /// How often a product table's rows are sent: an insert's own time, which
-/// ClickHouse logs, then counts an hour's people, not one sign-in.
+/// ClickHouse logs, then counts an hour's people, unless the hour had only one.
 const PRODUCT_INTERVAL: Duration = Duration::from_hours(1);
 
 /// The installed writer's queue, until the process exits. [`QUEUED`] bounds it.
@@ -109,7 +109,7 @@ pub(super) fn record<S: Serialize + ?Sized>(table: &'static str, stamp: Stamp, s
 }
 
 /// Each table's waiting rows, with how its rows are stamped.
-type Batches = HashMap<&'static str, (Stamp, Vec<String>)>;
+pub(super) type Batches = HashMap<&'static str, (Stamp, Vec<String>)>;
 
 /// The installed writer, which `Telemetry::shutdown` flushes.
 pub(crate) struct Writer {
@@ -179,17 +179,30 @@ impl Writer {
     }
 
     /// Sends every table's batch, a product table's only with `products`, and
-    /// reports the rows dropped since the last report.
+    /// first, since it holds up to an hour of rows; then reports the rows
+    /// dropped since the last report.
     async fn send_all(store: &Store, batches: &mut Batches, products: bool) {
-        for (table, (stamp, rows)) in batches.iter_mut() {
-            if !rows.is_empty() && (products || *stamp != Stamp::Day) {
-                Self::send(store, table, std::mem::take(rows)).await;
-            }
+        for (table, rows) in Self::due(batches, products) {
+            Self::send(store, table, rows).await;
         }
         let dropped = DROPPED.swap(0, Ordering::Relaxed);
         if dropped > 0 {
             tracing::warn!(analytics.dropped = dropped, "analytics rows dropped");
         }
+    }
+
+    /// Takes the batches due now: every table's with rows, but a product
+    /// table's only with `products`, product tables first.
+    pub(super) fn due(batches: &mut Batches, products: bool) -> Vec<(&'static str, Vec<String>)> {
+        let mut due: Vec<_> = batches
+            .iter_mut()
+            .filter(|(_, (stamp, rows))| !rows.is_empty() && (products || *stamp != Stamp::Day))
+            .map(|(table, (stamp, rows))| (*stamp != Stamp::Day, *table, std::mem::take(rows)))
+            .collect();
+        due.sort_by_key(|(operational, ..)| *operational);
+        due.into_iter()
+            .map(|(_, table, rows)| (table, rows))
+            .collect()
     }
 
     /// Inserts `rows` into `table`, or drops and counts them. Either way they

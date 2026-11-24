@@ -129,10 +129,11 @@ if let Some(consent) = context.consent(&mut tx, user_id).await? {
 ```
 
 A product row still names no account. Its time holds the day only, and the
-writer sends product tables once an hour, so neither the row nor its insert,
-which ClickHouse's query log times, points to the moment of the sign-in or
-change it counts. On a day with a single sign-in, the day alone still does:
-consent decides whether a person is counted at all.
+writer sends product tables once an hour, or once 5,000 rows wait, so neither
+the row nor its insert, which ClickHouse's query log times, points to the
+moment of the sign-in or change it counts. An hour with a single counted
+sign-in still points to it, to whoever reads ClickHouse's own logs and the
+audit history together: consent decides whether a person is counted at all.
 
 ## Tables
 
@@ -164,10 +165,11 @@ its rights, so running replicas never lose them while it does.
 ## The writer
 
 `Telemetry::init` starts the writer when `ANALYTICS_URL` is set. Each table may
-have 5,000 rows waiting, and a task sends each table's every second, or once
-5,000 wait, as one `INSERT … FORMAT JSONEachRow` over ClickHouse's HTTP
-interface, so ClickHouse gets few, large inserts. `Telemetry::shutdown` sends
-what is left before the process exits.
+have 5,000 rows waiting, and a task sends each table's every second, a product
+table's every hour, or once 5,000 wait, as one `INSERT … FORMAT JSONEachRow`
+over ClickHouse's HTTP interface, so ClickHouse gets few, large inserts.
+`Telemetry::shutdown` sends what is left before the process exits, product
+tables first; a process that is killed loses up to an hour of product rows.
 
 Analytics is best effort, like telemetry. When a table already has 5,000 rows
 waiting, or ClickHouse refuses or doesn't answer an insert, the rows are
