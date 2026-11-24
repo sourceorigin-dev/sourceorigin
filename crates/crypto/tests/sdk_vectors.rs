@@ -215,10 +215,12 @@ impl Vectors {
     fn jwks(&self, kids: &[&str]) -> Value {
         let keys = kids
             .iter()
-            .flat_map(|kid| match *kid {
-                OLD_KID => self.old.jwks().keys.clone(),
-                NEW_KID => self.new.jwks().keys.clone(),
-                _ => unreachable!("unknown test key {kid}"),
+            .flat_map(|kid| {
+                [(OLD_KID, &self.old), (NEW_KID, &self.new)]
+                    .into_iter()
+                    .find(|(name, _)| name == kid)
+                    .map(|(_, key)| key.jwks().keys.clone())
+                    .expect("a known test key")
             })
             .collect();
         serde_json::to_value(JwkSet { keys }).expect("serialize JWKS")

@@ -40,6 +40,7 @@ unwrap_used = "warn"
 expect_used = "warn"
 panic = "warn"
 todo = "warn"
+unreachable = "warn"
 unimplemented = "warn"
 dbg_macro = "warn"
 # Every exception names its lint with `#[expect]` and says why.
