@@ -96,6 +96,11 @@ pub(crate) trait Sender: Send + Sync + 'static {
         &self,
         delivery: &Delivery<Self::Channel>,
     ) -> impl Future<Output = Result<(), DeliveryError>> + Send;
+
+    /// Called each time a worker's poll finds nothing due, so a test can await
+    /// an idle poll.
+    #[cfg(test)]
+    fn idle(&self) {}
 }
 
 /// Why an attempt failed, and whether another attempt may succeed.
@@ -270,7 +275,10 @@ impl<S: Sender> Worker<S> {
                     self.attempt(delivery).await;
                     continue;
                 }
-                Ok(None) => {}
+                Ok(None) => {
+                    #[cfg(test)]
+                    self.sender.idle();
+                }
                 Err(error) => {
                     tracing::error!(
                         error = %ErrorChain(&error),
