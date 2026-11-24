@@ -20,6 +20,8 @@ sourceorigin_common::str_enum! {
         AlertUpdates = "alert_updates",
         /// Conditions administrators are shown.
         Alerts = "alerts",
+        /// The accounts whose owners left usage statistics.
+        AnalyticsOptOuts = "analytics_opt_outs",
         /// The accounts an announcement goes to.
         AnnouncementRecipients = "announcement_recipients",
         /// Announcements administrators write.
@@ -145,6 +147,7 @@ impl Table {
             Self::EventPersonalData => Holds::Exported("events/*/ip"),
             Self::Notifications => Holds::Exported("notifications"),
             Self::NotificationPreferences => Holds::Exported("notification_preferences"),
+            Self::AnalyticsOptOuts => Holds::Exported("profile/left_usage_statistics_at"),
             Self::Announcements | Self::AnnouncementRecipients => Holds::Exported("announcements"),
             Self::AccountDeletions => Holds::Withheld(
                 "it exists only while the account is scheduled for deletion, \

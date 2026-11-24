@@ -214,6 +214,9 @@ impl HistoryRow<'_> {
                 "Signed out everywhere with a security email's link".to_owned()
             }
             HistoryEntry::NotificationPreferenceChanged(preference) => preference.change(),
+            HistoryEntry::UsageStatisticsChanged { included } => {
+                super::statistics_change(*included).to_owned()
+            }
             HistoryEntry::DeletionScheduled { purge_after } => format!(
                 "Account deletion scheduled for {}",
                 Precision::Day.write(*purge_after)

@@ -130,13 +130,14 @@ impl Fixture {
 /// replicas of the whole service, export no secret: no cookie, ceremony, `WebAuthn`
 /// challenge or assertion, authorization query, code, PKCE verifier or token. Each
 /// request is one trace holding its queries, and the events it records are logged
-/// in it.
+/// in it. The sign-in records which kind of passkey it used, and nothing more.
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn telemetry_exports_no_secret_of_a_sign_in_and_code_exchange() {
-    use sourceorigin_telemetry::Telemetry;
+    use sourceorigin_telemetry::{Telemetry, analytics::AnalyticsCapture};
 
     let capture = Telemetry::capture(crate::TELEMETRY_FILTER);
+    let analytics = AnalyticsCapture::start();
     let mut fixture = Fixture::new().await;
     let replicas = Replicas::new().await;
     let client = sourceorigin_common::clients::ClientRegistration {
@@ -156,6 +157,10 @@ async fn telemetry_exports_no_secret_of_a_sign_in_and_code_exchange() {
             .exchange_with_secrets(&session, &client)
             .await,
     );
+    let used = analytics.rows("passkeys_used");
+    assert_eq!(used.len(), 1, "{used:?}");
+    let columns: Vec<_> = used[0].as_object().expect("a row").keys().collect();
+    assert_eq!(columns, ["syncable", "synced", "transport"]);
     let exported = capture.exported_text();
     for secret in &secrets {
         assert!(

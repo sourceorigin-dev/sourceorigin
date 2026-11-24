@@ -38,7 +38,7 @@ use tracing::Instrument;
 /// The `format` of every export.
 const FORMAT: &str = "sourceorigin.account-export";
 /// The export's version; a change to its shape gets a new one.
-const VERSION: u32 = 6;
+const VERSION: u32 = 7;
 /// Where the serialized credential holds whether the passkey may be synced.
 const BACKUP_ELIGIBLE_POINTER: &str = "/cred/backup_eligible";
 /// Where the serialized credential holds whether the passkey is synced.
@@ -61,15 +61,13 @@ static STREAMING: Semaphore = Semaphore::const_new(STREAMS);
 const VIEWS: &str = DomainEvent::AccountViewed {}.kind();
 
 /// Everything auth stores about an account, read from one snapshot and streamed
-/// as one document: `{"format": "sourceorigin.account-export", "version": 6, …,
+/// as one document: `{"format": "sourceorigin.account-export", "version": 7, …,
 /// "events": […]}`. Version 2 added the profile picture; version 3 moved
 /// dashboard sessions under the sessions they rest on. Version 4 added what
-/// ended and is still stored (revoked passkeys, unlinked identities, ended
-/// sessions), each session's apps, the owned apps' related origins, and every
-/// event about the account as stored, which replaced its history, deleted apps,
-/// notifications of kinds a newer release wrote, and received announcements;
-/// version 5 the known devices; in version 6, the profile's `handle_changed_at`
-/// is `null` until the handle first changes.
+/// ended and is still stored, each session's apps, the owned apps' related
+/// origins, every event about the account, notifications and announcements;
+/// version 5 the known devices; in version 6, `handle_changed_at` is `null`
+/// until the handle first changes; version 7 added `left_usage_statistics_at`.
 pub(crate) struct AccountExport {
     /// Every section but the events, read when the export starts.
     records: Records,
@@ -148,6 +146,8 @@ struct Profile {
     created_at: DateTime<Utc>,
     /// When the profile last changed.
     updated_at: DateTime<Utc>,
+    /// When the account left usage statistics, or `null` while it takes part.
+    left_usage_statistics_at: Option<DateTime<Utc>>,
 }
 
 /// The profile picture: the JPEG auth stores and serves.
@@ -350,9 +350,9 @@ impl From<admin::Recovery> for Recovery {
     }
 }
 
-impl From<StoredUser> for Profile {
-    /// Keeps every column.
-    fn from(user: StoredUser) -> Self {
+impl Profile {
+    /// `user`'s every column, and when it left usage statistics, if it did.
+    fn new(user: StoredUser, left_usage_statistics_at: Option<DateTime<Utc>>) -> Self {
         Self {
             id: user.id,
             handle: user.handle,
@@ -361,6 +361,7 @@ impl From<StoredUser> for Profile {
             status: user.status,
             created_at: user.created_at,
             updated_at: user.updated_at,
+            left_usage_statistics_at,
         }
     }
 }
@@ -422,6 +423,7 @@ impl AccountExport {
             .find_by_id(user_id)
             .await?
             .ok_or(DatabaseError::NotFound)?;
+        let left_usage_statistics_at = tx.users().analytics_left_at(user_id).await?;
         let picture = match tx.pictures().find(user_id).await? {
             Some(picture) => {
                 let image = tx.pictures().image_of(user_id).await?;
@@ -482,7 +484,7 @@ impl AccountExport {
                 .collect(),
             notification_preferences: tx.notifications().preferences(user_id).await?,
             announcements: tx.exports().announcements(user_id).await?,
-            profile: user.into(),
+            profile: Profile::new(user, left_usage_statistics_at),
         };
         Ok(Self {
             records,

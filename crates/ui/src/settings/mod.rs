@@ -22,6 +22,7 @@ mod sign_in;
 mod timeline;
 
 pub use connected::{ConnectedAppChange, ConnectedAppRow, ConnectedAppsState, connected_apps};
+pub(crate) use data::statistics_change;
 pub use data::{DataChange, DataState, account_data, account_deleted};
 pub use emails::{
     EmailChange, EmailRow, EmailsState, PASTE_WHOLE_LINK, addresses, verified, verify,
@@ -259,13 +260,15 @@ pub(crate) enum Part {
     Apps,
     /// Downloading the account's data.
     Export,
+    /// Taking part in usage statistics.
+    Statistics,
     /// Deleting the account.
     Delete,
 }
 
 impl Part {
     /// Every part.
-    const ALL: [Self; 12] = [
+    const ALL: [Self; 13] = [
         Self::Activity,
         Self::Inbox,
         Self::Passkeys,
@@ -277,6 +280,7 @@ impl Part {
         Self::KnownBrowsers,
         Self::Apps,
         Self::Export,
+        Self::Statistics,
         Self::Delete,
     ];
 
@@ -294,6 +298,7 @@ impl Part {
             Self::KnownBrowsers => "known-heading",
             Self::Apps => "apps-heading",
             Self::Export => "export-heading",
+            Self::Statistics => "statistics-heading",
             Self::Delete => "delete-heading",
         }
     }
@@ -312,7 +317,7 @@ impl Part {
             Self::Addresses | Self::AddAddress => Tab::Emails,
             Self::Devices | Self::KnownBrowsers => Tab::Devices,
             Self::Apps => Tab::Apps,
-            Self::Export | Self::Delete => Tab::Data,
+            Self::Export | Self::Statistics | Self::Delete => Tab::Data,
         }
     }
 
@@ -352,6 +357,10 @@ impl Part {
             Self::Export => Spot::setting(
                 "Download your data",
                 "export takeout archive json backup gdpr copy",
+            ),
+            Self::Statistics => Spot::setting(
+                "Usage statistics",
+                "analytics tracking privacy opt out telemetry metrics",
             ),
             Self::Delete => Spot::setting(
                 "Delete your account",

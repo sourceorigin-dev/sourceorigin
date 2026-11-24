@@ -7,12 +7,59 @@ use crate::security::{Credential, RequestContext};
 use serde_json::Value;
 use sourceorigin_common::{AccountStatus, AuthenticationMethod, PasskeyId, UserId, events::Actor};
 use sourceorigin_repository::{DatabaseError, DatabaseTransaction};
+use sourceorigin_telemetry::analytics::Product;
 use webauthn_rs::prelude::*;
 
 /// Signature counter location in webauthn-rs's serialized passkey representation.
 pub(super) const CREDENTIAL_COUNTER_POINTER: &str = "/cred/counter";
 /// Stable telemetry event name for a signature counter regression, a sign of a copied passkey.
 const COUNTER_REGRESSION_EVENT: &str = "auth.passkey_counter_regression";
+/// Transports location in webauthn-rs's serialized passkey representation.
+const CREDENTIAL_TRANSPORTS_POINTER: &str = "/cred/transports";
+
+sourceorigin_telemetry::signal! {
+    /// A passkey someone asserted with, to sign in, confirm, undo a recovery or
+    /// sign in to the admin dashboard, once that committed: which kinds of
+    /// passkeys people use, never whose.
+    pub(crate) product struct PasskeyUsed in "passkeys_used", kept 390 days, ordered by (synced) {
+        /// Whether it is backed up or synced between devices, as a password
+        /// manager's or a phone platform's passkeys are.
+        pub(crate) synced: bool,
+        /// Whether it may be synced, though it may not be now: a security key's
+        /// never is.
+        pub(crate) syncable: bool,
+        /// How it can be reached, as the browser said when it was added, the most
+        /// specific way first: `internal` (built in), `hybrid` (a phone), `usb`,
+        /// `nfc`, `ble`, or `unknown`.
+        pub(crate) transport: &'static str,
+    }
+}
+
+impl PasskeyUsed {
+    /// The row of `result`, an assertion of `credential`, as stored.
+    fn of(result: &AuthenticationResult, credential: &Value) -> Self {
+        Self {
+            synced: result.backup_state(),
+            syncable: result.backup_eligible(),
+            transport: Self::transport(credential),
+        }
+    }
+
+    /// The most specific transport `credential` lists. Browsers list them in
+    /// alphabetical order, so a platform passkey that also syncs to a phone
+    /// says `hybrid` first.
+    fn transport(credential: &Value) -> &'static str {
+        let listed = credential
+            .pointer(CREDENTIAL_TRANSPORTS_POINTER)
+            .and_then(Value::as_array);
+        ["internal", "hybrid", "usb", "nfc", "ble"]
+            .into_iter()
+            .find(|transport| {
+                listed.is_some_and(|listed| listed.iter().any(|value| value == transport))
+            })
+            .unwrap_or("unknown")
+    }
+}
 
 impl PasskeyApplication {
     /// Locks the account, whatever its status, then checks the latest stored
@@ -23,7 +70,7 @@ impl PasskeyApplication {
         tx: &mut DatabaseTransaction<'_>,
         user_id: UserId,
         result: &AuthenticationResult,
-    ) -> Result<A, PasskeyError> {
+    ) -> Result<(A, PasskeyUsed), PasskeyError> {
         if !result.user_verified() {
             return Err(PasskeyError::UserVerificationRequired);
         }
@@ -47,6 +94,7 @@ impl PasskeyApplication {
         if (counter > 0 || result.counter() > 0) && u64::from(result.counter()) <= counter {
             return Err(PasskeyError::CounterRegression);
         }
+        let used = PasskeyUsed::of(result, &stored.credential);
         let mut credential: Passkey =
             serde_json::from_value(stored.credential).map_err(PasskeyError::StoredCredential)?;
         credential
@@ -63,7 +111,7 @@ impl PasskeyApplication {
             return Err(PasskeyError::CredentialRevoked);
         }
         let credential = Self::credential(tx, stored.id).await?;
-        A::accept(status, stored.id, credential)
+        Ok((A::accept(status, stored.id, credential)?, used))
     }
 
     /// What an assertion of `passkey` signs in as: a recovery's passkey during its
@@ -97,7 +145,12 @@ impl PasskeyApplication {
             Ok(result) => {
                 let mut tx = self.database.begin().await?;
                 match Self::update_credential(&mut tx, user_id, &result).await {
-                    Ok(accepted) => return Ok((tx, accepted)),
+                    Ok((accepted, used)) => {
+                        if let Some(consent) = context.consent(&mut tx, user_id).await? {
+                            tx.after_commit(move || used.record(consent));
+                        }
+                        return Ok((tx, accepted));
+                    }
                     Err(error) => (error, Some(tx)),
                 }
             }
@@ -242,5 +295,21 @@ impl Acceptance for Accepted {
             AccountStatus::Disabled => Ok(Self::Disabled(passkey)),
             AccountStatus::Deleting => Err(PasskeyError::AccountInactive),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! Which transport a passkey's row names.
+    use super::PasskeyUsed;
+    use serde_json::json;
+
+    /// The most specific listed transport wins, whatever the list's order.
+    #[test]
+    fn the_most_specific_transport_counts() {
+        let transport = |listed| PasskeyUsed::transport(&json!({"cred": {"transports": listed}}));
+        assert_eq!(transport(json!(["hybrid", "internal"])), "internal");
+        assert_eq!(transport(json!(["nfc", "usb"])), "usb");
+        assert_eq!(transport(json!(null)), "unknown");
     }
 }

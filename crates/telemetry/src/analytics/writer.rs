@@ -29,6 +29,9 @@ pub(super) const QUEUE: usize = 5_000;
 const BATCH: usize = QUEUE;
 /// How often queued rows are sent, so ClickHouse gets few, large inserts.
 const INTERVAL: Duration = Duration::from_secs(1);
+/// How often a product table's rows are sent: an insert's own time, which
+/// ClickHouse logs, then counts an hour's people, unless the hour had only one.
+const PRODUCT_INTERVAL: Duration = Duration::from_hours(1);
 
 /// The installed writer's queue, until the process exits. [`QUEUED`] bounds it.
 static QUEUE_SENDER: OnceLock<mpsc::UnboundedSender<Message>> = OnceLock::new();
@@ -41,8 +44,8 @@ pub(super) static DROPPED: AtomicU64 = AtomicU64::new(0);
 
 /// What the queue carries.
 enum Message {
-    /// A row for a table, as a line of JSON.
-    Row(&'static str, String),
+    /// A row for a table, as a line of JSON, stamped as its table's are.
+    Row(&'static str, Stamp, String),
     /// Send everything queued before it, then answer.
     Flush(oneshot::Sender<()>),
 }
@@ -57,11 +60,33 @@ struct Stamped<'a, S: ?Sized> {
     signal: &'a S,
 }
 
-/// Queues `signal` for `table`, unless a test captures it; see
-/// [`Signal::record`](super::Signal::record).
-pub(super) fn record<S: Serialize + ?Sized>(table: &'static str, signal: &S) {
+/// How precisely a row's time is kept, and how soon it is sent.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Stamp {
+    /// To the millisecond, as an operational row's.
+    Millisecond,
+    /// To the day, as a product row's, and sent every hour: a time precise
+    /// enough to line it up with a sign-in's event would tell whose it is.
+    Day,
+}
+
+impl Stamp {
+    /// The current time, as precisely as this stamp keeps it, as ClickHouse
+    /// parses a `DateTime64(3)`.
+    pub(super) fn now(self) -> String {
+        let format = match self {
+            Self::Millisecond => "%Y-%m-%d %H:%M:%S%.3f",
+            Self::Day => "%Y-%m-%d 00:00:00.000",
+        };
+        Utc::now().format(format).to_string()
+    }
+}
+
+/// Queues `signal` for `table`, stamped to `stamp`, unless a test captures it;
+/// see [`Signal::record`](super::Signal::record).
+pub(super) fn record<S: Serialize + ?Sized>(table: &'static str, stamp: Stamp, signal: &S) {
     let row = Stamped {
-        time: Utc::now().format("%Y-%m-%d %H:%M:%S%.3f").to_string(),
+        time: stamp.now(),
         signal,
     };
     #[cfg(any(test, feature = "test-util"))]
@@ -76,12 +101,15 @@ pub(super) fn record<S: Serialize + ?Sized>(table: &'static str, signal: &S) {
     };
     let mut queued = QUEUED.lock().unwrap_or_else(PoisonError::into_inner);
     let count = queued.entry(table).or_default();
-    if *count >= QUEUE || queue.send(Message::Row(table, line)).is_err() {
+    if *count >= QUEUE || queue.send(Message::Row(table, stamp, line)).is_err() {
         DROPPED.fetch_add(1, Ordering::Relaxed);
         return;
     }
     *count += 1;
 }
+
+/// Each table's waiting rows, with how its rows are stamped.
+pub(super) type Batches = HashMap<&'static str, (Stamp, Vec<String>)>;
 
 /// The installed writer, which `Telemetry::shutdown` flushes.
 pub(crate) struct Writer {
@@ -114,17 +142,19 @@ impl Writer {
         }
     }
 
-    /// Batches rows by table, and sends each table's every [`INTERVAL`], or
-    /// once it holds [`BATCH`] rows.
+    /// Batches rows by table, and sends each table's every [`INTERVAL`], a
+    /// product table's every [`PRODUCT_INTERVAL`], or once it holds [`BATCH`]
+    /// rows.
     async fn run(store: Store, mut queue: mpsc::UnboundedReceiver<Message>) {
-        let mut batches: HashMap<&'static str, Vec<String>> = HashMap::new();
+        let mut batches: Batches = HashMap::new();
         let mut interval = tokio::time::interval(INTERVAL);
         interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
+        let mut products_due = tokio::time::Instant::now() + PRODUCT_INTERVAL;
         loop {
             tokio::select! {
                 message = queue.recv() => match message {
-                    Some(Message::Row(table, line)) => {
-                        let batch = batches.entry(table).or_default();
+                    Some(Message::Row(table, stamp, line)) => {
+                        let (_, batch) = batches.entry(table).or_insert((stamp, Vec::new()));
                         batch.push(line);
                         if batch.len() >= BATCH {
                             let rows = std::mem::take(batch);
@@ -132,28 +162,47 @@ impl Writer {
                         }
                     }
                     Some(Message::Flush(done)) => {
-                        Self::send_all(&store, &mut batches).await;
+                        Self::send_all(&store, &mut batches, true).await;
                         done.send(()).ok();
                     }
-                    None => return Self::send_all(&store, &mut batches).await,
+                    None => return Self::send_all(&store, &mut batches, true).await,
                 },
-                _ = interval.tick() => Self::send_all(&store, &mut batches).await,
+                _ = interval.tick() => {
+                    let products = tokio::time::Instant::now() >= products_due;
+                    if products {
+                        products_due += PRODUCT_INTERVAL;
+                    }
+                    Self::send_all(&store, &mut batches, products).await;
+                }
             }
         }
     }
 
-    /// Sends every table's batch, and reports the rows dropped since the last
-    /// report.
-    async fn send_all(store: &Store, batches: &mut HashMap<&'static str, Vec<String>>) {
-        for (table, rows) in batches.iter_mut() {
-            if !rows.is_empty() {
-                Self::send(store, table, std::mem::take(rows)).await;
-            }
+    /// Sends every table's batch, a product table's only with `products`, and
+    /// first, since it holds up to an hour of rows; then reports the rows
+    /// dropped since the last report.
+    async fn send_all(store: &Store, batches: &mut Batches, products: bool) {
+        for (table, rows) in Self::due(batches, products) {
+            Self::send(store, table, rows).await;
         }
         let dropped = DROPPED.swap(0, Ordering::Relaxed);
         if dropped > 0 {
             tracing::warn!(analytics.dropped = dropped, "analytics rows dropped");
         }
+    }
+
+    /// Takes the batches due now: every table's with rows, but a product
+    /// table's only with `products`, product tables first.
+    pub(super) fn due(batches: &mut Batches, products: bool) -> Vec<(&'static str, Vec<String>)> {
+        let mut due: Vec<_> = batches
+            .iter_mut()
+            .filter(|(_, (stamp, rows))| !rows.is_empty() && (products || *stamp != Stamp::Day))
+            .map(|(table, (stamp, rows))| (*stamp != Stamp::Day, *table, std::mem::take(rows)))
+            .collect();
+        due.sort_by_key(|(operational, ..)| *operational);
+        due.into_iter()
+            .map(|(_, table, rows)| (table, rows))
+            .collect()
     }
 
     /// Inserts `rows` into `table`, or drops and counts them. Either way they
