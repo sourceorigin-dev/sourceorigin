@@ -393,6 +393,10 @@ fn generate() -> String {
 
 /// The committed declarations match the Rust types.
 #[test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "`Variable` needs the `config` feature, which this crate's own tests do not enable"
+)]
 fn typescript_declarations_are_current() {
     let path =
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packages/auth/src/protocol.ts");

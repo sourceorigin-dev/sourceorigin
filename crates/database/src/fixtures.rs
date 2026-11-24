@@ -6,6 +6,7 @@ use crate::{Database, DatabaseConfig, EventRepository, InsertSession, InsertUser
 use chrono::{TimeDelta, Utc};
 use sourceorigin_common::{
     Handle, SessionId, UserId,
+    config::Variable,
     events::{Browser, DomainEvent, Platform, UserAgentFamily},
 };
 use std::{net::IpAddr, time::Duration};
@@ -17,6 +18,22 @@ impl Database {
     /// can take longer. A test that truly hangs still fails, after nextest's slow
     /// timeout at the latest.
     pub const TEST_ACQUIRE_TIMEOUT: Duration = Duration::from_mins(1);
+
+    /// The URL of the disposable cluster that database tests run against.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `TEST_DATABASE_URL` is unset.
+    #[expect(
+        clippy::expect_used,
+        reason = "test-only fixture; documented under `# Panics`"
+    )]
+    #[must_use]
+    pub fn test_url() -> String {
+        Variable::new("TEST_DATABASE_URL")
+            .required()
+            .expect("TEST_DATABASE_URL must name a disposable PostgreSQL database")
+    }
 
     /// A pool of up to `connections` to `TEST_DATABASE_URL`, with the time limits
     /// every connection of the service has, waiting [`Self::TEST_ACQUIRE_TIMEOUT`]
@@ -32,9 +49,7 @@ impl Database {
         reason = "test-only fixture; documented under `# Panics`"
     )]
     pub fn test_config(connections: u32) -> DatabaseConfig {
-        let url = std::env::var("TEST_DATABASE_URL")
-            .expect("TEST_DATABASE_URL must name a disposable PostgreSQL database");
-        DatabaseConfig::new(&url, connections, Self::TEST_ACQUIRE_TIMEOUT)
+        DatabaseConfig::new(&Self::test_url(), connections, Self::TEST_ACQUIRE_TIMEOUT)
             .expect("database configuration")
     }
 

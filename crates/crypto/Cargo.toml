@@ -21,6 +21,10 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 
+[dev-dependencies]
+# The vector test reads its `UPDATE_SDK_VECTORS` flag through `Variable`.
+sourceorigin-common = { workspace = true, features = ["config"] }
+
 [package.metadata.docs.rs]
 all-features = true
 # Labels feature-gated items with the features they need.

@@ -5,7 +5,7 @@ mod reference;
 
 pub use reference::{Documented, GeneratedFile, Section, Stale};
 use secrecy::zeroize::Zeroizing;
-use std::{env, error::Error as StdError, fmt, fs, path::PathBuf, str::FromStr};
+use std::{env, error::Error as StdError, ffi::OsString, fmt, fs, path::PathBuf, str::FromStr};
 use thiserror::Error;
 use url::Url;
 
@@ -69,16 +69,37 @@ impl Variable {
             source: Some(Box::new(source)),
         }
     }
+    /// The environment variable `name` as the operating system holds it, if set.
+    /// The only read of the process environment: `env::var` would put a
+    /// non-Unicode value into its error, so every read takes the raw value.
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "`Variable` is where the environment is read"
+    )]
+    pub(crate) fn os(name: &str) -> Option<OsString> {
+        env::var_os(name)
+    }
+    /// The value as the operating system holds it, if set. For a setting that is
+    /// not text, such as a flag whose presence is its value.
+    #[must_use]
+    pub fn raw(self) -> Option<OsString> {
+        Self::os(self.0)
+    }
+    /// Whether the variable is set, even to nothing.
+    #[must_use]
+    pub fn is_set(self) -> bool {
+        self.raw().is_some()
+    }
     /// Reads an optional UTF-8 setting.
     ///
     /// # Errors
     /// Returns an error for non-Unicode environment values, without exposing them.
     pub fn optional(self) -> Result<Option<String>, ConfigurationError> {
-        match env::var(self.0) {
-            Ok(value) => Ok(Some(value)),
-            Err(env::VarError::NotPresent) => Ok(None),
-            // VarError::NotUnicode contains the value, so it must not enter diagnostics.
-            Err(env::VarError::NotUnicode(_)) => Err(self.invalid("must contain UTF-8 text")),
+        match self.raw().map(OsString::into_string) {
+            None => Ok(None),
+            Some(Ok(value)) => Ok(Some(value)),
+            // The error is the value itself, which must not enter diagnostics.
+            Some(Err(_)) => Err(self.invalid("must contain UTF-8 text")),
         }
     }
     /// Reads a required setting.
@@ -285,7 +306,7 @@ impl SecretReference {
     pub fn resolve(&self) -> Result<SecretBytes, SecretError> {
         let bytes = match &self.0 {
             // var_os keeps the value out of the error, unlike env::var.
-            SecretLocation::Environment(name) => env::var_os(name)
+            SecretLocation::Environment(name) => Variable::os(name)
                 .ok_or(SecretError::MissingVariable)?
                 .into_string()
                 .map_err(|_| SecretError::NotUnicode)?

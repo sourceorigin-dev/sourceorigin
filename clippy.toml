@@ -6,3 +6,11 @@ allow-dbg-in-tests = true
 
 # The project's name is a word in prose, not code. `..` keeps Clippy's defaults.
 doc-valid-idents = ["SourceOrigin", ".."]
+
+# Environment reads go through `Variable` (`sourceorigin_common::config`), which
+# names the variable, parses it and keeps secrets out of errors.
+disallowed-methods = [
+    { path = "std::env::var", reason = "read the environment through `Variable`" },
+    { path = "std::env::var_os", reason = "read the environment through `Variable`" },
+    { path = "std::env::vars", reason = "read the environment through `Variable`" },
+]

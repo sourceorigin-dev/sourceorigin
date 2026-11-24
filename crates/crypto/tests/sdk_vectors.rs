@@ -19,6 +19,7 @@ use serde::Serialize;
 use serde_json::{Value, json};
 use sourceorigin_common::{
     AuthenticationMethod, ClientId, DeliveryId, SessionId, TokenId,
+    config::Variable,
     protocol::{
         challenge::{BearerChallenge, BearerError},
         claims::{
@@ -181,7 +182,7 @@ impl Vectors {
                 .is_some_and(|extension| extension == "json")
         })
         .collect();
-        if std::env::var_os("UPDATE_SDK_VECTORS").is_some() {
+        if Variable::new("UPDATE_SDK_VECTORS").is_set() {
             for path in committed {
                 fs::remove_file(path).expect("remove old vector");
             }

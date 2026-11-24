@@ -12,7 +12,7 @@ async fn optional_session_preserves_database_failure_instead_of_reporting_signed
     // A pool of one connection, which the test then holds. The lookup waits the
     // service's five seconds for it, not a fixture's longer wait, so it fails long
     // before PostgreSQL ends the held transaction as idle.
-    let url = std::env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL");
+    let url = Database::test_url();
     let config =
         sourceorigin_repository::DatabaseConfig::new(&url, 1, std::time::Duration::from_secs(5))
             .expect("database configuration");
