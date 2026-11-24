@@ -260,10 +260,11 @@ the element; without local storage, it shows on every page. With
 `data-dismiss-days`, a dismissal lapses after that many days. Inside a
 `data-dismiss-limit` element, only that many show at once, so dismissing one shows
 the next. A hint renders hidden, so it never flashes once dismissed, and the
-recovery question renders shown, so it asks without scripts too. A `data-replace-url` element makes a page that shows a secret reload
-by `GET`, and the copy script (`assets/copy.js`) makes a `data-copy` button copy a
-value. The scripts are plain JavaScript, embedded as written: `tsc` checks their
-JSDoc types, and ESLint lints them as it does the browser tests.
+recovery question renders shown, so it asks without scripts too. A
+`data-replace-url` element makes a page that shows a secret reload by `GET`, and
+the copy script (`assets/copy.js`) makes a `data-copy` button copy a value. The
+scripts are plain JavaScript, embedded as written: `tsc` checks their JSDoc
+types, and ESLint lints them as it does the browser tests.
 
 Administrative operations are methods of `AdminService` (`src/admin/service`);
 the admin dashboard's pages (`src/web/admin`) and the CLI's commands (`src/cli`)
