@@ -11,6 +11,29 @@ the apps you signed in to, your notifications and your data.
 
 ![The settings overview: active sessions, connected apps, recent security activity and devices](../images/account/settings.png)
 
+## Recommendations
+
+The overview suggests what your account still lacks, two at a time, most
+important first:
+
+1. **Add a backup passkey**, while you have only one. If you lose it, getting
+   back in takes a [recovery](your-data/recover-your-account.md) through
+   support. Select **Add a passkey** to add one on
+   [Sign-in methods](account/sign-in-methods.md#add-a-passkey).
+2. **Add an email address**, while you have no
+   [confirmed address](account/email-addresses.md). Recovery links and
+   [security alerts](account/security-alerts.md) go to it. If you added one
+   that isn't confirmed yet, the overview names it instead, with **Resend
+   link**.
+3. **You can still link GitHub** (or Google), while one SourceOrigin offers
+   isn't [linked](account/sign-in-methods.md#link-github-or-google).
+4. **Finish your profile**, while your [profile](account/profile.md) has no
+   picture, or your handle as its display name.
+
+Select **Not now** to hide a suggestion in this browser, and the next one
+shows. The backup passkey and email address come back after 30 days, since
+they keep you able to get back in; the others stay hidden.
+
 ## Find a setting
 
 The search box at the top of every settings and developer console page finds

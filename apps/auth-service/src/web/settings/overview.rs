@@ -54,6 +54,7 @@ impl AccountPage for Overview {
         let history = web.account.history(&viewer, None).await?;
         let holdings = web.account.holdings(&viewer).await?;
         let unread = web.account.unread_notifications(&viewer).await?;
+        let profile = web.account.profile(&viewer).await?;
         let providers = web.federation.provider_rows(&holdings.identities);
         let held = HeldRows::from(&holdings);
         let devices: Vec<_> = sessions.iter().map(DeviceRow::from).collect();
@@ -68,11 +69,16 @@ impl AccountPage for Overview {
             activity: &rows,
             holds: held.holds(reader.recovery()),
             providers: &providers,
+            sends: web.email.smtp.is_some(),
+            confirmed: reader.is_recent(),
+            default_profile: profile.keeps_default(),
             now,
             unread,
         };
         let links = OverviewLinks {
             sign_in: settings::SIGN_IN,
+            emails: settings::EMAILS,
+            profile: settings::PROFILE,
             devices: settings::SESSIONS,
             history: settings::HISTORY,
             notifications: settings::NOTIFICATIONS,

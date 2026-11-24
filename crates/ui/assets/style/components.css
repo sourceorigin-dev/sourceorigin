@@ -331,6 +331,10 @@ img.avatar {
   display: block;
   color: var(--muted);
 }
+/* The overview's hints, which lay out as the page's own children. */
+.hints {
+  display: contents;
+}
 
 /* Overview tiles. */
 .stats {

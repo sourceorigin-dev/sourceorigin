@@ -2,7 +2,8 @@
  * Auth's own settings pages: passkeys, which each page tells the password
  * manager about, devices, an email link and signing out; reporting a passkey in
  * the security history as not the owner's, which signs every other device out;
- * and the top bar's search, which finds the settings as the owner types.
+ * the top bar's search, which finds the settings as the owner types; and what
+ * the overview recommends a new account.
  */
 import { expect, test } from '@playwright/test';
 import {
@@ -184,4 +185,38 @@ test('the top bar finds settings as the owner types', async ({ browser }) => {
   await expect(page.getByText('Nothing matches.', { exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(results).toBeHidden();
+});
+
+/**
+ * A new account's overview recommends what it lacks, two at a time, a backup
+ * passkey first. Dismissing one shows the next; a dismissed backup passkey shows
+ * again a month later.
+ */
+test('the overview recommends what a new account lacks', async ({ page, context }) => {
+  await addPasskeys(context, page);
+  await signUp(page, `recommend-${Date.now().toString(36)}`);
+  const shown = page.locator('section.hint:visible');
+  const passkey = shown.filter({ hasText: 'Add a backup passkey' });
+  // Its picture and display name are still the defaults, so the profile is
+  // recommended too.
+  await expect(shown).toHaveCount(2);
+  await expect(shown.first()).toContainText('Add a backup passkey');
+  const second = (await shown.nth(1).locator('strong').textContent()) ?? '';
+  await passkey.getByRole('button', { name: 'Not now', exact: true }).click();
+  await expect(passkey).toHaveCount(0);
+  await expect(shown.first()).toContainText(second);
+
+  await page.reload();
+  await expect(shown.first()).toContainText(second);
+  await expect(passkey).toHaveCount(0);
+  // A month on, the dismissal has lapsed.
+  const month = 31 * 24 * 60 * 60 * 1000;
+  await page.evaluate((month) => {
+    localStorage.setItem('sourceorigin-recommend:passkey', String(Date.now() - month));
+  }, month);
+  await page.reload();
+  await expect(shown.first()).toContainText('Add a backup passkey');
+  await shown.first().getByRole('link', { name: 'Add a passkey', exact: true }).click();
+  await expect(page).toHaveURL('/settings/sign-in#add-passkey');
+  await expect(page.getByLabel('New passkey name', { exact: true })).toBeVisible();
 });
