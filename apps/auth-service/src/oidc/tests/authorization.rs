@@ -367,8 +367,5 @@ async fn an_account_that_left_usage_statistics_counts_no_step() {
         .await;
     assert!(left.expect("left"));
     flow.code(Scope::OpenId.as_str()).await;
-    assert_eq!(
-        analytics.rows("authorization_steps"),
-        Vec::<serde_json::Value>::new()
-    );
+    assert_eq!(analytics.rows("authorization_steps"), Vec::<Value>::new());
 }
