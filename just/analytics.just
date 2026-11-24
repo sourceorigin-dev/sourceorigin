@@ -1,14 +1,14 @@
 set working-directory := '..'
 
-# Runs the tests marked as needing TEST_ANALYTICS_URL, in a scratch ClickHouse
-# unless it names one.
+# Runs the tests marked as needing TEST_ANALYTICS_URL, whose names say
+# `analytics`, in a scratch ClickHouse unless it names one.
 # Run the analytics tests against ClickHouse.
 [positional-arguments]
 test *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
     if [[ -z "${TEST_ANALYTICS_URL:-}" ]]; then exec just analytics scratch just analytics test "$@"; fi
-    cargo nextest run --locked -p sourceorigin-telemetry --run-ignored only "$@"
+    cargo nextest run --locked --workspace --run-ignored only -E 'test(/analytics/)' "$@"
 
 # TEST_ANALYTICS_URL and TEST_ANALYTICS_PASSWORD name its owner, `sourceorigin`,
 # on a free loopback port, and the `sourceorigin` database, which a test's

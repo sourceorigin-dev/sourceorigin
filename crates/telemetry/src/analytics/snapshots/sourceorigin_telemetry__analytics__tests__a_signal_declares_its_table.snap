@@ -13,8 +13,6 @@ CREATE TABLE IF NOT EXISTS throttled (
     signed Int64 COMMENT 'A signed number.',
     fraction Float64 COMMENT 'A fraction.',
     maybe LowCardinality(Nullable(String)) COMMENT 'A vocabulary value, if any.',
-    user UUID COMMENT 'An account.',
-    maybe_user Nullable(UUID) COMMENT 'An account, if any.',
     client LowCardinality(String) COMMENT 'A client.',
     maybe_client LowCardinality(Nullable(String)) COMMENT 'A client, if any.',
     event UUID COMMENT 'An event.',
@@ -60,14 +58,6 @@ ALTER TABLE throttled COMMENT COLUMN fraction 'A fraction.';
 ALTER TABLE throttled ADD COLUMN IF NOT EXISTS maybe LowCardinality(Nullable(String)) COMMENT 'A vocabulary value, if any.';
 
 ALTER TABLE throttled COMMENT COLUMN maybe 'A vocabulary value, if any.';
-
-ALTER TABLE throttled ADD COLUMN IF NOT EXISTS user UUID COMMENT 'An account.';
-
-ALTER TABLE throttled COMMENT COLUMN user 'An account.';
-
-ALTER TABLE throttled ADD COLUMN IF NOT EXISTS maybe_user Nullable(UUID) COMMENT 'An account, if any.';
-
-ALTER TABLE throttled COMMENT COLUMN maybe_user 'An account, if any.';
 
 ALTER TABLE throttled ADD COLUMN IF NOT EXISTS client LowCardinality(String) COMMENT 'A client.';
 

@@ -215,8 +215,8 @@ impl Telemetry {
         Ok(telemetry)
     }
 
-    /// Sends queued analytics rows, then flushes and stops every exporter; call
-    /// it once the service stopped serving. It gives up after `within`, so a slow
+    /// Sends queued analytics rows while it flushes and stops every exporter;
+    /// call it once the service stopped serving. It gives up after `within`, so a slow
     /// or unreachable collector or ClickHouse cannot hold up an exit, such as a
     /// container's stop.
     ///

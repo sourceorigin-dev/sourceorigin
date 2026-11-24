@@ -25,7 +25,7 @@ pub use store::{OWNER_VARIABLES, Store, StoreError, VARIABLES};
 pub(crate) use writer::Writer;
 
 use serde::Serialize;
-use sourceorigin_common::{ClientId, EventId, TraceId, UserId};
+use sourceorigin_common::{ClientId, EventId, TraceId};
 
 /// One kind of row, and the table that stores it. Declare one with
 /// [`signal!`](crate::signal), which implements this trait.
@@ -70,8 +70,10 @@ pub struct ColumnDeclaration {
 /// A Rust type a signal's field may have, and the ClickHouse type that stores
 /// it. Only types that hold no free text and no directly identifying data
 /// implement it: a closed vocabulary is a `&'static str`, so no string a user
-/// or a client typed can become one. It is sealed: only this module implements
-/// it.
+/// or a client typed can become one, and an account's [`UserId`](sourceorigin_common::UserId)
+/// is not one, since an account's export and purge don't reach ClickHouse. A
+/// `ClientId` must be a registered client's. It is sealed: only this module
+/// implements it.
 pub trait Column: sealed::Sealed {
     /// The ClickHouse type, e.g. `LowCardinality(String)`.
     const TYPE: &'static str;
@@ -105,8 +107,6 @@ columns! {
     f64 => "Float64",
     &'static str => "LowCardinality(String)",
     Option<&'static str> => "LowCardinality(Nullable(String))",
-    UserId => "UUID",
-    Option<UserId> => "Nullable(UUID)",
     ClientId => "LowCardinality(String)",
     Option<ClientId> => "LowCardinality(Nullable(String))",
     EventId => "UUID",

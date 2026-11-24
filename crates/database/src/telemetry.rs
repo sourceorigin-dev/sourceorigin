@@ -12,7 +12,7 @@ sourceorigin_telemetry::signal! {
     /// A domain event committed, as the audit history records it, without which
     /// account it concerns or which administrator caused it: the history keeps
     /// both, and its export and purge cover them.
-    pub struct EventRecorded in "events", kept 400 days, ordered by (kind) {
+    pub struct EventRecorded in "events", kept 390 days, ordered by (kind) {
         /// What happened, such as `signed_in`.
         pub kind: &'static str,
         /// The kind of actor that caused it, such as `user` or `operator`.

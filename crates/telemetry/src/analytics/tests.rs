@@ -1,7 +1,7 @@
 //! How signals declare their tables, and what `migrate` runs for them.
 
 use super::Signal;
-use sourceorigin_common::{ClientId, EventId, TraceId, UserId};
+use sourceorigin_common::{ClientId, EventId, TraceId};
 
 crate::signal! {
     /// A request refused by a rate limit, with a column of every type.
@@ -24,10 +24,6 @@ crate::signal! {
         fraction: f64,
         /// A vocabulary value, if any.
         maybe: Option<&'static str>,
-        /// An account.
-        user: UserId,
-        /// An account, if any.
-        maybe_user: Option<UserId>,
         /// A client.
         client: ClientId,
         /// A client, if any.
@@ -52,8 +48,6 @@ impl Throttled {
             signed: -4,
             fraction: 0.5,
             maybe: Some("value"),
-            user: UserId::new(),
-            maybe_user: None,
             client: ClientId::generated(&[1; 32]),
             maybe_client: Some(ClientId::generated(&[2; 32])),
             event: EventId::new(),
@@ -78,7 +72,7 @@ fn a_capture_sees_recorded_rows() {
     let rows = capture.rows("throttled");
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0]["category"], "login");
-    assert_eq!(rows[0]["user"], row.user.to_string());
+    assert_eq!(rows[0]["client"], row.client.as_str());
     assert_eq!(rows[0]["trace"], "07".repeat(16));
 }
 

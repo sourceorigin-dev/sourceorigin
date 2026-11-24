@@ -1,12 +1,15 @@
 set working-directory := '..'
 
-# Uses a scratch cluster unless TEST_DATABASE_URL names a disposable database.
+# Uses a scratch cluster unless TEST_DATABASE_URL names a disposable database,
+# and a scratch ClickHouse unless TEST_ANALYTICS_URL names one, for auth's
+# analytics tests.
 # Run the database tests, then check the query cache against the tested schema.
 [positional-arguments]
 test *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
     if [[ -z "${TEST_DATABASE_URL:-}" ]]; then exec just db scratch just db test "$@"; fi
+    if [[ -z "${TEST_ANALYTICS_URL:-}" ]]; then exec just analytics scratch just db test "$@"; fi
     cargo nextest run --locked -p auth-service -p sourceorigin-repository --run-ignored all "$@"
     just db prepare-check
 

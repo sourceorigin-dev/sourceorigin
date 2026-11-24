@@ -36,7 +36,7 @@ tailnet only:
 3. Run a query, such as the last day's events, by kind:
 
    ```sql
-   SELECT kind, count() FROM events
+   SELECT kind, count() FROM sourceorigin.events
    WHERE time > now() - INTERVAL 1 DAY
    GROUP BY kind ORDER BY count() DESC
    ```
@@ -45,14 +45,15 @@ tailnet only:
 queries run through `clickhouse-client`:
 
 ```sh
-piquelctl app exec sourceorigin clickhouse --env production -- clickhouse-client --user sourceorigin --password "<password>"
+piquelctl app exec sourceorigin clickhouse --env production -- clickhouse-client --user sourceorigin --password "<password>" --database sourceorigin
 ```
 
 ## What it keeps
 
-`SHOW TABLES` lists the tables, and `DESCRIBE TABLE events` a table's columns
-with what each holds. Each table keeps rows for the retention its signal
-declares, such as 400 days for `events`.
+`SHOW TABLES FROM sourceorigin` lists the tables, and
+`DESCRIBE TABLE sourceorigin.events` a table's columns with what each holds.
+Each table keeps rows for the retention its signal declares, such as 390 days
+for `events`.
 
 ClickHouse's own logs, other than `system.query_log`, which it keeps a week,
 are off: `infra/clickhouse/config.xml` lists them. It logs warnings and errors

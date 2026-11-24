@@ -19,7 +19,7 @@ sourceorigin_telemetry::signal! {
     /// A domain event committed, as the audit history records it, without which
     /// account it concerns or which administrator caused it: the history keeps
     /// both, and its export and purge cover them.
-    pub struct EventRecorded in "events", kept 400 days, ordered by (kind) {
+    pub struct EventRecorded in "events", kept 390 days, ordered by (kind) {
         /// What happened, such as `signed_in`.
         pub kind: &'static str,
         /// The kind of actor that caused it, such as `user` or `operator`.
@@ -62,17 +62,18 @@ implement it:
 | --- | --- |
 | `bool`, `u8` to `u64`, `i64`, `f64` | `Bool`, `UInt8` to `UInt64`, `Int64`, `Float64` |
 | `&'static str`, and its `Option` | `LowCardinality(String)`, and `LowCardinality(Nullable(String))` |
-| `UserId` and `EventId`, and `Option<UserId>` | `UUID`, and `Nullable(UUID)` |
+| `EventId` | `UUID` |
 | `ClientId`, and its `Option` | `LowCardinality(String)`, and `LowCardinality(Nullable(String))` |
 | `Option<TraceId>` | `Nullable(FixedString(32))` |
 
 A vocabulary is a `&'static str`, such as a `str_enum!` value's `as_str()`, so
 no text a user or client typed can become one. A `String`, an email address, an
 IP address, a user agent or a path has no `Column`, so a signal holding one does
-not compile. User IDs are pseudonymous, as in telemetry, but keep an account's
-ID out of a signal: an account's export and purge don't reach ClickHouse.
+not compile. Neither does an account's ID, `UserId`: an account's export and
+purge don't reach ClickHouse, so a signal never names an account.
 `EventRecorded` leaves out the account and the administrator, which the audit
-history keeps.
+history keeps. Record only a registered client's `ClientId`, never one a
+request names before auth found the client: that one is text a caller typed.
 
 `Column` is sealed: only `crates/telemetry/src/analytics/mod.rs` implements
 it. Add a type there only if it has the same guarantee. The guarantee holds as

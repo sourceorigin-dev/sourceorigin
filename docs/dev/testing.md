@@ -125,11 +125,12 @@ just analytics test
 ```
 
 Tests that need ClickHouse are marked `#[ignore]`, with a reason that names
-`TEST_ANALYTICS_URL`. `just analytics test` starts a throwaway ClickHouse in
-Docker, the image `infra/piqueld.toml` runs, on a free loopback port, runs
-them, and deletes it. To run any command against one, use
-`just analytics scratch -- <command>`. `just coverage` runs them too, in a
-scratch ClickHouse of its own unless `TEST_ANALYTICS_URL` names one. A test
+`TEST_ANALYTICS_URL`, and have `analytics` in their names. `just analytics test`
+starts a throwaway ClickHouse in Docker, the image `infra/piqueld.toml` runs, on
+a free loopback port, runs them, and deletes it. To run any command against
+one, use `just analytics scratch -- <command>`. `just db test` and
+`just coverage` run them too, in a scratch ClickHouse of their own unless
+`TEST_ANALYTICS_URL` names one, so they need Docker. A test
 that only checks which rows a change records captures them instead, with
 `AnalyticsCapture` (see [analytics](architecture/analytics.md#testing)).
 
