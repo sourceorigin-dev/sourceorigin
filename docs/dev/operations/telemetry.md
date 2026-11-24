@@ -107,7 +107,7 @@ This runs Grafana's all-in-one OpenTelemetry backend, with both dashboards, at
 | Service | Image | Role |
 | --- | --- | --- |
 | `collector` | `otel/opentelemetry-collector-contrib` | OTLP/HTTP on port 4318, with a memory limit and batching. It deletes paths, query strings, request headers and client addresses that reach it anyway |
-| `prometheus` | `prom/prometheus` | Metrics, received over OTLP, kept 30 days |
+| `prometheus` | `prom/prometheus` | Metrics, received over OTLP, kept 30 days: auth and sourceorigin.dev send none, since their numbers are analytics rows |
 | `tempo` | `grafana/tempo` | Traces, kept 14 days |
 | `loki` | `grafana/loki` | Logs, received over OTLP, kept 30 days |
 | `grafana` | `grafana/grafana` | Dashboards at `grafana.sourceorigin.dev` |
@@ -121,12 +121,11 @@ the images `infra/telemetry.toml` runs, and so does `just infra check`.
 Grafana provisions the three data sources, linked so a log line opens its trace
 and a trace its logs, and two dashboards in the **SourceOrigin** folder:
 
-- **Auth overview**: traffic, errors and latency by route, sign-ins,
-  registrations, tokens, refresh revocations, throttling, events by kind, the
-  database pool, cleanup, the delivery queue, logs and traces. Its
-  **Deliveries** row charts pending deliveries, the oldest one's age and
-  attempts by outcome, per channel (see
-  [the delivery queue](../architecture/delivery-queue.md#metrics)).
+- **Auth overview**: logs and traces. Its charts of traffic, sign-ins,
+  tokens, throttling, the database pool, cleanup and the delivery queue read
+  metrics auth no longer exports: those numbers are
+  [analytics](../architecture/analytics.md) rows now, which you query on
+  [the analytics database](analytics.md).
 - **Admin activity**: what administrators and operators did, as
   [watch administrator activity](#watch-administrator-activity) describes.
 

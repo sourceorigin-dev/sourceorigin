@@ -46,7 +46,7 @@ crosses a crate or a process.
   `X-Forwarded-For`, which auth trusts only from the gateway's ranges
   ([deploying](../operations/deploying.md)).
 - **The telemetry stack** (`infra/telemetry.toml`) receives OTLP from auth and
-  sourceorigin-web and stores traces, metrics and logs
+  sourceorigin-web and stores traces and logs
   ([telemetry](telemetry.md), [telemetry stack](../operations/telemetry.md)).
 - **ClickHouse** keeps each environment's [analytics](analytics.md): typed
   rows, such as every committed event, kept for months
@@ -92,7 +92,7 @@ services fit together.
 | `sourceorigin-common` (`crates/common`) | Shared types: IDs, handles, vocabularies, domain events, notifications, and under `protocol` the wire types auth and the SDKs share. Its server-only parts sit behind the `server`, `admin`, `config`, `email`, `events`, `similarity` and `sqlx` features, so the Rust SDK compiles none of them: `server` holds client registrations, handles, the public IP ranges, the settings API bodies, the response headers and the IDs and vocabularies only servers use |
 | `sourceorigin-crypto` (`crates/crypto`) | Every cryptographic primitive, on `aws-lc-rs`: secrets, digests, HMAC, PKCE, RS256 signing and key sets, AES-256-GCM sealing, Ed25519 signed notes and SCRAM verifiers |
 | `sourceorigin-repository` (`crates/database`) | The only crate that runs SQL: connections, migrations, repositories, transactions, events and the delivery queue's storage |
-| `sourceorigin-telemetry` (`crates/telemetry`) | Logs, traces, metrics and analytics signals, and the HTTP layer every router uses |
+| `sourceorigin-telemetry` (`crates/telemetry`) | Logs, traces and analytics signals, and the HTTP layer every router uses |
 | `sourceorigin-ui` (`crates/ui`) | The Topcoat components of auth's pages and the admin dashboard, and the bodies of its emails, which know nothing of the database or HTTP. It uses `sourceorigin-common`'s types, never the other way round |
 | `sourceorigin-auth` (`crates/auth-sdk`) | The Rust SDK, which depends only on `sourceorigin-common` and `sourceorigin-crypto` |
 

@@ -165,8 +165,9 @@ Tokens are signed with the current key set ([keys](keys.md)). The access token
 (`at+jwt`) is for the request's audience; an ID token is issued when the scopes
 include `openid`, with the request's nonce. Both last five minutes
 (`ACCESS_TOKEN_SECONDS`) and report the code's authentication, not the
-session's current one. `sourceorigin.auth.tokens.issued{grant_type, token_type}` counts
-them once the transaction commits.
+session's current one. Once the transaction commits, each response is a
+`tokens_issued` [analytics](analytics.md) row, with its grant type, its client
+and the tokens it carried.
 
 ### Refresh families
 

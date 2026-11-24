@@ -244,9 +244,9 @@ purging up to 100 due accounts, each in its own transaction. A failure is record
 on the `account_deletions` row, with its attempts, error and next attempt, which
 waits 5 minutes, doubling after each failure up to a day. Due accounts are read in
 the order they became due, past their grace period and their next attempt, so
-accounts that keep failing never hold back the others. After each run the job sets
-`sourceorigin.auth.account_purge.failing`, the accounts that failed 3 times in a row,
-and raises the `purges_failing` alert while there are any, clearing it once there
+accounts that keep failing never hold back the others. After each run the job
+records the accounts that failed 3 times in a row as a `job_counts`
+[analytics](analytics.md) row (`failing_purges`), and raises the `purges_failing` alert while there are any, clearing it once there
 are none.
 The purge's queries use indexes, including the actor's user ID in
 `domain_events`, so its cost does not grow with everyone's history.

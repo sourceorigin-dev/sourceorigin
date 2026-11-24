@@ -1,12 +1,16 @@
-//! What the database reports to telemetry: every committed event, as a log line,
-//! in counters and as an analytics row, and the pool's connections.
+//! What the database reports to telemetry: every committed event, as a log line
+//! and an analytics row, and samples of the pool's connections.
 
 use crate::Database;
 use sourceorigin_common::{
     EventId, TraceId, UserId,
     events::{DomainEvent, HistoryActor, SignInFailure},
 };
-use sourceorigin_telemetry::{Counter, Gauge, Label, Telemetry, analytics::Signal};
+use sourceorigin_telemetry::{
+    Telemetry,
+    analytics::{Instance, Signal},
+};
+use std::time::Duration;
 
 sourceorigin_telemetry::signal! {
     /// A domain event committed, as the audit history records it, without which
@@ -17,6 +21,12 @@ sourceorigin_telemetry::signal! {
         pub kind: &'static str,
         /// The kind of actor that caused it, such as `user` or `operator`.
         pub actor: &'static str,
+        /// How the person authenticated, for a sign-in, a failed one or a new
+        /// account, such as `passkey`.
+        pub method: Option<&'static str>,
+        /// Why it happened, for a failed sign-in, a revoked grant or a failed code
+        /// redemption, such as `replayed`.
+        pub reason: Option<&'static str>,
         /// The event's ID in the audit history.
         pub event: EventId,
         /// The trace of the request or job that recorded it.
@@ -24,43 +34,20 @@ sourceorigin_telemetry::signal! {
     }
 }
 
-/// Every committed event, by kind.
-static EVENTS: Counter<[Label; 1]> = Counter::new(
-    "sourceorigin.auth.events",
-    "{event}",
-    "Domain events committed, by kind.",
-);
-/// Sign-ins and rejected authentications, by method and outcome.
-static SIGN_INS: Counter<[Label; 2]> = Counter::new(
-    "sourceorigin.auth.sign_ins",
-    "{sign_in}",
-    "Sign-ins by method, and their outcome: success or why they were rejected.",
-);
-/// New accounts, by how the person proved who they are.
-static REGISTRATIONS: Counter<[Label; 1]> = Counter::new(
-    "sourceorigin.auth.registrations",
-    "{account}",
-    "Accounts created, by authentication method.",
-);
-/// Revoked refresh families, by reason: replays and policy rejections included.
-static GRANTS_REVOKED: Counter<[Label; 1]> = Counter::new(
-    "sourceorigin.auth.grants.revoked",
-    "{grant}",
-    "Refresh token families revoked, by reason.",
-);
-/// Failed authorization code redemptions, each of which used its code up, by
-/// reason.
-static CODE_REDEMPTIONS_FAILED: Counter<[Label; 1]> = Counter::new(
-    "sourceorigin.auth.codes.redemption_failed",
-    "{code}",
-    "Authorization code redemptions that failed and used the code up, by reason.",
-);
-/// The pool's connections, as the database semantic conventions name them.
-static CONNECTIONS: Gauge<[Label; 1]> = Gauge::new(
-    "db.client.connection.count",
-    "{connection}",
-    "Connections in the database pool, by state.",
-);
+sourceorigin_telemetry::signal! {
+    /// The connections a replica's database pool held, sampled every 15 seconds.
+    pub struct PoolSampled in "database_pool", kept 30 days, ordered by (instance) {
+        /// The replica.
+        pub instance: Instance,
+        /// Connections waiting for a query.
+        pub idle: u32,
+        /// Connections running one.
+        pub used: u32,
+    }
+}
+
+/// How often [`Database::sample_connections`] records a [`PoolSampled`].
+const POOL_SAMPLE_EVERY: Duration = Duration::from_secs(15);
 
 /// An event recorded in a transaction, published once the transaction commits.
 pub(crate) struct Committed {
@@ -96,53 +83,46 @@ impl Committed {
             event.administrator = self.administrator.map(tracing::field::display),
             "event recorded"
         );
-        EVENTS.add(1, &[("kind", kind)]);
+        let (method, reason) = match &self.event {
+            DomainEvent::SignedIn { method, .. } | DomainEvent::AccountCreated { method, .. } => {
+                (Some(method.as_str()), None)
+            }
+            DomainEvent::SignInFailed { method, reason } => {
+                (Some(method.as_str()), Some(SignInFailure::as_str(*reason)))
+            }
+            DomainEvent::GrantRevoked { reason, .. } => (None, Some(reason.as_str())),
+            DomainEvent::CodeRedemptionFailed { reason, .. } => (None, Some(reason.as_str())),
+            _ => (None, None),
+        };
         EventRecorded {
             kind,
             actor: self.actor.as_str(),
+            method,
+            reason,
             event: self.id,
             trace: Telemetry::current_trace_id(),
         }
         .record();
-        match &self.event {
-            DomainEvent::SignedIn { method, .. } => {
-                SIGN_INS.add(1, &[("method", method.as_str()), ("outcome", "success")]);
-            }
-            DomainEvent::SignInFailed { method, reason } => {
-                SIGN_INS.add(
-                    1,
-                    &[
-                        ("method", method.as_str()),
-                        ("outcome", SignInFailure::as_str(*reason)),
-                    ],
-                );
-            }
-            DomainEvent::AccountCreated { method, .. } => {
-                REGISTRATIONS.add(1, &[("method", method.as_str())]);
-            }
-            DomainEvent::GrantRevoked { reason, .. } => {
-                GRANTS_REVOKED.add(1, &[("reason", reason.as_str())]);
-            }
-            DomainEvent::CodeRedemptionFailed { reason, .. } => {
-                CODE_REDEMPTIONS_FAILED.add(1, &[("reason", reason.as_str())]);
-            }
-            _ => {}
-        }
     }
 }
 
 impl Database {
-    /// Reports the pool's idle and used connections as `db.client.connection.count`
-    /// at every metrics collection. Only the first call registers.
-    pub fn observe_connections(&self) {
+    /// Records the pool's idle and used connections as a [`PoolSampled`] every
+    /// 15 seconds, on a task that ends with the runtime.
+    pub fn sample_connections(&self) {
         let pool = self.pool.clone();
-        CONNECTIONS.observe(move || {
-            let idle = u64::try_from(pool.num_idle()).unwrap_or(u64::MAX);
-            let used = u64::from(pool.size()).saturating_sub(idle);
-            [
-                (idle, [("db.client.connection.state", "idle")]),
-                (used, [("db.client.connection.state", "used")]),
-            ]
+        tokio::spawn(async move {
+            let mut every = tokio::time::interval(POOL_SAMPLE_EVERY);
+            loop {
+                every.tick().await;
+                let idle = u32::try_from(pool.num_idle()).unwrap_or(u32::MAX);
+                PoolSampled {
+                    instance: Instance::current(),
+                    idle,
+                    used: pool.size().saturating_sub(idle),
+                }
+                .record();
+            }
         });
     }
 }

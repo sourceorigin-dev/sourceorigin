@@ -76,6 +76,37 @@ fn a_capture_sees_recorded_rows() {
     assert_eq!(rows[0]["trace"], "07".repeat(16));
 }
 
+/// A table at its limit drops its own rows, while another table's still queue.
+#[tokio::test]
+async fn a_full_table_drops_only_its_own_rows() {
+    use super::writer::{DROPPED, QUEUE, QUEUED};
+    use std::sync::atomic::Ordering;
+    let unreachable = super::Store::new(
+        sourceorigin_common::config::Variable::new("TEST"),
+        "http://writer@127.0.0.1:9/analytics",
+        "password".into(),
+    )
+    .expect("a valid URL");
+    let _writer = super::Writer::start(unreachable).expect("the first writer");
+    for _ in 0..=QUEUE {
+        Throttled::new("login", 1).record();
+    }
+    let other = EventId::new();
+    Other { event: other }.record();
+    let queued = QUEUED.lock().expect("unpoisoned").clone();
+    assert_eq!(queued["throttled"], QUEUE);
+    assert_eq!(queued["other"], 1);
+    assert_eq!(DROPPED.load(Ordering::Relaxed), 1);
+}
+
+crate::signal! {
+    /// Another table's row.
+    struct Other in "other", kept 1 days, ordered by () {
+        /// An event.
+        event: EventId,
+    }
+}
+
 /// `migrate` creates a signal's table, again without error, and a writer that
 /// may insert rows but read none; a recorded row reaches the table once flushed.
 #[tokio::test]

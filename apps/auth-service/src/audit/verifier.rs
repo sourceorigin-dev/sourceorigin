@@ -2,27 +2,15 @@
 //! verification without an operator asking for one.
 
 use super::{AuditChain, AuditError, AuditKeys, AuditVerification};
-use crate::jobs::{ExclusiveJob, JobCount, Shutdown, Streak};
+use crate::jobs::{ExclusiveJob, JobCounted, Shutdown, Streak};
 use chrono::{TimeDelta, Utc};
 use sourceorigin_common::{
     alerts::Alert,
     events::{DomainEvent, EventContext, JobName},
 };
 use sourceorigin_repository::{ExclusiveConnection, LockKey, RecordedEvent, Verifications};
-use sourceorigin_telemetry::Gauge;
+use sourceorigin_telemetry::analytics::Signal;
 use std::time::Duration;
-
-/// Whether the newest recorded verification found the chain broken, read after
-/// each run of the verifier.
-static BROKEN: JobCount = JobCount::new(
-    Gauge::new(
-        "sourceorigin.auth.audit.broken",
-        "1",
-        "1 when the newest recorded verification of the audit chain found it broken, 0 when \
-         intact.",
-    ),
-    Verifier::EVERY,
-);
 
 /// Verifies the whole chain, on one replica at a time, once the newest recorded
 /// verification, whoever made it, other than one with keys given with `--key`,
@@ -70,11 +58,6 @@ impl Verifier {
         ran
     }
 
-    /// Registers the [`BROKEN`] gauge.
-    pub(crate) fn observe() {
-        BROKEN.observe();
-    }
-
     /// Verifies and records the chain, unless a verification was recorded in the
     /// last [`Self::VERIFY_EVERY`], and keeps whether the newest one found it
     /// broken. Returns what it found, if it verified.
@@ -92,15 +75,24 @@ impl Verifier {
             if let RecordedEvent::Known(DomainEvent::AuditChainVerified(verification)) =
                 newest.event
             {
-                BROKEN.set(u64::from(verification.broken.is_some()));
+                Self::count(&verification);
             }
             return Ok(None);
         }
         let verification = AuditChain::verify_in(connection.begin().await?, &self.keys).await?;
         let context = EventContext::system(JobName::AuditVerification);
         AuditChain::record(connection.begin().await?, &context, &verification).await?;
-        BROKEN.set(u64::from(verification.broken.is_some()));
+        Self::count(&verification);
         Ok(Some(verification))
+    }
+
+    /// Records whether `verification`, the newest, found the chain broken.
+    fn count(verification: &AuditVerification) {
+        JobCounted {
+            count: "audit_broken",
+            value: u64::from(verification.broken.is_some()),
+        }
+        .record();
     }
 }
 

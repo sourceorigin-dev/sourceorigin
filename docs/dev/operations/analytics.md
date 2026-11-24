@@ -5,7 +5,8 @@ server, and read it when you need to: sign in to its pages, query a table, and
 check how much disk it uses.
 
 Every environment and preview runs `clickhouse`, beside `postgres`, from
-`infra/piqueld.toml`. Auth writes its [signals](../architecture/analytics.md) there.
+`infra/piqueld.toml`. Auth and sourceorigin.dev's web server write their
+[signals](../architecture/analytics.md) there.
 A deployment starts it before auth, so `migrate` can create its tables, but
 nothing waits on it after that. When it is down, auth signs people in as usual
 and drops the rows it can't send, and `migrate` warns that it could not reach
@@ -75,7 +76,7 @@ caps its memory at three quarters of the container's 1 GiB.
 | User | Password | Used by | Allowed to |
 | --- | --- | --- | --- |
 | `sourceorigin` | `analytics-password` | the `migrate` job, and you on its pages | everything, and managing users |
-| `sourceorigin_writer` | `analytics-writer-password` | `auth` | insert rows |
+| `sourceorigin_writer` | `analytics-writer-password` | `auth`, `web` | insert rows, into any table |
 
 The image configures `sourceorigin` from the password it mounts each time
 ClickHouse starts, so regenerating `analytics-password` takes effect on the

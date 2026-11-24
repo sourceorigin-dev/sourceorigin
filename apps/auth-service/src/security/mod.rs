@@ -31,7 +31,9 @@ mod session;
 pub(crate) use content::{FormTarget, FormTargets};
 pub(crate) use context::RequestContext;
 pub(crate) use cookie::BrowserCookie;
-pub(crate) use http::{CacheClass, Cached, FETCH_SITE_HEADER, HttpSecurity, HttpSecurityError};
+pub(crate) use http::{
+    CacheClass, Cached, FETCH_SITE_HEADER, HttpSecurity, HttpSecurityError, Throttled,
+};
 pub(crate) use page::Explanation;
 pub(crate) use session::{Confirmed, Credential, OptionalSession, Session, SessionError, SignedIn};
 

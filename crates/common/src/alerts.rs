@@ -44,8 +44,9 @@ pub enum Alert {
     /// latest one no longer match their hashes.
     CheckpointRefused(ChainBreak),
     /// Accounts whose deletion grace period ended keep failing to be purged.
-    /// How many is left out, so a count that changes raises nothing new: the
-    /// `sourceorigin.auth.account_purge.failing` gauge counts them.
+    /// How many is left out, so a count that changes raises nothing new: each
+    /// run of the purge counts them in a `job_counts` analytics row
+    /// (`failing_purges`).
     PurgesFailing {},
     /// Cleanup passes keep running out of time with expired state, personal
     /// data past retention or finished deliveries left to delete.
@@ -145,8 +146,8 @@ impl Alert {
             Self::CleanupBehind {} => "Cleanup passes keep running out of time with expired \
                 sign-in state, personal data past its retention, or finished deliveries left \
                 to delete, so personal data is kept longer than it should be. The \
-                sourceorigin.auth.cleanup metrics show how much each pass deletes. It clears once \
-                a pass deletes everything due."
+                cleanup_passes analytics table shows how much each pass changes and how long \
+                it takes. It clears once a pass deletes everything due."
                 .to_owned(),
             Self::VerificationFailing {} => "Auth's verifier keeps failing to verify the audit \
                 chain, without finding it broken or intact, so nothing checks the history \

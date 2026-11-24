@@ -3,9 +3,7 @@
 use async_trait::async_trait;
 use bytes::Bytes;
 use opentelemetry_http::{HttpClient, HttpError, Request, Response};
-use opentelemetry_otlp::{
-    ExporterBuildError, LogExporter, MetricExporter, SpanExporter, WithHttpConfig,
-};
+use opentelemetry_otlp::{ExporterBuildError, LogExporter, SpanExporter, WithHttpConfig};
 use sourceorigin_common::config::{ConfigurationError, Variable};
 use std::{sync::Arc, time::Duration};
 use thiserror::Error;
@@ -55,8 +53,6 @@ pub enum ExportError {
 pub(crate) struct Exporters {
     /// Sends spans to `/v1/traces`.
     pub(crate) spans: SpanExporter,
-    /// Sends metrics to `/v1/metrics`.
-    pub(crate) metrics: MetricExporter,
     /// Sends logs to `/v1/logs`.
     pub(crate) logs: LogExporter,
 }
@@ -85,10 +81,6 @@ impl Exporters {
         });
         Ok(Self {
             spans: SpanExporter::builder()
-                .with_http()
-                .with_shared_http_client(Arc::clone(&client))
-                .build()?,
-            metrics: MetricExporter::builder()
                 .with_http()
                 .with_shared_http_client(Arc::clone(&client))
                 .build()?,
