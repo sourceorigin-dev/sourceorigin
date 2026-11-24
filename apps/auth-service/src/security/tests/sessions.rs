@@ -140,7 +140,7 @@ async fn session_lock_rechecks_expiry_after_waiting() {
             user_id,
             authentication_methods: vec![AuthenticationMethod::Passkey],
             authenticated_at: now,
-            expires_at: now + Duration::seconds(1),
+            expires_at: now + Duration::hours(1),
             user_agent_family: RequestContext::TEST.user_agent_family,
             ip: RequestContext::TEST.client_ip,
             passkey_confirmed_at: Some(now),
@@ -155,6 +155,7 @@ async fn session_lock_rechecks_expiry_after_waiting() {
         .await
         .expect("account lock")
         .expect("active account");
+    let id = session.id;
     let change = tokio::spawn({
         let database = database.clone();
         async move {
@@ -162,7 +163,9 @@ async fn session_lock_rechecks_expiry_after_waiting() {
             Session::lock(&mut change, &session).await.map(drop)
         }
     });
-    tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+    // The session expires while the change waits, after its transaction began.
+    holder.until_blocked(1).await;
+    database.sessions().expire(id).await.expect("expire");
     holder.rollback().await.expect("release account");
     assert!(matches!(
         change.await.expect("change task"),
