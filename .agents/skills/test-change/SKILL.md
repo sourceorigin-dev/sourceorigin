@@ -12,6 +12,13 @@ description: >
 Passing unit tests is not the same as working. Test the change where it will
 run, against real PostgreSQL behind real HTTPS, then let the user try it.
 
+**Scope.** Do only what this skill's task asks. No drive-by refactors, renames,
+reformatting or extra features. Note anything else in your report or in an issue
+instead of fixing it. Ask the owner before widening the change. Reread your diff
+before handing back and drop every hunk the task doesn't need. See "Scope" in
+`AGENTS.md`. Report only defects in the change and regressions it causes.
+Anything else is a follow-up.
+
 ## 1. Check locally first
 
 Run only the checks for what changed: `just test -p <crate>`, `just rust lint`

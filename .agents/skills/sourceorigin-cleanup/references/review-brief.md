@@ -4,6 +4,13 @@ Review one PR from a SourceOrigin cleanup pass. It claims to be a pure
 refactor: no behavior, output, schema, format or test coverage changes. Bug
 fixes go in their own PRs, so any behavior change here is a finding.
 
+**Scope.** Do only what this skill's task asks. No drive-by refactors, renames,
+reformatting or extra features. Note anything else in your report or in an issue
+instead of fixing it. Ask the owner before widening the change. Reread your diff
+before handing back and drop every hunk the task doesn't need. See "Scope" in
+`AGENTS.md`. Report only defects in the change and regressions it causes.
+Anything else is a follow-up.
+
 Review read-only. Don't push, comment or edit. Read the PR, and check out the
 head SHA your task gives (`git fetch origin <base> pull/<N>/head`). Export the
 `CARGO_BUILD_JOBS` your task gives.

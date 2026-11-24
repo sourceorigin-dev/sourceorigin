@@ -34,6 +34,30 @@ Terms that are easy to mix up:
 This is still very early development. Breaking changes are expected. There are
 no real users yet so breaking things doesn't matter.
 
+## Scope: do what was asked, nothing more
+
+**Scope creep is the most common way an agent's work goes wrong here. Watch for
+it at every step and push back on it, including when a reviewer or your own
+curiosity suggests it.**
+
+- **One task, one change.** Do the task you were given. A pull request is one
+  change and holds nothing else.
+- **Small enough for a reviewer to read in one sitting.** Split refactors from
+  behaviour changes.
+- **No drive-by changes.** No refactors, renames, reformatting, dependency
+  bumps, "while I'm here" fixes or extra features the task didn't ask for.
+- **Found something else?** Say so in your report, or file an issue. Don't fix
+  it in this change.
+- **Review findings outside the change are follow-ups.** Reviewers, council
+  included, report only defects in the change and regressions it causes. A
+  finding about code the change doesn't touch goes to an issue, not into the PR.
+- **Ask before widening.** If doing the task well really needs a wider change,
+  stop and ask the owner first, and say why.
+- **Check before handing back.** Reread your diff. Every hunk must be needed for
+  the task; remove any that isn't.
+- **Be ambitious inside the scope.** Finish the task completely and well.
+  Ambition is never a reason to widen it.
+
 ## Hazards
 
 What you run here can reach beyond your worktree. Each rule says why, so you
@@ -130,7 +154,6 @@ Issues live in GitHub Issues. Titles of issues and pull requests follow
 Conventional Commits and say what changes for whoever uses it; pull requests
 are squash-merged, so the title becomes the commit on `main`.
 
-Keep pull requests small and focused: one change each, which a reviewer can
-read in one sitting. Split refactors from behaviour changes, and stack
-dependent pull requests, each on the last. Open them as drafts while
-iterating. `docs/dev/contributing.md` has the rest.
+Each pull request is one change, as [Scope](#scope-do-what-was-asked-nothing-more)
+says. Stack dependent pull requests, each on the last, and open them as drafts
+while iterating. `docs/dev/contributing.md` has the rest.

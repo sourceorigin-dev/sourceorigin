@@ -10,6 +10,13 @@ description: >
 
 # Write the documentation
 
+**Scope.** Do only what this skill's task asks. No drive-by refactors, renames,
+reformatting or extra features. Note anything else in your report or in an issue
+instead of fixing it. Ask the owner before widening the change. Reread your diff
+before handing back and drop every hunk the task doesn't need. See "Scope" in
+`AGENTS.md`. Report only defects in the change and regressions it causes.
+Anything else is a follow-up.
+
 Read `docs/dev/documentation.md` in full before you write anything. It is the
 documentation's writing guide, and everything below only points into it:
 
