@@ -109,6 +109,10 @@ sourceorigin_telemetry::signal! {
 }
 ```
 
+The product signals are `passkeys_used`, which kinds of passkeys people assert
+with, and `authorization_steps`, how far each authorization request of each app
+gets: `requested`, `sign_in`, `consent`, then `authorized` or `denied`.
+
 It implements `Product` instead of `Signal`, and its `record` takes a
 `Consent`, so a product row can't be recorded without one. A `Consent` comes
 from `RequestContext::consent`, and only when:

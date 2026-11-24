@@ -59,6 +59,30 @@ impl RequestContext {
         Ok(Consent::given(included, self.gpc))
     }
 
+    /// Consent to record a product analytics row about this request, outside a
+    /// transaction: `user`'s, as [`Self::consent`], once someone is signed in,
+    /// and before, unless the browser asked for Global Privacy Control. Analytics
+    /// never fails a request: a lookup that fails gives no consent.
+    pub(crate) async fn consent_of(
+        &self,
+        database: &Database,
+        user: Option<UserId>,
+    ) -> Option<Consent> {
+        let included = match user {
+            _ if self.gpc => false,
+            Some(user) => database
+                .users()
+                .analytics_included(user)
+                .await
+                .inspect_err(|error| {
+                    tracing::warn!(error = %sourceorigin_common::ErrorChain(error), "could not read whether an account takes part in usage statistics");
+                })
+                .unwrap_or(false),
+            None => true,
+        };
+        Consent::given(included, self.gpc)
+    }
+
     /// Attributes events of this request to `actor`.
     pub(crate) fn actor(self, actor: Actor) -> EventContext {
         EventContext {

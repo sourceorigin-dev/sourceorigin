@@ -10,6 +10,10 @@ who you are. You can leave yours out at any time.
   as a password manager's or a phone's are, or kept on one device, as a
   security key's is, and how your browser reaches it: built in, on a phone, or
   over USB, NFC or Bluetooth.
+- How far each sign-in to an app gets: whether the app sent you here, the
+  sign-in or consent page showed, and whether the app got access or you
+  declined. These are counted for the app, so its developer can see where
+  people stop.
 
 Each count holds only that kind, and the day it happened, not the time. It
 doesn't hold your account, your name, your email address or your IP address.

@@ -17,6 +17,7 @@ use sourceorigin_repository::{
     DatabaseTransaction, InsertAuthorizationCode, SessionAuthentication,
     StoredAuthorizationRequest, StoredSession,
 };
+use sourceorigin_telemetry::analytics::Product;
 use url::Url;
 
 /// The consent page's answer for a pending authorization, as its form posts it.
@@ -99,19 +100,21 @@ impl OidcApplication {
         OAuthCode::InvalidRequest.reject("the client is no longer registered")
     }
 
-    /// Consumes the pending authorization and returns the client redirect: an error
-    /// for a denial, or a new authorization code. Explicit decisions come from the
-    /// consent page, whose request is `consent`, and save and record consent;
-    /// implicit ones must already be allowed.
+    /// Consumes the pending authorization of `context` and returns the client
+    /// redirect: an error for a denial, or a new authorization code. Explicit
+    /// decisions come from the consent page and save and record consent;
+    /// implicit ones must already be allowed. Whether to count the steps is read
+    /// before the transaction, which would hold its locks while waiting.
     pub(crate) async fn decide(
         &self,
+        context: RequestContext,
         headers: &HeaderMap,
         input: AuthorizationDecision,
-        consent: Option<RequestContext>,
+        explicit: bool,
     ) -> Result<Url, OAuthError> {
         let session = Session::required(&self.database, headers).await?;
         let pending = self.find_authorization_request(&input.transaction).await?;
-        if consent.is_none() && !self.can_authorize(&pending, &session).await? {
+        if !explicit && !self.can_authorize(&pending, &session).await? {
             return Err(
                 OAuthCode::InvalidRequest.reject("this authorization needs the user's consent")
             );
@@ -140,10 +143,38 @@ impl OidcApplication {
             ConsentDecision::Unsupported => {
                 return Err(OAuthCode::InvalidRequest.reject("decision must be approve or deny"));
             }
-            ConsentDecision::Deny => OAuthCode::AccessDenied
-                .redirect_url(&client_redirect, "the user denied the request"),
+            ConsentDecision::Deny => {
+                let step = self
+                    .step(
+                        &context,
+                        Some(session.user_id),
+                        &request.client_id,
+                        "denied",
+                    )
+                    .await;
+                transaction.after_commit(move || {
+                    if let Some((row, consent)) = step {
+                        row.record(consent);
+                    }
+                });
+                OAuthCode::AccessDenied
+                    .redirect_url(&client_redirect, "the user denied the request")
+            }
             ConsentDecision::Approve => {
-                if let Some(context) = consent {
+                let step = self
+                    .step(
+                        &context,
+                        Some(session.user_id),
+                        &request.client_id,
+                        "authorized",
+                    )
+                    .await;
+                transaction.after_commit(move || {
+                    if let Some((row, consent)) = step {
+                        row.record(consent);
+                    }
+                });
+                if explicit {
                     transaction
                         .oidc()
                         .save_consent(

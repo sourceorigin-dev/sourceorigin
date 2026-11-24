@@ -31,8 +31,9 @@ use axum::{
     response::Redirect,
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use sourceorigin_common::{RecoveryId, protocol::claims::Acr};
+use sourceorigin_common::{ClientId, RecoveryId, UserId, protocol::claims::Acr};
 use sourceorigin_repository::StoredAuthorizationRequest;
+use sourceorigin_telemetry::analytics::{Consent, Product};
 use sourceorigin_ui::{Checkbox, LoginQuery};
 use url::Url;
 
@@ -103,6 +104,48 @@ pub(crate) struct AuthorizationView {
     /// Where the application receives the browser: the registered redirect URI the
     /// request named.
     pub(crate) redirect_uri: Url,
+}
+
+sourceorigin_telemetry::signal! {
+    /// A step an authorization request passed: how many requests of each app
+    /// reach each step, so where people stop signing in shows, never whose.
+    pub(crate) product struct AuthorizationStep in "authorization_steps", kept 390 days, ordered by (client, step) {
+        /// The app.
+        pub(crate) client: ClientId,
+        /// `requested`, the app sent the browser here; `sign_in`, the sign-in page
+        /// showed; `consent`, the consent page showed; `authorized`, the app got
+        /// its code; or `denied`, the person declined.
+        pub(crate) step: &'static str,
+    }
+}
+
+impl OidcApplication {
+    /// The row that a request of `client` reached `step`, with the consent of
+    /// the person behind `context`, `user` once signed in, if they give it.
+    async fn step(
+        &self,
+        context: &RequestContext,
+        user: Option<UserId>,
+        client: &ClientId,
+        step: &'static str,
+    ) -> Option<(AuthorizationStep, Consent)> {
+        let consent = context.consent_of(&self.database, user).await?;
+        let client = client.clone();
+        Some((AuthorizationStep { client, step }, consent))
+    }
+
+    /// Records that a request of `client` reached `step`; see [`Self::step`].
+    async fn reached(
+        &self,
+        context: &RequestContext,
+        user: Option<UserId>,
+        client: &ClientId,
+        step: &'static str,
+    ) {
+        if let Some((row, consent)) = self.step(context, user, client, step).await {
+            row.record(consent);
+        }
+    }
 }
 
 impl OidcApplication {
@@ -188,7 +231,10 @@ impl OidcApplication {
         }
         let target_acr = request.target_acr;
         let transaction = validated.store(self).await?;
+        let user = session.as_ref().map(|session| session.user_id);
+        self.reached(&context, user, &client.id, "requested").await;
         if requires_login {
+            self.reached(&context, user, &client.id, "sign_in").await;
             self.sign_in_page(transaction, target_acr)
         } else {
             self.continue_authorization(context, headers, transaction, RecoveryQuestion::Unanswered)
@@ -287,6 +333,8 @@ impl OidcApplication {
             if silent {
                 return Err(back(OAuthCode::LoginRequired, SILENT_LOGIN_REQUIRED));
             }
+            self.reached(&context, None, &request.client_id, "sign_in")
+                .await;
             return self.sign_in_page(transaction, request.target_acr);
         };
         if !silent && Self::signed_in_for(&request, &session) {
@@ -309,7 +357,7 @@ impl OidcApplication {
                 transaction,
                 decision: ConsentDecision::Approve,
             };
-            return self.decide(headers, input, None).await;
+            return self.decide(context, headers, input, false).await;
         }
         if silent {
             return Err(back(
@@ -317,6 +365,13 @@ impl OidcApplication {
                 "prompt=none was requested, but the user must consent first",
             ));
         }
+        self.reached(
+            &context,
+            Some(session.user_id),
+            &request.client_id,
+            "consent",
+        )
+        .await;
         self.page(routes::page::CONSENT, &TransactionQuery { transaction })
     }
 }

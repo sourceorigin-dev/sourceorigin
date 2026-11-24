@@ -7,7 +7,7 @@ use crate::{
         AUTHORIZATION_REQUEST_MINUTES, OAuthCode, OAuthError, OidcApplication, OpaqueToken,
         PUSHED_REQUEST_SECONDS, Reject, TokenPrefix,
     },
-    security::RequestContext,
+    security::{RequestContext, Session},
 };
 use axum::{
     Form, Json,
@@ -66,9 +66,14 @@ impl OidcApplication {
         client_id: &str,
         request_uri: &str,
     ) -> Result<Url, OAuthError> {
-        let (opaque, _) = self
+        let (opaque, request) = self
             .claim(self.database.oidc(), client_id, request_uri)
             .await?;
+        let user = Session::resolve(&self.database, context, headers)
+            .await?
+            .map(|session| session.user_id);
+        self.reached(&context, user, &request.client_id, "requested")
+            .await;
         self.continue_authorization(
             context,
             headers,
