@@ -1,13 +1,13 @@
 //! Pushed authorization requests (RFC 9126): storing one an authenticated client
 //! pushes, and claiming it from its `request_uri`.
 
-use super::{AuthorizationParameters, RecoveryQuestion};
+use super::{AuthorizationParameters, AuthorizationStep, RecoveryQuestion};
 use crate::{
     oidc::{
         AUTHORIZATION_REQUEST_MINUTES, OAuthCode, OAuthError, OidcApplication, OpaqueToken,
         PUSHED_REQUEST_SECONDS, Reject, TokenPrefix,
     },
-    security::RequestContext,
+    security::{RequestContext, Session},
 };
 use axum::{
     Form, Json,
@@ -66,9 +66,17 @@ impl OidcApplication {
         client_id: &str,
         request_uri: &str,
     ) -> Result<Url, OAuthError> {
-        let (opaque, _) = self
+        let (opaque, request) = self
             .claim(self.database.oidc(), client_id, request_uri)
             .await?;
+        let user = Session::resolve(&self.database, context, headers)
+            .await
+            .ok()
+            .flatten()
+            .map(|session| session.user_id);
+        let silent = request.interaction.is_silent();
+        let consent = AuthorizationStep::consent(&self.database, &context, user, silent).await;
+        AuthorizationStep::count(consent, &request.client_id, "requested");
         self.continue_authorization(
             context,
             headers,

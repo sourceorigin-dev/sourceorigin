@@ -1,6 +1,7 @@
 //! The consent page's decision on a pending authorization, whether it may be
 //! skipped, and the code an approved authorization issues.
 
+use super::AuthorizationStep;
 use super::UNKNOWN_TRANSACTION;
 use crate::{
     oidc::{
@@ -99,26 +100,37 @@ impl OidcApplication {
         OAuthCode::InvalidRequest.reject("the client is no longer registered")
     }
 
-    /// Consumes the pending authorization and returns the client redirect: an error
-    /// for a denial, or a new authorization code. Explicit decisions come from the
-    /// consent page, whose request is `consent`, and save and record consent;
-    /// implicit ones must already be allowed.
+    /// Consumes the pending authorization of `context` and returns the client
+    /// redirect: an error for a denial, or a new authorization code. Explicit
+    /// decisions come from the consent page and save and record consent;
+    /// implicit ones must already be allowed. Whether to count the steps is read
+    /// before the transaction, which would hold its locks while waiting.
     pub(crate) async fn decide(
         &self,
+        context: RequestContext,
         headers: &HeaderMap,
         input: AuthorizationDecision,
-        consent: Option<RequestContext>,
+        explicit: bool,
     ) -> Result<Url, OAuthError> {
         let session = Session::required(&self.database, headers).await?;
         let pending = self.find_authorization_request(&input.transaction).await?;
-        if consent.is_none() && !self.can_authorize(&pending, &session).await? {
+        if !explicit && !self.can_authorize(&pending, &session).await? {
             return Err(
                 OAuthCode::InvalidRequest.reject("this authorization needs the user's consent")
             );
         }
         let opaque = OpaqueToken::parse(TokenPrefix::AuthorizationRequest, &input.transaction)?;
         let digests = self.accepted_digests(&opaque);
+        let silent = pending.interaction.is_silent();
+        let user = Some(session.user_id);
+        let consent = AuthorizationStep::consent(&self.database, &context, user, silent).await;
         let mut transaction = self.database.begin().await?;
+        let step = match input.decision {
+            ConsentDecision::Approve => "authorized",
+            ConsentDecision::Deny | ConsentDecision::Unsupported => "denied",
+        };
+        let client = pending.client_id.clone();
+        transaction.after_commit(move || AuthorizationStep::count(consent, &client, step));
         if input.decision == ConsentDecision::Approve {
             Session::lock(&mut transaction, &session).await?;
         }
@@ -143,7 +155,7 @@ impl OidcApplication {
             ConsentDecision::Deny => OAuthCode::AccessDenied
                 .redirect_url(&client_redirect, "the user denied the request"),
             ConsentDecision::Approve => {
-                if let Some(context) = consent {
+                if explicit {
                     transaction
                         .oidc()
                         .save_consent(

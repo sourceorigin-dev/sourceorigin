@@ -64,7 +64,7 @@ impl WebApplication {
         let transaction = decision.transaction().to_owned();
         let redirect = web
             .oidc
-            .decide(headers(cx), decision, Some(context))
+            .decide(context, headers(cx), decision, true)
             .await
             .map_err(|error| Failure::signing_in(error, &transaction))?;
         Ok(web.onward(cx, Title::Consent.as_str(), &redirect).await?)

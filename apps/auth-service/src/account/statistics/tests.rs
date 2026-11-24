@@ -19,7 +19,7 @@ async fn the_owner_leaves_usage_statistics_and_comes_back() {
     let consented = async |context: RequestContext| {
         let mut tx = database.begin().await.expect("transaction");
         let consent = context
-            .consent(&mut tx, alice.user_id)
+            .consent(&mut tx, Some(alice.user_id))
             .await
             .expect("consent");
         tx.commit().await.expect("commit");

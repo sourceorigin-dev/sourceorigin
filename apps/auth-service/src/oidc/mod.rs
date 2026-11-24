@@ -20,6 +20,7 @@ use crate::config::{OidcConfig, TokenDigestKeys};
 use crate::keys::SigningKeys;
 use crate::routes;
 use crate::security::{CacheClass, Cached};
+pub(crate) use authorize::AuthorizationStep;
 pub(crate) use authorize::{
     AuthorizationDecision, AuthorizationView, RecoveryQuestion, TransactionQuery,
 };

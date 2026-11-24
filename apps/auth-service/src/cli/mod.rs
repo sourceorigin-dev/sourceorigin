@@ -45,7 +45,7 @@ use crate::{
     admin::{AdminOperation, OperatorName},
     deliveries::{BacklogCounted, DeliveryAttempted},
     jobs::{CleanupRan, JobCounted},
-    oidc::TokensIssued,
+    oidc::{AuthorizationStep, TokensIssued},
     passkey::PasskeyUsed,
     security::Throttled,
 };
@@ -347,6 +347,7 @@ const ANALYTICS_TABLES: &[Table] = &[
     CleanupRan::TABLE,
     JobCounted::TABLE,
     PasskeyUsed::TABLE,
+    AuthorizationStep::TABLE,
 ];
 
 /// How long telemetry may take to flush once a command ends. With `serve`'s

@@ -332,3 +332,40 @@ async fn pkce_is_optional_only_for_confidential_clients() {
     let challenged = confidential.code(Scope::OpenId.as_str()).await;
     Flow::assert_invalid_grant(exchange_without_verifier(&confidential, &challenged).await).await;
 }
+
+/// Each step an authorization request passes is counted for its app, naming no
+/// account: its request, its consent page, and the code it ends with.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL"]
+async fn each_step_of_an_authorization_is_counted() {
+    let analytics = sourceorigin_telemetry::analytics::AnalyticsCapture::start();
+    let flow = Flow::new(false, false).await;
+    flow.code(Scope::OpenId.as_str()).await;
+    let rows = analytics.rows("authorization_steps");
+    let steps: Vec<&str> = rows
+        .iter()
+        .map(|row| row["step"].as_str().expect("a step"))
+        .collect();
+    assert_eq!(steps, ["requested", "consent", "authorized"]);
+    for row in &rows {
+        let columns: Vec<_> = row.as_object().expect("a row").keys().collect();
+        assert_eq!(columns, ["client", "step"]);
+    }
+}
+
+/// An account that left usage statistics counts no step of its sign-ins.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL"]
+async fn an_account_that_left_usage_statistics_counts_no_step() {
+    let analytics = sourceorigin_telemetry::analytics::AnalyticsCapture::start();
+    let flow = Flow::new(false, false).await;
+    let left = flow
+        .app
+        .database
+        .users()
+        .set_analytics_included(flow.user_id, false)
+        .await;
+    assert!(left.expect("left"));
+    flow.code(Scope::OpenId.as_str()).await;
+    assert_eq!(analytics.rows("authorization_steps"), Vec::<Value>::new());
+}

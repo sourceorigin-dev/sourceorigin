@@ -11,6 +11,7 @@ use super::{
     types::{AuthenticationFinish, RelatedOrigins, RelatedStart},
 };
 use crate::{
+    oidc::AuthorizationStep,
     oidc::InlineResponse,
     security::{self, ApiError, CacheClass, Cached, RequestContext},
 };
@@ -78,6 +79,7 @@ impl PasskeyApplication {
     /// request for the redirect flow.
     pub(super) async fn start_related_login(
         State(app): State<Self>,
+        context: RequestContext,
         headers: HeaderMap,
         Json(input): Json<RelatedStart>,
     ) -> Result<Response, ApiError> {
@@ -93,6 +95,9 @@ impl PasskeyApplication {
             .oidc
             .claim_inline(&mut tx, &client_id, &input.request_uri)
             .await?;
+        let consent = context.consent(&mut tx, claim.hinted_user_id).await?;
+        let client = client_id.clone();
+        tx.after_commit(move || AuthorizationStep::count(consent, &client, "requested"));
         let (challenge, state) = app.discoverable()?;
         let sign_in = if let Some(user_id) = claim.hinted_user_id {
             if tx.passkeys().list_active(user_id).await?.is_empty() {
@@ -176,6 +181,8 @@ impl PasskeyApplication {
             .oidc
             .complete_inline(&mut tx, &claim, &session, &client_id, &origin)
             .await?;
+        let consent = context.consent(&mut tx, Some(user_id)).await?;
+        tx.after_commit(move || AuthorizationStep::count(consent, &client_id, "authorized"));
         tx.commit().await?;
         Ok(Json(response))
     }
