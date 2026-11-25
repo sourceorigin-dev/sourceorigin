@@ -142,7 +142,8 @@ pub use keys::{Jws, JwsHeader, KeyCache, KeyDefect, KeyError, KeySet};
 pub use resource::{Resource, ResourceError, ResourceValidator};
 pub use scope::{Scope, ScopeSet};
 pub use token::{
-    AccessToken, AuthenticationPolicy, IdToken, LogoutScope, LogoutToken, Subject, TokenError,
+    AccessToken, AuthenticationPolicy, IdToken, LogoutScope, LogoutToken, Malformed, Subject,
+    TokenError,
 };
 
 /// The wire types this SDK reads, shared with auth itself. Each item is re-exported

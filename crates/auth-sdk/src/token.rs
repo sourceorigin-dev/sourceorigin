@@ -19,7 +19,7 @@ use sourceorigin_common::{
         step_up::StepUpRequirement,
     },
 };
-use sourceorigin_crypto::Malformed;
+pub use sourceorigin_crypto::Malformed;
 use std::marker::PhantomData;
 use thiserror::Error;
 
