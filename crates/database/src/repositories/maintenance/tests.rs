@@ -21,8 +21,6 @@ async fn ended_records_go_after_their_retention() {
     let purged = UserRepository::from_pool(&pool)
         .insert_named("purged")
         .await;
-    // Test-generated IDs only, so formatting them into the SQL is safe. Each pair
-    // is past its limit, then just within it, labelled 'old' and 'new'.
     sqlx::raw_sql(&format!(
         "INSERT INTO passkey_credentials (id, credential_id, user_id, credential, friendly_name, revoked_at)
         SELECT uuidv7(), uuid_send(uuidv7()), '{user}', '{{}}', label, now() - age
@@ -63,8 +61,6 @@ async fn ended_records_go_after_their_retention() {
     .expect("purged handle");
     assert!(handle.recent, "the purge released {}", handle.handle);
 
-    // Other tests' announcements to everyone reach this account too, so only its
-    // own rows count.
     let remaining = || async {
         sqlx::query_scalar!(
             r#"SELECT 'passkey ' || friendly_name AS "remaining!" FROM passkey_credentials WHERE user_id = $1
@@ -96,8 +92,6 @@ async fn ended_records_go_after_their_retention() {
             .expect("cleanup")
     };
     maintenance().await;
-    // The announcement to everyone stays, saying it no longer knows whom it
-    // reached rather than counting no one.
     let kept = sqlx::query_scalar!(
         "SELECT id FROM announcements WHERE body = $1 AND subject = 'old to everyone'",
         user.to_string(),

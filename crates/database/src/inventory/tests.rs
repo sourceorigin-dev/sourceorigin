@@ -10,7 +10,6 @@ use std::collections::BTreeSet;
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn names_every_table_and_what_it_holds() {
     let pool = Database::test_pool().await;
-    // Only this schema's: audit tests migrate schemas of their own beside it.
     let tables: BTreeSet<String> = sqlx::query_scalar!(
         r#"SELECT table_name::text AS "table!" FROM information_schema.tables
         WHERE table_schema = current_schema() AND table_type = 'BASE TABLE'

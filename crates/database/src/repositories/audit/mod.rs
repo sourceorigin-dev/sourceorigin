@@ -670,7 +670,6 @@ impl AuditRepository<'_> {
     async fn guards(&mut self, enabled: bool) -> Result<(), DatabaseError> {
         let toggle = if enabled { "ENABLE" } else { "DISABLE" };
         for table in ["domain_events", "audit_checkpoints", "audit_anchor"] {
-            // DDL takes no bind parameters; every name is a literal here.
             let statement = format!("ALTER TABLE {table} {toggle} TRIGGER USER");
             run!(self, execute, sqlx::query(&statement))?;
         }

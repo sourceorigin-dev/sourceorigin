@@ -289,30 +289,22 @@ impl AccountDeletionRepository<'_> {
     /// Returns [`DatabaseError`] if a statement fails.
     pub async fn purge(&mut self, user_id: UserId) -> Result<bool, DatabaseError> {
         let id = user_id.as_uuid();
-        // Each statement is a checked query with its own type, so they cannot share a loop.
         macro_rules! delete {
             ($($statement:literal,)+) => {
                 $(run!(self, execute, sqlx::query!($statement, id))?;)+
             };
         }
         delete!(
-            // Cascades to the families' refresh tokens.
             "DELETE FROM refresh_token_families WHERE user_id = $1",
             "DELETE FROM authorization_codes WHERE user_id = $1",
             "DELETE FROM authorization_requests WHERE hinted_user_id = $1",
             "DELETE FROM oidc_consents WHERE user_id = $1",
-            // Cascades to cookie digests, ceremonies and provider redirects.
             "DELETE FROM sessions WHERE user_id = $1",
             "DELETE FROM administrators WHERE user_id = $1",
-            // Purges of a targeted announcement's recipients take turns on it, in
-            // the same order, so of two at once, the second, with the next
-            // statement's fresh snapshot, finds itself the last.
             "SELECT FROM announcements a
             JOIN announcement_recipients r ON r.announcement_id = a.id
             WHERE r.user_id = $1 AND NOT a.everyone
             ORDER BY a.id FOR UPDATE OF a",
-            // An announcement to chosen accounts may concern them, so it goes with
-            // its last recipient; deleting the account deletes its own rows.
             "DELETE FROM announcements a
             USING announcement_recipients r
             WHERE r.announcement_id = a.id AND r.user_id = $1 AND NOT a.everyone
@@ -321,10 +313,6 @@ impl AccountDeletionRepository<'_> {
                 WHERE other.announcement_id = a.id AND other.user_id <> $1
             )",
         );
-        // An operator's approval and another person's inline sign-in name neither
-        // the owner nor its account, so only the client finds them. They read
-        // the removed keys as erased. Ownership goes with the account, so this
-        // runs first; a sign-in it misses still ends with retention.
         run!(
             self,
             execute,
@@ -343,15 +331,6 @@ impl AccountDeletionRepository<'_> {
             changed_one,
             sqlx::query!("DELETE FROM users WHERE id = $1", id)
         )?;
-        // Its emails copy its addresses, and its announcements' would find no
-        // recipient left to send to; its other channels' deliveries hold no
-        // personal data. An announcement being sent, or an alert notifying the
-        // administrators, key-share locks its recipients, so deleting the account
-        // waited for it, and this fresh snapshot sees the emails it queued. Each
-        // channel's recipient index is partial, so the channels are matched with
-        // `OR`, which uses both, rather than `IN`, which uses neither.
-        // Users and administrators act as `{"type": …, "user_id": …}`; both
-        // branches are indexed, so the cost does not grow with others' history.
         delete!(
             "DELETE FROM deliveries
             WHERE (channel = 'email' OR channel = 'announcement')
@@ -361,12 +340,6 @@ impl AccountDeletionRepository<'_> {
             WHERE p.event_id = e.id
             AND (e.subject_user_id = $1 OR e.actor ->> 'user_id' = $1::text)",
         );
-        // A draft to chosen accounts saved naming the account while this purge
-        // ran was missed by the announcement cleanup above, but deleting the
-        // account waited for it and cascaded its row: this fresh snapshot sees it
-        // left without recipients, and deletes its text, which may concern them.
-        // Purges take turns on the administrator list's lock, so of two accounts
-        // such a draft names, the second purge finds it with one recipient left.
         run!(
             self,
             execute,

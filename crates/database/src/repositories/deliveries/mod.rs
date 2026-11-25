@@ -263,9 +263,6 @@ impl DeliveryRepository<'_> {
     ) -> Result<Option<Delivery<C>>, DatabaseError> {
         loop {
             let claim_token = Uuid::now_v7();
-            // In READ COMMITTED, a row another worker claimed after this statement's
-            // snapshot is skipped while locked, and rechecked against its new lease
-            // once that claim commits, so two workers never hold the same lease.
             let Some(row) = run!(
                 self,
                 fetch_optional,

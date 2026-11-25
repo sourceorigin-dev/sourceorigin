@@ -4,7 +4,6 @@
 //! `SQLx` error. Repositories expose only the operations used by the service, plus
 //! read-only helpers and fixtures behind the `test-util` feature for other
 //! crates' tests.
-// A library leaves printing to its caller: it returns errors and logs through tracing.
 #![warn(clippy::print_stdout, clippy::print_stderr)]
 /// Validated `PostgreSQL` transport and bounded connection pools.
 mod connection;

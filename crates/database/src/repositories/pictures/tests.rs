@@ -62,7 +62,6 @@ async fn a_picture_serves_only_while_current_and_active() {
         database.pictures().image(second).await.expect("disabled"),
         None
     );
-    // Nor does any record of it name one that would not load.
     assert_eq!(user().await.picture, None);
     let found = database
         .users()

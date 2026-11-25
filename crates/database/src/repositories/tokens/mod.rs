@@ -246,13 +246,7 @@ impl TokenRepository<'_> {
         digests: &[Vec<u8>],
         client: &str,
     ) -> Result<(), RefreshRedemptionError> {
-        // All state locks must outlive the redemption, token issuance and commit,
-        // even when nothing is written: they make the refresh wait for a logout,
-        // disablement or recovery undo, then fail on what it committed.
         self.executor.require_transaction()?;
-        // Look up immutable ownership without locks, then acquire locks explicitly.
-        // Account mutations take user -> session -> family; logout takes session ->
-        // family. A joined FOR UPDATE does not guarantee that ordering.
         let owner = run!(
             self,
             fetch_optional,
@@ -269,8 +263,6 @@ impl TokenRepository<'_> {
             )
         )?
         .ok_or(RefreshRedemptionError::Invalid)?;
-        // The user key never changes: NO KEY UPDATE permits concurrent session
-        // foreign-key checks while we wait for its session lock.
         run!(
             self,
             fetch_optional,
@@ -311,8 +303,6 @@ impl TokenRepository<'_> {
             )
         )?
         .ok_or(RefreshRedemptionError::Invalid)?;
-        // Shared policy locks let independent accounts refresh concurrently while
-        // still serializing client-policy updates until token issuance commits.
         run!(
             self,
             fetch_optional,
@@ -444,13 +434,10 @@ impl TokenRepository<'_> {
                 Some(successor) => RefreshOutcome::Retried(successor),
                 None => return Err(self.replay(user_id, family_id).await),
             },
-            // A token consumed before its client stopped rotating is a replay.
             (Some(_), RefreshRedemption::Keep) => {
                 return Err(self.replay(user_id, family_id).await);
             }
         };
-        // The grant's JSON is decoded only after the replay check, so a replayed
-        // token revokes its family even if that JSON is invalid.
         let strings = decode::<Vec<String>>;
         let scopes = strings("scopes", row.scopes)?;
         let allowed_scopes = strings("allowed_scopes", row.allowed_scopes)?;
@@ -667,7 +654,6 @@ impl TokenRepository<'_> {
         user_id: UserId,
         client: Option<&ClientId>,
     ) -> Result<u64, DatabaseError> {
-        // Locked in ID order, as `lock_client_families` explains.
         Ok(run!(
             self,
             execute,

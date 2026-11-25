@@ -658,7 +658,6 @@ impl SessionRepository<'_> {
             self,
             fetch_one,
             sqlx::query_scalar!(
-                // `xmax` is zero only on a row this statement inserted.
                 r#"INSERT INTO known_devices (user_id, device_digest, user_agent_family)
                 VALUES ($1, $2, $3)
                 ON CONFLICT (user_id, device_digest) DO UPDATE

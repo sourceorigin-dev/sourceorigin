@@ -314,7 +314,6 @@ impl PersonalDetails {
             }
             Value::Object(object) => {
                 for (key, child) in object {
-                    // RFC 6901 escaping.
                     let key = key.replace('~', "~0").replace('/', "~1");
                     self.walk(child, format!("{pointer}/{key}"));
                 }

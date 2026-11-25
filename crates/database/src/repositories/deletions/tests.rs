@@ -103,8 +103,6 @@ async fn restore_tokens_expire_and_end_with_the_deletion() {
         "an account that is not scheduled gets no token"
     );
 
-    // Leaving 'deleting' any other way, through a plain enable or disable, ends
-    // the schedule too.
     let mut users = UserRepository::from_pool(&pool);
     users
         .set_status(user, AccountStatus::Deleting)
@@ -142,9 +140,7 @@ async fn purge_leaves_nothing_that_references_or_identifies_the_account() {
         .await;
     let client = format!("purge-{user}");
     let (session, code, family) = (SessionId::new(), TokenId::new(), TokenId::new());
-    // Announcements to the account alone, to it and the bystander, and to everyone.
     let (alone, shared, everyone) = (TokenId::new(), TokenId::new(), TokenId::new());
-    // Test-generated IDs only, so formatting them into the SQL is safe.
     sqlx::raw_sql(&format!(
         "INSERT INTO oidc_clients (id, display_name, allowed_scopes, allowed_audiences, owner_id)
         VALUES ('{client}', 'Purge test', '[]', '[]', '{user}');
@@ -278,10 +274,6 @@ async fn purge_leaves_nothing_that_references_or_identifies_the_account() {
         .expect("schedule");
     tx.commit().await.expect("commit");
 
-    // Every column with a foreign key to users(id), and how many rows hold the account.
-    // Only this schema's: audit tests migrate schemas of their own beside it.
-    // Read from the catalog: joining information_schema's views for the same
-    // rows takes a minute against a migrated test database.
     let references = || async {
         sqlx::query!(
             r#"SELECT
@@ -321,7 +313,6 @@ async fn purge_leaves_nothing_that_references_or_identifies_the_account() {
         .collect();
     assert!(remaining.is_empty(), "{remaining:?}");
 
-    // Events stay, with their personal data erased, except the bystander's own.
     let events = EventRepository::from_pool(&pool)
         .history_for_user(user, 10)
         .await
@@ -355,8 +346,6 @@ async fn purge_leaves_nothing_that_references_or_identifies_the_account() {
             (Some(DomainEvent::AccountViewed {}), true),
         ]
     );
-    // A request that was in flight during the purge records its event, but no
-    // personal data comes back with it.
     let mut late = DatabaseTransaction::new(pool.begin().await.expect("transaction"));
     late.record(&mine, Some(user), DomainEvent::AccountEnabled {})
         .await
@@ -368,7 +357,6 @@ async fn purge_leaves_nothing_that_references_or_identifies_the_account() {
         .expect("history");
     assert_eq!(latest[0].origin, Personal::Erased);
 
-    // Its email deliveries copied its addresses; a logout token still goes out.
     let channels = sqlx::query_scalar!(
         "SELECT channel FROM deliveries WHERE recipient = to_jsonb($1::text) ORDER BY channel",
         user.to_string(),
@@ -378,7 +366,6 @@ async fn purge_leaves_nothing_that_references_or_identifies_the_account() {
     .expect("deliveries");
     assert_eq!(channels, ["backchannel_logout"]);
 
-    // An announcement to the account alone may concern it, so it went with it.
     let kept = sqlx::query_scalar!(
         "SELECT id FROM announcements WHERE id = ANY($1) ORDER BY id",
         &[alone, shared, everyone].map(TokenId::as_uuid)[..],
@@ -429,7 +416,6 @@ async fn personal_data_stored_during_a_purge_is_erased() {
         tx.commit().await.expect("commit");
         purged
     });
-    // Only deleting the account waits for the request's lock.
     Database::wait_for_lock(&pool, backend).await;
     request.commit().await.expect("commit");
     assert!(purging.await.expect("purge task"));
@@ -458,7 +444,6 @@ async fn an_alert_raised_during_a_purge_leaves_no_email() {
     let user = UserRepository::from_pool(&pool)
         .insert_named("alerted")
         .await;
-    // Test-generated IDs only, so formatting them into the SQL is safe.
     sqlx::raw_sql(&format!(
         "INSERT INTO user_emails (id, user_id, normalized_email, verified_at, is_primary)
         VALUES (uuidv7(), '{user}', 'alerted-{user}@example.com', now(), TRUE);
@@ -492,7 +477,6 @@ async fn an_alert_raised_during_a_purge_leaves_no_email() {
         tx.commit().await.expect("commit");
         purged
     });
-    // Only deleting the account waits for the alert's lock.
     Database::wait_for_lock(&pool, backend).await;
     raising.commit().await.expect("commit");
     assert!(purging.await.expect("purge task"));
@@ -519,7 +503,6 @@ async fn failed_purges_back_off_behind_other_accounts() {
         .await;
     let other = UserRepository::from_pool(&pool).insert_named("other").await;
     let mut deletions = AccountDeletionRepository::from_pool(&pool);
-    // Other tests' accounts may be due too, so only these two are compared.
     let order = async |deletions: &mut AccountDeletionRepository<'_>| {
         deletions
             .due(u32::MAX)
@@ -559,8 +542,6 @@ async fn failed_purges_back_off_behind_other_accounts() {
     assert_eq!(order(&mut deletions).await, [other], "waits its backoff");
     assert!(deletions.count_failing(3).await.expect("count") >= 1);
 
-    // Restored and scheduled again while an attempt failed: the new schedule
-    // starts without the old failure.
     assert!(deletions.cancel(failing).await.expect("cancel"));
     deletions
         .schedule(failing, Utc::now() + Duration::days(30))
