@@ -87,7 +87,7 @@ Every item carries one of these:
 | Integrations | A worker that needs only Origin's API is an Origin plugin. One that needs accounts, tenancy or billing lives here | Decided | [platform](platform.md#integrations) |
 | T3 Code | Origin appears in piquel's T3 Code fork only as a pull request provider. It plays no part in choosing the frontend | Deferred | [platform](platform.md#t3-code) |
 | Repository layout | Origin stays its own repository. `apps/web` is renamed, the database crate is renamed, each service gets its own database | Decided in part | [repository](repository.md) |
-| piqueld applications | Four: `sourceorigin-auth`, `sourceorigin-origin`, `sourceorigin` and `sourceorigin-observability` | Decided | [repository](repository.md#piqueld-applications) |
+| piqueld applications | Three: `sourceorigin-auth`, `sourceorigin-origin` and `sourceorigin`. Telemetry moves into each environment's ClickHouse | Decided | [repository](repository.md#piqueld-applications) |
 | Issues | Issues live in Linear. No project management system is built | Decided | [platform](platform.md#dropped) |
 | Issues as changes, `production` as a target, reviewed marks as statements | Not built | Dropped | [platform](platform.md#dropped) |
 

@@ -137,8 +137,10 @@ into `policy.toml` and can't be changed afterwards:
 3. origin#77 times on records.
 4. origin#44 principals as IDs, with one issuer per repository.
 5. origin#78 a repository's identity in its genesis.
-6. origin#79 the design for rotating and recovering authority keys.
-7. origin#56 a repository format version.
+6. origin#56 a repository format version.
+
+origin#79, rotating and recovering authority keys, was on this list and is
+not needed here: a recovery key can be added later by a landing on `policy`.
 
 To host the first repository, which is milestone 1:
 

@@ -41,22 +41,21 @@ confusing in a product about repositories.
 
 ## piqueld applications
 
-**Decided.** Four applications, where the notes had three:
+**Decided.** Three applications:
 
 | Application | What it runs |
 | --- | --- |
 | `sourceorigin-auth` | Origin Auth and its database |
 | `sourceorigin-origin` | The Origin nodes, their volumes and the authority key |
 | `sourceorigin` | The platform's API, workers and web UI, and their database |
-| `sourceorigin-observability` | The telemetry stack, as today |
 
-The reason for the fourth: deploying auth should never restart a node that
-holds an authority key.
+Deploying auth should never restart a node that holds an authority key, which
+is why the nodes have an application of their own.
 
-**Open:** whether `sourceorigin-observability` still exists. Work in progress
-on 25 November 2026 moves traces, logs and metrics into a ClickHouse in each
-environment and removes the Grafana stack. If that lands, there are three
-applications.
+The notes, and this plan at first, also had `sourceorigin-observability`. It
+goes away: traces, logs and metrics move into a ClickHouse in each
+environment, and the Grafana stack is removed. That work was waiting only for
+review on 25 November 2026.
 
 ## CI by area
 

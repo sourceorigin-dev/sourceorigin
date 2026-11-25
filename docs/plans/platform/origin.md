@@ -210,6 +210,11 @@ likely adds to `policy.toml`, so it is designed before real history exists.
 piqueld's backups include secrets, so the backup repository holds this key.
 Tracked in origin#79.
 
+It does not have to be settled before the first repository, though this plan
+said so at first. A recovery key can be added to a repository later, by an
+ordinary landing on `policy`, for as long as the authority key still exists.
+Until then the protection is a copy of the node key kept offline.
+
 ## Finding repositories
 
 Repositories are created with `origin repo create` on the server's own
@@ -492,19 +497,53 @@ any real repository. Tracked in origin#76, in Origin's v0.1.
 ## Times on records
 
 **Decided.** No record says when it was made. Every revision, statement and
-acceptance gets a time. An acceptance's time is the authority's and is covered
-by its signature. A revision's or statement's time is what its author claims.
-This changes the record encoding, so it goes in before real history exists.
-Tracked in origin#77, in Origin's v0.1.
+acceptance gets a time. This changes the record encoding, so it goes in before
+real history exists. Tracked in origin#77, in Origin's v0.1.
+
+**Proposed** shape, not answered yet:
+
+- **One type:** milliseconds since the Unix epoch, in UTC, as an unsigned
+  64-bit integer. Seconds would tie the many revisions an agent writes within
+  one second. No time zone is stored: it would reveal where the author is,
+  and a viewer shows times in its own zone.
+- **An acceptance's time is the authority's,** and its signature covers it. It
+  is never earlier than the acceptance before it: when the clock has gone
+  backwards, the authority uses the previous time. A target's history is then
+  in order by time, and so are the git mirror's commits.
+- **A revision's or statement's time is its author's claim.** A node refuses
+  one that is more than a few minutes in the future. It accepts old ones,
+  since work done offline is pushed later.
+- **Files carry none.** Blobs, trees and attachments are named by their
+  content alone, so identical content stays one object.
+- **A promoted statement has its own time,** when it was promoted. Its
+  original keeps its own, and the rule that a promotion equals its original
+  doesn't compare times.
+- **Retention is unchanged.** It still counts from when the node stored a
+  statement, which the issuer can't choose.
+- Origin reads the time through one clock, so tests can set it.
 
 ## A repository's identity
 
 **Decided.** An acceptance names no repository, and a target's ID is the hash
 of its name. Two repositories created for the same admin on one node start
-with identical genesis acceptances, so a wrong mapping in the registry, or a
-restore into the wrong place, serves another repository's valid chain. A
-unique identity is bound into genesis, and a clone pins it. Tracked in
-origin#78.
+with identical first acceptances. Tracked in origin#78.
+
+Why it matters: say piquel creates `piquel/origin` and `piquel/piqueld`. Both
+begin with the same policy, signed by the same node key, so their histories
+begin with the very same record. If a mistake in the registry, or a restore
+into the wrong directory, ever serves one under the other's name, a fresh
+clone, the git mirror and piqueld's build all receive the wrong code. Every
+signature on it is valid, so nothing can notice.
+
+**Proposed** shape, not answered yet:
+
+- The first policy of a repository holds a random ID, in `policy.toml`. Its
+  first acceptance is then unique, and that acceptance's ID is the
+  repository's identity. No record gains a field.
+- A clone remembers that ID beside the remote's URL, and refuses a remote
+  whose first acceptance is another.
+- The registry's entry carries it too, so the node can check that the
+  directory it opens is the repository it was asked for.
 
 ## Erasing content
 
