@@ -231,3 +231,33 @@ test('UserInfo must name the signed-in user', async () => {
     error: { code: 'invalid_token', reason: 'subject_mismatch' }
   });
 });
+
+test('accounts are looked up under the issuer, 100 at a time', async () => {
+  const ids = Array.from(
+    { length: 150 },
+    (_, index) => `0199a000-0000-7000-8000-${String(index).padStart(12, '0')}`
+  );
+  const url = (batch: string[]) =>
+    `${ISSUER}/accounts?${new URLSearchParams(batch.map((id) => ['id', id])).toString()}`;
+  const answer = (batch: string[]) => () =>
+    Response.json({ accounts: batch.map((id) => ({ id, handle: 'ada' })) });
+  const [first, rest] = [ids.slice(0, 100), ids.slice(100)];
+  const fetch = new FakeFetch({
+    [DISCOVERY_URL]: () => Response.json(DOCUMENT),
+    [url(first)]: answer(first),
+    [url(rest)]: answer(rest),
+    [url(['malformed'])]: () => Response.json({ accounts: [{ id: 'malformed' }] })
+  });
+  const issuer = await Issuer.discover(ISSUER, { fetch: fetch.fetch });
+  const found = await issuer.accounts(ids);
+  assert.deepEqual(
+    found.map((account) => account.id),
+    ids
+  );
+  assert.equal(found[0]?.handle, 'ada');
+  assert.equal(fetch.count(url(first)), 1);
+  assert.deepEqual(await issuer.accounts([]), []);
+  // No directory at this URL, then an answer that is not a lookup's.
+  await assert.rejects(issuer.accounts(['unanswered']), { code: 'network' });
+  await assert.rejects(issuer.accounts(['malformed']), { code: 'network' });
+});

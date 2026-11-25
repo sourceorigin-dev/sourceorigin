@@ -64,6 +64,8 @@ pub mod challenge;
 pub mod claims;
 /// The limits, lifetimes and names every SDK applies the same way.
 pub mod constants;
+/// What anyone may read about an account from its ID.
+pub mod directory;
 /// The security and `Cache-Control` headers of every response.
 #[cfg(feature = "server")]
 pub mod headers;

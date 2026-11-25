@@ -398,7 +398,7 @@ impl HttpSecurity {
     }
 
     /// Determines whether an exact browser origin may access this endpoint family:
-    /// any origin reads discovery and the audit checkpoints, and auth's own pages
+    /// any origin reads discovery, the audit checkpoints and the directory, and auth's own pages
     /// reach every endpoint. The
     /// back-channel and `UserInfo` endpoints also serve the redirect origins of
     /// enabled public clients, and related sign-in the approved origins of trusted
@@ -411,7 +411,7 @@ impl HttpSecurity {
     ) -> Result<bool, HttpSecurityError> {
         if matches!(
             endpoint,
-            Endpoint::Discovery | Endpoint::Checkpoints | Endpoint::Picture
+            Endpoint::Discovery | Endpoint::Checkpoints | Endpoint::Picture | Endpoint::Directory
         ) || origin == self.origin.ascii_serialization()
         {
             return Ok(true);
@@ -429,6 +429,7 @@ impl HttpSecurity {
             Endpoint::Discovery
             | Endpoint::Checkpoints
             | Endpoint::Picture
+            | Endpoint::Directory
             | Endpoint::Health
             | Endpoint::Authorize
             | Endpoint::Logout
@@ -480,9 +481,10 @@ impl HttpSecurity {
                 .await;
         }
         let grant = match endpoint {
-            Endpoint::Discovery | Endpoint::Checkpoints | Endpoint::Picture => {
-                Some(CorsGrant::Public)
-            }
+            Endpoint::Discovery
+            | Endpoint::Checkpoints
+            | Endpoint::Picture
+            | Endpoint::Directory => Some(CorsGrant::Public),
             Endpoint::RelatedLogin => origin.filter(|_| allowed).map(CorsGrant::Related),
             _ => origin.filter(|_| allowed).map(CorsGrant::Client),
         };

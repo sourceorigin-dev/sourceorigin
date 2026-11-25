@@ -12,6 +12,13 @@ Auth doesn't hide which handles have an account:
 
 This was decided in [#255](https://github.com/sourceorigin-dev/sourceorigin/issues/255).
 
+Auth also names an account from its ID. `GET /accounts` answers the current
+handle of each active account among the IDs it is given
+(`apps/auth-service/src/directory`), to anyone, so that services can keep IDs
+in their records and show names
+([#773](https://github.com/sourceorigin-dev/sourceorigin/issues/773)).
+[From an ID to a handle](#from-an-id-to-a-handle) says what that gives away.
+
 ## Why handles aren't hidden
 
 - **Uniqueness gives handles away.** Signup has to refuse a handle that's taken,
@@ -36,6 +43,7 @@ This was decided in [#255](https://github.com/sourceorigin-dev/sourceorigin/issu
 | Anyone, through handle sign-in | Whether the handle belongs to an account that can sign in with a passkey by handle: one that is active, or scheduled for deletion, and has an unrevoked passkey. Nothing about its passkeys ([below](#credential-ids-stay-private)). |
 | Anyone admitted to signup, and every account holder through a rename | Whether the handle, or a look-alike, is held or was held, and which look-alike. |
 | Relying parties the user signs in to | The handle, as `preferred_username`. |
+| Anyone who holds an account's ID, through the lookup | The account's current handle, while the account is active, and so every rename. Whether an ID that doesn't resolve was never an account, or is one that is disabled or deleted, stays hidden. |
 | Anyone, once a profile is published (#101) | The profile. #101 has an unpublished profile answer 404 like an unknown handle, so it reveals nothing beyond what sign-in does. |
 
 The account picker (signing in without a handle) reveals nothing: the
@@ -52,8 +60,9 @@ The authenticator names the account in its answer, and auth refuses a passkey
 of any account other than the one the handle named (`verify` in
 `apps/auth-service/src/passkey/login.rs`). It says so only once the passkey
 signed: the account an assertion names is the client's claim, so a forged one
-fails as any bad signature does, and an app that knows an account's ID can't try
-handles to find its current one. A related origin's sign-in for the
+fails as any bad signature does, and sign-in confirms no guess of the handle an
+account's ID has now. The lookup answers that question outright, for an active
+account ([from an ID to a handle](#from-an-id-to-a-handle)). A related origin's sign-in for the
 account its client hints at works the same way.
 
 Listing the IDs would undo a rename. They are stable and unique, and a rename
@@ -75,6 +84,45 @@ them.
 This was decided in [#297](https://github.com/sourceorigin-dev/sourceorigin/issues/297).
 The alternative kept listing the IDs and warned in the settings that a rename
 doesn't hide the old handle unless the owner also replaces their passkeys.
+
+## From an ID to a handle
+
+Before the lookup, a handle led to nothing else, and nothing led to a handle:
+an account's ID reached only the relying parties its owner signed in to, as
+`sub`, and they learned a new handle only at the owner's next sign-in. The
+lookup adds the other direction. Whoever holds an account's ID can ask for its
+current handle at any time, without the owner signing in anywhere.
+
+**A rename no longer hides from someone who holds the ID.** The section above
+keeps credential IDs private so that nobody can link an old handle to a new
+one. That still holds for someone who knows only the old handle: no endpoint
+takes a handle and answers an ID. It doesn't hold for someone who holds the
+account's ID, who now follows every rename. Who holds an ID:
+
+- every relying party the owner signed in to, which also receives the handle
+  at each sign-in;
+- anyone a service shows the ID to. A service that prints account IDs in its
+  pages or its API hands that link to all its readers. Services that only show
+  the name the lookup answers don't.
+
+So an owner who renames to cut the link to an old handle is still linked for
+the services that recorded their ID, and for whoever those services show it
+to. A new account is the only way to cut that link.
+
+What the lookup doesn't give away:
+
+- **No enumeration.** IDs are UUIDv7: the time of signup, then random bits,
+  far too many to guess. Nobody finds accounts by guessing IDs, and the budget
+  of lookups for each IP address bounds the tries.
+- **Nothing but the handle.** No display name, picture, email address, or date.
+  An ID's own timestamp says when the account was created, to whoever holds it.
+- **No status.** A disabled account, one scheduled for deletion, a purged one
+  and an ID that never existed all answer the same: they are left out. A holder
+  of an ID that used to resolve does learn that the account stopped being
+  active, as a relying party learns at a refused refresh.
+
+Only active accounts resolve, so disabling or deleting an account stops every
+service naming it at its next lookup. The answer is not cacheable.
 
 ## Threat model
 

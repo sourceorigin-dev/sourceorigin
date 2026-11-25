@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT u.id AS \"id: UserId\", h.handle\n                FROM users u\n                JOIN handles h ON h.user_id = u.id AND h.released_at IS NULL\n                WHERE u.id = ANY($1) AND u.status = 'active'\n                ORDER BY u.id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id: UserId",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "handle",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "05f4009597a13b8ac2b64e1f2bf01bd38ff5e8bc88a92829a7f8f39a0d309174"
+}

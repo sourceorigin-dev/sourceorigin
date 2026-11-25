@@ -166,6 +166,12 @@ pub(crate) mod audit {
     pub(crate) const CHECKPOINTS: &str = "/audit/checkpoints";
 }
 
+/// The public directory of accounts.
+pub(crate) mod directory {
+    /// What is public about the accounts a query names by ID.
+    pub(crate) const ACCOUNTS: &str = sourceorigin_common::protocol::directory::ACCOUNTS_PATH;
+}
+
 /// OAuth 2.0 and `OpenID` Connect endpoints.
 pub(crate) mod oidc {
     use sourceorigin_common::protocol::metadata;

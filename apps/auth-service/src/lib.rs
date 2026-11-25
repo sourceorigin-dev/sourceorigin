@@ -23,6 +23,8 @@ mod config;
 mod deletion;
 /// Sending the outbound delivery queue.
 mod deliveries;
+/// The public directory: what anyone may read about an account from its ID.
+mod directory;
 /// The account's email addresses and their verification.
 mod emails;
 /// External identity provider applications and linking.
@@ -76,6 +78,7 @@ pub(crate) use clients::{Applied, ClientRegistry, ClientRegistryError, MAX_OWNED
 pub(crate) use config::{
     AuditConfig, AuthConfig, DashboardConfig, KeyEncryptionKeys, PUBLIC_BASE_URL, TokenDigestKeys,
 };
+use directory::DirectoryApplication;
 use emails::EmailApplication;
 use federation::FederationApplication;
 use history::HistoryApplication;
@@ -164,6 +167,7 @@ impl AuthConfig {
             .merge(AccountApplication::new(database.clone()).routes())
             .merge(EmailApplication::new(database.clone(), &self.email).routes())
             .merge(PictureApplication::new(database.clone()).routes())
+            .merge(DirectoryApplication::new(database.clone()).routes())
             .merge(web.routes())
             .merge(oidc.routes());
         let policy = security::HttpSecurity::new(self, database)?;

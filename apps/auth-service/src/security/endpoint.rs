@@ -1,7 +1,9 @@
 //! How the HTTP boundary classifies a route, which its origin, CSRF and rate
 //! policies all read, and the independent request budgets of each class.
 
-use crate::routes::{ACCOUNT_PREFIX, audit, dashboard, oidc, page, passkey, pictures, service};
+use crate::routes::{
+    ACCOUNT_PREFIX, audit, dashboard, directory, oidc, page, passkey, pictures, service,
+};
 use axum::{
     extract::{MatchedPath, Request},
     http::Method,
@@ -28,6 +30,9 @@ pub(super) enum Endpoint {
     Checkpoints,
     /// Profile pictures, which any origin may load, cookie-less, like any image.
     Picture,
+    /// The public directory, which any origin may read: what is public about
+    /// the accounts a query names.
+    Directory,
     /// Liveness and readiness probes polled by the orchestrator.
     Health,
     /// Authorization requests, including cross-site form navigation.
@@ -95,6 +100,7 @@ impl Endpoint {
             passkey::RELATED_START | passkey::RELATED_FINISH => Self::RelatedLogin,
             audit::LATEST_CHECKPOINT | audit::CHECKPOINTS => Self::Checkpoints,
             pictures::IMAGE => Self::Picture,
+            directory::ACCOUNTS => Self::Directory,
             service::LIVE | service::READY => Self::Health,
             oidc::AUTHORIZE => Self::Authorize,
             oidc::LOGOUT => Self::Logout,
@@ -118,6 +124,7 @@ impl Endpoint {
             Self::Discovery
             | Self::Checkpoints
             | Self::Picture
+            | Self::Directory
             | Self::Health
             | Self::Account
             | Self::Page
@@ -145,6 +152,7 @@ impl Endpoint {
             | Self::Discovery
             | Self::Checkpoints
             | Self::Picture
+            | Self::Directory
             | Self::Health
             | Self::Account
             | Self::DashboardSearch
@@ -171,6 +179,7 @@ impl Endpoint {
             Self::DashboardSearch => Some(RateCategory::Search),
             Self::Checkpoints => Some(RateCategory::Audit),
             Self::Picture => Some(RateCategory::Picture),
+            Self::Directory => Some(RateCategory::Directory),
             Self::Discovery | Self::Health => None,
         }
     }
@@ -201,5 +210,8 @@ sourceorigin_common::str_enum! {
         Audit = "audit",
         /// Profile pictures, which a page listing accounts loads many of at once.
         Picture = "picture",
+        /// Lookups in the public directory, which a service showing a history
+        /// makes for the accounts it names.
+        Directory = "directory",
     }
 }

@@ -2,7 +2,7 @@
 //! and the limit on requests in flight.
 
 use super::*;
-use crate::routes::{audit, federation, passkey};
+use crate::routes::{audit, directory, federation, passkey};
 use crate::tests::Replicas;
 
 /// The request deadline also bounds waiting for a locked rate-limit bucket.
@@ -259,6 +259,7 @@ fn routes_doing_real_work_have_budgets() {
         (oidc::JWKS, None),
         (audit::CHECKPOINTS, Some(RateCategory::Audit)),
         (audit::LATEST_CHECKPOINT, Some(RateCategory::Audit)),
+        (directory::ACCOUNTS, Some(RateCategory::Directory)),
         (oidc::TOKEN, Some(RateCategory::Token)),
         (oidc::PAR, Some(RateCategory::Token)),
         (oidc::USERINFO, Some(RateCategory::UserInfo)),

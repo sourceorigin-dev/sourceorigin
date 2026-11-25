@@ -3,7 +3,9 @@
 use super::{RepositoryExecutor, Unsigned, UserRepository};
 use crate::DatabaseError;
 use chrono::{DateTime, Utc};
-use sourceorigin_common::{AccountStatus, Handle, PictureId, UserId, admin::User};
+use sourceorigin_common::{
+    AccountStatus, Handle, PictureId, UserId, admin::User, protocol::directory::PublicAccount,
+};
 
 /// A user account row, with its current handle.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -133,6 +135,29 @@ impl UserRepository<'_> {
             self,
             fetch_optional,
             users!("WHERE u.id = $1", id.as_uuid())
+        )
+    }
+
+    /// What is public about those of the accounts `ids` that are active, by ID.
+    /// An account in any other status, and an ID no account has, are left out.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DatabaseError`] if the query fails or a row is invalid.
+    pub async fn public(&mut self, ids: &[UserId]) -> Result<Vec<PublicAccount>, DatabaseError> {
+        let ids: Vec<_> = ids.iter().map(|id| id.as_uuid()).collect();
+        run!(
+            self,
+            fetch_all,
+            sqlx::query_as!(
+                PublicAccount,
+                r#"SELECT u.id AS "id: UserId", h.handle
+                FROM users u
+                JOIN handles h ON h.user_id = u.id AND h.released_at IS NULL
+                WHERE u.id = ANY($1) AND u.status = 'active'
+                ORDER BY u.id"#,
+                &ids,
+            )
         )
     }
 
