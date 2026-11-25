@@ -422,8 +422,6 @@ impl Store {
                 .await?;
         }
         if let Some(reader) = reader {
-            // The signals' tables, never `spans` and `logs`, which say what
-            // one request did.
             let mut grants: Vec<String> = tables
                 .iter()
                 .map(|table| format!("SELECT ON {database}.{}", table.name))

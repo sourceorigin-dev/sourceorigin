@@ -218,7 +218,6 @@ async fn usage_cards<'a>(
     };
     let steps: Vec<Point> = AuthorizationStepKind::ALL
         .into_iter()
-        // A step this release doesn't know shows only once counted.
         .filter(|step| *step != AuthorizationStepKind::Other || counted(*step) > 0.0)
         .map(|step| Point {
             label: step_name(step).to_owned(),

@@ -294,8 +294,12 @@ pub async fn line_chart<'a>(
 /// A horizontal bar per point, longest for the largest, with its value at its
 /// tip: for counts of a few named things.
 #[component]
-pub async fn bar_chart<'a>(caption: &'a str, points: &'a [Point]) -> Result<impl View> {
-    // Half the width of the others: bar charts sit two to a row.
+pub async fn bar_chart<'a>(
+    /// What the chart shows, for screen readers and the table.
+    caption: &'a str,
+    /// A bar each, in order.
+    points: &'a [Point],
+) -> Result<impl View> {
     const WIDTH: f64 = 440.0;
     const ROW: f64 = 30.0;
     const LABEL: f64 = 160.0;
@@ -351,6 +355,7 @@ async fn chart_table<'a>(
     caption: &'a str,
     /// Each row's label.
     labels: Vec<&'a str>,
+    /// A column each, with a value per row.
     series: Vec<Series<'a>>,
 ) -> Result<impl View> {
     Ok(view! {

@@ -40,7 +40,6 @@ pub(crate) trait Period: Sized {
         (0..Self::COUNT)
             .map(|n| Self::since(now) + n * Self::SECONDS)
             .map(|at| {
-                // Rows come sorted, so each is the next one or none.
                 while rows.next_if(|row| row.start() < at).is_some() {}
                 rows.next_if(|row| row.start() == at)
                     .unwrap_or_else(|| Self::empty(at))
@@ -203,8 +202,6 @@ impl AdminService {
     ) -> Result<Analytics, AdminError> {
         operator.authorize_read(&self.database).await?;
         let now = Utc::now();
-        // Each query reads from the first period the page shows, at the same
-        // `now` the periods are filled in at. Times are UTC.
         let hours = HourOfRequests::since(now).to_string();
         let days = DayOfSignIns::since(now).to_string();
         let (hours, days) = (&[("since", hours.as_str())], &[("since", days.as_str())]);
