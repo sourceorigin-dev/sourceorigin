@@ -22,8 +22,13 @@ use url::Url;
 
 use crate::GracePeriod;
 
+/// What an app's owner sees of how it is used.
+mod insights;
 /// The clients an account owns: their policy and the owner's operations.
 mod owned;
+#[cfg(test)]
+pub(crate) use insights::DayOfStep;
+pub(crate) use insights::{AppInsights, FLOOR, Floored, Noise};
 pub(crate) use owned::{
     ClientPatch, ClientSettings, InvalidSetting, NewClient, OperatorSettings, OwnedClient,
     OwnedClientError, OwnedClientView,

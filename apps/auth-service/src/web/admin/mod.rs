@@ -328,7 +328,7 @@ impl AdminApplication {
         let auth = config.passkey.origin.clone();
         Self {
             service: AdminService::new(database.clone(), config.email.smtp.is_some()),
-            analytics: dashboard.analytics.clone(),
+            analytics: config.analytics.clone(),
             account: AccountService::new(database.clone()),
             keys: KeyStore::new(database.clone(), Arc::clone(&config.key_encryption_keys)),
             sign_in: DashboardSignIn::new(database, auth.clone(), dashboard.origin.clone()),

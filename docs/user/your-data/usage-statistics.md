@@ -13,8 +13,12 @@ who you are. You can leave yours out at any time.
 - How far each sign-in to an app gets: whether the app sent you here or
   started a sign-in on its own page, each time the sign-in or consent page
   showed, and whether the app got access or you declined. These are counted
-  for the app, so its developer can see where people stop. An app checking in
-  the background whether you are still signed in counts nothing.
+  for the app, so its developer can see where people stop, on its
+  [Insights](../apps/insights.md) tab, as approximate counts: each day's is
+  moved by a small secret amount and rounded down to fives, so a day's few
+  sign-ins don't show exactly.
+  An app checking in the background whether you are still signed in counts
+  nothing.
 
 Each count holds only that kind, and the day it happened, not the time. It
 doesn't hold your account, your name, your email address or your IP address.

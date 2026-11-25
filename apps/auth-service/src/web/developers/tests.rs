@@ -2,9 +2,12 @@
 
 use crate::{
     GracePeriod,
-    routes::page::developers::{self, APP, APP_SECRETS, APP_SETTINGS, HOME, NEW},
+    charted::DAY,
+    clients::{AppInsights, DayOfStep, Floored, Noise},
+    config::AuthConfig,
+    routes::page::developers::{self, APP, APP_INSIGHTS, APP_SECRETS, APP_SETTINGS, HOME, NEW},
     security::BrowserCookie,
-    tests::{Browser, Replicas, cookie, html, policy, redirect},
+    tests::{AUTH_ORIGIN, Browser, Replicas, cookie, html, policy, redirect},
     web::tests::value_after,
 };
 use axum::{
@@ -13,8 +16,10 @@ use axum::{
 };
 use chrono::{Duration, Utc};
 use sourceorigin_common::{
-    AuthenticationMethod, ClientId, clients::ClientKind, protocol::oauth::Scope,
+    AuthenticationMethod, ClientId, admin::AuthorizationStepKind, clients::ClientKind,
+    protocol::oauth::Scope,
 };
+use sourceorigin_telemetry::analytics::Store;
 use sourceorigin_ui::{
     AppChange, AppSettingsState, Checkbox, ClientDraft, Grace, Lines, MISSING, NewAppChange, Query,
     SecretsChange,
@@ -267,7 +272,7 @@ async fn other_accounts_apps_are_missing() {
     let browser = Browser::new_account(&database).await;
     let unknown = "c_unknown".parse().expect("client ID");
     for id in [&theirs, &unknown] {
-        for route in [APP, APP_SETTINGS, APP_SECRETS] {
+        for route in [APP, APP_INSIGHTS, APP_SETTINGS, APP_SECRETS] {
             let path = developers::of(route, id);
             assert_missing(browser.visit(&replicas.a, &path).await).await;
         }
@@ -499,4 +504,189 @@ async fn the_crumb_leads_through_the_app() {
         "{page}"
     );
     assert!(page.contains("<b>settings</b>"), "{page}");
+}
+
+/// Without a reader for the analytics database, an app's Insights tab says
+/// they aren't available.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL"]
+async fn insights_say_when_they_are_off() {
+    let replicas = Replicas::new().await;
+    let database = Replicas::database().await;
+    let browser = Browser::new_account(&database).await;
+    let id = browser
+        .register_app(&database, ClientKind::Public, "https://insights.example")
+        .await;
+    let page = html(
+        browser
+            .visit(&replicas.a, &developers::of(APP_INSIGHTS, &id))
+            .await,
+    )
+    .await;
+    assert!(page.contains("Insights aren't available"), "{page}");
+    assert!(
+        page.contains(r#"aria-current="page">Insights</a>"#),
+        "{page}"
+    );
+}
+
+/// Inserts `count` copies of `row` into `table`, recorded `at`, as `owner`.
+async fn seed(
+    owner: &Store,
+    at: chrono::DateTime<Utc>,
+    table: &'static str,
+    count: usize,
+    mut row: serde_json::Value,
+) {
+    row["time"] = at.format("%Y-%m-%d %H:%M:%S%.3f").to_string().into();
+    let rows = vec![row.to_string(); count].join("\n");
+    owner.insert_rows(table, rows).await.expect("seeded");
+}
+
+/// What an app's Insights show of `step`, reached as often as `counts` say
+/// on the days starting then, under `noise`.
+fn shown(
+    noise: &Noise,
+    id: &ClientId,
+    step: AuthorizationStepKind,
+    counts: &[(i64, u32)],
+) -> String {
+    let days: Vec<DayOfStep> = counts
+        .iter()
+        .map(|&(day, count)| DayOfStep { day, step, count })
+        .collect();
+    match noise
+        .floored(id, &days)
+        .into_iter()
+        .find(|(seen, _)| *seen == step)
+    {
+        Some((_, Floored::About(count))) => format!("About {count}"),
+        _ => "Too few to show".to_owned(),
+    }
+}
+
+/// An app's Insights count its own sign-ins and tokens alone, over whole days
+/// whose rows are all in: each day's steps moved by their noise, then
+/// rounded; the current day's steps wait.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL and TEST_ANALYTICS_URL: run `just db test`"]
+async fn insights_chart_an_apps_own_analytics_floored() {
+    let owner = Store::test();
+    let reader = owner.as_user("insights_reader", "reader-password");
+    owner
+        .migrate(crate::cli::ANALYTICS_TABLES, None, Some(&reader))
+        .await
+        .expect("migrated");
+    let mut config = AuthConfig::test(&AUTH_ORIGIN.parse().expect("auth origin"));
+    let noise = config.oidc.digest_keys.insights_noise();
+    config.analytics = Some(reader);
+    let database = Replicas::database().await;
+    let browser = Browser::new_account(&database).await;
+    let id = browser
+        .register_app(&database, ClientKind::Public, "https://insights.example")
+        .await;
+    let now = Utc::now();
+    let until = AppInsights::until(now);
+    let (newest, older) = (until - DAY, until - 2 * DAY);
+    let noon = |day: i64| chrono::DateTime::from_timestamp(day + DAY / 2, 0).expect("a day");
+    let step = |client: &str, step: &str| serde_json::json!({"client": client, "step": step});
+    let token = serde_json::json!({"grant_type": "authorization_code", "client": id.as_str(),
+        "id_token": true, "refresh_token": false});
+    for (at, table, count, row) in [
+        (
+            noon(newest),
+            "authorization_steps",
+            6,
+            step(id.as_str(), "requested"),
+        ),
+        (
+            noon(older),
+            "authorization_steps",
+            4,
+            step(id.as_str(), "requested"),
+        ),
+        (
+            noon(newest),
+            "authorization_steps",
+            5,
+            step(id.as_str(), "authorized"),
+        ),
+        (
+            noon(newest),
+            "authorization_steps",
+            2,
+            step(id.as_str(), "denied"),
+        ),
+        (now, "authorization_steps", 10, step(id.as_str(), "consent")),
+        (
+            noon(newest),
+            "authorization_steps",
+            50,
+            step("c_another_app", "requested"),
+        ),
+        (noon(newest), "tokens_issued", 3, token),
+    ] {
+        seed(&owner, at, table, count, row).await;
+    }
+    let replicas = Replicas::of(&config).await;
+    let page = html(
+        browser
+            .visit(&replicas.a, &developers::of(APP_INSIGHTS, &id))
+            .await,
+    )
+    .await;
+    if AppInsights::until(Utc::now()) != until {
+        return;
+    }
+    let day = noon(newest).format("%b %-d");
+    for (step, name, counts) in [
+        (
+            AuthorizationStepKind::Requested,
+            "Requested",
+            &[(newest, 6), (older, 4)][..],
+        ),
+        (
+            AuthorizationStepKind::Authorized,
+            "Authorized",
+            &[(newest, 5)],
+        ),
+        (AuthorizationStepKind::Denied, "Denied", &[(newest, 2)]),
+        (AuthorizationStepKind::Consent, "Consent page", &[]),
+    ] {
+        let row = format!(
+            r#"<th scope="row">{name}</th><td>{}</td>"#,
+            shown(&noise, &id, step, counts)
+        );
+        assert!(page.contains(&row), "{row} in {page}");
+    }
+    let tokens = format!(r#"<th scope="row">{day}</th><td>3</td><td>0</td>"#);
+    assert!(page.contains(&tokens), "{tokens} in {page}");
+    assert!(
+        !page.contains("About 50") && !page.contains("About 55"),
+        "{page}"
+    );
+}
+
+/// When ClickHouse refuses auth's reader, an app's Insights say they couldn't
+/// be read, and its other pages work.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL and TEST_ANALYTICS_URL: run `just db test`"]
+async fn insights_say_when_analytics_refuse() {
+    let mut config = AuthConfig::test(&AUTH_ORIGIN.parse().expect("auth origin"));
+    config.analytics = Some(Store::test().as_user("nobody_provisioned", "no-password"));
+    let replicas = Replicas::of(&config).await;
+    let database = Replicas::database().await;
+    let browser = Browser::new_account(&database).await;
+    let id = browser
+        .register_app(&database, ClientKind::Public, "https://insights.example")
+        .await;
+    let page = html(
+        browser
+            .visit(&replicas.a, &developers::of(APP_INSIGHTS, &id))
+            .await,
+    )
+    .await;
+    assert!(page.contains("Insights couldn't be read"), "{page}");
+    let overview = browser.visit(&replicas.a, &developers::of(APP, &id)).await;
+    assert_eq!(overview.status(), StatusCode::OK);
 }

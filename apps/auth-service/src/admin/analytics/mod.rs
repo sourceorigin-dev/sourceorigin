@@ -3,50 +3,11 @@
 //! each query. See `docs/dev/architecture/analytics.md`.
 
 use super::{AdminError, AdminService, Operator};
-use chrono::{DateTime, Utc};
+use crate::charted::{DAY, HOUR, Period, StepCount, period};
+use chrono::Utc;
 use serde::Deserialize;
 use sourceorigin_common::admin::{AuthorizationStepKind, PasskeyTransport};
 use sourceorigin_telemetry::analytics::Store;
-
-/// One period of a chart over time, which the page shows every one of, oldest
-/// first, ending with the current one, whether it counted anything or not.
-pub(crate) trait Period: Sized {
-    /// Its length, in seconds.
-    const SECONDS: i64;
-    /// How many the page shows.
-    const COUNT: i64;
-
-    /// Its start, in seconds since the epoch.
-    fn start(&self) -> i64;
-
-    /// The period starting at `start`, which counted nothing.
-    fn empty(start: i64) -> Self;
-
-    /// The start of the oldest period shown at `now`, in seconds since the
-    /// epoch: what the queries read from.
-    fn since(now: DateTime<Utc>) -> i64 {
-        Self::current(now) - (Self::COUNT - 1) * Self::SECONDS
-    }
-
-    /// The start of `now`'s period, in UTC.
-    fn current(now: DateTime<Utc>) -> i64 {
-        now.timestamp().div_euclid(Self::SECONDS) * Self::SECONDS
-    }
-
-    /// One row per period shown at `now`, taking each from `rows`, which come
-    /// sorted by start, or an empty one.
-    fn every(rows: Vec<Self>, now: DateTime<Utc>) -> Vec<Self> {
-        let mut rows = rows.into_iter().peekable();
-        (0..Self::COUNT)
-            .map(|n| Self::since(now) + n * Self::SECONDS)
-            .map(|at| {
-                while rows.next_if(|row| row.start() < at).is_some() {}
-                rows.next_if(|row| row.start() == at)
-                    .unwrap_or_else(|| Self::empty(at))
-            })
-            .collect()
-    }
-}
 
 /// Requests in one hour, of every service.
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq)]
@@ -59,21 +20,7 @@ pub(crate) struct HourOfRequests {
     pub(crate) errors: u32,
 }
 
-impl Period for HourOfRequests {
-    const SECONDS: i64 = 60 * 60;
-    const COUNT: i64 = 24;
-
-    fn start(&self) -> i64 {
-        self.hour
-    }
-
-    fn empty(hour: i64) -> Self {
-        Self {
-            hour,
-            ..Self::default()
-        }
-    }
-}
+period!(HourOfRequests, hour, HOUR, 24);
 
 /// Sign-ins in one day.
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq)]
@@ -86,21 +33,7 @@ pub(crate) struct DayOfSignIns {
     pub(crate) failed: u32,
 }
 
-impl Period for DayOfSignIns {
-    const SECONDS: i64 = 24 * 60 * 60;
-    const COUNT: i64 = 30;
-
-    fn start(&self) -> i64 {
-        self.day
-    }
-
-    fn empty(day: i64) -> Self {
-        Self {
-            day,
-            ..Self::default()
-        }
-    }
-}
+period!(DayOfSignIns, day, DAY, 30);
 
 /// How long one route of one service takes.
 #[derive(Clone, Debug, Deserialize, PartialEq)]
@@ -119,15 +52,6 @@ pub(crate) struct RouteTiming {
     pub(crate) median_ms: f64,
     /// The duration 95 in 100 requests finish within, in milliseconds.
     pub p95_ms: f64,
-}
-
-/// How often one step of signing in to an app was reached.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
-pub(crate) struct StepCount {
-    /// The step.
-    pub(crate) step: AuthorizationStepKind,
-    /// How often.
-    pub(crate) count: u32,
 }
 
 /// How often one kind of passkey was used.
@@ -180,8 +104,9 @@ pub(crate) struct Analytics {
     pub(crate) slowest: Vec<RouteTiming>,
     /// Sign-ins per day, every one of the last 30, oldest first.
     pub(crate) sign_ins: Vec<DayOfSignIns>,
-    /// How often each step of signing in to an app was reached in those days.
-    pub(crate) steps: Vec<StepCount>,
+    /// How often each step of signing in to an app was reached in those days,
+    /// in the order a sign-in passes them.
+    pub(crate) steps: Vec<(AuthorizationStepKind, u32)>,
     /// The kinds of passkeys used in those days, most used first.
     pub(crate) passkeys: Vec<PasskeyKind>,
     /// What each table stores, largest first.
@@ -202,8 +127,9 @@ impl AdminService {
     ) -> Result<Analytics, AdminError> {
         operator.authorize_read(&self.database).await?;
         let now = Utc::now();
-        let hours = HourOfRequests::since(now).to_string();
-        let days = DayOfSignIns::since(now).to_string();
+        let (hour, day) = (HourOfRequests::current(now), DayOfSignIns::current(now));
+        let hours = HourOfRequests::since(hour).to_string();
+        let days = DayOfSignIns::since(day).to_string();
         let (hours, days) = (&[("since", hours.as_str())], &[("since", days.as_str())]);
         let (requests, slowest, sign_ins, steps, passkeys, tables) = tokio::try_join!(
             reader.query(
@@ -250,10 +176,10 @@ impl AdminService {
             ),
         )?;
         Ok(Analytics {
-            requests: HourOfRequests::every(requests, now),
+            requests: HourOfRequests::every(requests, hour),
             slowest,
-            sign_ins: DayOfSignIns::every(sign_ins, now),
-            steps,
+            sign_ins: DayOfSignIns::every(sign_ins, day),
+            steps: StepCount::funnel(&steps),
             passkeys: PasskeyKind::merged(passkeys),
             tables,
         })

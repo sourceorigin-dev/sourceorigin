@@ -197,7 +197,10 @@ verification, recovery, invitation, unsubscribe and sign-out links. With the key
 and the ID of an address, a recovery, an invitation, an account or a
 notification, someone can rebuild the link auth sent for it. An unsubscribe link
 only turns that account's announcements' email off, but it never expires. A
-sign-out link only signs its account out everywhere.
+sign-out link only signs its account out everywhere. Each app's Insights round
+their counts with noise derived from it too: whoever holds the key knows how
+each day rounds, and an app's owner holding it could read its counts nearly
+exactly. Replacing the key draws every day the Insights show again.
 
 ### What to do
 

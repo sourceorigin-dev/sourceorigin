@@ -1,13 +1,14 @@
-//! `/developers/clients/{id}`: one of the account's apps, its overview, settings
-//! and secrets. Each page reads the app first, so another account's or an unknown
+//! `/developers/clients/{id}`: one of the account's apps, its overview, insights,
+//! settings and secrets. Each page reads the app first, so another account's or an unknown
 //! one is missing before anything else happens.
 
 use crate::{
     account::{AccountError, Owner},
-    clients::{ClientPatch, ClientSettings},
+    charted::Period,
+    clients::{AppInsights, ClientPatch, ClientSettings, FLOOR, Floored},
     routes::{
         oidc::DISCOVERY,
-        page::developers::{self, APP, APP_SECRETS, APP_SETTINGS, HOME},
+        page::developers::{self, APP, APP_INSIGHTS, APP_SECRETS, APP_SETTINGS, HOME},
     },
     web::{
         Failure, WebApplication,
@@ -15,10 +16,10 @@ use crate::{
     },
 };
 use chrono::Utc;
-use sourceorigin_common::clients::ClientKind;
+use sourceorigin_common::{ErrorChain, clients::ClientKind};
 use sourceorigin_ui::{
-    AppChange, AppSettingsState, AppTab, Checkbox, ClientRow, Connection, Messages, Notice,
-    Revealed, SecretRow, SecretsChange, SecretsState, Section, Title,
+    AppChange, AppSettingsState, AppTab, Charted, Checkbox, ClientRow, Connection, InsightsReport,
+    Messages, Notice, Revealed, SecretRow, SecretsChange, SecretsState, Section, Title,
 };
 use topcoat::{
     context::Cx,
@@ -66,6 +67,83 @@ impl AccountPage for Overview {
             Child::new(page),
         )
         .await
+    }
+}
+
+/// How an app is used, over its last 30 whole days: how far its sign-ins get,
+/// and the tokens it was issued. A ClickHouse that doesn't answer is said on the
+/// page.
+pub(in crate::web) struct Insights;
+
+impl AccountPage for Insights {
+    const SECTION: Section = Section::Developers;
+    const PATH: &'static str = APP_INSIGHTS;
+    const TITLE: &'static str = Title::App.as_str();
+    type Row = ();
+    no_change!();
+
+    async fn render(
+        web: &WebApplication,
+        cx: &Cx,
+        reader: &Reader,
+        (): (),
+        outcome: (StatusCode, Messages<'_>),
+    ) -> Result<Response, Failure> {
+        let app = web.read_app(cx, reader).await?;
+        let page = match &web.analytics {
+            None => Charted::Off,
+            Some(analytics) => match app.insights(analytics, &web.noise).await {
+                Ok(insights) => Charted::Shown(Self::report(insights)),
+                Err(error) => {
+                    tracing::warn!(error = %ErrorChain(&error), "an app's insights could not be read");
+                    Charted::Unavailable
+                }
+            },
+        };
+        let view = view! { cx => sourceorigin_ui::app_insights(page: page, floor: FLOOR) };
+        web.app_page(
+            cx,
+            AppTab::Insights,
+            reader,
+            app.client(),
+            outcome,
+            Child::new(view),
+        )
+        .await
+    }
+}
+
+impl Insights {
+    /// The page's rows of `insights`.
+    fn report(insights: AppInsights) -> InsightsReport {
+        InsightsReport {
+            steps: insights
+                .steps
+                .into_iter()
+                .map(|(step, count)| {
+                    let shown = match count {
+                        Floored::Few => None,
+                        Floored::About(count) => Some(f64::from(count)),
+                    };
+                    (step, shown)
+                })
+                .collect(),
+            days: insights
+                .tokens
+                .iter()
+                .map(|tokens| tokens.label("%b %-d"))
+                .collect(),
+            exchanged: insights
+                .tokens
+                .iter()
+                .map(|tokens| f64::from(tokens.exchanged))
+                .collect(),
+            refreshed: insights
+                .tokens
+                .iter()
+                .map(|tokens| f64::from(tokens.refreshed))
+                .collect(),
+        }
     }
 }
 

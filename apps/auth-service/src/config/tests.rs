@@ -100,7 +100,7 @@ fn configuration_reference_is_current() {
             variables: sourceorigin_telemetry::analytics::VARIABLES,
         },
         Section {
-            title: "Analytics dashboard",
+            title: "Reading analytics",
             variables: sourceorigin_telemetry::analytics::READER_VARIABLES,
         },
         Section {

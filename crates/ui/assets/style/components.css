@@ -617,6 +617,9 @@ form:has(input[name='audience'][value='everyone']:checked) .chosen-accounts {
 }
 .chart svg.bars {
   min-width: 320px;
+  /* Drawn for a card half the page wide; wider, its text would outgrow the
+     page's. */
+  max-width: 560px;
 }
 .chart .grid {
   stroke: var(--line);

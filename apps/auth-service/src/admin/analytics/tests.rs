@@ -1,6 +1,7 @@
 //! How the Analytics page's periods are filled in.
 
 use super::*;
+use chrono::DateTime;
 
 /// A chart has one row per hour, oldest first, ending with the current hour,
 /// whichever hours had rows; rows older than its first hour are left out.
@@ -9,7 +10,9 @@ fn every_hour_has_a_row() {
     let at = |at: &str| at.parse::<DateTime<Utc>>().expect("time");
     let hour = |text: &str| at(text).timestamp();
     let now = at("2026-11-24T10:30:00Z");
-    assert_eq!(HourOfRequests::since(now), hour("2026-11-23T11:00:00Z"));
+    let newest = HourOfRequests::current(now);
+    assert_eq!(newest, hour("2026-11-24T10:00:00Z"));
+    assert_eq!(HourOfRequests::since(newest), hour("2026-11-23T11:00:00Z"));
     let rows = vec![
         HourOfRequests {
             hour: hour("2026-11-23T09:00:00Z"),
@@ -22,7 +25,7 @@ fn every_hour_has_a_row() {
             errors: 1,
         },
     ];
-    let filled = HourOfRequests::every(rows, now);
+    let filled = HourOfRequests::every(rows, newest);
     assert_eq!(filled.len(), 24);
     let counts: Vec<(i64, u32)> = filled[21..]
         .iter()

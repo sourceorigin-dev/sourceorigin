@@ -202,8 +202,9 @@ generate = { type = "random", bytes = 32, encoding = "hex" }
 name = "analytics-writer-password"
 generate = { type = "random", bytes = 32, encoding = "hex" }
 
-# The password of `sourceorigin_reader`, the ClickHouse user the admin dashboard
-# reads analytics as, allowed only to read, within limits on each query.
+# The password of `sourceorigin_reader`, the ClickHouse user auth reads
+# analytics back as, for the dashboard's Analytics page and each app's
+# Insights, allowed only to read, within limits on each query.
 # `migrate` sets it on every deploy.
 [[spec.secrets]]
 name = "analytics-reader-password"
