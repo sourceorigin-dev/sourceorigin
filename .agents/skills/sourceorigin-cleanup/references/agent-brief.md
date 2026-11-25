@@ -9,6 +9,12 @@ simplifications, not cosmetic churn, and report bigger issues. Never add an
 `#[allow]`. Use `#[expect(..., reason = "...")]` on the smallest item that
 needs it.
 
+**Scope.** Do only what this skill's task asks. No drive-by refactors, renames,
+reformatting or extra features. Note anything else in your report or in an issue
+instead of fixing it. Ask the owner before widening the change. Reread your diff
+before handing back and drop every hunk the task doesn't need. See "Scope" in
+`AGENTS.md`.
+
 ## Rules
 
 - **Change no behavior.** That includes HTTP responses (and which error a
