@@ -60,8 +60,8 @@ fn unclassed_errors_and_cookie_responses_are_not_stored() {
 }
 
 /// Public data is readable from every origin without credentials, so one cached copy
-/// serves them all; an embedded file has no CORS headers, even for an approved
-/// origin.
+/// serves them all, and any origin's page reads when a refused request may try
+/// again; an embedded file has no CORS headers, even for an approved origin.
 #[test]
 fn cached_responses_are_the_same_for_every_origin() {
     let public = CacheClass::Public {
@@ -73,6 +73,8 @@ fn cached_responses_are_the_same_for_every_origin() {
         assert_eq!(headers[header::ACCESS_CONTROL_ALLOW_ORIGIN], "*");
         assert!(!headers.contains_key(header::ACCESS_CONTROL_ALLOW_CREDENTIALS));
         assert!(!headers.contains_key(header::VARY));
+        let exposed = headers.get_all(header::ACCESS_CONTROL_EXPOSE_HEADERS);
+        assert!(exposed.iter().any(|name| name == "retry-after"));
     }
     let response = decorated(
         Cached(CacheClass::Immutable, StatusCode::OK),

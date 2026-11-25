@@ -265,7 +265,7 @@ errors and preflights included:
   listener's pages load only its own files.
 - **CORS**, once the origin check allowed the request's origin: `*` for public
   documents, or the exact origin with `Vary: Origin` and the methods and headers
-  its class takes, which may then read `X-Trace-Id` and `Retry-After`. A refusal
+  its class takes. Either may then read `X-Trace-Id` and `Retry-After`. A refusal
 for the in-flight limit grants any origin, since it skips the origin check.
 
 Each listener also has one `Content-Security-Policy`, which goes on every
