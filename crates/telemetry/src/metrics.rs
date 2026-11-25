@@ -88,18 +88,19 @@ struct Descriptor {
     description: &'static str,
 }
 
-/// A monotonic count, e.g. of sign-ins.
-pub struct Counter<L = ()> {
+/// An instrument that is declared as a `static` and built on first use: the common
+/// shape of [`Counter`] and [`Gauge`].
+pub struct Instrument<T, L = ()> {
     /// Name, unit and description.
     descriptor: Descriptor,
     /// Created on first use, from the provider installed by then.
-    instrument: OnceLock<metrics::Counter<u64>>,
-    /// The attributes each increment carries.
+    instrument: OnceLock<T>,
+    /// The attributes each measurement carries.
     labels: PhantomData<fn(L)>,
 }
 
-impl<L: Labels> Counter<L> {
-    /// Declares a counter.
+impl<T, L> Instrument<T, L> {
+    /// Declares an instrument.
     #[must_use]
     pub const fn new(name: &'static str, unit: &'static str, description: &'static str) -> Self {
         Self {
@@ -112,7 +113,12 @@ impl<L: Labels> Counter<L> {
             labels: PhantomData,
         }
     }
+}
 
+/// A monotonic count, e.g. of sign-ins.
+pub type Counter<L = ()> = Instrument<metrics::Counter<u64>, L>;
+
+impl<L: Labels> Counter<L> {
     /// Adds `value` to the count with `labels`.
     pub fn add(&self, value: u64, labels: &L) {
         self.instrument
@@ -173,30 +179,10 @@ impl<L: Labels> Histogram<L> {
 }
 
 /// A value read when metrics are collected, e.g. the connections a pool holds.
-pub struct Gauge<L = ()> {
-    /// Name, unit and description.
-    descriptor: Descriptor,
-    /// Registered by [`Self::observe`]; kept so its callback stays registered.
-    instrument: OnceLock<metrics::ObservableGauge<u64>>,
-    /// The attributes each observation carries.
-    labels: PhantomData<fn(L)>,
-}
+/// Its instrument is registered by [`Gauge::observe`], and kept so its callback stays registered.
+pub type Gauge<L = ()> = Instrument<metrics::ObservableGauge<u64>, L>;
 
 impl<L: Labels + 'static> Gauge<L> {
-    /// Declares a gauge.
-    #[must_use]
-    pub const fn new(name: &'static str, unit: &'static str, description: &'static str) -> Self {
-        Self {
-            descriptor: Descriptor {
-                name,
-                unit,
-                description,
-            },
-            instrument: OnceLock::new(),
-            labels: PhantomData,
-        }
-    }
-
     /// Reports the values `observe` returns at every collection. Only the first
     /// call registers; later ones do nothing.
     pub fn observe<I>(&'static self, observe: impl Fn() -> I + Send + Sync + 'static)

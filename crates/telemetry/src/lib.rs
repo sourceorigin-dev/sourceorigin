@@ -33,7 +33,7 @@ mod capture;
 pub use capture::Capture;
 pub use export::{Export, ExportError};
 pub use http::HttpTelemetry;
-pub use metrics::{Counter, Gauge, Histogram, Label, Labels};
+pub use metrics::{Counter, Gauge, Histogram, Instrument, Label, Labels};
 pub use sourceorigin_common::SendTraced;
 
 use export::Exporters;
