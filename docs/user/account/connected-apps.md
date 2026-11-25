@@ -22,6 +22,10 @@ the site it sends you back to, and lists what the app will receive:
 - **Access your account while you’re away**, for an app that keeps working
   when you aren't using it.
 
+An app that works with another service says so next: **will use** the service's
+name **as you**, with what the app may do there, such as **Read your notes**,
+and the service's address. The service's owner wrote those descriptions.
+
 An app never sees your passkeys, and can't change your account. An app that
 another Origin Account registered is marked **Unverified app, registered by**
 the handle of whoever registered it: SourceOrigin hasn't checked who runs it, so
@@ -35,8 +39,9 @@ Apps that SourceOrigin makes don't ask: they are marked **Made by SourceOrigin**
 
 ## Read the list
 
-Each app shows what it **Sees**, and whether it **Can use your account while
-you’re away** or **Can use your account only while you’re signed in to it**.
+Each app shows what it **Sees**, each service it **Uses** with what it may do
+there, and whether it **Can use your account while you’re away** or **Can use
+your account only while you’re signed in to it**.
 
 ## Remove an app's access
 

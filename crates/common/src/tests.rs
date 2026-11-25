@@ -167,6 +167,24 @@ fn one_event_per_kind() -> Vec<events::DomainEvent> {
             client_id: client_id.clone(),
             scopes: vec![],
         },
+        DomainEvent::ResourceRegistered {
+            resource_id: ResourceId::new(),
+        },
+        DomainEvent::ResourceUpdated {
+            resource_id: ResourceId::new(),
+        },
+        DomainEvent::ResourceDeleted {
+            resource_id: ResourceId::new(),
+        },
+        DomainEvent::ResourceAccessGranted {
+            resource_id: ResourceId::new(),
+            client_id: client_id.clone(),
+            scopes: vec![],
+        },
+        DomainEvent::ResourceAccessRevoked {
+            resource_id: ResourceId::new(),
+            client_id: client_id.clone(),
+        },
         DomainEvent::DeviceAuthorized {
             client_id: client_id.clone(),
             session_id: SessionId::new(),
@@ -490,7 +508,7 @@ fn a_client_detail_extends_the_listed_client() {
         redirect_uris: vec!["https://notes.example/callback".to_owned()],
         post_logout_uris: Vec::new(),
         allowed_scopes: vec!["openid".to_owned()],
-        allowed_audiences: vec!["notes".to_owned()],
+        resources: Vec::new(),
         grant_types: vec![protocol::oauth::GrantType::AuthorizationCode],
         enabled: true,
         trusted: false,

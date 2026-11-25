@@ -48,11 +48,23 @@ test("auth's pages, signed in", async ({ browser }) => {
     '/settings/data',
     '/developers',
     '/developers/new',
+    '/developers/resources',
     '/device'
   ]) {
     await page.goto(path);
     await expectAccessible(page, path);
   }
+  // An API's page, with a scope and no app yet, which shows each of its lists.
+  await page.goto('/developers/resources');
+  const api = `https://axe-${Date.now().toString(36)}.test/api`;
+  await page.getByLabel('Identifier', { exact: true }).fill(api);
+  await page.getByLabel('Name', { exact: true }).fill('Notes API');
+  await page.getByRole('button', { name: 'Register API', exact: true }).click();
+  await page.getByLabel('Scope', { exact: true }).fill('notes:read');
+  await page.getByLabel('Description', { exact: true }).fill('Read your notes');
+  await page.getByRole('button', { name: 'Define scope', exact: true }).click();
+  await expect(page.getByText('Your changes were saved.')).toBeVisible();
+  await expectAccessible(page, "an API's page");
   // The sidebar collapsed, which hides its words.
   await page.goto('/settings');
   await page.getByRole('button', { name: 'Collapse the sidebar', exact: true }).click();
@@ -71,6 +83,7 @@ test("the dashboard's pages", async ({ browser }) => {
     '/invitations',
     '/handles',
     '/clients',
+    '/resources',
     '/events',
     '/deliveries',
     '/keys',
@@ -83,6 +96,7 @@ test("the dashboard's pages", async ({ browser }) => {
     '/invitations/new',
     '/announcements/new',
     '/clients/new',
+    '/resources/new',
     '/handles/reserve',
     '/keys/rotate',
     '/no-such-page'

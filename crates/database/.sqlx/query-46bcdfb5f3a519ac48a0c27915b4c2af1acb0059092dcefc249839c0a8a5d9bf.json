@@ -1,0 +1,85 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n                    t.family_id AS \"family_id: TokenId\", t.consumed_at,\n                    f.user_id AS \"user_id: UserId\", f.client_id,\n                    f.session_id AS \"session_id: SessionId\", f.audience, f.scopes,\n                    f.authentication, c.grant_types ? $4 AS \"refreshes!\", c.allowed_scopes,\n                    (\n                        SELECT a.scopes\n                        FROM client_resource_access a\n                        JOIN resources r ON r.id = a.resource_id\n                        WHERE a.client_id = f.client_id AND r.identifier = f.audience\n                    ) AS resource_scopes\n                FROM refresh_tokens t\n                JOIN refresh_token_families f ON f.id = t.family_id\n                JOIN oidc_clients c ON c.id = f.client_id\n                JOIN sessions s ON s.id = f.session_id\n                JOIN users u ON u.id = f.user_id\n                WHERE t.id = $1\n                AND t.secret_digest = ANY($2)\n                AND f.client_id = $3\n                AND t.expires_at > now()\n                AND f.revoked_at IS NULL\n                AND c.enabled\n                AND s.user_id = f.user_id\n                AND s.revoked_at IS NULL\n                AND s.expires_at > now()\n                AND u.status = 'active'\n                FOR UPDATE OF t",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "family_id: TokenId",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "consumed_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 2,
+        "name": "user_id: UserId",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "client_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "session_id: SessionId",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 5,
+        "name": "audience",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "scopes",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 7,
+        "name": "authentication",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 8,
+        "name": "refreshes!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 9,
+        "name": "allowed_scopes",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 10,
+        "name": "resource_scopes",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "ByteaArray",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      null,
+      false,
+      null
+    ]
+  },
+  "hash": "46bcdfb5f3a519ac48a0c27915b4c2af1acb0059092dcefc249839c0a8a5d9bf"
+}

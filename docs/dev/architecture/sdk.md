@@ -291,9 +291,10 @@ A callback that fails on the issuer's side, with a `network` or `keys` error, is
 not the browser's fault: server-side login answers it with 502, and any other
 failure with 400.
 
-The SDK never sends the `audience` parameter auth accepts today; auth then uses the
-client's default resource. They will send `resource` (RFC 8707) once auth supports
-it.
+Both SDKs send `resource` (RFC 8707) when the authorization request names an API,
+and nothing otherwise: the access token is then for the client itself. A
+`Resource` accepts any printable identifier, since a client's ID is an audience
+as much as a registered API's URI.
 
 Browser apps with no server are public clients and keep tokens in the page's memory
 only. Only the pending login crosses a redirect, in `sessionStorage`, and its

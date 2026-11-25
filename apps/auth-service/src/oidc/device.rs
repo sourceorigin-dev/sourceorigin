@@ -22,6 +22,7 @@ use chrono::{DateTime, Duration, Utc};
 use serde::Deserialize;
 use sourceorigin_common::{
     ClientId, Handle, SessionId, TokenId, UserId,
+    admin::GrantedResource,
     events::DomainEvent,
     protocol::oauth::{DeviceAuthorization, TokenResponse},
 };
@@ -140,6 +141,9 @@ pub(super) struct DeviceAuthorizationForm {
     /// Space-separated scopes the device asks for.
     #[serde(default)]
     scope: String,
+    /// The resource the access token is for (RFC 8707); the client itself when
+    /// absent.
+    resource: Option<String>,
 }
 
 /// The parameters of a device code grant (RFC 8628 §3.4).
@@ -147,6 +151,8 @@ pub(super) struct DeviceAuthorizationForm {
 pub(super) struct DeviceRedemption {
     /// The device code the device authorization answered with.
     device_code: String,
+    /// The resource the authorization named, if the device repeats it.
+    resource: Option<String>,
 }
 
 /// A device authorization as the device page shows it for a decision.
@@ -160,6 +166,9 @@ pub(crate) struct DeviceRequest {
     pub(crate) account: Handle,
     /// What the device asks to receive.
     pub(crate) scopes: Vec<String>,
+    /// The API the device asks tokens for, if not the client itself, with the
+    /// scopes of it asked for.
+    pub(crate) resource: Option<GrantedResource>,
     /// When the device asked.
     pub(crate) started_at: DateTime<Utc>,
 }
@@ -215,10 +224,8 @@ impl OidcApplication {
                 GrantType::DeviceCode
             )));
         }
-        let scopes = Scopes::requested(&form.scope, &client)?.into_stored();
-        let audience = client.allowed_audiences.first().cloned().ok_or_else(|| {
-            OAuthCode::InvalidTarget.reject("no audience is registered for this client")
-        })?;
+        let (audience, scopes) = Scopes::requested(&form.scope, form.resource.as_deref(), &client)?;
+        let scopes = scopes.into_stored();
         let device_code = OpaqueToken::new(TokenPrefix::DeviceCode)?;
         let (secret_digest, digest_key) = app.token_digest(&device_code);
         let mut authorization = InsertDeviceAuthorization {
@@ -306,10 +313,12 @@ impl OidcApplication {
             .handle(session.user_id)
             .await?
             .ok_or(SessionError::Missing)?;
+        let resource = self.granted(&pending.audience, &pending.scopes).await?;
         Ok(DeviceLookup::Found(DeviceRequest {
             client: pending.client_display_name,
             registered_by,
             account,
+            resource,
             scopes: pending.scopes,
             started_at: pending.created_at,
         }))
@@ -447,6 +456,7 @@ impl OidcApplication {
                 OAuthCode::InvalidGrant
                     .reject("device_code is unknown, or was issued to another client")
             })?;
+        Scopes::same_target(request.resource.as_deref(), &polled.audience)?;
         match Self::poll_outcome(&polled, account.is_some()) {
             Ok((user_id, session_id)) => {
                 self.issue_device_grant(tx, polled, user_id, session_id, context)

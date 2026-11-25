@@ -6,6 +6,7 @@ use crate::{
     AdminError, AdminService,
     account::Viewer,
     jobs::AccountPurge,
+    resources::{NewResource, ResourceEdit},
     security::SessionError,
     tests::{
         Browser, Replicas, change, operator, reason, refresh_grant, register, registration,
@@ -341,6 +342,18 @@ impl Fixture {
             .approve_related_origin(&owned, &"https://related.example".parse().expect("origin"))
             .await
             .expect("related origin");
+        let account = browser.owner(&self.database).await;
+        let api = format!("https://{user_id}.example/api");
+        let api = NewResource::typed(&api, "Notes API").expect("resource");
+        let api = (self.account.create_resource(&account, &api).await).expect("registered");
+        let api = (self.account.owned_resource(account, &api.to_string()).await).expect("owned");
+        for edit in [
+            ResourceEdit::put_scope("notes:read", "Read your notes"),
+            ResourceEdit::grant(owned.as_str(), "notes:read"),
+        ] {
+            let edit = edit.expect("edit");
+            (self.account.edit_resource(&api, edit).await).expect("edited");
+        }
         let deleted = self.own_client(browser).await;
         change(&self.database, async |registry| {
             registry.delete(&deleted).await

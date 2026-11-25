@@ -1,5 +1,6 @@
 //! The developer console, at `/developers`: the apps an account registers as
-//! `OpenID` Connect clients, registering one, and each app's pages.
+//! `OpenID` Connect clients, registering one, each app's pages, and the APIs it
+//! registers as resources.
 //!
 //! Each page is an [`AccountPage`] of the developers section, serving only the
 //! account's own apps: an app page whose path names another account's app, a
@@ -9,10 +10,13 @@
 
 /// An app's overview, settings and secrets.
 mod app;
+/// The account's resources, and one resource's page.
+mod resources;
 #[cfg(test)]
 mod tests;
 
 pub(super) use app::{AppSecrets, AppSettings, Overview};
+pub(super) use resources::{Resource, Resources};
 
 use super::{
     Failure, WebApplication,
@@ -22,7 +26,7 @@ use crate::{
     GracePeriod, MAX_OWNED_CLIENTS,
     account::{AccountError, Owner},
     clients::{ClientSettings, NewClient, OwnedClient, OwnedClientView},
-    routes::page::developers::{self, APP, APP_SECRETS, APP_SETTINGS, HOME, NEW},
+    routes::page::developers::{self, APP, APP_SECRETS, APP_SETTINGS, HOME, NEW, RESOURCES},
 };
 use sourceorigin_common::clients::{ClientKind, ClientStatus};
 use sourceorigin_ui::{
@@ -64,7 +68,12 @@ impl AccountPage for Apps {
         let clients = web.account.clients(reader.owner()).await?;
         let links: Vec<_> = clients.iter().map(AppLink::from).collect();
         let page = view! { cx =>
-            sourceorigin_ui::apps(links: &links, limit: MAX_OWNED_CLIENTS, new: NEW)
+            sourceorigin_ui::apps(
+                links: &links,
+                limit: MAX_OWNED_CLIENTS,
+                new: NEW,
+                resources: RESOURCES,
+            )
         };
         let head = Child::default();
         web.console_page(cx, Self::TITLE, reader, outcome, head, Child::new(page))
@@ -186,11 +195,7 @@ impl From<ClientDraft> for ClientSettings {
             display_name: draft.display_name.trim().to_owned(),
             redirect_uris: draft.redirect_uris.into(),
             post_logout_uris: draft.post_logout_uris.into(),
-            allowed_scopes: draft
-                .scopes
-                .chosen()
-                .map(|scope| scope.to_string())
-                .collect(),
+            allowed_scopes: draft.scopes.chosen().collect(),
             grant_types: draft.grants.chosen().collect(),
             require_pushed_authorization_requests: draft.require_pushed_authorization_requests.0,
             backchannel_logout_uri: Some(draft.backchannel_logout_uri.trim())

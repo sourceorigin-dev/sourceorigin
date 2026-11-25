@@ -277,7 +277,7 @@ link, likewise, and confirming with a passkey by the session it confirms.
 | Security history | read | report an entry |
 | Notifications | list, read, view email preferences | mark read or unread, change email preferences |
 | Account data | | download |
-| OIDC clients (the developer console) | | all; administrators use `AdminService`'s |
+| OIDC clients and resources (the developer console) | | all; administrators use `AdminService`'s |
 
 Downloading the account's data stays the owner's although administrators may
 read most of it: the export copies the account's IP addresses and every event

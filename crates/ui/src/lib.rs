@@ -66,24 +66,26 @@ mod oidc;
 /// Account recovery: the pages its links open, and what the account's pages ask
 /// of it.
 mod recovery;
+/// The developer console's resources: the APIs an account registered.
+mod resources;
 /// The account's settings.
 mod settings;
 
 pub use admin::{
-    AccountPages, Action, AdminAnnouncementRow, AdminClientRow, AdminOverview, AdministratorRow,
-    AlertCard, AnnouncementAudience, Change, ClientChanges, ClientPage,
+    AccountPages, Action, AdminAnnouncementRow, AdminClientRow, AdminOverview, AdminResourceRow,
+    AdministratorRow, AlertCard, AnnouncementAudience, Change, ClientChanges, ClientPage,
     Confirmation as DashboardConfirmation, Dashboard, DeliveryRow, DraftActions, DraftAnnouncement,
     DraftIntent, EventRow, FoundAccount, HandlesPage, HandoffProof, HandoffQuery, InvitationRow,
     Measure, MessageIntent, MessagePreview, MessageUser, NewClientForm, OperatorDraft, Problem,
     RecoveryKey, RecoveryRow, Registration, ReleasedRow, ReservationRow, ReservedHolder,
-    SearchAction, SessionRow, SigningKeyRow, Tab as DashboardTab, Target, UserRow,
+    ResourcePage, SearchAction, SessionRow, SigningKeyRow, Tab as DashboardTab, Target, UserRow,
     account_settings, admin_overview, administrator_list, alert_list, alert_update_fields,
     announcement_form, announcement_list, announcement_page, audit_page, client_created,
     client_list, client_page, client_registration, client_secrets, dashboard_change,
     dashboard_failure, dashboard_frame, dashboard_signed_out, delivery_list, event_list,
     event_rows, grant_search, handle_list, handoff_proof, invitation_created, invitation_list,
-    message_page, no_access, previous_alerts, recovery_list, reserved_handle_choice,
-    signing_key_list, signing_key_rotation, user_page, user_search,
+    message_page, no_access, previous_alerts, recovery_list, reserved_handle_choice, resource_list,
+    resource_page, signing_key_list, signing_key_rotation, user_page, user_search,
 };
 pub use asset::{Asset, FONTS, STYLESHEET};
 pub use clients::{
@@ -117,6 +119,7 @@ pub use recovery::{
     RecoverChange, RecoverStep, Recovery, RecoveryPasskey, RecoveryStage, UndoChange, UndoStep,
     recover, recovery_banner, recovery_prompt, undo_recovery,
 };
+pub use resources::{ResourceChange, ResourcesChange, owned_resources, resource_settings};
 pub use settings::{
     AccountOverview, Audience, CROP_SIZE, CROP_X, CROP_Y, ConnectedAppChange, ConnectedAppRow,
     ConnectedAppsState, DataChange, DataState, DeviceChange, DeviceRow, EmailChange, EmailRow,

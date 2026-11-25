@@ -1,7 +1,8 @@
 # OIDC clients
 
 This page helps you register the apps that sign in with Origin Auth, change them,
-rotate their secrets, and stop one that misbehaves.
+rotate their secrets, and stop one that misbehaves, and register the APIs their
+tokens are for.
 
 Clients live in the database. A change applies to the next request on every
 replica, without a restart or a deployment, and is recorded as an event
@@ -29,7 +30,7 @@ An app with a server, which keeps a secret and may refresh tokens:
 
 ```sh
 auth-service client create notes --name Notes --confidential --reason "Notes app" \
-    --redirect-uri https://notes.example/callback --scope openid --scope offline_access --scope notes:read
+    --redirect-uri https://notes.example/callback --scope openid --scope offline_access
 ```
 
 A command-line tool, which signs users in with a code they approve on another
@@ -162,8 +163,11 @@ sign-in**. See [passkey sign-in on your own pages](../../user/apps/passkey-sign-
   normalizes them: `https://app.example/`, not `https://APP.example`. The
   origins of an enabled public client's redirect URIs may call the token,
   revocation and userinfo endpoints from a browser.
-- **Scopes** default to `openid`, `profile` and `email`, and `offline_access`
-  for a confidential client, which the SDKs' login routes always request.
+- **Scopes** are those of Origin Auth's own the client may request: `openid`,
+  `profile`, `email` and `offline_access`. They default to the first three, and
+  `offline_access` for a confidential client, which the SDKs' login routes
+  always request. An API's scopes aren't a client setting: the client gets them
+  with its [access to the API](#apis).
 - **Grant types** (`--grant-type`, once per grant) are the grants the client
   may use at the token endpoint, which RFC 7591 calls its `grant_types`:
   `authorization_code`, `refresh_token` and
@@ -187,6 +191,67 @@ sign-in**. See [passkey sign-in on your own pages](../../user/apps/passkey-sign-
   and an IP address host must be public. A name is checked when auth delivers,
   since what it resolves to can change. A deleted client is sent none.
 
+## APIs
+
+An API that access tokens are issued for is a resource: an identifier, which
+its tokens carry as `aud`, the scopes it defines, and the clients it admits.
+A client names it in the `resource` parameter of its request (RFC 8707).
+Accounts register their own in the developer console: see
+[registering an API](../../user/apps/apis.md). You register SourceOrigin's own,
+and see and change every one.
+
+Register an API, define a scope, and let a client request it:
+
+```sh
+auth-service resource create https://notes.sourceorigin.dev/api --name "Notes API" --reason "Notes' API"
+auth-service resource scope add https://notes.sourceorigin.dev/api notes:read \
+    --description "Read your notes" --reason "Notes' API"
+auth-service resource grant notes https://notes.sourceorigin.dev/api --scope notes:read --reason "Notes' own app"
+```
+
+The identifier is an `https` URI without query or fragment, written as the API
+compares it. It can't change later. `grant` replaces the scopes the client could
+request before, so name every scope it keeps.
+
+On the dashboard:
+
+1. Open **Resources**, and select **Register a resource**.
+2. Fill in its **Identifier**, its **Name** and a **Reason**, and select
+   **Register**.
+3. Open the resource. Select **Define a scope** for each scope, then **Grant a
+   client access** for each client.
+
+See what is registered, and change it:
+
+```sh
+auth-service resource list
+auth-service resource show https://notes.sourceorigin.dev/api    # its scopes, and the clients it admits
+auth-service resource rename https://notes.sourceorigin.dev/api --name Notes --reason "Renamed"
+auth-service resource scope remove https://notes.sourceorigin.dev/api notes:read --reason "Unused"
+auth-service resource revoke notes https://notes.sourceorigin.dev/api --reason "Retired"
+```
+
+On the dashboard, the resource's page has **Rename**, and **Remove** and
+**Revoke** beside each scope and client.
+
+- **Removing a scope** takes it from what every client may request. A refresh
+  token that holds it is refused at its next use.
+- **Revoking a client's access** revokes its refresh tokens for the API.
+
+> **Warning:** deleting a resource can't be undone. No client gets tokens for
+> it any more, every refresh token for it is revoked, and users' consents to it
+> are removed.
+
+```sh
+auth-service resource delete https://notes.sourceorigin.dev/api --reason "Retired"
+```
+
+It asks for confirmation. On the dashboard, open the resource and select
+**Delete**.
+
+An account can have 10 resources, each with 32 scopes at most, and can't name
+one after a reserved brand. Purging an account deletes its resources.
+
 ## Secrets
 
 `create` and `rotate-secret` print a secret once, and auth stores only its
@@ -196,8 +261,7 @@ them.
 ## Clients accounts register
 
 Auth generates the IDs of the clients accounts register in the developer
-console, and limits their scopes to `openid`, `profile`, `email` and
-`offline_access`. They are never trusted. Their names can't contain SourceOrigin's or
+console. They are never trusted. Their names can't contain SourceOrigin's or
 another well-known brand (`RESERVED_BRANDS` in `sourceorigin_common::clients`), or a
 look-alike: `sourceorigin_common::similarity` reads digits such as `0` as letters,
 and letters of other scripts, such as a Cyrillic `о`, as the Latin ones they look

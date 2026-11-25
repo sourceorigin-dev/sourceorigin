@@ -13,10 +13,11 @@ use url::Url;
 #[error("resource identifier must be non-empty printable ASCII without spaces")]
 pub struct ResourceError;
 
-/// A protected resource: the identifier its access tokens carry in `aud`. Auth
-/// registers audiences such as `notes-api` today; RFC 8707 resource URIs such as
-/// `https://notes.sourceorigin.dev` work the same way. The identifier is kept exactly as
-/// given, since `aud` is compared exactly.
+/// A protected resource: the identifier its access tokens carry in `aud`. An API
+/// registered with Origin Auth is identified by its RFC 8707 resource URI, such
+/// as `https://notes.sourceorigin.dev/api`; tokens a client asks for without
+/// naming a resource carry the client's own ID, such as `notes-api`. The
+/// identifier is kept exactly as given, since `aud` is compared exactly.
 ///
 /// ```
 /// use sourceorigin_auth::Resource;

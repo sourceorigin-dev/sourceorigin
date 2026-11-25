@@ -3,7 +3,7 @@
 use super::{announcements::announcement, *};
 use crate::AuditKeys;
 use sourceorigin_common::protocol::claims::Acr;
-use sourceorigin_common::{AnnouncementId, alerts::AlertsShown};
+use sourceorigin_common::{AnnouncementId, ResourceId, alerts::AlertsShown};
 
 /// Production's committed audit keys.
 fn committed_keys() -> AuditKeys {
@@ -46,6 +46,17 @@ impl AdminOperation {
             Self::ViewClient => vec![
                 service
                     .client_detail(operator, &client.parse().expect("client ID"))
+                    .await
+                    .map(drop),
+            ],
+            Self::ListResources => vec![service.list_resources(operator).await.map(drop)],
+            Self::ViewResource => vec![
+                service
+                    .find_resource(operator, &"https://notes.example/api".parse().expect("URI"))
+                    .await
+                    .map(drop),
+                service
+                    .resource_detail(operator, ResourceId::new())
                     .await
                     .map(drop),
             ],
@@ -126,6 +137,13 @@ impl AdminOperation {
             | Self::UnsuspendClient
             | Self::DeleteClient
             | Self::RotateClientSecret
+            | Self::CreateResource
+            | Self::RenameResource
+            | Self::DefineResourceScope
+            | Self::RemoveResourceScope
+            | Self::GrantResourceAccess
+            | Self::RevokeResourceAccess
+            | Self::DeleteResource
             | Self::ApproveRelatedOrigin
             | Self::RemoveRelatedOrigin
             | Self::GrantAdministrator

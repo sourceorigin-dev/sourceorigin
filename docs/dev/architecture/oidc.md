@@ -56,7 +56,8 @@ client, which names the only account that may answer
 ([read as logout reads it](#id-token-hints)), `response_type=code`
 (`unsupported_response_type` for another), a client whose grant types include
 `authorization_code` (`unauthorized_client` otherwise), an
-S256 PKCE challenge, which only a confidential client may leave out, `state`, scopes and audience the client allows, `nonce`,
+S256 PKCE challenge, which only a confidential client may leave out, `state`, the scopes the client may request for the
+[audience the request names](#audiences-and-resources), `nonce`,
 `max_age` and `prompt`. It returns a `ValidatedAuthorization`, whose `store`
 saves the request and returns its token. The request is stored in
 `authorization_requests` for ten minutes, with its first known `acr_values`
@@ -65,6 +66,34 @@ transaction, from then on.
 
 A client registered to push its requests is refused here with
 `unauthorized_client`.
+
+### Audiences and resources
+
+A grant has one audience, stored as text on the request, the code, the consent
+and the refresh family: the client's own ID, or the identifier of a resource
+(RFC 8707), an API registered in `resources` with the scopes it defines
+(`resource_scopes`) and the clients it admits (`client_resource_access`).
+
+`Scopes::requested` reads the one `resource` parameter of an authorization or
+device authorization request. Without it, the audience is the client and the
+scopes must be among the client's `allowed_scopes`, which hold only auth's own.
+With it, the client must have access to that resource (`invalid_target`
+otherwise), and each scope must be one of auth's the client allows or one of
+the resource's it was granted (`invalid_scope`). `StoredOidcClient::scopes_for`
+answers both from the client's row, which carries its resources, so
+`ClientPolicy` checks them again at every later step from the same read.
+
+The token endpoint accepts `resource` on a code exchange and a refresh, and
+`Scopes::same_target` refuses one that is not the grant's audience before
+anything is consumed.
+
+Nothing references a resource by key from a grant. `ResourceRepository`
+therefore ends the grants itself, in the statement that removes what they rely
+on: revoking a client's access revokes its families for the resource, and
+deleting a resource revokes every family and deletes every consent for it, as
+purging its owner does. `ResourceRegistry` (`apps/auth-service/src/resources`)
+is the one place that changes resources, for the console, the dashboard and the
+`resource` command, and records each change's event.
 
 ### Pushed requests
 
@@ -220,8 +249,8 @@ form a chain, though. Anyone with the key, the successor IDs from a database
 read and any earlier token of a family, however old, can derive its live token.
 So a spent token is only harmless while the key stays secret.
 
-A family whose client no longer has the `refresh_token` grant type, its audience
-or its scopes is revoked on its next use (`policy_rejected`). A refresh may narrow the scopes,
+A family whose client no longer has the `refresh_token` grant type, access to
+its audience or its scopes is revoked on its next use (`policy_rejected`). A refresh may narrow the scopes,
 never add any. The new tokens keep reporting the family's original
 authentication (OIDC Core §12.2).
 

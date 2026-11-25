@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH removed AS (\n                    DELETE FROM resource_scopes WHERE resource_id = $1 AND name = $2\n                    RETURNING name\n                ),\n                access AS (\n                    UPDATE client_resource_access a\n                    SET scopes = a.scopes - removed.name\n                    FROM removed\n                    WHERE a.resource_id = $1\n                ),\n                touched AS (\n                    UPDATE resources r SET updated_at = now() FROM removed WHERE r.id = $1\n                )\n                SELECT name FROM removed",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "18187f92bb70dba988be395c64c3773d4990c124210661f268d5359b42faf035"
+}

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM oidc_consents c USING resources r\n            WHERE r.owner_id = $1 AND c.audience = r.identifier",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e9c19cf649a4791c3502d27fc568f1a3899fe0621d610fb680abd6c04cbd5565"
+}

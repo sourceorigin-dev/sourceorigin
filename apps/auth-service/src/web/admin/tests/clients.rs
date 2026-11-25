@@ -112,8 +112,8 @@ async fn clients_are_registered_changed_and_suspended_from_the_dashboard() {
             ("kind", "confidential"),
             ("redirect_uris", redirect),
             ("openid", "on"),
+            ("profile", "on"),
             ("authorization_code", "on"),
-            ("other_scopes", "notes.read\r\n"),
             ("trusted", "on"),
             ("backchannel_logout_uri", "https://ops.example/backchannel"),
         ]
@@ -132,7 +132,7 @@ async fn clients_are_registered_changed_and_suspended_from_the_dashboard() {
         .await;
     let stored = stored_client(&harness.database, &id).await;
     assert_eq!((stored.trusted, stored.owner_id), (true, None));
-    assert_eq!(stored.allowed_scopes, ["openid", "notes.read"]);
+    assert_eq!(stored.allowed_scopes, ["openid", "profile"]);
     assert_eq!(
         stored.backchannel_logout_uri.as_deref(),
         Some("https://ops.example/backchannel")
@@ -141,7 +141,7 @@ async fn clients_are_registered_changed_and_suspended_from_the_dashboard() {
     let list = html(harness.visit(&dashboard, "/clients").await).await;
     assert!(list.contains(&format!(r#"href="{page}""#)), "{list}");
     let form = html(harness.visit(&dashboard, &settings).await).await;
-    assert!(form.contains(">notes.read</textarea>"), "{form}");
+    assert!(form.contains(r#"name="profile""#), "{form}");
     let saved = post(
         &settings,
         &[
@@ -149,7 +149,6 @@ async fn clients_are_registered_changed_and_suspended_from_the_dashboard() {
             ("redirect_uris", "https://ops.example/cb"),
             ("openid", "on"),
             ("authorization_code", "on"),
-            ("other_scopes", "notes.read"),
             ("backchannel_logout_uri", ""),
             REASON,
         ],
@@ -159,7 +158,7 @@ async fn clients_are_registered_changed_and_suspended_from_the_dashboard() {
     let stored = stored_client(&harness.database, &id).await;
     assert!(!stored.trusted, "an unchecked box clears the trust");
     assert_eq!(stored.backchannel_logout_uri, None);
-    assert_eq!(stored.allowed_scopes, ["openid", "notes.read"]);
+    assert_eq!(stored.allowed_scopes, ["openid"]);
 
     assert_eq!(
         redirect(&post(&format!("{client}/suspend"), &[REASON]).await),

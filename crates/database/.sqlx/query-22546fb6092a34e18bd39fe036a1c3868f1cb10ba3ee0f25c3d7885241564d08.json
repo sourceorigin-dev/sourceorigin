@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n                    a.client_id AS \"client_id: ClientId\", c.display_name AS client_name,\n                    a.scopes AS \"scopes: JsonArray<String>\", a.granted_at\n                FROM client_resource_access a\n                JOIN oidc_clients c ON c.id = a.client_id\n                WHERE a.resource_id = $1\n                ORDER BY a.client_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "client_id: ClientId",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "client_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "scopes: JsonArray<String>",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 3,
+        "name": "granted_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "22546fb6092a34e18bd39fe036a1c3868f1cb10ba3ee0f25c3d7885241564d08"
+}

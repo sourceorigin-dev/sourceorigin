@@ -288,6 +288,8 @@ pub async fn apps<'a>(
     limit: u32,
     /// Where an app is registered.
     new: &'a str,
+    /// The account's resources: the APIs its apps get tokens for.
+    resources: &'a str,
 ) -> Result<impl View> {
     let count = links.len();
     let room = u32::try_from(count).is_ok_and(|count| count < limit);
@@ -296,6 +298,7 @@ pub async fn apps<'a>(
             title: "Your apps",
             lead: "The apps you registered, which sign users in with Origin Auth.".to_owned(),
             actions: view! {
+                <a class="button secondary" href=(resources)>"Your APIs"</a>
                 if room {
                     <a class="button" href=(new)>"New app"</a>
                 }

@@ -33,6 +33,7 @@ mod logout;
 mod policy;
 mod protocol;
 mod pushed;
+mod resources;
 mod sdk_client;
 mod sdk_routes;
 mod step_up;

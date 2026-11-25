@@ -7,7 +7,8 @@ const app = 'https://notes.example';
 
 /**
  * Settings, then registering an app in the developer console, then its consent
- * page, then the device page approving a device the app signs in with a code.
+ * page, then the device page approving a device the app signs in with a code,
+ * then an API the account registers and the app's consent page for it.
  */
 test('accounts and apps', async ({ page, context }) => {
   await addPasskeys(context, page);
@@ -49,4 +50,35 @@ test('accounts and apps', async ({ page, context }) => {
     page.getByRole('heading', { name: 'Sign in to Notes on your device?' })
   ).toBeVisible();
   await shoot(page, 'apps/device-approval');
+  // Signed in, the device's page stays: the test goes on from the console.
+
+  // An API the account registers, with a scope the app may request, then the
+  // consent page of the app asking for a token for it.
+  const api = `https://${handle('notes')}.example/api`;
+  await page.goto('/developers/resources');
+  await page.getByLabel('Identifier', { exact: true }).fill(api);
+  await page.getByLabel('Name', { exact: true }).fill('Notes API');
+  await page.getByRole('button', { name: 'Register API', exact: true }).click();
+  for (const [scope, description] of [
+    ['notes:read', 'Read your notes'],
+    ['notes:write', 'Change your notes']
+  ]) {
+    await page.getByLabel('Scope', { exact: true }).fill(scope);
+    await page.getByLabel('Description', { exact: true }).fill(description);
+    await page.getByRole('button', { name: 'Define scope', exact: true }).click();
+    await expect(page.getByText(description, { exact: true })).toBeVisible();
+  }
+  await page.getByLabel('Client ID', { exact: true }).fill(id);
+  await page.getByLabel('Scopes', { exact: true }).fill('notes:read notes:write');
+  await page.getByRole('button', { name: 'Grant access', exact: true }).click();
+  await expect(page.getByRole('button', { name: `Revoke the access of ${id}` })).toBeVisible();
+  await page.goto(page.url());
+  await shoot(page, 'apps/api', page.locator('main'));
+
+  const request = authorization(id, `${app}/callback`, 'openid notes:read notes:write');
+  await page.goto(`${request.url}&resource=${encodeURIComponent(api)}`);
+  await expect(
+    page.getByRole('heading', { name: 'Notes will use Notes API as you' })
+  ).toBeVisible();
+  await shoot(page, 'apps/api-consent');
 });

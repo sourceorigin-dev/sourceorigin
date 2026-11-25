@@ -724,12 +724,20 @@ async fn authorize_pushes_when_advertised() {
     )
     .await;
     let client = login_client("notes-web", Some(endpoint.url.clone()));
+    let api = "https://notes.example.com/api";
     let request = AuthorizeRequest {
+        scopes: "notes:read".parse().expect("scopes"),
+        resource: Some(Resource::new(api).expect("resource")),
         step_up: StepUpRequirement::passkey_within(300),
         ..AuthorizeRequest::default()
     };
     let (url, pending) = client.authorize(&request).await.expect("authorize");
     assert_eq!(endpoint.field("client_id").as_deref(), Some("notes-web"));
+    assert_eq!(endpoint.field("resource").as_deref(), Some(api));
+    assert_eq!(
+        endpoint.field("scope").as_deref(),
+        Some("notes:read openid")
+    );
     assert_eq!(endpoint.field("state").as_deref(), Some(pending.state()));
     assert_eq!(endpoint.field("acr_values").as_deref(), Some("phr"));
     assert_eq!(endpoint.field("max_age").as_deref(), Some("300"));

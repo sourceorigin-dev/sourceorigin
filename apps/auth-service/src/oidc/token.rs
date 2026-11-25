@@ -56,15 +56,20 @@ struct CodeExchange {
     /// Secret verifier proving possession of the original PKCE challenge. Only a
     /// confidential client's code may have none.
     code_verifier: Option<String>,
+    /// The resource the authorization request named, if the client repeats it.
+    resource: Option<String>,
 }
 
 /// The parameters of a `refresh_token` grant (RFC 6749 §6).
 #[derive(Deserialize)]
 struct Refresh {
     /// Opaque refresh token to redeem.
-    refresh_token: String,
+    #[serde(rename = "refresh_token")]
+    token: String,
     /// Space-separated scopes to narrow the grant to; all of it when absent.
     scope: Option<String>,
+    /// The resource the grant was issued for, if the client repeats it.
+    resource: Option<String>,
 }
 
 impl CodeExchange {
@@ -344,6 +349,7 @@ impl OidcApplication {
             Ok(code) => code,
             Err(error) => return Err(Self::code_rejection(tx, context, client_id, error).await),
         };
+        Scopes::same_target(request.resource.as_deref(), &code.audience)?;
         let user = tx
             .users()
             .find_active_by_id_for_update(code.user_id)
@@ -426,7 +432,7 @@ impl OidcApplication {
         client: &StoredOidcClient,
         context: &EventContext,
     ) -> Result<TokenResponse, OAuthError> {
-        let opaque = OpaqueToken::parse(TokenPrefix::RefreshToken, &request.refresh_token)?;
+        let opaque = OpaqueToken::parse(TokenPrefix::RefreshToken, &request.token)?;
         let digests = self.accepted_digests(&opaque);
         let redemption = RefreshRedemption::from(client.kind);
         let mut tx = self.database.begin().await?;
@@ -445,6 +451,7 @@ impl OidcApplication {
                 OAuthCode::InvalidGrant.reject("refresh_token was issued to another client")
             );
         }
+        Scopes::same_target(request.resource.as_deref(), &redeemed.audience)?;
         let scopes = request.scopes(&redeemed.scopes)?;
         let user = tx
             .users()

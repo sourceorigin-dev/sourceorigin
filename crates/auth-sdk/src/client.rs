@@ -2,7 +2,7 @@
 //! and logout.
 
 use crate::{
-    IdToken, Issuer, LogoutToken, TokenError,
+    IdToken, Issuer, LogoutToken, Resource, TokenError,
     http::{Authorization, NetworkError, Reply},
 };
 use chrono::{DateTime, TimeDelta, Utc};
@@ -322,6 +322,11 @@ pub struct ClientConfig {
 pub struct AuthorizeRequest {
     /// Scopes to request besides `openid`.
     pub scopes: Scopes,
+    /// The API the access token is for, sent as `resource` (RFC 8707): one
+    /// registered with Origin Auth, which gave this client access to it. The
+    /// scopes may then include the API's own. Without one, the access token is
+    /// for the client itself.
+    pub resource: Option<Resource>,
     /// `prompt`, such as [`Prompt::Login`] to force a fresh sign-in.
     pub prompt: Option<Prompt>,
     /// The authentication to ask for, sent as `acr_values` and `max_age`, such as the
@@ -686,6 +691,12 @@ impl Client {
                 CodeChallengeMethod::S256.as_str().to_owned(),
             ),
         ];
+        parameters.extend(
+            request
+                .resource
+                .as_ref()
+                .map(|resource| ("resource", resource.identifier().to_owned())),
+        );
         parameters.extend(
             request
                 .prompt

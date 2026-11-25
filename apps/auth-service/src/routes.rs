@@ -218,7 +218,7 @@ pub(crate) mod dashboard {
     pub(crate) const SEARCH: &str = "/search";
     /// Every path the dashboard serves is one of these, or under one: the admin
     /// listener mounts the pages on them, and nowhere else.
-    pub(crate) const PREFIXES: [&str; 18] = [
+    pub(crate) const PREFIXES: [&str; 19] = [
         "/",
         SIGN_IN,
         CONFIRM,
@@ -230,6 +230,7 @@ pub(crate) mod dashboard {
         "/invitations",
         "/handles",
         "/clients",
+        "/resources",
         "/events",
         "/deliveries",
         "/keys",
@@ -299,10 +300,10 @@ pub(crate) mod page {
         pub(crate) const DATA: &str = "/settings/data";
     }
 
-    /// The developer console: the account's apps, and each app's pages, whose
-    /// `{id}` is its client ID.
+    /// The developer console: the account's apps and resources, and each one's
+    /// pages, whose `{id}` is its client ID or resource ID.
     pub(crate) mod developers {
-        use sourceorigin_common::ClientId;
+        use std::fmt::Display;
 
         /// The account's apps.
         pub(crate) const HOME: &str = "/developers";
@@ -314,17 +315,21 @@ pub(crate) mod page {
         pub(crate) const APP_SETTINGS: &str = "/developers/clients/{id}/settings";
         /// A confidential app's secrets.
         pub(crate) const APP_SECRETS: &str = "/developers/clients/{id}/secrets";
+        /// The account's resources, and registering one.
+        pub(crate) const RESOURCES: &str = "/developers/resources";
+        /// One resource: its name, scopes and the clients it admits.
+        pub(crate) const RESOURCE: &str = "/developers/resources/{id}";
 
-        /// The page `template` of the app `id`. Client IDs need no escaping in a
-        /// path segment.
-        pub(crate) fn of(template: &str, id: &ClientId) -> String {
-            template.replace("{id}", id.as_str())
+        /// The page `template` of the app or resource `id`. Neither ID needs
+        /// escaping in a path segment.
+        pub(crate) fn of(template: &str, id: &impl Display) -> String {
+            template.replace("{id}", &id.to_string())
         }
     }
 
     /// Every server-rendered page's route, which the security layer classifies as
     /// pages.
-    pub(crate) const ALL: [&str; 27] = [
+    pub(crate) const ALL: [&str; 29] = [
         LOGIN,
         REGISTER,
         CONSENT,
@@ -348,6 +353,8 @@ pub(crate) mod page {
         developers::APP,
         developers::APP_SETTINGS,
         developers::APP_SECRETS,
+        developers::RESOURCES,
+        developers::RESOURCE,
         RECOVER,
         RECOVER_UNDO,
         UNSUBSCRIBE,

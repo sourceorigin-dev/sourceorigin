@@ -34,6 +34,8 @@ mod output;
 /// The generated command reference.
 #[cfg(test)]
 mod reference;
+/// Registering, inspecting and changing the APIs registered as resources.
+mod resource;
 /// Serving the public and admin listeners.
 mod serve;
 /// Finding, showing, disabling and reactivating accounts.
@@ -58,6 +60,7 @@ use handle::HandleCommand;
 use invite::InviteCommand;
 use keys::KeysCommand;
 use output::Output;
+use resource::{ResourceCommand, ScopeCommand};
 use sourceorigin_common::ErrorChain;
 use sourceorigin_repository::Database;
 use sourceorigin_telemetry::{Export, Telemetry};
@@ -119,6 +122,10 @@ enum Administration {
     /// Register, inspect and change OIDC clients. Changes apply to the next request.
     #[command(subcommand)]
     Client(Box<ClientCommand>),
+    /// Register, inspect and change the APIs access tokens are issued for, their
+    /// scopes and the clients they admit. Changes apply to the next request.
+    #[command(subcommand)]
+    Resource(Box<ResourceCommand>),
     /// Page through, verify and prune the audit history.
     #[command(subcommand)]
     Audit(AuditCommand),
@@ -241,6 +248,17 @@ impl Administration {
                 ClientCommand::Origin(OriginCommand::Add { .. }) => Op::ApproveRelatedOrigin,
                 ClientCommand::Origin(OriginCommand::Remove { .. }) => Op::RemoveRelatedOrigin,
             },
+            Self::Resource(command) => match **command {
+                ResourceCommand::Create { .. } => Op::CreateResource,
+                ResourceCommand::List => Op::ListResources,
+                ResourceCommand::Show { .. } => Op::ViewResource,
+                ResourceCommand::Rename { .. } => Op::RenameResource,
+                ResourceCommand::Delete { .. } => Op::DeleteResource,
+                ResourceCommand::Scope(ScopeCommand::Add { .. }) => Op::DefineResourceScope,
+                ResourceCommand::Scope(ScopeCommand::Remove { .. }) => Op::RemoveResourceScope,
+                ResourceCommand::Grant { .. } => Op::GrantResourceAccess,
+                ResourceCommand::Revoke { .. } => Op::RevokeResourceAccess,
+            },
             Self::Audit(command) => match command {
                 AuditCommand::List(_) => Op::ListEvents,
                 AuditCommand::Verify { .. } => Op::VerifyAuditChain,
@@ -293,6 +311,7 @@ impl Administration {
             Self::User(command) => command.run(console).await,
             Self::Invite(command) => command.run(console).await,
             Self::Client(command) => command.run(console).await,
+            Self::Resource(command) => command.run(console).await,
             Self::Audit(command) => command.run(console).await,
             Self::Admin(command) => command.run(console).await,
             Self::Handle(command) => command.run(console).await,

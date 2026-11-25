@@ -27,10 +27,9 @@ async fn client(pool: &PgPool) -> ClientId {
         .expect("client ID");
     sqlx::query!(
         "INSERT INTO oidc_clients (
-            id, display_name, allowed_scopes, allowed_audiences, grant_types
+            id, display_name, allowed_scopes, grant_types
         ) VALUES (
-            $1, 'Lock test', '[\"openid\"]', '[\"test\"]',
-            '[\"authorization_code\", \"refresh_token\"]'
+            $1, 'Lock test', '[\"openid\"]', '[\"authorization_code\", \"refresh_token\"]'
         )",
         client.as_str()
     )
@@ -104,7 +103,7 @@ impl Grant {
             "INSERT INTO authorization_codes (
                 id, secret_digest, client_id, user_id, session_id, redirect_uri,
                 pkce_challenge, scopes, audience, expires_at, authentication, digest_key
-            ) VALUES ($1, $2, $3, $4, $5, $6, 'challenge', '[\"openid\"]', 'test',
+            ) VALUES ($1, $2, $3, $4, $5, $6, 'challenge', '[\"openid\"]', $3,
                 now() + interval '1 minute', $7, 'test')",
             grant.code.as_uuid(),
             &grant.code_digest,
@@ -139,7 +138,7 @@ impl Grant {
                     session_id: self.session,
                     client_id: client.to_string(),
                     authorization_code_id: Some(self.code),
-                    audience: "test".into(),
+                    audience: client.to_string(),
                     scopes: vec!["openid".into()],
                     authentication: authentication(),
                 },

@@ -23,12 +23,9 @@
 //! ```
 
 use crate::{
-    ClientId, MAX_NAME_CHARS, UserId, is_valid_name,
+    ClientId, MAX_NAME_CHARS, UserId, is_shown_text, is_valid_name,
     net::PublicAddress,
-    protocol::{
-        constants::MAX_IDENTIFIER_BYTES,
-        oauth::{ClientAuthMethod, GrantType, Scope, Scopes},
-    },
+    protocol::oauth::{ClientAuthMethod, GrantType, Scope},
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -36,6 +33,8 @@ use std::{fmt, net::IpAddr, ops::Deref, str::FromStr};
 use thiserror::Error;
 use url::{Host, Url};
 
+/// Longest description of a resource's scope, in characters.
+const MAX_SCOPE_DESCRIPTION_CHARS: usize = 200;
 /// Brands only operators may name a client after, since an account's client with
 /// one would read as theirs on the consent page. A name containing one, or a
 /// look-alike, is refused for clients accounts own (see
@@ -277,6 +276,38 @@ impl FromStr for DisplayName {
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         if !is_valid_name(value) {
             return Err(InvalidDisplayName(value.to_owned()));
+        }
+        Ok(Self(value.to_owned()))
+    }
+}
+
+/// What a scope of a resource lets a client do, as the consent page says it to
+/// the user: nonblank, at most 200 characters.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ScopeDescription(String);
+
+/// A scope description that is blank or longer than 200 characters.
+#[derive(Clone, Debug, PartialEq, Eq, Error)]
+#[error(
+    "scope description {0:?} must be nonblank, at most 200 characters and have no control characters"
+)]
+pub struct InvalidScopeDescription(String);
+
+impl ScopeDescription {
+    /// The description as shown.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl FromStr for ScopeDescription {
+    type Err = InvalidScopeDescription;
+    /// Accepts nonblank descriptions of at most 200 characters, without control
+    /// characters.
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        if !is_shown_text(value, MAX_SCOPE_DESCRIPTION_CHARS) {
+            return Err(InvalidScopeDescription(value.to_owned()));
         }
         Ok(Self(value.to_owned()))
     }
@@ -552,42 +583,6 @@ impl fmt::Display for RelatedOrigin {
     }
 }
 
-/// A scope a client may request: an RFC 6749 §3.3 scope token of at most 64
-/// characters, such as `openid` or an application's own `notes:read`.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ScopeName(String);
-
-/// A scope that is not a scope token of at most 64 characters.
-#[derive(Clone, Debug, PartialEq, Eq, Error)]
-#[error("scope {0:?} must be 1 to 64 printable ASCII characters other than space, '\"' and '\\'")]
-pub struct InvalidScopeName(String);
-
-impl ScopeName {
-    /// The scope as requested on the wire.
-    #[must_use]
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl FromStr for ScopeName {
-    type Err = InvalidScopeName;
-    /// Accepts scope tokens of at most 64 characters.
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        if value.len() > MAX_IDENTIFIER_BYTES || !Scopes::is_token(value) {
-            return Err(InvalidScopeName(value.to_owned()));
-        }
-        Ok(Self(value.to_owned()))
-    }
-}
-
-impl From<Scope> for ScopeName {
-    /// A standard scope is always a valid scope name.
-    fn from(scope: Scope) -> Self {
-        Self(scope.as_str().to_owned())
-    }
-}
-
 /// Distinct values, at least `MIN` and at most `MAX` of them, in the order given.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BoundedVec<T, const MIN: usize, const MAX: usize>(Vec<T>);
@@ -640,8 +635,10 @@ impl<T, const MIN: usize, const MAX: usize> Deref for BoundedVec<T, MIN, MAX> {
 pub type RedirectUris = BoundedVec<RedirectUri, 1, 16>;
 /// Up to 16 pages the browser may return to after logout.
 pub type PostLogoutUris = BoundedVec<RedirectUri, 0, 16>;
-/// 1 to 32 scopes a client may request.
-pub type AllowedScopes = BoundedVec<ScopeName, 1, 32>;
+/// The scopes auth itself defines that a client may request: at least one, each
+/// once. An API's own scopes belong to its resource, which says which of them
+/// each client may request.
+pub type AllowedScopes = BoundedVec<Scope, 1, { Scope::ALL.len() }>;
 /// The grants a client may use at the token endpoint, which RFC 7591 §2 calls its
 /// `grant_types`: at least one, each once.
 pub type GrantTypes = BoundedVec<GrantType, 1, { GrantType::ALL.len() }>;
@@ -660,7 +657,7 @@ pub struct ClientRegistration {
     pub redirect_uris: RedirectUris,
     /// Where the browser may return after logout, matched exactly.
     pub post_logout_uris: PostLogoutUris,
-    /// The scopes the client may request.
+    /// The scopes auth defines that the client may request.
     pub allowed_scopes: AllowedScopes,
     /// The grants the client may use at the token endpoint. It receives refresh
     /// tokens, with `offline_access`, only with [`GrantType::RefreshToken`].

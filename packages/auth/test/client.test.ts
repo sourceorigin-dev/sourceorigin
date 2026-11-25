@@ -48,7 +48,12 @@ function sent(fetch: FakeFetch, url: string) {
 
 test('authorization requests are pushed when the issuer advertises it, and in the URL otherwise', async () => {
   const pushed = await client();
-  const request = { scopes: ['profile'], stepUp: { acr_values: 'phr', max_age: 300 } } as const;
+  const api = 'https://notes.example.com/api';
+  const request = {
+    scopes: ['profile', 'notes:read'],
+    resource: api,
+    stepUp: { acr_values: 'phr', max_age: 300 }
+  } as const;
   const { url, pending } = await pushed.client.authorize(request);
   assert.equal(
     url,
@@ -58,11 +63,12 @@ test('authorization requests are pushed when the issuer advertises it, and in th
     response_type: 'code',
     client_id: 'notes-web',
     redirect_uri: REDIRECT_URI,
-    scope: 'openid profile',
+    scope: 'notes:read openid profile',
     state: pending.state,
     nonce: pending.nonce,
     code_challenge: createHash('sha256').update(pending.verifier).digest('base64url'),
     code_challenge_method: 'S256',
+    resource: api,
     acr_values: 'phr',
     max_age: '300'
   };

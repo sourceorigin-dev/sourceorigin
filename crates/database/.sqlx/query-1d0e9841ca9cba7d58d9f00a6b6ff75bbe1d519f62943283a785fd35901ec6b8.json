@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO resources (id, identifier, display_name, owner_id)\n                VALUES ($1, $2, $3, $4)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1d0e9841ca9cba7d58d9f00a6b6ff75bbe1d519f62943283a785fd35901ec6b8"
+}

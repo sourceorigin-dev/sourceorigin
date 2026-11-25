@@ -4,7 +4,7 @@
 use super::*;
 use crate::config::PolicyLinks;
 use sourceorigin_common::AccountStatus;
-use sourceorigin_common::clients::{AllowedScopes, GrantTypes, ScopeName};
+use sourceorigin_common::clients::{AllowedScopes, GrantTypes};
 use sourceorigin_common::events::GrantRevocation;
 use sourceorigin_repository::SessionScope;
 
@@ -463,8 +463,7 @@ async fn policy_reduction_blocks_outstanding_codes_and_refresh() {
     let code = flow.code(EMAIL_SCOPES).await;
     let database = flow.app.database.clone();
     flow.client.allowed_scopes =
-        AllowedScopes::new([Scope::OpenId, Scope::OfflineAccess].map(ScopeName::from))
-            .expect("reduced scopes");
+        AllowedScopes::new([Scope::OpenId, Scope::OfflineAccess]).expect("reduced scopes");
     let client = flow.client.clone();
     crate::tests::replace(&database, &client)
         .await

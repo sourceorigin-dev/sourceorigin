@@ -68,8 +68,9 @@ A sign-in gives your app up to three tokens:
   five minutes.
 - **The access token** is what your app sends to an API, as
   `Authorization: Bearer <token>`. It is a signed JWT, and it expires after five
-  minutes. Its `aud` names the API it is for: for an app registered in the
-  console, that is the app's own client ID.
+  minutes. Its `aud` names the API it is for: an
+  [API you registered](apis.md), when the sign-in names it, and otherwise the
+  app's own client ID.
 - **The refresh token** gets new access tokens without sending the user back to
   auth. It comes only with `offline_access`, for an app allowed refresh tokens. It
   works until the user's session at auth ends, 30 days after they signed in, or
@@ -83,8 +84,9 @@ one stops working. A web app with a backend keeps the same one.
 ## Consent
 
 The first time a user signs in to your app, auth asks for their consent and lists
-what the app will receive. Auth remembers their answer for each scope, so a new
-scope asks again. Apps registered in the console are never trusted to skip that
+what the app will receive, and what it may do with the API it asks tokens for.
+Auth remembers their answer for each scope and each API, so a new one asks
+again. Apps registered in the console are never trusted to skip that
 first ask, and their consent page says they are unverified, registered by your
 handle.
 

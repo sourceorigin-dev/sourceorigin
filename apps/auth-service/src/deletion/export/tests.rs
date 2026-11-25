@@ -3,8 +3,12 @@ use super::*;
 use chrono::TimeZone;
 use serde_json::json;
 use sourceorigin_common::{
-    AnnouncementId, AuthenticationMethod, EmailId, EventId, NotificationId, Provider, TokenId,
-    admin::{DashboardSession, RecoveryPasskey},
+    AnnouncementId, AuthenticationMethod, EmailId, EventId, NotificationId, Provider, ResourceId,
+    TokenId,
+    admin::{
+        ClientResource, DashboardSession, RecoveryPasskey, Resource, ResourceAccess,
+        ScopeDefinition,
+    },
     clients::ClientKind,
     events::{Browser, Platform, UserAgentFamily},
     notifications::{EmailCategory, NotificationPreference},
@@ -32,6 +36,7 @@ fn serializes_every_section_in_its_documented_shape() {
     let picture = PictureId::new();
     let (notification, newer) = (NotificationId::new(), NotificationId::new());
     let announcement = AnnouncementId::new();
+    let resource = ResourceId::new();
     let client: ClientId = "notes".parse().expect("client");
     let device = UserAgentFamily {
         browser: Browser::Firefox,
@@ -138,6 +143,10 @@ fn serializes_every_section_in_its_documented_shape() {
                 redirect_uris: vec!["https://notes.example/callback".into()],
                 post_logout_uris: Vec::new(),
                 allowed_scopes: vec!["openid".into()],
+                resources: vec![ClientResource {
+                    resource: "https://notes.example/api".into(),
+                    scopes: vec!["notes:read".into()],
+                }],
                 grant_types: vec![GrantType::AuthorizationCode],
                 require_pushed_authorization_requests: false,
                 backchannel_logout_uri: None,
@@ -151,6 +160,26 @@ fn serializes_every_section_in_its_documented_shape() {
                 origin: "https://notes.example".parse().expect("origin"),
                 client_id: client.clone(),
                 approved_at: at,
+            }],
+        }],
+        resources: vec![ResourceDetail {
+            resource: Resource {
+                id: resource,
+                identifier: "https://notes.example/api".into(),
+                display_name: "Notes API".into(),
+                owner_id: Some(user),
+                created_at: at,
+                updated_at: at,
+            },
+            scopes: vec![ScopeDefinition {
+                name: "notes:read".into(),
+                description: "Read your notes".into(),
+            }],
+            access: vec![ResourceAccess {
+                client_id: client.clone(),
+                client_name: "Notes".into(),
+                scopes: vec!["notes:read".into()],
+                granted_at: at,
             }],
         }],
         recoveries: vec![Recovery::from(admin::Recovery {
@@ -284,6 +313,10 @@ fn serializes_every_section_in_its_documented_shape() {
                 "redirect_uris": ["https://notes.example/callback"],
                 "post_logout_uris": [],
                 "allowed_scopes": ["openid"],
+                "resources": [{
+                    "resource": "https://notes.example/api",
+                    "scopes": ["notes:read"],
+                }],
                 "grant_types": ["authorization_code"],
                 "require_pushed_authorization_requests": false,
                 "backchannel_logout_uri": null,
@@ -296,6 +329,21 @@ fn serializes_every_section_in_its_documented_shape() {
                     "origin": "https://notes.example",
                     "client_id": "notes",
                     "approved_at": time,
+                }],
+            }],
+            "resources": [{
+                "id": resource,
+                "identifier": "https://notes.example/api",
+                "display_name": "Notes API",
+                "owner_id": user,
+                "created_at": time,
+                "updated_at": time,
+                "scopes": [{ "name": "notes:read", "description": "Read your notes" }],
+                "access": [{
+                    "client_id": "notes",
+                    "client_name": "Notes",
+                    "scopes": ["notes:read"],
+                    "granted_at": time,
                 }],
             }],
             "recoveries": [{

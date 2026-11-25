@@ -12,12 +12,12 @@ and
 
 ## Before you start
 
-- Know which tokens your API accepts: those whose `aud` is its identifier. For an
-  app registered in the console, that is the app's client ID, so an API that
-  serves your own app uses your app's client ID as its identifier. The examples
-  below use `notes-api`, which stands for an audience an operator registered for
-  a first-party API. [How sign-in works](how-sign-in-works.md#tokens) explains the
-  tokens.
+- Know which tokens your API accepts: those whose `aud` is its identifier. For
+  an [API you registered](apis.md), that is the `https` address you gave it,
+  and apps ask for its tokens by naming it. Otherwise an app's tokens are
+  addressed to the app itself, so an API that serves only your own app uses the
+  app's client ID as its identifier, as the examples below do with `notes-api`.
+  [How sign-in works](how-sign-in-works.md#tokens) explains the tokens.
 - Add an SDK to your API, as [signing in with Rust](sign-in-rust.md#before-you-start)
   or [with TypeScript](sign-in-typescript.md#before-you-start) shows. The Rust
   layer and extractors below need its `axum` feature.

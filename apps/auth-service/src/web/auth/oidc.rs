@@ -39,6 +39,7 @@ impl WebApplication {
                 registered_by: consent.registered_by.as_ref().map(Handle::as_str),
                 account: consent.account.as_str(),
                 scopes: &consent.request.scopes,
+                resource: consent.resource.as_ref(),
                 action: routes::page::CONSENT,
                 sign_in: &sign_in,
                 transaction: &transaction,

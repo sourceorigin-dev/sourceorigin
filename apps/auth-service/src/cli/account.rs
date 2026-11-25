@@ -566,15 +566,28 @@ report!([KnownDevice], self, out, {
 
 report!([ConnectedApp], self, out, {
     out.table(
-        ["CLIENT ID", "NAME", "FIRST PARTY", "OFFLINE", "SCOPES"],
+        [
+            "CLIENT ID",
+            "NAME",
+            "FIRST PARTY",
+            "OFFLINE",
+            "SCOPES",
+            "RESOURCES",
+        ],
         "No apps.",
         self.iter().map(|app| {
+            let resources = app.resources.iter().map(|resource| {
+                let scopes = resource.scopes.iter().map(|scope| scope.name.as_str());
+                let scopes: Vec<_> = scopes.collect();
+                format!("{} ({})", resource.identifier, scopes.join(" "))
+            });
             [
                 Cell::new(&app.client_id),
                 Cell::new(&app.name),
                 app.first_party.into(),
                 app.offline.into(),
                 Cell::new(app.scopes.join(" ")),
+                Cell::new(resources.collect::<Vec<_>>().join(", ")),
             ]
         }),
     )

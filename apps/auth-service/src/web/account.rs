@@ -16,6 +16,7 @@ use crate::{
     deletion::{AccountDeleted, AccountExport},
     federation::FlowCookie,
     notifications::NotificationError,
+    resources::OwnedResourceError,
     routes::{self, page},
     security::{ApiError, BrowserCookie, SessionError},
     web::settings::TABS,
@@ -270,11 +271,12 @@ pub(super) struct Framed<'a> {
 }
 
 impl From<AccountError> for Failure {
-    /// An app or notification the account does not have is missing. Any other
+    /// An app, resource or notification the account does not have is missing. Any other
     /// failure to read the account is internal.
     fn from(error: AccountError) -> Self {
         match error {
             AccountError::Client(OwnedClientError::NotFound)
+            | AccountError::Resource(OwnedResourceError::NotFound)
             | AccountError::Notification(NotificationError::NotFound) => Self::Missing,
             error => Self::Internal(Error::from(error)),
         }

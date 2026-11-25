@@ -62,6 +62,24 @@ operations! {
         DeleteClient,
         /// Give a confidential client a new secret.
         RotateClientSecret,
+        /// List the APIs registered as resources.
+        ListResources,
+        /// Show one resource, with its scopes and the clients it admits.
+        ViewResource,
+        /// Register a resource operators manage.
+        CreateResource,
+        /// Give a resource another name.
+        RenameResource,
+        /// Define a scope of a resource, or describe it anew.
+        DefineResourceScope,
+        /// Remove a scope from a resource.
+        RemoveResourceScope,
+        /// Let a client ask for a resource's tokens, with scopes of it.
+        GrantResourceAccess,
+        /// End a client's access to a resource.
+        RevokeResourceAccess,
+        /// Delete a resource for good.
+        DeleteResource,
         /// Approve an origin for a client's pages to sign users in.
         ApproveRelatedOrigin,
         /// Remove an approved origin.

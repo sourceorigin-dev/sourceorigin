@@ -39,8 +39,8 @@ that says what went wrong: search this page for either.
 | `invalid_request` | A browser or native app's request lacks S256 PKCE, the request lacks `response_type`, sends a `nonce` longer than 512 bytes, or an `id_token_hint` issued to another app. | Fix what the description names. The SDKs send valid requests. |
 | `unsupported_response_type` | `response_type` isn't `code`, such as the implicit flow's `token`. | Use the authorization code flow, as the SDKs do. |
 | `unauthorized_client` | The app requires pushed requests, and this one came through the browser. | Push the request first. The SDKs push whenever auth offers it. |
-| `invalid_scope` | The request asks for a scope the app may not request, often `offline_access`, which the SDKs' login routes always request. | Check the scope under **Scopes** on the app's **Settings** tab ([app settings](app-settings.md#settings)). |
-| `invalid_target` | `audience` names something other than the app. | Leave `audience` out: an app registered in the console gets access tokens for itself only. |
+| `invalid_scope` | The request asks for a scope the app may not request, often `offline_access`, which the SDKs' login routes always request. | Check the scope under **Scopes** on the app's **Settings** tab ([app settings](app-settings.md#settings)). For a scope of an API, see [registering an API](apis.md#troubleshooting). |
+| `invalid_target` | `resource` names an API that isn't registered, or that the app has no access to. | Check the identifier and the API's **Apps with access**: see [registering an API](apis.md#troubleshooting). Leave `resource` out for tokens addressed to the app itself. |
 | `access_denied` | The user selected **Cancel** on the consent screen. | Let the user try again. |
 | `login_required` | The request sent `prompt=none`, and the user must sign in first. | Send the user through an interactive sign-in. |
 | `consent_required` | The request sent `prompt=none`, and the user hasn't consented to the app yet. | Send the user through an interactive sign-in. |

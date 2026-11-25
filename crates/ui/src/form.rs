@@ -12,7 +12,8 @@ use crate::{
     AppChange, AppSettingsState, ConnectedAppChange, ConnectedAppsState, DataChange, DataState,
     DeviceChange, EmailChange, EmailsState, FieldError, HistoryChange, HistoryState, InboxChange,
     LoginChange, LoginQuery, NewAppChange, NotificationState, ProfileChange, RecoverChange,
-    SecretsChange, SignInChange, SignInState, UndoChange, layout::alert_notice,
+    ResourceChange, ResourcesChange, SecretsChange, SignInChange, SignInState, UndoChange,
+    layout::alert_notice,
 };
 use chrono::{DateTime, SecondsFormat, Utc};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::IgnoredAny};
@@ -71,6 +72,12 @@ sourceorigin_common::str_enum! {
         ClientDisabled = "client_disabled",
         /// An app was deleted.
         ClientDeleted = "client_deleted",
+        /// An API was registered as a resource.
+        ResourceRegistered = "resource_registered",
+        /// A resource's name, scopes or access changed.
+        ResourceChanged = "resource_changed",
+        /// A resource was deleted.
+        ResourceDeleted = "resource_deleted",
         /// A recovery link added a passkey, which signed the browser in.
         Recovered = "recovered",
         /// A recovery was undone: its link cancelled, and what the link did, if it
@@ -100,10 +107,12 @@ impl Notice {
             Self::OthersSignedOut => "Your other devices were signed out.",
             Self::AppRemoved => "The app no longer has access to your account.",
             Self::ClientRegistered => "The app was registered.",
-            Self::ClientSaved => "Your changes were saved.",
+            Self::ClientSaved | Self::ResourceChanged => "Your changes were saved.",
             Self::ClientEnabled => "The app was enabled.",
             Self::ClientDisabled => "The app was disabled.",
             Self::ClientDeleted => "The app was deleted.",
+            Self::ResourceRegistered => "The API was registered.",
+            Self::ResourceDeleted => "The API was deleted.",
             Self::Recovered => "Your account is recovered. Your new passkey signs you in.",
             Self::RecoveryUndone => {
                 "The recovery is undone. Its link no longer works, and if it was used, its passkey is removed, every device is signed out, and apps ask for access again."
@@ -258,6 +267,10 @@ fields! {
     App(AppChange),
     /// A change of an app's secrets.
     Secrets(SecretsChange),
+    /// A registration of a resource.
+    Resources(ResourcesChange),
+    /// A change of a resource.
+    Resource(ResourceChange),
     /// A row of the sign-in methods.
     SignInRow(SignInState),
     /// A row of the addresses.

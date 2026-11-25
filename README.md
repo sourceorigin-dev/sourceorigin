@@ -5,8 +5,9 @@ by passkeys, for SourceOrigin's services and any app built on them.
 
 - **Origin Auth**, at auth.sourceorigin.dev, is a passkey-first OpenID Connect provider. It serves
   sign-in, the account settings and the developer console, where anyone can
-  register an app. It is one Rust executable, with PostgreSQL as its only data
-  service. GitHub and Google are optional ways to sign in.
+  register an app, and an API with scopes of its own that apps get access
+  tokens for (RFC 8707 resources). It is one Rust executable, with PostgreSQL as
+  its only data service. GitHub and Google are optional ways to sign in.
 - **admin.sourceorigin.dev** is the admin dashboard, served by the same executable on
   a private listener. Administrators manage accounts there, and invite people by
   email or with a link to pass on.

@@ -39,6 +39,13 @@ export type ClientConfig = {
 export type AuthorizeRequest = {
   /** Scopes to request besides `openid`. */
   scopes?: readonly string[];
+  /**
+   * The API the access token is for, sent as `resource` (RFC 8707): the identifier of
+   * one registered with Origin Auth, which gave this client access to it. The scopes
+   * may then include the API's own. Without one, the access token is for the client
+   * itself.
+   */
+  resource?: string;
   /** `prompt`, such as `login` to force a fresh sign-in. */
   prompt?: Prompt;
   /**
@@ -229,8 +236,7 @@ export class Client {
    * until the callback. When the issuer advertises a pushed authorization request
    * endpoint (RFC 9126), the request is pushed there, and the URL carries only
    * `client_id` and the `request_uri`, as clients registered with `--require-par`
-   * need; a refused push throws an `oauth` error. `audience` is never sent: auth then
-   * picks the client's default resource.
+   * need; a refused push throws an `oauth` error.
    */
   async authorize(request: AuthorizeRequest = {}): Promise<{ url: string; pending: PendingLogin }> {
     const scopes = Scopes.checked([...(request.scopes ?? []), 'openid']);
@@ -259,6 +265,7 @@ export class Client {
       code_challenge: base64.encode(new Uint8Array(digest)),
       code_challenge_method: 'S256'
     };
+    if (request.resource !== undefined) parameters.resource = request.resource;
     if (request.prompt !== undefined) parameters.prompt = request.prompt;
     for (const [name, value] of stepUpParameters(pending.stepUp)) parameters[name] = value;
     if (request.idTokenHint !== undefined) parameters.id_token_hint = request.idTokenHint.token;

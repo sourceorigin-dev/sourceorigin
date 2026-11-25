@@ -31,6 +31,7 @@ Commands:
 - [`auth-service user`](#auth-service-user): Search, show, disable, reactivate and recover accounts.
 - [`auth-service invite`](#auth-service-invite): Create, list, resend and revoke signup invitations.
 - [`auth-service client`](#auth-service-client): Register, inspect and change OIDC clients. Changes apply to the next request.
+- [`auth-service resource`](#auth-service-resource): Register, inspect and change the APIs access tokens are issued for, their scopes and the clients they admit. Changes apply to the next request.
 - [`auth-service audit`](#auth-service-audit): Page through, verify and prune the audit history.
 - [`auth-service admin`](#auth-service-admin): Grant, revoke or list administrators.
 - [`auth-service handle`](#auth-service-handle): Check accounts against the handle rules, and change their handles.
@@ -484,7 +485,7 @@ Options:
 - `--name <NAME>`: The name consent screens show. Required.
 - `--redirect-uri <REDIRECT_URIS>`: An authorization callback, matched exactly; repeat for several. Required.
 - `--post-logout-uri <POST_LOGOUT_URIS>`: A page the browser may return to after logout; repeat for several.
-- `--scope <SCOPES>`: A scope the client may request; repeat for several. Defaults to `openid`, `profile` and `email`, and `offline_access` for a confidential client.
+- `--scope <SCOPES>`: A scope of Origin Auth's own the client may request, such as `openid`; repeat for several. Defaults to `openid`, `profile` and `email`, and `offline_access` for a confidential client. An API's scopes are granted with `resource grant`.
 - `--confidential`: The client runs on a server and authenticates with a secret.
 - `--grant-type <GRANT_TYPES>`: A grant the client may use at the token endpoint; repeat for several: `authorization_code`, `refresh_token`, which lets it receive refresh tokens when it requests `offline_access`, and `urn:ietf:params:oauth:grant-type:device_code`, which signs devices without a browser in. Defaults to `authorization_code`, and `refresh_token` for a confidential client.
 - `--trusted`: The client skips the consent screen. Only for first-party clients.
@@ -511,7 +512,7 @@ Options:
 - `--name <NAME>`: The name consent screens show. Required.
 - `--redirect-uri <REDIRECT_URIS>`: An authorization callback, matched exactly; repeat for several. Required.
 - `--post-logout-uri <POST_LOGOUT_URIS>`: A page the browser may return to after logout; repeat for several.
-- `--scope <SCOPES>`: A scope the client may request; repeat for several. Defaults to `openid`, `profile` and `email`, and `offline_access` for a confidential client.
+- `--scope <SCOPES>`: A scope of Origin Auth's own the client may request, such as `openid`; repeat for several. Defaults to `openid`, `profile` and `email`, and `offline_access` for a confidential client. An API's scopes are granted with `resource grant`.
 - `--confidential`: The client runs on a server and authenticates with a secret.
 - `--grant-type <GRANT_TYPES>`: A grant the client may use at the token endpoint; repeat for several: `authorization_code`, `refresh_token`, which lets it receive refresh tokens when it requests `offline_access`, and `urn:ietf:params:oauth:grant-type:device_code`, which signs devices without a browser in. Defaults to `authorization_code`, and `refresh_token` for a confidential client.
 - `--trusted`: The client skips the consent screen. Only for first-party clients.
@@ -572,7 +573,7 @@ Options:
 - `--remove-redirect-uri <REMOVE_REDIRECT_URIS>`: An authorization callback to remove, exactly as registered; repeat for several.
 - `--add-post-logout-uri <ADD_POST_LOGOUT_URIS>`: A post-logout page to add; repeat for several.
 - `--remove-post-logout-uri <REMOVE_POST_LOGOUT_URIS>`: A post-logout page to remove, exactly as registered; repeat for several.
-- `--scope <SCOPES>`: Replaces the scopes the client may request; repeat for several.
+- `--scope <SCOPES>`: Replaces the scopes of Origin Auth's own the client may request; repeat for several.
 - `--grant-type <GRANT_TYPES>`: Replaces the grants the client may use at the token endpoint; repeat for several. Without `refresh_token`, its refresh tokens stop working.
 - `--trusted`: Skip the consent screen.
 - `--untrusted`: Show the consent screen again.
@@ -764,6 +765,213 @@ auth-service client origin list [OPTIONS]
 
 Options:
 
+- `--operator <NAME>`: Who runs the command, as its events record them, such as your handle. Defaults to `AUTH_OPERATOR`, then `$USER`; administrative commands need one.
+- `--json`: Print the result as JSON for scripts, and every message, prompt and failure as one JSON object per line on standard error, among the service's log lines: read only the lines that start with `{`. A result has the shape of the view the admin dashboard shows, where it has one.
+
+## `auth-service resource`
+
+Register, inspect and change the APIs access tokens are issued for, their scopes and the clients they admit. Changes apply to the next request.
+
+```text
+auth-service resource [OPTIONS] <COMMAND>
+```
+
+Options:
+
+- `--operator <NAME>`: Who runs the command, as its events record them, such as your handle. Defaults to `AUTH_OPERATOR`, then `$USER`; administrative commands need one.
+- `--json`: Print the result as JSON for scripts, and every message, prompt and failure as one JSON object per line on standard error, among the service's log lines: read only the lines that start with `{`. A result has the shape of the view the admin dashboard shows, where it has one.
+
+Commands:
+
+- [`auth-service resource create`](#auth-service-resource-create): Register an API as a resource operators manage. Clients name it in the `resource` parameter, and its access tokens carry its identifier as `aud`.
+- [`auth-service resource list`](#auth-service-resource-list): List every resource.
+- [`auth-service resource show`](#auth-service-resource-show): Show a resource, with the scopes it defines and the clients it admits.
+- [`auth-service resource rename`](#auth-service-resource-rename): Give a resource another name.
+- [`auth-service resource delete`](#auth-service-resource-delete): Delete a resource: no client gets tokens for it any more, and every refresh token and consent for it ends.
+- [`auth-service resource scope`](#auth-service-resource-scope): Define or remove the scopes of a resource.
+- [`auth-service resource grant`](#auth-service-resource-grant): Let a client ask for a resource's tokens, with these scopes of it, which replace any it could request before.
+- [`auth-service resource revoke`](#auth-service-resource-revoke): End a client's access to a resource, with its refresh tokens for it.
+
+## `auth-service resource create`
+
+Register an API as a resource operators manage. Clients name it in the `resource` parameter, and its access tokens carry its identifier as `aud`.
+
+```text
+auth-service resource create [OPTIONS] --name <NAME> --reason <REASON> <IDENTIFIER>
+```
+
+Arguments:
+
+- `<IDENTIFIER>`: The identifier: an absolute https URI, written as the API checks it, e.g. `https://notes.example/api`. It cannot change later.
+
+Options:
+
+- `--name <NAME>`: The name consent screens show. Required.
+- `--reason <REASON>`: Why, recorded with the change: 1 to 500 characters. Required.
+- `--operator <NAME>`: Who runs the command, as its events record them, such as your handle. Defaults to `AUTH_OPERATOR`, then `$USER`; administrative commands need one.
+- `--json`: Print the result as JSON for scripts, and every message, prompt and failure as one JSON object per line on standard error, among the service's log lines: read only the lines that start with `{`. A result has the shape of the view the admin dashboard shows, where it has one.
+
+## `auth-service resource list`
+
+List every resource.
+
+```text
+auth-service resource list [OPTIONS]
+```
+
+Options:
+
+- `--operator <NAME>`: Who runs the command, as its events record them, such as your handle. Defaults to `AUTH_OPERATOR`, then `$USER`; administrative commands need one.
+- `--json`: Print the result as JSON for scripts, and every message, prompt and failure as one JSON object per line on standard error, among the service's log lines: read only the lines that start with `{`. A result has the shape of the view the admin dashboard shows, where it has one.
+
+## `auth-service resource show`
+
+Show a resource, with the scopes it defines and the clients it admits.
+
+```text
+auth-service resource show [OPTIONS] <IDENTIFIER>
+```
+
+Arguments:
+
+- `<IDENTIFIER>`: The resource's identifier.
+
+Options:
+
+- `--operator <NAME>`: Who runs the command, as its events record them, such as your handle. Defaults to `AUTH_OPERATOR`, then `$USER`; administrative commands need one.
+- `--json`: Print the result as JSON for scripts, and every message, prompt and failure as one JSON object per line on standard error, among the service's log lines: read only the lines that start with `{`. A result has the shape of the view the admin dashboard shows, where it has one.
+
+## `auth-service resource rename`
+
+Give a resource another name.
+
+```text
+auth-service resource rename [OPTIONS] --name <NAME> --reason <REASON> <IDENTIFIER>
+```
+
+Arguments:
+
+- `<IDENTIFIER>`: The resource's identifier.
+
+Options:
+
+- `--name <NAME>`: The new name consent screens show. Required.
+- `--reason <REASON>`: Why, recorded with the change: 1 to 500 characters. Required.
+- `--operator <NAME>`: Who runs the command, as its events record them, such as your handle. Defaults to `AUTH_OPERATOR`, then `$USER`; administrative commands need one.
+- `--json`: Print the result as JSON for scripts, and every message, prompt and failure as one JSON object per line on standard error, among the service's log lines: read only the lines that start with `{`. A result has the shape of the view the admin dashboard shows, where it has one.
+
+## `auth-service resource delete`
+
+Delete a resource: no client gets tokens for it any more, and every refresh token and consent for it ends.
+
+```text
+auth-service resource delete [OPTIONS] --reason <REASON> <IDENTIFIER>
+```
+
+Arguments:
+
+- `<IDENTIFIER>`: The resource's identifier.
+
+Options:
+
+- `--reason <REASON>`: Why, recorded with the change: 1 to 500 characters. Required.
+- `--yes`: Do not ask for confirmation. Required when standard input is not a terminal.
+- `--operator <NAME>`: Who runs the command, as its events record them, such as your handle. Defaults to `AUTH_OPERATOR`, then `$USER`; administrative commands need one.
+- `--json`: Print the result as JSON for scripts, and every message, prompt and failure as one JSON object per line on standard error, among the service's log lines: read only the lines that start with `{`. A result has the shape of the view the admin dashboard shows, where it has one.
+
+## `auth-service resource scope`
+
+Define or remove the scopes of a resource.
+
+```text
+auth-service resource scope [OPTIONS] <COMMAND>
+```
+
+Options:
+
+- `--operator <NAME>`: Who runs the command, as its events record them, such as your handle. Defaults to `AUTH_OPERATOR`, then `$USER`; administrative commands need one.
+- `--json`: Print the result as JSON for scripts, and every message, prompt and failure as one JSON object per line on standard error, among the service's log lines: read only the lines that start with `{`. A result has the shape of the view the admin dashboard shows, where it has one.
+
+Commands:
+
+- [`auth-service resource scope add`](#auth-service-resource-scope-add): Define a scope of a resource, or describe it anew.
+- [`auth-service resource scope remove`](#auth-service-resource-scope-remove): Remove a scope from a resource, and from what every client may request of it. A refresh token that holds it is refused at its next use.
+
+## `auth-service resource scope add`
+
+Define a scope of a resource, or describe it anew.
+
+```text
+auth-service resource scope add [OPTIONS] --description <DESCRIPTION> --reason <REASON> <IDENTIFIER> <SCOPE>
+```
+
+Arguments:
+
+- `<IDENTIFIER>`: The resource's identifier.
+- `<SCOPE>`: The scope, as clients request it, e.g. `notes:read`.
+
+Options:
+
+- `--description <DESCRIPTION>`: What it lets a client do, as the consent screen says it to the user, e.g. "Read your notes". Required.
+- `--reason <REASON>`: Why, recorded with the change: 1 to 500 characters. Required.
+- `--operator <NAME>`: Who runs the command, as its events record them, such as your handle. Defaults to `AUTH_OPERATOR`, then `$USER`; administrative commands need one.
+- `--json`: Print the result as JSON for scripts, and every message, prompt and failure as one JSON object per line on standard error, among the service's log lines: read only the lines that start with `{`. A result has the shape of the view the admin dashboard shows, where it has one.
+
+## `auth-service resource scope remove`
+
+Remove a scope from a resource, and from what every client may request of it. A refresh token that holds it is refused at its next use.
+
+```text
+auth-service resource scope remove [OPTIONS] --reason <REASON> <IDENTIFIER> <SCOPE>
+```
+
+Arguments:
+
+- `<IDENTIFIER>`: The resource's identifier.
+- `<SCOPE>`: The scope, as defined.
+
+Options:
+
+- `--reason <REASON>`: Why, recorded with the change: 1 to 500 characters. Required.
+- `--operator <NAME>`: Who runs the command, as its events record them, such as your handle. Defaults to `AUTH_OPERATOR`, then `$USER`; administrative commands need one.
+- `--json`: Print the result as JSON for scripts, and every message, prompt and failure as one JSON object per line on standard error, among the service's log lines: read only the lines that start with `{`. A result has the shape of the view the admin dashboard shows, where it has one.
+
+## `auth-service resource grant`
+
+Let a client ask for a resource's tokens, with these scopes of it, which replace any it could request before.
+
+```text
+auth-service resource grant [OPTIONS] --reason <REASON> <CLIENT> <IDENTIFIER>
+```
+
+Arguments:
+
+- `<CLIENT>`: The client's ID.
+- `<IDENTIFIER>`: The resource's identifier.
+
+Options:
+
+- `--scope <SCOPES>`: A scope of the resource the client may request; repeat for several. With none, its tokens for the resource carry only Origin Auth's own scopes.
+- `--reason <REASON>`: Why, recorded with the change: 1 to 500 characters. Required.
+- `--operator <NAME>`: Who runs the command, as its events record them, such as your handle. Defaults to `AUTH_OPERATOR`, then `$USER`; administrative commands need one.
+- `--json`: Print the result as JSON for scripts, and every message, prompt and failure as one JSON object per line on standard error, among the service's log lines: read only the lines that start with `{`. A result has the shape of the view the admin dashboard shows, where it has one.
+
+## `auth-service resource revoke`
+
+End a client's access to a resource, with its refresh tokens for it.
+
+```text
+auth-service resource revoke [OPTIONS] --reason <REASON> <CLIENT> <IDENTIFIER>
+```
+
+Arguments:
+
+- `<CLIENT>`: The client's ID.
+- `<IDENTIFIER>`: The resource's identifier.
+
+Options:
+
+- `--reason <REASON>`: Why, recorded with the change: 1 to 500 characters. Required.
 - `--operator <NAME>`: Who runs the command, as its events record them, such as your handle. Defaults to `AUTH_OPERATOR`, then `$USER`; administrative commands need one.
 - `--json`: Print the result as JSON for scripts, and every message, prompt and failure as one JSON object per line on standard error, among the service's log lines: read only the lines that start with `{`. A result has the shape of the view the admin dashboard shows, where it has one.
 

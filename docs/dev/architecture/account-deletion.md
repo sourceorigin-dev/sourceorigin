@@ -22,7 +22,8 @@ and the purge must then cover.
   trigger deletes the row whenever the account leaves `deleting`, however it
   leaves.
 - **Purged** means gone: the account row and every row that identifies its
-  person. What stays is pseudonymous: events, without their personal data,
+  person. The resources it registered go with it, and every account's refresh
+  families and consents for them end in the same transaction. What stays is pseudonymous: events, without their personal data,
   handles, without an owner, for a year, and the tombstones of the clients it
   registered.
 

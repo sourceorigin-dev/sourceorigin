@@ -180,7 +180,7 @@ async fn invalid_settings_name_their_field_first() {
     for (patch, field) in [
         (
             ClientPatch {
-                allowed_scopes: Some(vec!["openid".into(), "notes:read".into()]),
+                allowed_scopes: Some(Vec::new()),
                 ..ClientPatch::default()
             },
             ClientField::AllowedScopes,

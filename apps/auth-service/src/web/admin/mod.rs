@@ -33,6 +33,8 @@ mod lists;
 mod origins;
 /// What needs attention, and what the service is doing now.
 mod overview;
+/// The APIs registered as resources, their scopes and the clients they admit.
+mod resources;
 /// What a change makes and its page shows once, across the change's redirect.
 mod reveal;
 /// What the top bar's search finds beyond the page's own results.
@@ -60,7 +62,7 @@ use crate::{
 };
 use chrono::Duration;
 use serde::Deserialize;
-use sourceorigin_common::{ClientId, ErrorChain, UserId, config::Origin};
+use sourceorigin_common::{ClientId, ErrorChain, ResourceId, UserId, config::Origin};
 use sourceorigin_crypto::NoteVerifier;
 use sourceorigin_repository::Database;
 use sourceorigin_telemetry::HttpTelemetry;
@@ -415,6 +417,7 @@ impl AdminApplication {
             Op::CreateInvitation => SearchAction::Invite,
             Op::ReserveHandle => SearchAction::ReserveHandle,
             Op::CreateClient => SearchAction::RegisterClient,
+            Op::CreateResource => SearchAction::RegisterResource,
             Op::RotateSigningKey => SearchAction::RotateSigningKey,
             Op::RewrapSigningKeys => SearchAction::RewrapSigningKeys,
             Op::DraftAnnouncement => SearchAction::DraftAnnouncement,
@@ -438,6 +441,13 @@ impl AdminApplication {
             | Op::RotateClientSecret
             | Op::ApproveRelatedOrigin
             | Op::RemoveRelatedOrigin
+            | Op::ViewResource
+            | Op::RenameResource
+            | Op::DefineResourceScope
+            | Op::RemoveResourceScope
+            | Op::GrantResourceAccess
+            | Op::RevokeResourceAccess
+            | Op::DeleteResource
             | Op::ResendInvitation
             | Op::RevokeInvitation
             | Op::ReleaseHandle
@@ -453,6 +463,7 @@ impl AdminApplication {
             | Op::SearchUsers
             | Op::ListInvitations
             | Op::ListClients
+            | Op::ListResources
             | Op::ListEvents
             | Op::ListAdministrators
             | Op::CheckHandles
@@ -507,6 +518,15 @@ impl AdminApplication {
             Op::UnsuspendClient => &clients::unsuspend,
             Op::DeleteClient => &clients::delete,
             Op::RotateClientSecret => &clients::rotate,
+            Op::ListResources => &resources::list,
+            Op::ViewResource => &resources::detail,
+            Op::CreateResource => &resources::create,
+            Op::RenameResource => &resources::rename,
+            Op::DefineResourceScope => &resources::define_scope,
+            Op::RemoveResourceScope => &resources::remove_scope,
+            Op::GrantResourceAccess => &resources::grant,
+            Op::RevokeResourceAccess => &resources::revoke,
+            Op::DeleteResource => &resources::delete,
             Op::ListEvents => &lists::events,
             Op::VerifyAuditChain => &audit::verify,
             Op::ListAdministrators => &administrators::list,
@@ -986,7 +1006,7 @@ impl AdminApplication {
     }
 
     /// Each tab's page, in the sidebar's order.
-    fn tabs(cx: &Cx) -> [(DashboardTab, String); 12] {
+    fn tabs(cx: &Cx) -> [(DashboardTab, String); 13] {
         [
             (
                 DashboardTab::Overview,
@@ -1003,6 +1023,7 @@ impl AdminApplication {
             ),
             (DashboardTab::Handles, href!(handles::check).resolve(cx)),
             (DashboardTab::Clients, href!(clients::list).resolve(cx)),
+            (DashboardTab::Resources, href!(resources::list).resolve(cx)),
             (DashboardTab::Events, href!(lists::events).resolve(cx)),
             (
                 DashboardTab::Deliveries,
@@ -1067,6 +1088,16 @@ impl AdminApplication {
                     name: Self::title(&detail).to_owned(),
                     href,
                     id: id.to_string(),
+                })
+            }
+            DashboardTab::Resources => {
+                let id: ResourceId = id.parse().ok()?;
+                let href = href!(resources::detail, resources::Resource(id)).resolve(cx);
+                let detail = service.resource_detail(&admin.operator, id).await.ok()?;
+                Some(Parent {
+                    name: detail.resource.display_name,
+                    href,
+                    id: detail.resource.identifier,
                 })
             }
             _ => None,

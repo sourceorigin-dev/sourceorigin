@@ -4,7 +4,7 @@ use crate::{
     AdminError, ClientRegistryError, KeyError, StartupError, UserRef, account::AccountError,
 };
 use sourceorigin_common::{
-    clients::{InvalidCount, InvalidDisplayName, InvalidRedirectUri, InvalidScopeName},
+    clients::{InvalidCount, InvalidDisplayName, InvalidRedirectUri},
     config::{ConfigurationError, SecretError},
 };
 use sourceorigin_crypto::CryptoError;
@@ -74,9 +74,6 @@ pub(super) enum CliError {
     /// A redirect URI, given or stored, is invalid.
     #[error(transparent)]
     RedirectUri(#[from] InvalidRedirectUri),
-    /// A scope, given or stored, is invalid.
-    #[error(transparent)]
-    Scope(#[from] InvalidScopeName),
     /// A registration list has too few or too many values.
     #[error("invalid {field}")]
     Count {

@@ -32,8 +32,8 @@ pub(crate) enum PolicyRefusal {
     /// A scope was removed from the client.
     #[error("the client may no longer request these scopes")]
     Scopes,
-    /// The audience was removed from the client.
-    #[error("the client may no longer request tokens for this audience")]
+    /// The client lost its access to the resource.
+    #[error("the client may no longer request tokens for this resource")]
     Audience,
     /// The grant was removed from the client.
     #[error("the client may no longer use the {0} grant")]
@@ -152,18 +152,9 @@ impl ClientPolicy {
         if !client.grant_types.contains(&grant) {
             return Err(PolicyRefusal::Grant(grant));
         }
-        if !scopes
-            .iter()
-            .all(|scope| client.allowed_scopes.contains(scope))
-        {
+        let allowed = client.scopes_for(audience).ok_or(PolicyRefusal::Audience)?;
+        if !scopes.iter().all(|scope| allowed.contains(&scope.as_str())) {
             return Err(PolicyRefusal::Scopes);
-        }
-        if !client
-            .allowed_audiences
-            .iter()
-            .any(|allowed| allowed == audience)
-        {
-            return Err(PolicyRefusal::Audience);
         }
         Ok(())
     }

@@ -12,10 +12,9 @@ use sourceorigin_common::{
     clients::{
         AllowedScopes, BackchannelLogoutUri, ClientKind, ClientRegistration, ClientStatus,
         DisplayName, GrantTypes, PostLogoutUris, RedirectUri, RedirectUris, RelatedOrigin,
-        ScopeName,
     },
     config::{Origin, SecretReference},
-    protocol::oauth::GrantType,
+    protocol::oauth::{GrantType, Scope},
 };
 use sourceorigin_crypto::ClientSecret;
 use sourceorigin_repository::StoredOidcClient;
@@ -405,10 +404,12 @@ pub(super) struct CreateClient {
     /// A page the browser may return to after logout; repeat for several.
     #[arg(long = "post-logout-uri")]
     post_logout_uris: Vec<RedirectUri>,
-    /// A scope the client may request; repeat for several. Defaults to `openid`,
-    /// `profile` and `email`, and `offline_access` for a confidential client.
+    /// A scope of Origin Auth's own the client may request, such as `openid`;
+    /// repeat for several. Defaults to `openid`, `profile` and `email`, and
+    /// `offline_access` for a confidential client. An API's scopes are granted
+    /// with `resource grant`.
     #[arg(long = "scope")]
-    scopes: Vec<ScopeName>,
+    scopes: Vec<Scope>,
     /// The client runs on a server and authenticates with a secret.
     #[arg(long)]
     confidential: bool,
@@ -492,11 +493,7 @@ impl CreateClient {
             ClientKind::Public
         };
         let scopes = if self.scopes.is_empty() {
-            kind.default_scopes()
-                .iter()
-                .copied()
-                .map(ScopeName::from)
-                .collect()
+            kind.default_scopes().to_vec()
         } else {
             self.scopes
         };
@@ -546,9 +543,10 @@ pub(super) struct UpdateClient {
     /// A post-logout page to remove, exactly as registered; repeat for several.
     #[arg(long = "remove-post-logout-uri")]
     remove_post_logout_uris: Vec<String>,
-    /// Replaces the scopes the client may request; repeat for several.
+    /// Replaces the scopes of Origin Auth's own the client may request; repeat
+    /// for several.
     #[arg(long = "scope")]
-    scopes: Vec<ScopeName>,
+    scopes: Vec<Scope>,
     /// Replaces the grants the client may use at the token endpoint; repeat for
     /// several. Without `refresh_token`, its refresh tokens stop working.
     #[arg(long = "grant-type")]
@@ -581,11 +579,9 @@ impl UpdateClient {
     /// valid where it is kept.
     fn apply(self, client: &StoredOidcClient) -> Result<ClientRegistration, CliError> {
         let scopes = if self.scopes.is_empty() {
-            client
-                .allowed_scopes
-                .iter()
-                .map(|scope| scope.parse())
-                .collect::<Result<_, _>>()?
+            (client.allowed_scopes.iter())
+                .filter_map(|scope| scope.parse().ok())
+                .collect()
         } else {
             self.scopes
         };

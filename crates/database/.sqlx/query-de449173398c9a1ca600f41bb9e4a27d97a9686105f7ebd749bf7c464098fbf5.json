@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH put AS (\n                    INSERT INTO resource_scopes (resource_id, name, description)\n                    VALUES ($1, $2, $3)\n                    ON CONFLICT (resource_id, name) DO UPDATE\n                    SET description = EXCLUDED.description\n                    RETURNING (xmax = 0) AS inserted\n                ),\n                touched AS (\n                    UPDATE resources SET updated_at = now() WHERE id = $1\n                )\n                SELECT inserted AS \"inserted!\" FROM put",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "inserted!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "de449173398c9a1ca600f41bb9e4a27d97a9686105f7ebd749bf7c464098fbf5"
+}

@@ -57,6 +57,7 @@ use sourceorigin_common::{
             self, ClientAuthMethod, CodeChallengeMethod, GrantType, Interaction, Prompt,
             ResponseMode, ResponseType, Scope, SubjectType,
         },
+        resource::ResourceIdentifier,
     },
 };
 use sourceorigin_repository::{Database, StoredOidcClient};
@@ -209,16 +210,47 @@ impl Scopes {
         Ok(Self(scopes))
     }
 
-    /// Parses the scopes a request asks for, which `client` must be allowed to
-    /// request.
-    fn requested(value: &str, client: &StoredOidcClient) -> Result<Self, OAuthError> {
-        let scopes = Self::parse(value)?;
-        if !scopes.allowed_by(&client.allowed_scopes) {
-            return Err(
-                OAuthCode::InvalidScope.reject("scope includes values this client may not request")
-            );
+    /// Parses what a request asks tokens for: the `resource` it names (RFC 8707),
+    /// which `client` must have access to, or `client` itself when it names none,
+    /// and the scopes of `scope`, which `client` must be allowed to request for
+    /// it. Returns the grant's audience, the resource's identifier or the
+    /// client's ID, with the scopes. An unknown resource, or one `client` has no
+    /// access to, is `invalid_target`.
+    fn requested(
+        scope: &str,
+        resource: Option<&str>,
+        client: &StoredOidcClient,
+    ) -> Result<(String, Self), OAuthError> {
+        let scopes = Self::parse(scope)?;
+        let audience = match resource {
+            None => client.id.to_string(),
+            Some(resource) => resource
+                .parse::<ResourceIdentifier>()
+                .map_err(|error| {
+                    OAuthCode::InvalidTarget
+                        .reject_with(format!("resource is invalid: {error}"), error)
+                })?
+                .to_string(),
+        };
+        let allowed = client.scopes_for(&audience).ok_or_else(|| {
+            OAuthCode::InvalidTarget.reject("this client has no access to the resource")
+        })?;
+        if !scopes.0.iter().all(|scope| allowed.contains(&scope)) {
+            return Err(OAuthCode::InvalidScope
+                .reject("scope includes values this client may not request for this audience"));
         }
-        Ok(scopes)
+        Ok((audience, scopes))
+    }
+
+    /// Refuses a token request whose `resource`, if it names one, is not the
+    /// `audience` its grant was issued for (RFC 8707 §2.2): a grant has one
+    /// audience, so a token request may repeat it, never change it.
+    fn same_target(resource: Option<&str>, audience: &str) -> Result<(), OAuthError> {
+        match resource {
+            Some(resource) if resource != audience => Err(OAuthCode::InvalidTarget
+                .reject("resource must be the one this grant was issued for, or left out")),
+            Some(_) | None => Ok(()),
+        }
     }
 
     /// Rebuilds a scope set read from the database.
