@@ -1,16 +1,11 @@
-//! The views of administration: what the admin dashboard shows, and what the
-//! CLI's `--json` prints. Auth's service returns them, and its
-//! database crate decodes some straight into them. It also holds the searches
-//! the service takes, such as [`EventSearch`](crate::admin::EventSearch). The
-//! dashboard's forms are not here; two of its page queries,
-//! [`UserSearch`](crate::admin::UserSearch) and
-//! [`SendAnnouncement`](crate::admin::SendAnnouncement), still are, until they
-//! move to `sourceorigin-ui` with them.
+//! The views of administration: what the admin dashboard shows and the CLI's `--json` prints,
+//! and the searches the service takes, such as [`EventSearch`](crate::admin::EventSearch).
 //!
-//! Bodies the account settings also return come from [`crate::protocol::api`]
-//! and are re-exported here, as is the
-//! [`UserAgentFamily`](crate::admin::UserAgentFamily) the session and device
-//! views show, which events record too.
+//! The dashboard's forms are not here, except two page queries, [`UserSearch`](crate::admin::UserSearch)
+//! and [`SendAnnouncement`](crate::admin::SendAnnouncement), until they move to `sourceorigin-ui`.
+//! Bodies the account settings also return come from [`crate::protocol::api`] and are
+//! re-exported here, as is the [`UserAgentFamily`](crate::admin::UserAgentFamily) the session
+//! and device views show.
 
 pub use crate::protocol::api::{Identity, Passkey};
 pub use crate::user_agent::{Browser, Platform, UserAgentFamily};

@@ -142,18 +142,14 @@ pub enum Notification {
 
 impl DomainEvent {
     /// The notification this event, caused by `actor`, gives its audience
-    /// ([`Notification::audience`]), if any: its subject, or for a raised alert,
-    /// every active administrator. Every variant is named, so a new event cannot
-    /// be added without deciding whether anyone is told.
+    /// ([`Notification::audience`]), if any: its subject, or for a raised alert, every active
+    /// administrator. Every variant is named, so a new event cannot be added without deciding
+    /// whether anyone is told.
     ///
-    /// A change the owner makes to their own name tells them nothing they don't
-    /// know; one made by support does. Every change to the account's ways in,
-    /// its addresses and recovery notifies whoever made it, so a stolen session
-    /// cannot make one unseen, except the steps of an operation the owner takes
-    /// without a session, signing up or through a recovery's link or undo page,
-    /// which tells them as a whole, if at all. Support's own steps of a
-    /// recovery are recorded without their notifications
-    /// (`DatabaseTransaction::record_quietly`).
+    /// A change an owner makes to their own name tells them nothing new. Every change to the
+    /// account's ways in, its addresses and recovery notifies whoever made it, so a stolen
+    /// session cannot make one unseen; an owner's steps without a session tell them as a whole.
+    /// Support's recovery steps are recorded quietly (`DatabaseTransaction::record_quietly`).
     #[must_use]
     #[deny(clippy::wildcard_enum_match_arm)]
     #[expect(
