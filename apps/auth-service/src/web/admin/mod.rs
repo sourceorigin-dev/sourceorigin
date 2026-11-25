@@ -298,7 +298,6 @@ impl From<AdminError> for Refusal {
     /// What the dashboard does about `error`, which it logs.
     fn from(error: AdminError) -> Self {
         match error {
-            // The page logs it.
             error @ AdminError::NotAdministrator => return Self::Page(error),
             ref error => error.log_refusal(),
         }
@@ -361,10 +360,7 @@ impl AdminApplication {
     pub(crate) fn routes(self) -> axum::Router {
         let pages = Router::builder()
             .app_context(self)
-            // The security layer already accepts forms only from the dashboard's own
-            // pages, by a stricter rule: Topcoat's also takes `Sec-Fetch-Site: none`.
             .origin_policy(OriginPolicy::dangerous_disable())
-            // axum's body limit does not reach Topcoat, whose own default is 2 MiB.
             .layer(BodyLimit::max(MAX_DASHBOARD_BODY_BYTES))
             .layer(answers)
             .route(overview::overview)
@@ -374,8 +370,6 @@ impl AdminApplication {
             .route(finish_confirmation)
             .route(sign_out)
             .route(search::suggest)
-            // The settings administrators share with owners, the account
-            // service's operations.
             .route(settings::sign_in)
             .route(settings::profile)
             .route(settings::emails)
@@ -383,10 +377,8 @@ impl AdminApplication {
             .route(settings::history)
             .route(settings::notifications)
             .route(settings::display_name)
-            // The account page's session revocations, the account service's too.
             .route(users::revoke_sessions)
             .route(users::revoke_session)
-            // `ListAlerts` lists the alerts that cleared on a page of their own.
             .route(alerts::previous);
         let pages = AdminOperation::ALL
             .iter()
@@ -406,8 +398,6 @@ impl AdminApplication {
                         }
                     }
                 });
-        // The stylesheet, the fonts it links and the scripts, the dashboard's
-        // only files.
         let assets = EmbeddedAssets::SHARED
             .iter()
             .chain(&EmbeddedAssets::DASHBOARD_SCRIPTS);
@@ -443,7 +433,6 @@ impl AdminApplication {
             Op::RotateSigningKey => SearchAction::RotateSigningKey,
             Op::RewrapSigningKeys => SearchAction::RewrapSigningKeys,
             Op::DraftAnnouncement => SearchAction::DraftAnnouncement,
-            // Each acts on one account, which search finds.
             Op::ViewUser
             | Op::DisableUser
             | Op::EnableUser
@@ -454,7 +443,6 @@ impl AdminApplication {
             | Op::MessageUser
             | Op::RenameHandle
             | Op::RevokeAdministrator
-            // Each acts on one client, which search finds.
             | Op::ViewClient
             | Op::UpdateClient
             | Op::EnableClient
@@ -465,7 +453,6 @@ impl AdminApplication {
             | Op::RotateClientSecret
             | Op::ApproveRelatedOrigin
             | Op::RemoveRelatedOrigin
-            // Each acts on one row of its tab's list.
             | Op::ResendInvitation
             | Op::RevokeInvitation
             | Op::ReleaseHandle
@@ -478,7 +465,6 @@ impl AdminApplication {
             | Op::DiscardAnnouncement
             | Op::SendAnnouncement
             | Op::UpdateAlert
-            // Each is a tab's page.
             | Op::SearchUsers
             | Op::ListInvitations
             | Op::ListClients
@@ -490,7 +476,6 @@ impl AdminApplication {
             | Op::VerifyAuditChain
             | Op::ListAnnouncements
             | Op::ListAlerts
-            // Only the terminal runs these (see `page`).
             | Op::PurgeUser
             | Op::ApplyClient
             | Op::PruneAuditChain => return None,
@@ -563,15 +548,7 @@ impl AdminApplication {
             Op::SendAnnouncement => &announcements::send,
             Op::ListAlerts => &alerts::list,
             Op::UpdateAlert => &alerts::update,
-            // Purging at once cannot be undone, so only the terminal offers it.
-            Op::PurgeUser
-            // A deployment applies its own clients, with the secret it generated:
-            // only the terminal takes a secret. The dashboard registers clients
-            // with `CreateClient`, and Origin Auth makes their secrets.
-            | Op::ApplyClient
-            // Pruning needs the schema owner, which auth never holds: the audit page
-            // shows the command instead.
-            | Op::PruneAuditChain => return None,
+            Op::PurgeUser | Op::ApplyClient | Op::PruneAuditChain => return None,
         })
     }
 
@@ -1081,13 +1058,10 @@ impl AdminApplication {
         let current = Self::current_tab(cx, &tabs)?;
         let path = uri(cx).path();
         let (_, tab) = tabs.iter().find(|(tab, _)| *tab == current)?;
-        // Only a page below the account's or client's has one: `/clients/new`
-        // names no client, whatever its registry holds.
         let below = path.strip_prefix(tab.as_str())?.strip_prefix('/')?;
         let (id, _) = below.split_once('/')?;
         let service = &Self::of(cx).service;
         match current {
-            // An administrator's page is their account's, under Users.
             DashboardTab::Users | DashboardTab::Administrators => {
                 let id: UserId = id.parse().ok()?;
                 let handle = service.user_handle(&admin.operator, id).await.ok()?;
@@ -1135,7 +1109,6 @@ impl AdminApplication {
     ) -> Result<Response> {
         let title = title.into();
         let status = Self::status(cx, status).await;
-        // A browser that is not signed in is sent on by the page itself.
         let admin = Self::admin(cx).await.ok();
         let app = Self::of(cx);
         let tabs = Self::tabs(cx);
@@ -1157,8 +1130,6 @@ impl AdminApplication {
             &href!(start_confirmation).resolve(cx),
             &href!(finish_confirmation).resolve(cx),
         );
-        // The preference forms come back here by GET, which a page answering a
-        // POST cannot show again, so those come back to the overview.
         let here = if method(cx) == Method::POST {
             home.as_str()
         } else {
@@ -1172,7 +1143,6 @@ impl AdminApplication {
             picture: picture.as_deref(),
             administrator: true,
         });
-        // The avatar leads to the administrator's own settings, on auth.
         let me = app.auth.join(routes::page::settings::HOME);
         let attention = Self::attention(cx).await;
         let dashboard = Dashboard {
@@ -1247,7 +1217,6 @@ impl AdminApplication {
                 Err(failed) => Self::unexplained(cx, failed).await,
             };
         }
-        // The administrator's own refusal, from either service.
         let administrator = error.downcast_ref::<AdminError>().or_else(|| {
             match error.downcast_ref::<AccountError>() {
                 Some(AccountError::Operator(refused)) => Some(refused),
@@ -1262,8 +1231,6 @@ impl AdminApplication {
                 return Self::render(cx, StatusCode::FORBIDDEN, "No access", page).await;
             }
         }
-        // A refusal shared with another handle, such as the memoized sign-in's,
-        // fails the page.
         let refused = match error.downcast::<AdminError>() {
             Ok(refused) => ApiError::from(refused),
             Err(failed) => match failed.into_error().downcast::<AccountError>() {
@@ -1307,7 +1274,6 @@ async fn preferences(cx: &Cx, form: Option<Form<PreferenceChange>>) -> Result<Re
     let Some(Form(change)) = form.filter(|_| method(cx) == Method::POST) else {
         return see_other(home).into_response(cx);
     };
-    // The dashboard's pages send paths; anything else goes to the overview.
     let back =
         ReturnTo::parse(Some(&change.return_to)).map_or(home, |back| back.as_str().to_owned());
     let mut response = see_other(back).into_response(cx)?;

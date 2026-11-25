@@ -80,7 +80,6 @@ async fn administrators_remove_a_disabled_accounts_picture() {
         "nothing to load: {page}"
     );
     assert!(page.contains("Remove picture"), "{page}");
-    // Its changes on other pages ask for a passkey on this one first.
     let handle = format!("/users/{}/handle", owner.user_id);
     assert!(
         page.contains(&format!(
@@ -252,7 +251,6 @@ async fn recoveries_are_started_and_undone_from_the_dashboard() {
         .expect("administrator")
         .handle;
     let page = html(harness.visit(&dashboard, &account).await).await;
-    // The recovery's row links its administrator by handle, then says why.
     let who_and_why = format!(
         r#"<a href="/users/{}">@{handle}</a>: “<span class="fact">Lost every passkey</span>”"#,
         admin.user_id
@@ -393,7 +391,6 @@ async fn administrators_change_an_accounts_settings_with_a_reason() {
         page.contains(&format!(r#"href="{name}">Change display name</a>"#)),
         "{page}"
     );
-    // A refused name keeps the reason typed beside it.
     let page = html(post(&name, &[("display_name", " "), reason]).await).await;
     assert!(page.contains("Choose a display name"), "{page}");
     assert!(page.contains(r#"value="Asked by email""#), "{page}");
@@ -433,7 +430,6 @@ async fn rights_are_granted_from_a_search() {
         page.contains(&format!(r#"name="user_id" value="{}""#, other.user_id)),
         "{page}"
     );
-    // The pager's links name a page, which the search reads as a number.
     let paged = harness.visit(&dashboard, &format!("{search}&page=2")).await;
     assert_eq!(paged.status(), StatusCode::OK, "{search}&page=2");
     let granted = dashboard
@@ -465,7 +461,6 @@ async fn deletions_are_scheduled_and_restored_from_the_dashboard() {
     let account = format!("/users/{}", owner.user_id);
     let delete = format!("{account}/delete");
     let dashboard = harness.confirmed(&admin, &delete, Utc::now()).await;
-    // Confirmed, the dashboard shows the change's form on the account's page.
     let page = html(harness.visit(&dashboard, &account).await).await;
     assert!(page.contains(&format!(r#"action="{delete}""#)), "{page}");
     let page = html(harness.visit(&dashboard, &delete).await).await;
@@ -714,7 +709,6 @@ async fn messages_are_previewed_then_sent_from_the_dashboard() {
     );
     assert!(!preview.contains("style="), "{preview}");
     assert!(preview.contains(r#"value="send""#), "{preview}");
-    // Its Send names the account, beside it and to the passkey dialog.
     let handle = format!("browser-{}", &owner.user_id.to_string()[24..]);
     let target = format!(
         r#"<p class="target"><strong>{handle}</strong> <code>{}</code></p>"#,
@@ -731,7 +725,6 @@ async fn messages_are_previewed_then_sent_from_the_dashboard() {
         let received = notifications.list(owner.user_id, None, 10).await;
         received.expect("inbox")
     };
-    // Sending without a confirmation confirms on auth's handoff page first.
     let unconfirmed_send = post(&unconfirmed, "send").await;
     assert_eq!(location(&unconfirmed_send).path(), routes::page::ADMIN);
     assert_eq!(inbox().await.len(), 0);
@@ -744,7 +737,6 @@ async fn messages_are_previewed_then_sent_from_the_dashboard() {
     assert!(shown.contains("About your account"), "{shown}");
     assert!(shown.contains("<p>Support needs a word.</p>"), "{shown}");
 
-    // An administrator's account takes one too: it changes nothing.
     let administrator = format!("/users/{}", admin.user_id);
     let page = html(harness.visit(&confirmed, &administrator).await).await;
     assert!(

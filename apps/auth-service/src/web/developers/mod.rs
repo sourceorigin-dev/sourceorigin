@@ -35,8 +35,6 @@ use topcoat::{
     view::{Child, view},
 };
 
-// The client ID an app page's path names. Unparsed: an ID that is not one is not
-// the account's either, and is missing like any other.
 path_param!(id);
 
 /// Each app tab and the route of the page it links.
@@ -168,7 +166,6 @@ impl<'a> From<&'a OwnedClientView> for ClientRow<'a> {
             id: &client.id,
             name: &client.display_name,
             kind: client.kind,
-            // The owner's clients leave out deleted ones.
             status: ClientStatus::of(client.enabled, client.suspended_at, None),
             redirect_uris: &client.redirect_uris,
             post_logout_uris: &client.post_logout_uris,
@@ -265,7 +262,6 @@ impl WebApplication {
             .map(|(tab, route)| (tab, developers::of(route, &client.id)))
             .collect();
         let row = ClientRow::from(client);
-        // The app's own page is named after it; its other pages are under it.
         let app = Crumb::Name(&client.display_name);
         let overview = developers::of(APP, &client.id);
         let (trail, title) = match tab {

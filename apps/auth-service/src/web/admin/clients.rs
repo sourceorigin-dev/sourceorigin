@@ -97,8 +97,6 @@ pub(super) async fn detail(cx: &Cx) -> Result<Response> {
     } else {
         Err("Only trusted clients' pages sign users in themselves.")
     };
-    // A confirmed dashboard shows each change's form on the page itself; one that
-    // is not links the change's page, which confirms first.
     let inline = admin.operator.is_confirmed(super::FORM_TIME);
     let action = |href: String| Action { href, inline };
     let changes = client.deleted_at.is_none().then(|| ClientChanges {
@@ -135,7 +133,6 @@ pub(super) async fn detail(cx: &Cx) -> Result<Response> {
     let page = view! { cx =>
         sourceorigin_ui::client_page(page: shown, now: Utc::now())
     };
-    // A large page: its future is boxed, off the handler's stack.
     Box::pin(App::render(
         cx,
         StatusCode::OK,
@@ -229,8 +226,6 @@ pub(super) async fn rotate(
     form: Option<Form<Administered<SecretsChange>>>,
 ) -> Result<Response> {
     let admin = App::admin(cx).await?;
-    // The page showing a new secret needs no confirmation: sending the browser
-    // to confirm would lose the secret.
     let rotated = App::revealed(cx, admin).map(Revealed::new);
     if rotated.is_none() {
         App::confirm(cx, admin)?;
@@ -297,7 +292,6 @@ pub(super) async fn rotate(
             refusal: refusal,
         )
     };
-    // A large page: its future is boxed, off the handler's stack.
     Box::pin(App::render(cx, StatusCode::OK, "Client secrets", page)).await
 }
 

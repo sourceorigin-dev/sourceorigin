@@ -47,6 +47,5 @@ pub(super) async fn verify(cx: &Cx, form: Option<Form<IgnoredAny>>) -> Result<Re
             later: later,
         )
     };
-    // A large page: its future is boxed, off the handler's stack.
     Box::pin(App::render(cx, StatusCode::OK, "Audit", view)).await
 }

@@ -84,8 +84,6 @@ pub(super) async fn detail(cx: &Cx) -> Result<Response> {
     let mut recent = service.events(&admin.operator, filter.clone()).await?;
     recent.events.truncate(RECENT_EVENTS);
     let changeable = !detail.administrator;
-    // A confirmed dashboard shows each change's form on the page itself; one that
-    // is not links the change's page, which confirms first.
     let inline = admin.operator.is_confirmed(super::FORM_TIME);
     let action = |href: String| Action { href, inline };
     let links = [
@@ -152,7 +150,6 @@ pub(super) async fn detail(cx: &Cx) -> Result<Response> {
         .collect();
     let events = App::event_rows(cx, &recent.events);
     let all_events = filter.on(&href!(lists::events).resolve(cx))?;
-    // The page names only references: a view moves what it names.
     let picture = App::picture(cx, detail.user.picture);
     let (detail, sessions, events, all_events) = (&detail, &sessions, &events, &all_events);
     let page = view! { cx =>
@@ -166,7 +163,6 @@ pub(super) async fn detail(cx: &Cx) -> Result<Response> {
             all_events: all_events.as_str(),
         )
     };
-    // The dashboard's largest page: its future is boxed, off the handler's stack.
     Box::pin(App::render(
         cx,
         StatusCode::OK,
@@ -258,7 +254,6 @@ pub(super) async fn message(cx: &Cx, form: Option<Form<MessageUser>>) -> Result<
         Some(Ok(Composed::Sent)) => return Err(see_other(back).into()),
         Some(Ok(Composed::Editing(typed))) => (typed, None, None),
         Some(Ok(Composed::Previewing(typed, letter))) => (typed, Some(letter), None),
-        // A send refused shows its email again; a text refused, its form.
         Some(Err(Refused { message, form })) => {
             (form.clone(), Letter::try_from(&form).ok(), Some(message))
         }
@@ -274,7 +269,6 @@ pub(super) async fn message(cx: &Cx, form: Option<Form<MessageUser>>) -> Result<
     });
     let (handle, typed) = (account.user.handle.as_str(), &typed);
     let target = App::target(cx).await;
-    // The page, with its email, makes a large view: boxed.
     let page = Child::new(view! { cx =>
         sourceorigin_ui::message_page(
             handle: handle,
@@ -399,7 +393,6 @@ impl AccountChange {
         };
         let (change, crumb) = self.change();
         let account = App::target(cx).await;
-        // One session is named as that session of the account the crumb names.
         let session = match self {
             Self::RevokeSession(session) => Some(session.to_string()),
             _ => None,

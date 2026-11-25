@@ -12,8 +12,6 @@ use super::*;
 async fn related_origins_are_approved_and_removed_from_the_dashboard() {
     let harness = Harness::new().await;
     let admin = harness.admin().await;
-    // Within auth's own domain, so it counts only as `sourceorigin`, which every such
-    // origin shares.
     let origin = format!("https://{}.auth.sourceorigin.dev", UserId::new());
     let client = sourceorigin_common::clients::ClientRegistration {
         trusted: true,
@@ -132,7 +130,6 @@ async fn clients_are_registered_changed_and_suspended_from_the_dashboard() {
     let page = format!("{client}/overview");
     assert_eq!(redirect(&created), page);
     let settings = format!("{client}/settings");
-    // The secrets page shows what a rotation sealed for it, never this.
     harness
         .shown_once(&dashboard, &created, "socs_", &format!("{client}/secret"))
         .await;
@@ -277,7 +274,6 @@ async fn a_client_named_new_has_its_overview() {
     let harness = Harness::new().await;
     let admin = harness.admin().await;
     let dashboard = harness.confirmed(&admin, "/clients/new", Utc::now()).await;
-    // IDs are never reused, so an earlier run's client may hold it already.
     if harness
         .database
         .oidc()

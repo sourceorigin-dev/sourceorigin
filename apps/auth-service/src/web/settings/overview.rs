@@ -80,8 +80,6 @@ impl AccountPage for Overview {
         let page = Child::new(view! { cx =>
             sourceorigin_ui::account_overview(overview: overview, links: links)
         });
-        // Linking a provider goes on at the provider, so the page's forms may
-        // redirect there.
         let targets = web
             .federation
             .authorization_endpoints()

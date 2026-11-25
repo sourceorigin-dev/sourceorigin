@@ -14,8 +14,6 @@ async fn a_server_error_shows_its_trace_id() {
         origin: DASHBOARD.parse().expect("dashboard origin"),
     };
     let config = AuthConfig::test(&AUTH_ORIGIN.parse().expect("auth origin"));
-    // Without the security layer, which gives every page its request context, every
-    // page fails internally.
     let database = Replicas::database().await;
     let keys = config.test_keys(database.clone()).await;
     let passkeys = config
@@ -54,7 +52,6 @@ async fn the_crumb_leads_through_the_tab() {
     let page = html(harness.visit(&dashboard, &account).await).await;
     let users = r#"<a href="/users">users</a>"#;
     assert!(page.contains(users), "{page}");
-    // The menus' names are lowercase in the crumb; the account's own are not.
     assert!(page.contains(r#"<a href="/">admin</a>"#), "{page}");
     assert!(page.contains("<b>browser-"), "{page}");
     let page = html(harness.visit(&dashboard, "/users").await).await;
@@ -90,7 +87,6 @@ async fn the_top_bar_has_the_administrators_bell_and_the_alerts() {
         .insert(admin.user_id, None, &message)
         .await
         .expect("notify");
-    // Raising an alert in another test notifies every administrator.
     let unread = notifications.unread(admin.user_id).await.expect("unread");
     assert!(unread >= 1);
     let page = html(harness.visit(&dashboard, "/users").await).await;

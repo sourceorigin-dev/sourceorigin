@@ -109,7 +109,6 @@ impl Profile {
                 }
             }
         }
-        // The action is the text form's tag, so its name is written once.
         let action = serde_json::json!({ "action": action? });
         Some(match serde_json::from_value(action).ok()? {
             ProfileChange::Upload => {
@@ -205,8 +204,6 @@ impl AccountPage for Profile {
         state: ProfileState,
         (status, messages): (StatusCode, Messages<'_>),
     ) -> Result<Response, Failure> {
-        // A refusal is said in the dialog shown again, not behind it, or above the
-        // profile when the page no longer has that dialog.
         let (alert, messages) = messages.into_dialog(state.open.is_some());
         let viewer = reader.viewer();
         let profile = web.account.profile(&viewer).await?;
@@ -223,7 +220,6 @@ impl AccountPage for Profile {
             sourceorigin_ui::profile_settings(
                 page: settings::PROFILE,
                 who: who,
-                // The owner's account is active, so it shows what it stored.
                 stored: who.picture.is_some(),
                 changeable_at: profile.handle_changeable_at,
                 state: &state,

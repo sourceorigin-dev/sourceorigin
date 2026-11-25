@@ -37,8 +37,6 @@ use topcoat::{
     view::{Child, view},
 };
 
-// The notification a notification's page names. Unparsed: an ID that is not
-// one is not the account's either, and is missing like any other.
 path_param!(id);
 
 /// The inbox, a page at a time.
@@ -100,7 +98,6 @@ impl AccountPage for Inbox {
         shown: InboxState,
         (status, messages): (StatusCode, Messages<'_>),
     ) -> Result<Response, Failure> {
-        // A refused preference is said in the dialog shown again, not behind it.
         let (alert, messages) = messages.into_dialog(shown.email);
         let viewer = reader.viewer();
         let inbox = web.account.inbox(&viewer, shown.before).await?;
@@ -189,8 +186,6 @@ impl AccountPage for NotificationPage {
         let held = HeldRows::from(&holdings);
         let entry = view.history.as_ref().map(HistoryRow::from);
         let here = uri(cx).path().to_owned();
-        // What it offers, while it can be done: undoing a recovery the account
-        // is still in, or the alerts of a dashboard auth serves.
         let action = view.item.action.and_then(|action| {
             let href = match action {
                 NotificationAction::UndoRecovery => {
@@ -216,7 +211,6 @@ impl AccountPage for NotificationPage {
         };
         let row = InboxRow::from(&view.item);
         let page = Child::new(view! { cx => sourceorigin_ui::notification(row: row, page: page) });
-        // Under the inbox in the crumb, named by its subject.
         let framed = Framed {
             section: Section::Account,
             tab: Some(Tab::Notifications),

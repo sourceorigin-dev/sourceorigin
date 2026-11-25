@@ -74,7 +74,6 @@ async fn devices_page_signs_other_devices_out() {
         .following(&signed_out)
         .visit(&replicas.a, settings::SESSIONS)
         .await;
-    // The page says it once.
     let (cleared, attributes) = cookie(&shown, BrowserCookie::Notice);
     assert_eq!(cleared, "");
     assert!(attributes.ends_with("Max-Age=0"), "{attributes}");
@@ -870,7 +869,6 @@ async fn history_reports_need_confirmation_and_cannot_be_forged() {
         page.contains("<strong>Your account is secured.</strong>"),
         "{page}"
     );
-    // Undoing the address removes it on its own page.
     assert!(
         page.contains(r#"<form method="post" action="/settings/emails""#),
         "{page}"
@@ -915,7 +913,6 @@ async fn verification_links_are_confirmed_by_their_form() {
     assert_eq!(page.status(), StatusCode::OK);
     let page = html(page).await;
     assert!(page.contains("data-fragment-form"), "{page}");
-    // Without scripts, the link itself is pasted.
     assert!(page.contains(r#"<input type="url" name="link""#), "{page}");
     let refused = browser
         .submit(
@@ -1127,8 +1124,6 @@ async fn profile_page_sets_serves_and_removes_the_picture() {
         gone.headers()[header::CACHE_CONTROL],
         "no-store, no-transform"
     );
-    // Removing it again, as from a tab still showing it, says why above the
-    // profile: the page has no removal dialog left to say it in.
     let again = browser
         .post(&replicas, settings::PROFILE, &ProfileChange::Remove)
         .await;
