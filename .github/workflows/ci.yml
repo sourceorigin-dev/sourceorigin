@@ -1,53 +1,6 @@
-# Continuous integration for SourceOrigin. Every job runs the same `just` recipes
-# as local validation:
-#
-#   checks -> Rust formatting, unused Rust dependencies and the Rust dependency
-#             audit, which compile nothing
-#   web    -> Prettier, tsc, ESLint and knip, the passkey script included, the
-#             TypeScript SDK's package checks, tests with coverage and runtime
-#             smoke in Node, Bun and workerd, and the web dependency audit
-#   rust   -> unit and database tests against PostgreSQL with coverage, and
-#             the SQLx query cache checked to match the migrated schema exactly
-#   rust-lint -> Clippy, rustdoc with warnings denied, and the doc tests
-#   package -> the SDKs packaged as `just publish` publishes them, each crate
-#             built from its package, without uploading anything
-#   msrv   -> the published crates built with their oldest supported Rust, with
-#             all their features, none, and each one alone
-#   e2e    -> the browser suite over HTTPS against the real binary and PostgreSQL,
-#             with the admin dashboard on its own listener and host, sourceorigin.dev's
-#             web server on its own host, Mailpit receiving auth's email, and
-#             the binary's CLI granting administrators and recovering accounts
-#   docker -> the deployment images: auth, sourceorigin.dev's web server and the docs,
-#             the Rust ones with their layers cached
-#   infra  -> the piqueld manifests, by piquelctl, and the telemetry configs,
-#             each by the image that runs it
-#   docs   -> the documentation book, built with warnings denied, with every
-#             link and heading anchor in it and in the repository's Markdown
-#             checked offline
-#   standard -> the engineering standard's rules (`just standard`), on every change
-#
-# Pull requests run only the jobs their changes can affect (see `changes`),
-# except `docs`, since a change anywhere can break a link to it, and `standard`.
-# The merge queue and manual runs run everything: the queue tests each pull
-# request on top of the latest main before it merges, so two pull requests that
-# pass alone cannot break main together. `ci` is one of the two statuses to
-# require, with pr.yml's `standard / pr-checks`, and the queue waits for both:
-# `ci` fails if any job failed and passes when the rest succeeded or were
-# skipped. audit.yml audits new advisories weekly.
-#
-# Rust caches, and the Rust images' layers, are saved from main only: GitHub
-# scopes a cache to the branch that saved it, and every other branch, the
-# queue's included, can read main's. So a branch never evicts main's caches
-# with copies no other branch can read. pnpm's small store cache is saved
-# whenever its lockfile hash is new.
-#
-# Main receives the very commit the queue tested, so pushes to main test
-# nothing again: they only refresh the caches. They skip the jobs whose cache
-# another job saves too, or that save none, and every step marked
-# `if: *tests`. rust-cache saves only when no cache is saved under its current
-# key, as after a dependency or toolchain change or an eviction, so a step
-# marked `if: *builds` runs on main only then. The images' layers are saved on
-# every push.
+# Continuous integration: each job runs the `just` recipes docs/dev/testing.md lists.
+# Pull requests run only the jobs their changes can affect, by `changes` below.
+# `if: *tests` and `if: *builds` mark the steps main skips; see docs/dev/testing.md.
 
 name: CI
 
@@ -67,14 +20,12 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  # Incremental artifacts only bloat CI caches; restored dependency builds
-  # make up for the lost reuse.
+  # No incremental artifacts: they only bloat CI caches.
   CARGO_INCREMENTAL: '0'
   RUST_BACKTRACE: short
 
 jobs:
-  # Decides which jobs a pull request needs from the paths it changes, by the
-  # filters of .github/filters.yml.
+  # Decides which jobs a pull request needs, by .github/filters.yml.
   changes:
     name: changes
     runs-on: ubuntu-latest
@@ -113,7 +64,7 @@ jobs:
       - if: needs.changes.outputs.deps == 'true'
         run: just rust audit
 
-  # Skipped on main, whose pnpm store cache `package` and `e2e` save.
+  # Skipped on main, whose pnpm store `package` and `e2e` save.
   web:
     name: web
     needs: changes
@@ -147,11 +98,7 @@ jobs:
       - if: needs.changes.outputs.deps == 'true'
         run: just web audit
 
-  # Clippy, rustdoc and the doc tests, beside `rust`: its coverage builds an
-  # instrumented copy of everything, in target/llvm-cov-target, which they cannot
-  # reuse. The doc tests reuse the dependencies Clippy compiled for build scripts
-  # and proc macros. Each of the three compiles dependencies the others don't,
-  # so main runs all three when it saves a new cache.
+  # Beside `rust`: its instrumented coverage build is no cache for these.
   rust-lint:
     name: rust-lint
     needs: changes
@@ -165,13 +112,10 @@ jobs:
         id: rust-cache
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
-          # rust-cache's key ignores this workflow, but includes the job's ID.
-          # Bump the prefix when a job needs a new cache, as when rust began
-          # installing sqlx-cli.
+          # Bump the prefix when a job needs a new cache; the key includes the job's ID.
           prefix-key: v1-rust
           save-if: ${{ github.ref == 'refs/heads/main' }}
-      # Builds that main runs only when rust-cache restored no exact match, so
-      # that it saves a new cache. Every other run runs them.
+      # Run on main only when rust-cache restored no exact match.
       - if: &builds github.event_name != 'push' || steps.rust-cache.outputs.cache-hit != 'true'
         run: just rust lint
       - if: *builds
@@ -179,9 +123,7 @@ jobs:
       - if: *builds
         run: just doc-test ${{ github.event_name == 'push' && '--list' || '' }}
 
-  # Everything `just publish` does except uploading: packages each crate and
-  # builds it from its package, as `cargo install` and crates.io would, then
-  # packs @sourceorigin/auth, whose `prepack` script builds it.
+  # `just publish` without uploading.
   package:
     name: package
     needs: changes
@@ -198,9 +140,7 @@ jobs:
       - if: *builds
         run: just publish --dry-run
 
-  # Builds the published crates with the oldest Rust their `rust-version`
-  # promises. Warnings aren't errors here: lints differ between Rust versions,
-  # and rust-lint lints with the pinned one.
+  # Builds the published crates with their `rust-version`; warnings aren't errors.
   msrv:
     name: msrv
     needs: changes
@@ -209,8 +149,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      # RUSTUP_TOOLCHAIN overrides rust-toolchain.toml for every later step,
-      # the cache key included.
+      # Overrides rust-toolchain.toml for every later step.
       - name: Install the oldest supported Rust
         run: |
           msrv=$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml)
@@ -231,9 +170,7 @@ jobs:
     timeout-minutes: 30
     env:
       TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
-    # A disposable server for the database tests, and for the browser suite.
-    # Pushes to main run no test, so they start no service: GitHub skips a
-    # service whose image is empty.
+    # A disposable server for the database tests and the browser suite.
     services:
       postgres: &postgres
         image: ${{ github.event_name != 'push' && 'postgres:18-bookworm' || '' }}
@@ -248,16 +185,10 @@ jobs:
         with:
           tool: just,cargo-nextest,cargo-llvm-cov
       - *rust-cache
-      # sqlx-cli publishes no prebuilt binaries. rust-cache keeps binaries
-      # installed after it restores, so this compiles when main's cache lacks
-      # the latest release, until main next saves a cache.
+      # sqlx-cli publishes no prebuilt binaries; rust-cache keeps what is installed.
       - if: *builds
         run: just db install-sqlx
-      # Every unit and database test, instrumented. Coverage is reported, not
-      # enforced: per crate in the log, per line in the rust-coverage artifact.
-      # cargo-llvm-cov adds the llvm-tools-preview component it needs.
-      #
-      # Steps main skips: they test what the queue already tested.
+      # Every unit and database test, instrumented; main skips it, as the queue tested it.
       - if: &tests github.event_name != 'push'
         run: just coverage
       - if: *tests
@@ -266,13 +197,10 @@ jobs:
           name: rust-coverage
           path: target/lcov.info
           if-no-files-found: error
-      # The database tests migrated TEST_DATABASE_URL, so a migration that
-      # breaks a cached query fails here even if no test runs that query, as
-      # does a cached query the code no longer uses.
+      # Fails a migration that breaks a cached query, even if no test runs it.
       - if: *tests
         run: just db prepare-check
-      # When main saves a new cache, it compiles what the two steps above do,
-      # without running a test or needing a database.
+      # When main saves a new cache, this compiles without running a test.
       - if: github.event_name == 'push' && steps.rust-cache.outputs.cache-hit != 'true'
         run: |
           just coverage-build
@@ -286,24 +214,21 @@ jobs:
     timeout-minutes: 30
     services:
       postgres: *postgres
-      # Receives auth's email over plain SMTP on the loopback address, and lets
-      # the suite read it from its API. Not started on main, like Postgres.
+      # Mailpit receives auth's email; main starts none.
       mailpit:
         image: ${{ github.event_name != 'push' && 'axllent/mailpit:v1.27' || '' }}
         ports: ['1025:1025', '8025:8025']
     env:
       E2E_AUTH_URL: https://localhost:3443
       E2E_ALLOW_SELF_SIGNED_TLS: '1'
-      # migrate connects as the superuser and provisions the restricted role
-      # that everything else connects as, as in deployments.
+      # migrate provisions the restricted role that everything else connects as.
       AUTH_DATABASE_OWNER_URL: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
       AUTH_DATABASE_URL: postgres://sourceorigin_auth@localhost:5432/postgres?sslmode=disable
       AUTH_DATABASE_PASSWORD: env://E2E_DATABASE_PASSWORD
       E2E_DATABASE_PASSWORD: runtime
       AUTH_PUBLIC_BASE_URL: https://localhost:3443
       AUTH_PUBLIC_LISTENER: 127.0.0.1:3000
-      # Signup needs an invitation, as in production: each signup of the suite
-      # takes a new one from the CLI.
+      # Each signup takes a new invitation from the CLI.
       AUTH_INVITE_REQUIRED: 'true'
       E2E_INVITE: target/debug/auth-service invite create
       AUTH_SMTP_URL: smtp://127.0.0.1:1025
@@ -313,22 +238,15 @@ jobs:
       E2E_WEB_URL: https://web.localhost:3443
       WEB_LISTENER: 127.0.0.1:3002
       WEB_AUTH_ORIGIN: https://localhost:3443
-      # The suite runs from one address and spends in a minute what a person would
-      # in an hour, so no spec waits on a request budget: this is the most the
-      # counters hold.
+      # The most the request counters hold, so no spec waits on a budget.
       AUTH_REQUESTS_PER_MINUTE: '2147483647'
-      # The dashboard on an origin of its own, as admin.sourceorigin.dev is, on another
-      # port of auth's host: its passkey dialog may use auth's RP ID there, which
-      # admin.sourceorigin.dev does through auth's related origins. Browsers fetch those
-      # from the RP ID on port 443, which CI does not serve. Cookies ignore the
-      # port, so here the dashboard and auth share them; previews keep them apart.
+      # The dashboard on its own origin, another port of auth's host.
       AUTH_ADMIN_LISTENER: 127.0.0.1:3001
       AUTH_ADMIN_ORIGIN: https://localhost:3444
       E2E_ADMIN_URL: https://localhost:3444
       E2E_GRANT_ADMIN: target/debug/auth-service admin grant
       E2E_RECOVER: target/debug/auth-service user recover
-      # The secret `just web browser-client` registers for the example app of
-      # @sourceorigin/auth/server, which server.spec.ts starts. It guards nothing.
+      # The secret `just web browser-client` registers for server.spec.ts; it guards nothing.
       E2E_SERVER_CLIENT_SECRET: YnJvd3Nlci1lMmUtc2VydmVyIHNlY3JldCBmb3IgY2k
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -337,13 +255,9 @@ jobs:
       - *setup-node
       - *rust-cache
       - run: just install
-      # The binary embeds the passkey script and the stylesheet, as in the
-      # deployed image.
       - if: *builds
         run: just rust build
-      # The keys reach every later step, so the commands the suite runs, such as
-      # `user recover`, which derives its link with the token digest key, share
-      # them with the service.
+      # The keys reach every later step, the suite's CLI commands included.
       - name: Generate the keys
         if: *tests
         run: |
@@ -355,10 +269,7 @@ jobs:
             echo "AUTH_TOKEN_DIGEST_KEY=file://$RUNNER_TEMP/token-digest-key"
             echo "AUTH_AUDIT_KEY_PROVIDER=file://$RUNNER_TEMP/audit-key"
           } >> "$GITHUB_ENV"
-      # The service accepts only HTTPS origins, as in production. Caddy
-      # terminates TLS with its local CA, which the suite is told to accept.
-      # The suite signs in through the public OIDC client from
-      # tests/browser/README.md, whose origin has no server.
+      # HTTPS origins only, as in production: Caddy terminates TLS with its local CA.
       - name: Start the auth service and sourceorigin.dev
         if: *tests
         run: |
@@ -384,8 +295,7 @@ jobs:
           target/debug/sourceorigin-web > "$RUNNER_TEMP/web.log" 2>&1 &
           curl -kfsS --retry 30 --retry-delay 1 --retry-all-errors "$E2E_AUTH_URL/health/ready"
           curl -kfsS --retry 30 --retry-delay 1 --retry-all-errors "$E2E_WEB_URL/health"
-      # The headless build matching the pinned Playwright, so runner image
-      # updates cannot change the browser under test.
+      # The headless build matching the pinned Playwright.
       - if: *tests
         run: pnpm exec playwright install --only-shell chromium
       - if: *tests
@@ -406,9 +316,7 @@ jobs:
       # The docs image caches no layers, so main, which tests nothing, skips it.
       - if: *tests
         run: docker build --file infra/docs.Dockerfile .
-      # Both Rust targets share the `backend` stage, which builds once. A build
-      # restores main's layers, so only what changed since main recompiles:
-      # usually just the workspace's own crates, after cargo-chef's dependencies.
+      # Both Rust targets share the `backend` stage, which builds once.
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -425,9 +333,7 @@ jobs:
           cache-from: type=gha,scope=web
           cache-to: ${{ github.ref == 'refs/heads/main' && 'type=gha,mode=max,scope=web,ignore-error=true' || '' }}
 
-  # piquelctl publishes no prebuilt binaries either. rust-cache keeps it as it
-  # keeps sqlx-cli in `rust`, and `cargo install` upgrades it when a newer
-  # release is out. Docker pulls each telemetry image.
+  # piquelctl publishes no prebuilt binaries; rust-cache keeps it.
   infra:
     name: infra
     needs: changes
@@ -443,8 +349,7 @@ jobs:
       - if: *tests
         run: just infra check
 
-  # Every change, since the rules read more than the Rust sources: standard.toml,
-  # budget.toml, the workflows and the Markdown.
+  # Every change, since the rules read more than the Rust sources.
   standard:
     name: standard
     runs-on: ubuntu-latest

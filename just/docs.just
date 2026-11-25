@@ -1,11 +1,8 @@
 set working-directory := '..'
 
-# The build fails on any mdBook warning. lychee then checks every link and
-# heading anchor in the book and in the repository's other Markdown files,
-# offline (see lychee.toml). Links to this repository on GitHub are checked
-# against the checkout; the second remap fails those that don't point at main,
-# which would otherwise go unchecked. CI runs this on every pull request; see
-# docs/dev/documentation.md.
+# The build fails on any mdBook warning. lychee then checks every link and heading anchor in the
+# book and the repository's other Markdown files, offline (see lychee.toml), and the second remap
+# fails links to this repository that don't point at main. CI runs this on every pull request.
 # Build the book into target/book and check every link and anchor.
 check:
     #!/usr/bin/env bash

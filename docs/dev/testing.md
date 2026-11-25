@@ -295,6 +295,12 @@ merge queue start from, since GitHub lets every branch read `main`'s caches:
   starting the browser suite, and `infra` installs piquelctl without checking
   the manifests. `rust` and `e2e` start no Postgres or Mailpit.
 
+Steps marked `if: *tests` or `if: *builds` in `ci.yml` are the ones `main` skips:
+the first test what the queue tested, and the second build only when no cache
+is saved yet. A job's Rust cache key includes its ID, so a job that needs a new
+cache bumps its key's prefix. `sqlx-cli` and `piquelctl` publish no prebuilt
+binaries, so `rust-cache` keeps them after it restores.
+
 A commit's coverage report is in its merge queue run.
 
 Coverage is reported, never enforced. `rust` prints it per crate and uploads

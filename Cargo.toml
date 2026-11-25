@@ -14,8 +14,7 @@ members = [
 
 [workspace.package]
 edition = "2024"
-# Non-commercial by default. The SDK and the crates it depends on (auth-sdk,
-# common, crypto) override this with Apache-2.0, so any application can use them;
+# Non-commercial by default. The SDK and its dependencies (auth-sdk, common, crypto) are Apache-2.0;
 # every other crate sets `publish = false`. See docs/dev/releasing.md.
 license = "PolyForm-Noncommercial-1.0.0"
 repository = "https://github.com/sourceorigin-dev/sourceorigin"
@@ -59,10 +58,8 @@ undocumented_unsafe_blocks = "warn"
 self_named_module_files = "warn"
 
 [workspace.dependencies]
-# Local crates. Each names the workspace's version: cargo-deny (deny.toml)
-# denies a dependency with no version as a wildcard, and crates.io would refuse
-# to publish the SDK without one. The published crates require each other at
-# exactly that version, since they are released together.
+# Local crates name the workspace's version, as cargo-deny and crates.io require;
+# the published ones require each other at exactly that version.
 sourceorigin-common        = { version = "=0.1.0", path = "crates/common" }
 sourceorigin-crypto        = { version = "=0.1.0", path = "crates/crypto" }
 sourceorigin-repository    = { version = "0.1.0", path = "crates/database" }
@@ -103,8 +100,7 @@ serde_urlencoded = "0.7"
 sourceorigin-standard = "0.1.1"
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls-aws-lc-rs", "postgres", "chrono", "uuid", "json", "ipnet", "migrate", "macros"] }
 thiserror = "2.0"
-# Server-rendered pages: the router, `view!` and the tower service only. Its
-# defaults add a browser runtime, `asset!` and discovery, which auth's pages avoid.
+# Server-rendered pages: only the router, `view!` and the tower service; its defaults add a browser runtime.
 topcoat = { version = "0.10", default-features = false }
 tokio = { version = "1.48", features = ["macros", "rt-multi-thread", "signal", "net", "sync", "time"] }
 # The receiver stream a data export's body reads; already in the tree through sqlx.
@@ -119,9 +115,8 @@ unicode-security = "0.1"
 uuid = { version = "1.19", features = ["v7", "serde"] }
 webauthn-rs = { version = "0.5.5", features = ["danger-allow-state-serialisation", "conditional-ui", "workaround-google-passkey-specific-issues"] }
 
-# Profile pictures: decodes the formats uploads may use, pure Rust, and writes the
-# JPEG every stored picture is. No AVIF (C or a heavy encoder), no SVG, and no WebP
-# until its decoder checks a frame's size against its canvas before decoding it.
+# Profile pictures: decodes the upload formats in pure Rust and writes JPEG.
+# No AVIF, SVG or WebP until its decoder checks a frame's size before decoding.
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif"] }
 
 # Transactional email: SMTP over implicit TLS or required STARTTLS, with rustls
@@ -130,16 +125,12 @@ lettre = { version = "0.11", default-features = false, features = ["builder", "s
 # Decodes the SMTP user in AUTH_SMTP_URL; already in the tree through url and lettre.
 percent-encoding = "2.3"
 
-# The workspace's one cryptographic library, and rustls's provider for every TLS
-# client: hashes, HMAC, PBKDF2, AES-256-GCM, RSA and Ed25519 signatures, and OS
-# randomness. Its RSA is constant-time, which the RustCrypto `rsa` crate's
-# RUSTSEC-2023-0071 is not. OpenSSL stays only inside webauthn-rs.
+# The workspace's one cryptographic library, and rustls's provider for every TLS client.
+# Its RSA is constant-time, which `rsa`'s RUSTSEC-2023-0071 is not.
 aws-lc-rs = "1.18"
 secrecy = "0.10"
-# Test-only: TypeScript declarations of the protocol types, which sourceorigin-common's
-# tests write to packages/auth/src/protocol.ts for the TypeScript SDK. The only serde
-# attribute it cannot read is `deserialize_with = "known"`, which drops unknown
-# vocabulary values without changing the type, so its warnings are off.
+# Test-only: TypeScript declarations of the protocol types, which the `common` tests write
+# to packages/auth/src/protocol.ts. Its serde warnings are off: it cannot read `deserialize_with`.
 ts-rs = { version = "12.0", features = ["url-impl", "no-serde-warnings"] }
 trybuild = "1.0"
 # Test-only: snapshots of rendered output, such as every email kind's bodies, so
@@ -154,9 +145,8 @@ reqwest = { version = "0.13", default-features = false, features = ["json", "for
 webauthn-rs-proto = "0.5.5"
 webauthn-authenticator-rs = { version = "0.5.5", features = ["softpasskey"] }
 
-# Line tables keep file and line numbers in backtraces but drop the variable
-# and type info that makes up most of a debug build's output. Also applies to
-# tests, which inherit this profile.
+# Line tables keep file and line numbers in backtraces but drop most variable and type info,
+# also in tests, which inherit this profile.
 [profile.dev]
 debug = "line-tables-only"
 
