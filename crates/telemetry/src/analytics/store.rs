@@ -26,18 +26,18 @@ sourceorigin_common::variables! {
 
 sourceorigin_common::variables! {
     /// The variables of the service that reads analytics back, auth, for its
-    /// admin dashboard and each app's Insights, in the configuration
-    /// reference's order.
+    /// admin dashboard and each app's Insights, in the configuration reference's
+    /// order.
     pub const READER_VARIABLES;
 
     /// The ClickHouse user auth reads analytics back as, for the admin
-    /// dashboard's Analytics page and each app's Insights, in the same format as
-    /// `ANALYTICS_URL`, such as
+    /// dashboard's Analytics and trace pages and each app's Insights, in the
+    /// same format as `ANALYTICS_URL`, such as
     /// `http://sourceorigin_reader@clickhouse:8123/sourceorigin`. With
     /// `ANALYTICS_OWNER_URL`, `migrate` creates or resets it, allowed only to
-    /// read the signals' tables, and every table's name and size, within limits
-    /// on each query, so it must be a user of its own. Unset, the Analytics page
-    /// says analytics are off, and Insights that they aren't available.
+    /// read each table `migrate` knows, spans and logs included, and their
+    /// sizes, within limits on each query, so it must be a user of its own.
+    /// Unset, those pages say analytics are off.
     const READER_URL = "ANALYTICS_READER_URL";
     /// Where to read that user's password, as for `ANALYTICS_PASSWORD`.
     const READER_PASSWORD = "ANALYTICS_READER_PASSWORD";
@@ -68,9 +68,7 @@ const READER_LIMITS: &str = "readonly = 1, max_execution_time = 5, \
                              max_concurrent_queries_for_user = 16, \
                              output_format_json_quote_64bit_integers = 0";
 /// What the reader may read of ClickHouse's own tables: how much each table
-/// stores, for the dashboard's storage card. `system.parts` lists only the
-/// tables a user may see, so the reader may see every table's name, though
-/// not read `spans` and `logs`.
+/// stores, for the dashboard's storage card.
 const READER_SYSTEM: &str = "SELECT(database, table, active, rows, bytes_on_disk) ON system.parts";
 
 /// What `migrate` connects as, and the users it provisions.
@@ -382,14 +380,12 @@ impl Store {
             })
     }
 
-    /// Creates the database, and every table of `tables` and its own `spans`
-    /// and `logs` that does not exist, adds the columns a table lacks, and sets
-    /// each one's retention and comments; then, when connected as the owner,
-    /// creates or resets `writer`, allowed only to insert, and `reader`, allowed
-    /// only to read the tables of `tables`, and every table's name and size,
-    /// within limits on each query. Running it again changes nothing. A column's
-    /// type and a table's sort order never change: give a new type a new column,
-    /// and a new order a new table.
+    /// Creates the database, and each table of `tables` and its own `spans` and
+    /// `logs`, adds the columns a table lacks, and sets retentions and comments;
+    /// then, connected as the owner, creates or resets `writer`, allowed only to
+    /// insert, and `reader`, allowed only to read each table by name and their
+    /// sizes, within limits on each query. Running it again changes nothing; a
+    /// column's type and a table's order never change.
     ///
     /// # Errors
     /// Returns the first statement ClickHouse refuses.
@@ -412,13 +408,13 @@ impl Store {
                 .await?;
         }
         if let Some(reader) = reader {
-            let mut grants: Vec<String> = tables
+            let grants = tables
                 .iter()
-                .map(|table| format!("SELECT ON {database}.{}", table.name))
-                .collect();
-            grants.push(format!("SHOW TABLES ON {database}.*"));
-            grants.push(READER_SYSTEM.to_owned());
-            self.provision(reader, &grants.join(", "), Some(READER_LIMITS))
+                .chain(crate::export::TABLES)
+                .map(|table| format!("SELECT ON {database}.{}, ", table.name))
+                .collect::<Vec<_>>()
+                .concat();
+            self.provision(reader, &(grants + READER_SYSTEM), Some(READER_LIMITS))
                 .await?;
         }
         Ok(())

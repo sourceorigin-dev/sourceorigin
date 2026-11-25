@@ -645,6 +645,9 @@ form:has(input[name='audience'][value='everyone']:checked) .chosen-accounts {
 .chart .mark.s1 {
   fill: var(--series-1);
 }
+.chart .mark.failed {
+  fill: var(--danger);
+}
 .chart .line {
   fill: none;
   stroke-width: 2;
@@ -705,4 +708,18 @@ form:has(input[name='audience'][value='everyone']:checked) .chosen-accounts {
 }
 td.number {
   font-variant-numeric: tabular-nums;
+}
+
+/* A span's or a log line's fields, on the trace page: each name beside its
+   value, which wraps anywhere, as IDs and URLs have no spaces. */
+dl.attributes {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.2rem 1rem;
+  margin: 0.5rem 0;
+  font-size: 0.86rem;
+}
+dl.attributes dd {
+  margin: 0;
+  overflow-wrap: anywhere;
 }

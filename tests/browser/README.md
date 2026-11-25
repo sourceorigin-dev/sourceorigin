@@ -7,7 +7,8 @@ Nothing is mocked. Each spec says at its top what it covers.
 JavaScript disabled: run it alone with `just web test-browser no-javascript`.
 `accessibility.spec.ts` runs [axe](https://github.com/dequelabs/axe-core) on
 the pages in both themes; its dashboard test needs `E2E_ADMIN_URL` and
-`E2E_GRANT_ADMIN`, as `admin.spec.ts` does.
+`E2E_GRANT_ADMIN`, as `admin.spec.ts` does, and a deployment with analytics,
+as previews and CI's have, since it opens a trace.
 
 Run it against a deployment you can throw away: the tests create accounts,
 passkeys and sessions in it. CI runs it on every pull request that can affect

@@ -184,7 +184,7 @@ jobs:
         options: >-
           --health-cmd pg_isready --health-interval 2s --health-timeout 5s --health-retries 15
       # The image infra/piqueld.toml runs, with the owner `just analytics scratch` creates.
-      clickhouse:
+      clickhouse: &clickhouse
         image: ${{ github.event_name != 'push' && 'clickhouse/clickhouse-server:26.8.46.6' || '' }}
         env:
           CLICKHOUSE_USER: sourceorigin
@@ -228,6 +228,8 @@ jobs:
     timeout-minutes: 30
     services:
       postgres: *postgres
+      # Analytics, so the dashboard's pages have rows and a trace to show.
+      clickhouse: *clickhouse
       # Mailpit receives auth's email; main starts none.
       mailpit:
         image: ${{ github.event_name != 'push' && 'axllent/mailpit:v1.27' || '' }}
@@ -240,6 +242,16 @@ jobs:
       AUTH_DATABASE_URL: postgres://sourceorigin_auth@localhost:5432/postgres?sslmode=disable
       AUTH_DATABASE_PASSWORD: env://E2E_DATABASE_PASSWORD
       E2E_DATABASE_PASSWORD: runtime
+      # migrate provisions the writer and the reader, as on a preview.
+      ANALYTICS_OWNER_URL: http://sourceorigin@localhost:8123/sourceorigin
+      ANALYTICS_OWNER_PASSWORD: env://E2E_ANALYTICS_OWNER_PASSWORD
+      E2E_ANALYTICS_OWNER_PASSWORD: scratch
+      ANALYTICS_URL: http://sourceorigin_writer@localhost:8123/sourceorigin
+      ANALYTICS_PASSWORD: env://E2E_ANALYTICS_WRITER_PASSWORD
+      E2E_ANALYTICS_WRITER_PASSWORD: writer
+      ANALYTICS_READER_URL: http://sourceorigin_reader@localhost:8123/sourceorigin
+      ANALYTICS_READER_PASSWORD: env://E2E_ANALYTICS_READER_PASSWORD
+      E2E_ANALYTICS_READER_PASSWORD: reader
       AUTH_PUBLIC_BASE_URL: https://localhost:3443
       AUTH_PUBLIC_LISTENER: 127.0.0.1:3000
       # Each signup takes a new invitation from the CLI.

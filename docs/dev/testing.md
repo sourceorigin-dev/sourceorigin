@@ -266,7 +266,7 @@ CI runs the same recipes, in these jobs:
 | `rust-lint` | `just rust lint`, `just doc` and `just doc-test` |
 | `package` | `just publish --dry-run`: see [releasing](releasing.md#what-gets-published) |
 | `msrv` | `cargo check` of the published crates with all their features, then `just rust features`, with their oldest supported Rust, the workspace's `rust-version` |
-| `e2e` | The browser suite, against the debug binary behind Caddy, with Mailpit receiving auth's email and sourceorigin.dev's web server on its own host |
+| `e2e` | The browser suite, against the debug binary behind Caddy, with ClickHouse holding its analytics, Mailpit receiving auth's email and sourceorigin.dev's web server on its own host |
 | `docker` | Builds the auth, web and docs images, the first two with the Rust `rust-toolchain.toml` selects and from the layers `main` cached last |
 | `infra` | `just infra check`, with the latest piquelctl |
 | `standard` | `just standard` |
@@ -312,7 +312,7 @@ merge queue start from, since GitHub lets every branch read `main`'s caches:
   rustdoc, and compiles the doc tests without running them. `rust` runs
   `just coverage-build` and `just db check`, `e2e` builds the binaries without
   starting the browser suite, and `infra` installs piquelctl without checking
-  the manifests. `rust` and `e2e` start no Postgres or Mailpit.
+  the manifests. `rust` and `e2e` start no Postgres, ClickHouse or Mailpit.
 
 Steps marked `if: *tests` or `if: *builds` in `ci.yml` are the ones `main` skips:
 the first test what the queue tested, and the second build only when no cache

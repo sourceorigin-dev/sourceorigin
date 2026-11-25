@@ -34,6 +34,17 @@ pub enum Charted<T> {
     Shown(T),
 }
 
+impl<T> Charted<T> {
+    /// What it shows, its rows made by `make`.
+    pub fn map<U>(self, make: impl FnOnce(T) -> U) -> Charted<U> {
+        match self {
+            Self::Off => Charted::Off,
+            Self::Unavailable => Charted::Unavailable,
+            Self::Shown(rows) => Charted::Shown(make(rows)),
+        }
+    }
+}
+
 /// One bar of a bar chart: its label, its length, and what it says, at its tip,
 /// in its tooltip and in the table, such as `1,284` or `25+`.
 #[derive(Clone, Debug, PartialEq)]
@@ -323,6 +334,111 @@ pub async fn bar_chart<'a>(
                 </svg>
             </div>
             chart_table(caption: caption, labels: points.iter().map(|point| point.label.as_str()).collect(), columns: vec![(caption, points.iter().map(|point| point.shown.clone()).collect())])
+        </figure>
+    })
+}
+
+/// One span of an interval chart: what it is, how deep it nests, where it
+/// starts and how long it takes, in milliseconds from the first's start, and
+/// whether it failed.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Interval {
+    /// Such as `GET /login`.
+    pub label: String,
+    /// How deep it nests: 0 at the top.
+    pub depth: usize,
+    /// Its start.
+    pub start: f64,
+    /// How long it takes.
+    pub length: f64,
+    /// Whether it failed, which its label and table say, beside its color.
+    pub failed: bool,
+}
+
+/// A bar per interval, each on its own row, indented by its depth and placed
+/// on one time axis, with how long it took at the right: what a trace's spans
+/// did, and when.
+#[component]
+pub async fn interval_chart<'a>(
+    /// What the chart shows, for screen readers and the table.
+    caption: &'a str,
+    /// A row each, in order.
+    intervals: &'a [Interval],
+) -> Result<impl View> {
+    const ROW: f64 = 24.0;
+    const LABEL: f64 = 300.0;
+    const INDENT: f64 = 14.0;
+    const THICK: f64 = 12.0;
+    /// Room right of the plot for each interval's length.
+    const LENGTH: f64 = 80.0;
+    /// The longest a label at the top shows, in characters, so it fits its
+    /// room; each level deeper shows two fewer.
+    const SHOWN: usize = 30;
+    /// The deepest level a label is indented to, showing 8 characters; deeper
+    /// spans are drawn at this level, so their labels stay clear of the bars.
+    const DEEPEST: usize = 11;
+    let end = intervals
+        .iter()
+        .map(|interval| interval.start + interval.length)
+        .fold(0.0, f64::max)
+        .max(1.0);
+    let x = |ms: f64| LABEL + ms / end * (WIDTH - LABEL - LENGTH - RIGHT);
+    let height = ROW * float(intervals.len().max(1));
+    let rows: Vec<(String, f64, f64, String, String, &Interval)> = intervals
+        .iter()
+        .enumerate()
+        .map(|(i, interval)| {
+            let middle = ROW * float(i) + ROW / 2.0;
+            let depth = interval.depth.min(DEEPEST);
+            let shown = SHOWN - 2 * depth;
+            let mut label: String = interval.label.chars().take(shown).collect();
+            if interval.label.chars().count() > shown {
+                label.push('…');
+            }
+            if interval.failed {
+                label.push_str(" (failed)");
+            }
+            let (left, right) = (x(interval.start), x(interval.start + interval.length));
+            let bar = format!(
+                "M{left:.1},{:.1}h{:.1}v{THICK}h{:.1}Z",
+                middle - THICK / 2.0,
+                (right - left).max(2.0),
+                -(right - left).max(2.0),
+            );
+            let tip = format!(
+                "{}: from {:.1} ms, for {:.1} ms{}",
+                interval.label,
+                interval.start,
+                interval.length,
+                if interval.failed { ", failed" } else { "" }
+            );
+            (label, INDENT * float(depth), middle, bar, tip, interval)
+        })
+        .collect();
+    Ok(view! {
+        <figure class="chart">
+            <div class="chart-frame" tabindex="0">
+                <svg viewBox=(format!("0 0 {WIDTH} {height}")) role="img" aria-label=(caption)>
+                    for (label, indent, middle, bar, tip, interval) in &rows {
+                        <g>
+                            <title>(tip.as_str())</title>
+                            <text class="label" x=(format!("{indent:.1}")) y=(format!("{middle:.1}")) dominant-baseline="middle">(label.as_str())</text>
+                            <path class=(if interval.failed { "mark failed" } else { "mark s1" }) d=(bar.as_str())></path>
+                            <text class="value" x=(format!("{}", WIDTH - RIGHT)) y=(format!("{middle:.1}")) text-anchor="end" dominant-baseline="middle">(format!("{:.1} ms", interval.length))</text>
+                        </g>
+                    }
+                </svg>
+            </div>
+            chart_table(
+                caption: caption,
+                labels: intervals.iter().map(|interval| interval.label.as_str()).collect(),
+                columns: vec![
+                    ("Depth", intervals.iter().map(|interval| interval.depth.to_string()).collect()),
+                    ("Starts", intervals.iter().map(|interval| format!("{:.1} ms", interval.start)).collect()),
+                    ("Takes", intervals.iter().map(|interval| format!("{:.1} ms", interval.length)).collect()),
+                    ("Failed", intervals.iter().map(|interval| if interval.failed { "Yes" } else { "No" }.to_owned()).collect()),
+                ],
+            )
         </figure>
     })
 }

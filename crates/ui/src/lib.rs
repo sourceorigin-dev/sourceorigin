@@ -79,17 +79,17 @@ pub use admin::{
     HandoffProof, HandoffQuery, InvitationRow, Measure, MessageIntent, MessagePreview, MessageUser,
     NewClientForm, OperatorDraft, Problem, RecoveryKey, RecoveryRow, Registration, ReleasedRow,
     ReservationRow, ReservedHolder, SearchAction, SessionRow, SigningKeyRow, SlowPage, SlowRoute,
-    StoredTable, Tab as DashboardTab, Target, UserRow, account_settings, admin_analytics,
-    admin_overview, administrator_list, alert_list, alert_update_fields, announcement_form,
-    announcement_list, announcement_page, audit_page, client_created, client_list, client_page,
-    client_registration, client_secrets, dashboard_change, dashboard_failure, dashboard_frame,
-    dashboard_signed_out, delivery_list, event_list, event_rows, grant_search, handle_list,
-    handoff_proof, invitation_created, invitation_list, message_page, no_access, previous_alerts,
-    recovery_list, reserved_handle_choice, signing_key_list, signing_key_rotation, user_page,
-    user_search,
+    StoredTable, Tab as DashboardTab, Target, TraceLog, TracePage, TraceReport, TraceSpan, UserRow,
+    account_settings, admin_analytics, admin_overview, admin_trace, administrator_list, alert_list,
+    alert_update_fields, announcement_form, announcement_list, announcement_page, audit_page,
+    client_created, client_list, client_page, client_registration, client_secrets,
+    dashboard_change, dashboard_failure, dashboard_frame, dashboard_signed_out, delivery_list,
+    event_list, event_rows, grant_search, handle_list, handoff_proof, invitation_created,
+    invitation_list, message_page, no_access, previous_alerts, recovery_list,
+    reserved_handle_choice, signing_key_list, signing_key_rotation, user_page, user_search,
 };
 pub use asset::{Asset, FONTS, STYLESHEET};
-pub use charts::{Bar, Charted, Point, Series, compact};
+pub use charts::{Bar, Charted, Interval, Point, Series, compact};
 pub use clients::{
     ClientDraft, ClientRow, Connection, FieldError, Grace, Revealed, ScopeChoice, SecretRow,
 };

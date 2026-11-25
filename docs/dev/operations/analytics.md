@@ -46,7 +46,7 @@ The page reads ClickHouse as `sourceorigin_reader` (see
 [users and secrets](#users-and-secrets)), which may only read, and only within
 limits on each query. Without `ANALYTICS_READER_URL`, it says analytics are off.
 When ClickHouse refuses or doesn't answer, the page says the database didn't
-answer, and auth logs `the analytics page could not be read` with the query and
+answer, and auth logs `analytics could not be read`, with the page, the query and
 the reason. ClickHouse's own pages, below, can say more. Every other page of
 the dashboard works either way.
 
@@ -104,9 +104,18 @@ A trace ID names one request. You find it:
 - below a server error on auth's pages and the admin dashboard, as the
   reference a user's report quotes;
 - in the `X-Trace-Id` header of an API response;
-- next to an event, on the admin dashboard's **Events** page.
+- next to an event, wherever the admin dashboard lists events, which links it
+  as **its trace**.
 
-On `/play`, read its spans in the order they started, then its log lines:
+On the dashboard, open `/traces/<trace ID>`, or select **its trace** beside an
+event. The page draws the trace's spans on one time axis, each under the span
+that started it, marks those that failed, and lists their attributes and the
+trace's log lines with their fields. Its times are milliseconds from the
+trace's first span or log line. It shows the first 1,000 spans and log lines,
+and says when a trace has more. Without a reader, or when ClickHouse doesn't
+answer, it says so, as the Analytics page does.
+
+When the dashboard can't, read them on `/play`, in the order they started:
 
 ```sql
 SELECT time, name, status, duration_us, attributes FROM sourceorigin.spans
@@ -178,7 +187,7 @@ caps its memory at three quarters of the container's 1 GiB.
 | --- | --- | --- | --- |
 | `sourceorigin` | `analytics-password` | the `migrate` job, and you on its pages | everything, and managing users |
 | `sourceorigin_writer` | `analytics-writer-password` | `auth`, `web` | insert rows, into any table |
-| `sourceorigin_reader` | `analytics-reader-password` | `auth`: the dashboard's Analytics page and each app's Insights | read the signals' tables, not `spans` or `logs`, and every table's size: 5 seconds, 512 MiB and 10,000 rows a query, 16 queries at once |
+| `sourceorigin_reader` | `analytics-reader-password` | `auth`: the dashboard's Analytics and trace pages and each app's Insights | read each table `migrate` knows, `spans` and `logs` too, and their sizes: 5 seconds, 512 MiB and 10,000 rows a query, 16 queries at once |
 
 The image configures `sourceorigin` from the password it mounts each time
 ClickHouse starts, so regenerating `analytics-password` takes effect on the

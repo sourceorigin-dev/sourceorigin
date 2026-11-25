@@ -103,6 +103,18 @@ test("the dashboard's pages", async ({ browser }) => {
     await openDashboard(admin, path);
     await expectAccessible(admin, path);
   }
+  // A trace, its spans and log lines, through the Events page's link: the
+  // administrator's own sign-in has one. Its spans reach ClickHouse a few
+  // seconds after the request, so the page is reloaded until they show.
+  await openDashboard(admin, '/events');
+  await admin.getByRole('link', { name: 'its trace' }).first().click();
+  await expect(admin).toHaveURL(/\/traces\/[0-9a-f]{32}$/);
+  const spans = admin.getByRole('img', { name: 'Spans, by when they started' });
+  await expect(async () => {
+    await admin.reload();
+    await expect(spans).toBeVisible({ timeout: 1_000 });
+  }).toPass({ timeout: 30_000 });
+  await expectAccessible(admin, 'a trace');
   // An account, and its settings as an administrator changes them, each headed
   // by the account: one that administers nothing, whose settings they may open.
   const user = `axe-user-${Date.now().toString(36)}`;

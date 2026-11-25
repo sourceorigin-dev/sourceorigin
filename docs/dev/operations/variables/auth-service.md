@@ -47,7 +47,7 @@
 
 ### Reading analytics
 
-- `ANALYTICS_READER_URL`: The ClickHouse user auth reads analytics back as, for the admin dashboard's Analytics page and each app's Insights, in the same format as `ANALYTICS_URL`, such as `http://sourceorigin_reader@clickhouse:8123/sourceorigin`. With `ANALYTICS_OWNER_URL`, `migrate` creates or resets it, allowed only to read the signals' tables, and every table's name and size, within limits on each query, so it must be a user of its own. Unset, the Analytics page says analytics are off, and Insights that they aren't available.
+- `ANALYTICS_READER_URL`: The ClickHouse user auth reads analytics back as, for the admin dashboard's Analytics and trace pages and each app's Insights, in the same format as `ANALYTICS_URL`, such as `http://sourceorigin_reader@clickhouse:8123/sourceorigin`. With `ANALYTICS_OWNER_URL`, `migrate` creates or resets it, allowed only to read each table `migrate` knows, spans and logs included, and their sizes, within limits on each query, so it must be a user of its own. Unset, those pages say analytics are off.
 - `ANALYTICS_READER_PASSWORD`: Where to read that user's password, as for `ANALYTICS_PASSWORD`.
 
 ### Analytics migrations

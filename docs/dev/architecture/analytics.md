@@ -260,9 +260,16 @@ Unset, every row is discarded.
 
 The admin dashboard's **Analytics** page reads ClickHouse through
 `AdminService::analytics` (`apps/auth-service/src/admin/analytics`), as
-`sourceorigin_reader`, a user `migrate` allows only to read the signals'
-tables, and every table's size, with a time, memory and row limit on each
-query.
+`sourceorigin_reader`, a user `migrate` allows only to read each table it
+knows, `spans` and `logs` included, and their sizes, with a time, memory and
+row limit on each query. One reader serves the dashboard and each app's
+Insights, on auth's public listener, so that listener holds a credential that
+reads every span and log line: what keeps an app's owner to their own counts
+is that every query is a fixed statement with its values bound, never the
+grant. Its trace page, `AdminService::trace`
+(`apps/auth-service/src/admin/traces`), reads one trace's spans and log lines
+through it, and `AdminApplication::charted` turns what either page reads into
+`Charted`: off, unavailable, or shown.
 `Store::query` takes a fixed statement, `'static`, and `Read::param` binds each
 value to a ClickHouse query parameter (`{name:Type}`), never as SQL text.
 `Read::rows` reads the rows as a struct deriving `clickhouse::Row`: the client

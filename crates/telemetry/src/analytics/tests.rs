@@ -148,11 +148,11 @@ struct Refused {
 
 /// `migrate` creates a signal's table, again without error, a writer that may
 /// insert rows but read none, and a reader that may read them, bound to its
-/// parameters, but insert none, nor read spans; a recorded row reaches the
+/// parameters, spans included, but insert none; a recorded row reaches the
 /// table once flushed.
 #[tokio::test]
 #[ignore = "needs TEST_ANALYTICS_URL, a scratch ClickHouse: run `just analytics test`"]
-async fn migrate_provisions_a_writer_that_only_inserts_and_a_reader_that_only_reads_signals() {
+async fn migrate_provisions_a_writer_that_only_inserts_and_a_reader_that_only_reads() {
     let owner = super::Store::test();
     let writer = owner.as_user("test_writer", "writer-password");
     let reader = owner.as_user("test_reader", "reader-password");
@@ -203,7 +203,7 @@ async fn migrate_provisions_a_writer_that_only_inserts_and_a_reader_that_only_re
         .await;
     assert!(inserted.is_err(), "the reader may not insert");
     assert!(
-        reader.select("SELECT count() FROM spans").await.is_err(),
-        "the reader may not read what one request did"
+        reader.select("SELECT count() FROM spans").await.is_ok(),
+        "the reader reads what one request did, for the trace page"
     );
 }
