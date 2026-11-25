@@ -83,19 +83,21 @@ fn client_secret_parse() {
     }
 }
 
-/// PKCE matches RFC 7636 appendix B and enforces verifier syntax.
+/// PKCE verification matches RFC 7636 appendix B and enforces verifier syntax.
 #[cfg(feature = "server")]
 #[test]
 fn pkce_matches_rfc() {
     let verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
     let challenge = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
-    assert_eq!(Pkce::challenge(verifier).expect("challenge"), challenge);
     Pkce::verify(verifier, challenge).expect("should be accepted");
     assert!(Pkce::verify(verifier, "incorrect").is_err());
     assert!(Pkce::valid_challenge(challenge));
     assert!(!Pkce::valid_challenge("short"));
     for verifier in ["short".to_owned(), "x".repeat(129), "!".repeat(43)] {
-        Pkce::challenge(&verifier).expect_err("should be rejected");
+        assert!(matches!(
+            Pkce::verify(&verifier, &Pkce::challenge(&verifier)),
+            Err(CryptoError::PkceVerifier)
+        ));
     }
 }
 

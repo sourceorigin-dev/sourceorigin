@@ -314,7 +314,7 @@ impl FederationApplication {
             .append_pair("response_type", ResponseType::Code.as_str())
             .append_pair("scope", &endpoints.scopes.join(" "))
             .append_pair("state", &state.encoded())
-            .append_pair("code_challenge", &Pkce::challenge(&verifier)?)
+            .append_pair("code_challenge", &Pkce::challenge(&verifier))
             .append_pair("code_challenge_method", CodeChallengeMethod::S256.as_str());
         endpoints.identity.extend_authorization(&mut url, &nonce);
         Ok((url, FlowCookie(Flow::Started(browser))))

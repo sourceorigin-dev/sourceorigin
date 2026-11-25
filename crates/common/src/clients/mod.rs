@@ -23,7 +23,7 @@
 //! ```
 
 use crate::{
-    ClientId, UserId,
+    ClientId, MAX_NAME_CHARS, UserId, is_valid_name,
     net::PublicAddress,
     protocol::{
         constants::MAX_IDENTIFIER_BYTES,
@@ -36,8 +36,6 @@ use std::{fmt, net::IpAddr, ops::Deref, str::FromStr};
 use thiserror::Error;
 use url::{Host, Url};
 
-/// Longest display name, in characters.
-const MAX_DISPLAY_NAME_CHARS: usize = 80;
 /// Brands only operators may name a client after, since an account's client with
 /// one would read as theirs on the consent page. A name containing one, or a
 /// look-alike, is refused for clients accounts own (see
@@ -245,14 +243,15 @@ impl ClientField {
     }
 }
 
-/// The name a consent screen shows: nonblank, at most 80 characters.
+/// The name a consent screen shows, by the rule of every name ([`is_valid_name`]).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DisplayName(String);
 
-/// A display name that is blank or longer than 80 characters.
+/// A display name that is blank, longer than [`MAX_NAME_CHARS`] characters, or has
+/// control characters.
 #[derive(Clone, Debug, PartialEq, Eq, Error)]
 #[error(
-    "display name {0:?} must be nonblank, at most 80 characters and have no control characters"
+    "display name {0:?} must be nonblank, at most {MAX_NAME_CHARS} characters and have no control characters"
 )]
 pub struct InvalidDisplayName(String);
 
@@ -271,13 +270,9 @@ impl DisplayName {
 
 impl FromStr for DisplayName {
     type Err = InvalidDisplayName;
-    /// Accepts nonblank names of at most 80 characters, without control characters
-    /// that could rewrite the terminal or page that shows them.
+    /// Accepts names [`is_valid_name`] accepts.
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        if value.trim().is_empty()
-            || value.chars().count() > MAX_DISPLAY_NAME_CHARS
-            || value.chars().any(char::is_control)
-        {
+        if !is_valid_name(value) {
             return Err(InvalidDisplayName(value.to_owned()));
         }
         Ok(Self(value.to_owned()))

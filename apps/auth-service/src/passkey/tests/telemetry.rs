@@ -52,7 +52,7 @@ impl Fixture {
         client: &sourceorigin_common::clients::ClientRegistration,
     ) -> Vec<String> {
         let verifier = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        let challenge = sourceorigin_crypto::Pkce::challenge(verifier).expect("PKCE");
+        let challenge = sourceorigin_crypto::Pkce::challenge(verifier);
         let mut authorize = Url::parse(&format!("{AUTH_ORIGIN}/oauth/authorize")).expect("URL");
         authorize.query_pairs_mut().extend_pairs([
             ("response_type", "code"),

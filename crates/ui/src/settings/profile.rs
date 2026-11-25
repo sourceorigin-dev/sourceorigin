@@ -8,7 +8,7 @@ use crate::{
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sourceorigin_common::PICTURE_TYPES;
+use sourceorigin_common::{MAX_NAME_CHARS, PICTURE_TYPES};
 use topcoat::{
     Result,
     view::{View, component, view},
@@ -316,7 +316,7 @@ async fn profile_dialogs<'a>(
                         <input
                             name="display_name"
                             value=(state.display_name.as_deref().unwrap_or(who.name))
-                            maxlength="80"
+                            maxlength=(MAX_NAME_CHARS.to_string())
                             required=""
                             autofocus=""
                         >

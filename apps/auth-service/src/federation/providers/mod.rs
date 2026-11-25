@@ -3,11 +3,10 @@
 //! `docs/dev/extending/federation-providers.md` to add one.
 
 use super::{FederationApplication, FederationConfigError, Provider};
-use crate::passkey::MAX_NAME_CHARS;
 use axum::http::{StatusCode, header};
 use serde::{Deserialize, de::DeserializeOwned};
 use sourceorigin_common::{
-    config::ConfigurationError, email::NormalizedEmail, events::SignInFailure,
+    MAX_NAME_CHARS, config::ConfigurationError, email::NormalizedEmail, events::SignInFailure,
     protocol::oauth::GrantType,
 };
 use sourceorigin_telemetry::SendTraced;

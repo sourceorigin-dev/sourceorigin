@@ -9,7 +9,7 @@ use crate::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sourceorigin_common::{
-    ClientId,
+    ClientId, MAX_NAME_CHARS,
     admin::{ClientDetail, SecretLifetime},
     clients::{ClientField, ClientKind, ClientStatus},
     protocol::oauth::Scope,
@@ -693,7 +693,7 @@ pub(crate) async fn client_form<'a>(
                     <input
                         name="display_name"
                         value=(draft.display_name.as_str())
-                        maxlength="80"
+                        maxlength=(MAX_NAME_CHARS.to_string())
                         required=""
                         aria-invalid=(name.flag())
                         aria-describedby=(name.described_by())

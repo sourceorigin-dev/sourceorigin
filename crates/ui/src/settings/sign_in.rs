@@ -8,7 +8,7 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use sourceorigin_common::{
-    PasskeyId, Provider,
+    MAX_NAME_CHARS, PasskeyId, Provider,
     protocol::api::{Identity, Passkey},
 };
 use topcoat::{
@@ -235,7 +235,7 @@ async fn passkey_row<'a>(
                         <input
                             name="friendly_name"
                             value=(state.name.as_deref().unwrap_or(name))
-                            maxlength="80"
+                            maxlength=(MAX_NAME_CHARS.to_string())
                             required=""
                             autofocus=""
                         >

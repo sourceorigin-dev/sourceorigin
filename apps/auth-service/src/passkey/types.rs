@@ -3,17 +3,16 @@
 use super::PasskeyError;
 use axum::Json;
 use serde::{Deserialize, Serialize};
-use sourceorigin_common::{RecoveryId, TokenId, clients::RelatedOrigin};
+use sourceorigin_common::{
+    MAX_NAME_CHARS, RecoveryId, TokenId, clients::RelatedOrigin, is_valid_name,
+};
 use webauthn_rs::prelude::{PublicKeyCredential, RegisterPublicKeyCredential};
 
-/// Maximum Unicode characters in display names and credential labels, which
-/// the forms that type one limit too.
-pub(crate) const MAX_NAME_CHARS: usize = 80;
 /// Friendly name used when the browser omits a credential label.
 const DEFAULT_PASSKEY_NAME: &str = "Passkey";
 
-/// Declares a validated name type, called `$noun` in messages: not blank, no
-/// control characters, at most `MAX_NAME_CHARS` characters. `parse` trims a name
+/// Declares a validated name type, called `$noun` in messages, by the rule of every
+/// name ([`is_valid_name`]). `parse` trims a name
 /// from a request; deserializing keeps the stored text exactly and runs the same
 /// check, so stored ceremony state stays valid too.
 macro_rules! validated_name {
@@ -23,12 +22,6 @@ macro_rules! validated_name {
         #[serde(try_from = "String", into = "String")]
         pub(crate) struct $name(String);
         impl $name {
-            /// Whether `value` satisfies this name's rule.
-            fn is_valid(value: &str) -> bool {
-                !value.trim().is_empty()
-                    && value.chars().count() <= MAX_NAME_CHARS
-                    && !value.chars().any(char::is_control)
-            }
             /// The message refusing a name, which states the whole rule.
             pub(super) fn refusal() -> String {
                 format!(
@@ -50,7 +43,7 @@ macro_rules! validated_name {
             /// Accepts `value` unchanged if it satisfies the rule, as names read
             /// back from stored ceremony state are.
             fn try_from(value: String) -> Result<Self, Self::Error> {
-                if Self::is_valid(&value) {
+                if is_valid_name(&value) {
                     Ok(Self(value))
                 } else {
                     Err(PasskeyError::$invalid)

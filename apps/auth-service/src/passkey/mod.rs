@@ -52,7 +52,7 @@ pub(crate) use error::PasskeyConfigError;
 pub(crate) use error::PasskeyError;
 pub(crate) use recovery::VerifiedRecoveryUndo;
 use types::PasskeyKind;
-pub(crate) use types::{AuthenticationFinish, DisplayName, MAX_NAME_CHARS, PasskeyName, Rename};
+pub(crate) use types::{AuthenticationFinish, DisplayName, PasskeyName, Rename};
 
 /// Browser passkey ceremonies, passkey management and session confirmation.
 #[derive(Clone)]

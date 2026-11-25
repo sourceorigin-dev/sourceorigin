@@ -41,20 +41,13 @@ impl NoteKey {
     /// Rejects a name that is empty or contains whitespace or `+`, and a seed
     /// that is not exactly 32 hex-encoded bytes.
     pub fn from_hex_seed(name: &str, hex: &str) -> Result<Self, CryptoError> {
-        if hex.len() != SEED_BYTES * 2 || !hex.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        let decoded =
+            Zeroizing::new(sourceorigin_common::hex::decode(hex).ok_or(CryptoError::NoteKeySeed)?);
+        if decoded.len() != SEED_BYTES {
             return Err(CryptoError::NoteKeySeed);
         }
         let mut seed = Zeroizing::new([0; SEED_BYTES]);
-        for (index, byte) in seed.iter_mut().enumerate() {
-            #[expect(
-                clippy::map_err_ignore,
-                reason = "The seed was checked to be hex digits above, so this cannot fail"
-            )]
-            {
-                *byte = u8::from_str_radix(&hex[index * 2..index * 2 + 2], 16)
-                    .map_err(|_| CryptoError::NoteKeySeed)?;
-            }
-        }
+        seed.copy_from_slice(&decoded);
         Self::from_seed(name, &seed)
     }
 

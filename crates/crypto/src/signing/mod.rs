@@ -146,7 +146,7 @@ impl PublicKey {
         now: DateTime<Utc>,
     ) -> Result<T, CryptoError> {
         if token.header.typ != typ || !self.signs_with(token.header.alg) {
-            return Err(CryptoError::InvalidToken);
+            return Err(CryptoError::UnexpectedHeader);
         }
         self.key
             .verify(token.compact.signing_input(), token.compact.signature())

@@ -26,7 +26,7 @@ fn claims(changes: &Value) -> Value {
 
 /// Verification checks the type, signature and issuer, and the times at the time
 /// it is given: `exp` without leeway, except for hints, which may have expired,
-/// and `nbf` and `iat` with it.
+/// and `nbf` and `iat` with it. A malformed token is refused for its reason.
 #[test]
 fn verifies_types_signatures_issuers_and_times_at_the_given_time() {
     let keys = KeySet::single(Rs256Key::generate("test").expect("generate RSA test key"));
@@ -77,7 +77,7 @@ fn verifies_types_signatures_issuers_and_times_at_the_given_time() {
         .expect("should be accepted");
     assert!(matches!(
         keys.verify::<IdTokenClaims>(&token, TokenType::Id, ISSUER, now()),
-        Err(CryptoError::InvalidToken)
+        Err(CryptoError::UnexpectedHeader)
     ));
     let mut bytes = token.into_bytes();
     let n = bytes.len();
@@ -86,6 +86,13 @@ fn verifies_types_signatures_issuers_and_times_at_the_given_time() {
     assert!(matches!(
         keys.verify::<AccessTokenClaims>(tampered, TokenType::Access, ISSUER, now()),
         Err(CryptoError::Signature)
+    ));
+    assert!(matches!(
+        keys.verify::<AccessTokenClaims>("header.payload", TokenType::Access, ISSUER, now()),
+        Err(CryptoError::MalformedToken(crate::Malformed(
+            "the token is not three segments",
+            None
+        )))
     ));
 }
 
@@ -116,7 +123,7 @@ fn rejects_algorithm_confusion_and_unrecognized_headers() {
         assert!(
             matches!(
                 keys.verify::<IdTokenClaims>(&token, TokenType::Id, ISSUER, now()),
-                Err(CryptoError::InvalidToken | CryptoError::UnknownKey | CryptoError::Json(_))
+                Err(CryptoError::UnexpectedHeader | CryptoError::UnknownKey | CryptoError::Json(_))
             ),
             "accepted {field}"
         );

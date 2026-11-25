@@ -7,13 +7,14 @@ Keep implementations simple. Follow neighbouring modules and share repeated logi
 - `sourceorigin-common` (`crates/common`): the one home for shared types, depending on
   no other workspace crate. With no features it holds what the SDKs read: the IDs
   tokens carry (`UserId`, `SessionId`, `TokenId`, `DeliveryId`, `ClientId`),
-  error-chain formatting, and under `protocol` the wire types shared with the
+  error-chain formatting, hex decoding (`hex`), and under `protocol` the wire types shared with the
   SDKs: token claims, metadata, JWK sets, OAuth/OIDC vocabulary and errors, bearer
   challenges, step-up requirements, SDK error codes and the constants both SDKs
   apply, the same-origin rule for browser requests and the `return_to` rule for
   paths a sign-in goes back to. The `server` feature adds what auth and
   sourceorigin.dev share beyond them: the other IDs, handles, account status,
-  authentication methods, providers, `Personal<T>`, `str_enum!` and
+  authentication methods, providers, `Personal<T>`, the rule every name a person
+  chooses follows (`is_valid_name` and `MAX_NAME_CHARS`), `str_enum!` and
   `open_str_enum!`, the client registration types (`clients`), the public IP
   ranges, the only ones auth delivers to (`net`), and under `protocol` the bodies
   of auth's settings API (`api`) and the security, isolation and `Cache-Control`
@@ -28,9 +29,9 @@ Keep implementations simple. Follow neighbouring modules and share repeated logi
   `similarity` (look-alike detection for handles and client names) and `sqlx`
   (column decoding, enabled only by the database crate).
 - `sourceorigin-crypto` (`crates/crypto`): with no features, what the SDK uses:
-  random secrets, digests, HMAC, constant-time comparison, RS256 verification and
-  AES-256-GCM sealing. The `server` feature adds what only auth uses: PKCE, client
-  secrets, RS256 signing, key sets, the key-encryption key that seals keys at rest,
+  random secrets, digests, HMAC, constant-time comparison, PKCE challenges, RS256
+  verification and AES-256-GCM sealing. The `server` feature adds what only auth
+  uses: the check of a PKCE verifier, client secrets, RS256 signing, key sets, the key-encryption key that seals keys at rest,
   Ed25519 signed notes, for audit checkpoints, and SCRAM-SHA-256 verifiers of
   database passwords.
 - `sourceorigin-auth` (`crates/auth-sdk`): the public Rust SDK, following
