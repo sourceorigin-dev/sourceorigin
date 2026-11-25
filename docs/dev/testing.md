@@ -212,9 +212,11 @@ expressions included.
 
 | Task | Recipe |
 | --- | --- |
-| Formatting, lints, unused code, type checks, unit tests, Rust docs, doc tests and audits | `just validate` |
+| Formatting, lints, the engineering standard's rules, unused code, type checks, unit tests, Rust docs, doc tests and audits | `just validate` |
+| CI's quick checks, for only what changed since the merge base with `origin/main` | `just check-changed` |
 | Format, or check formatting | `just fmt` / `just fmt-check` |
 | Clippy and ESLint with warnings denied, and `publint` and `attw` on the built TypeScript SDK | `just lint` (`just rust lint` / `just web lint`) |
+| The engineering standard's rules, from the `sourceorigin-standard` crate; `cargo xtask standard --fix` makes their mechanical fixes | `just standard` |
 | Unused Rust dependencies (cargo-machete), and unused web files, exports and dependencies (knip) | `just unused` (`just rust unused` / `just web unused`) |
 | Type-check Rust, and TypeScript with the pages' scripts | `just check` (`just rust check` / `just web check`) |
 | Type-check each published crate with no features, then with each feature alone, as a dependent might enable it | `just rust features` (part of `just check`) |
@@ -248,6 +250,7 @@ CI runs the same recipes, in these jobs:
 | `e2e` | The browser suite, against the debug binary behind Caddy, with Mailpit receiving auth's email and sourceorigin.dev's web server on its own host |
 | `docker` | Builds the auth, web and docs images, the first two with the Rust `rust-toolchain.toml` selects and from the layers `main` cached last |
 | `infra` | `just infra check`, with the latest piquelctl |
+| `standard` | `just standard` |
 | `docs` | `just docs` |
 
 Every job but `msrv` builds with Rust stable, which `rust-toolchain.toml`
@@ -259,10 +262,13 @@ Rust jobs for Rust code and the files it reads, such as the committed audit keys
 and the generated reference pages, the web job for files Prettier, ESLint or tsc
 can see, `e2e` and `docker` for anything the service, its images, the TypeScript
 SDK or the browser suite is built from, and `infra` for the manifests and the
-telemetry configs. Other Markdown changes run only `docs`, which runs on every
-pull request, since a change anywhere can break a link to it. The `changes` job
-in [ci.yml](https://github.com/sourceorigin-dev/sourceorigin/blob/main/.github/workflows/ci.yml)
-has the exact filters.
+telemetry configs. Other Markdown changes run only `docs` and `standard`, which
+run on every pull request: a change anywhere can break a link, and the rules
+read more than the Rust sources. The `changes` job of
+[ci.yml](https://github.com/sourceorigin-dev/sourceorigin/blob/main/.github/workflows/ci.yml)
+reads the exact filters from
+[filters.yml](https://github.com/sourceorigin-dev/sourceorigin/blob/main/.github/filters.yml),
+which `just check-changed` reads too.
 
 The merge queue and manual runs run every job. The `ci` check sums the others
 up: it fails if any job failed, and passes when the rest succeeded or were

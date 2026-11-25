@@ -53,7 +53,7 @@ sourceorigin-telemetry = { workspace = true, features = ["test-util"] }
 # Paused tokio time in tests: `start_paused`, `pause` and `advance`.
 tokio = { workspace = true, features = ["test-util"] }
 insta.workspace = true
-webauthn-authenticator-rs = { version = "0.5.5", features = ["softpasskey"] }
+webauthn-authenticator-rs.workspace = true
 
 [lints]
 workspace = true

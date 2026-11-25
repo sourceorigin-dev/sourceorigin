@@ -1,0 +1,34 @@
+# Path filters for CI's `changes` job (.github/workflows/ci.yml), which
+# dorny/paths-filter matches with picomatch globs, dotfiles included. A file
+# matches a filter only when it matches every pattern (`predicate-quantifier:
+# every`). `just check-changed` reads them too.
+
+# Rust also reads files outside the crates: the committed audit verifier keys,
+# which auth compiles in.
+rust:
+  - '{Cargo.toml,Cargo.lock,rust-toolchain.toml,rustfmt.toml,clippy.toml,.cargo/**,.config/**,justfile,just/**,apps/**,crates/**,tools/**,tests/sdk-vectors/**,packages/auth/src/protocol.ts,docs/dev/security/audit-key.pub,.github/workflows/ci.yml,.github/filters.yml}'
+  - '!**/*.md'
+# The generated reference pages auth's tests compare with the code, which
+# `rust` skips as Markdown.
+reference:
+  - 'docs/dev/operations/{cli-commands,variables/*}.md'
+# Every file Prettier, ESLint or tsc can see, so it excludes file types rather
+# than directories.
+web:
+  - '**'
+  - '!**/*.{rs,sql,toml,md}'
+  - '!Cargo.lock'
+  - '!infra/*.{Dockerfile,conf,sh}'
+  - '!.dockerignore'
+deps:
+  - '{Cargo.toml,**/Cargo.toml,Cargo.lock,deny.toml,package.json,**/package.json,pnpm-lock.yaml,pnpm-workspace.yaml,.github/workflows/ci.yml,.github/filters.yml}'
+# Everything the running service and its images are built from, and the
+# TypeScript SDK the browser suite also runs, which the piqueld manifests and
+# the telemetry configs are not.
+app:
+  - '{Cargo.toml,Cargo.lock,rust-toolchain.toml,.cargo/**,justfile,just/**,package.json,pnpm-lock.yaml,playwright.config.ts,apps/**,crates/**,packages/auth/**,tests/browser/**,infra/**,docs/dev/security/audit-key.pub,.dockerignore,.github/workflows/ci.yml,.github/filters.yml}'
+  - '!**/*.md'
+  - '!infra/{piqueld,telemetry}.toml'
+  - '!infra/telemetry/**'
+infra:
+  - '{infra/piqueld.toml,infra/telemetry.toml,infra/telemetry/*.yaml,justfile,just/infra.just,.github/workflows/ci.yml,.github/filters.yml}'

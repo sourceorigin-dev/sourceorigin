@@ -23,7 +23,7 @@ alias format := fmt
 alias preview := infra::preview
 alias preview-delete := infra::preview-delete
 
-validate: fmt lint unused check test web::test doc doc-test audit
+validate: fmt lint standard unused check test web::test doc doc-test audit
 
 install:
     @pnpm install --frozen-lockfile
@@ -52,6 +52,15 @@ publish *ARGS:
 [positional-arguments]
 release *ARGS:
     @cargo xtask release "$@"
+
+[doc("The engineering standard's rules; `cargo xtask standard rules` lists them.")]
+standard:
+    @cargo xtask standard
+
+[doc("CI's quick checks, for only what changed since the merge base with a branch (origin/main unless named).")]
+[positional-arguments]
+check-changed *ARGS:
+    @cargo xtask check-changed "$@"
 
 # The release auth-service executable.
 build: (rust::build "--release")
