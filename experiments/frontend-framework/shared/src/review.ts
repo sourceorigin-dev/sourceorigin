@@ -3,9 +3,11 @@
 // settings every Pierre component gets. State and rendering stay in each app.
 
 import {
+  canUseWASM,
   type CodeViewDiffItem,
   type CodeViewOptions,
   type DiffLineAnnotation,
+  type HighlighterTypes,
   processFile,
 } from '@pierre/diffs';
 import type { FileTreeOptions, GitStatusEntry } from '@pierre/trees';
@@ -182,6 +184,15 @@ export const CODE_VIEW_OPTIONS = {
 } as const satisfies CodeViewOptions<ReviewAnnotation, undefined>;
 
 /**
+ * Which highlighter to use, chosen as diffshub chooses: `@pierre/highlights`
+ * where WebAssembly may run, which needs 'wasm-unsafe-eval' in the policy, and
+ * Shiki's JavaScript engine elsewhere. The server can always run it.
+ */
+export function highlighter(): HighlighterTypes {
+  return canUseWASM() ? 'highlights' : 'shiki-js';
+}
+
+/**
  * The pool that highlights off the main thread, one for the whole page. Vite
  * bundles the worker from this `new URL(...)` in both apps.
  */
@@ -189,10 +200,14 @@ export function workerPool(): WorkerPoolManager {
   return getOrCreateWorkerPoolSingleton({
     poolOptions: {
       poolSize: Math.min(3, Math.max(1, (navigator.hardwareConcurrency ?? 2) - 1)),
+      // As diffshub: highlights colours a small file on the main thread faster
+      // than a worker answers, so the first files show highlighted at once.
+      mainThreadMaxCharacters: highlighter() === 'highlights' ? 100_000 : undefined,
       workerFactory: () =>
         new Worker(new URL('@pierre/diffs/worker/worker.js', import.meta.url), { type: 'module' }),
     },
     highlighterOptions: {
+      preferredHighlighter: highlighter(),
       theme: CODE_VIEW_OPTIONS.theme,
       langs: ['rust', 'markdown', 'toml', 'typescript', 'yaml', 'sql', 'json', 'sh', 'css'],
     },

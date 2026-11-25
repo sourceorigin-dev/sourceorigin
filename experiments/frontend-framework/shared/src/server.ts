@@ -11,6 +11,7 @@ import { type ChangeDetail, getChange, getPatch, listThreads, type Thread } from
 import {
   annotationsFor,
   CODE_VIEW_OPTIONS,
+  highlighter,
   itemFromPatch,
   SERVER_RENDERED_FILES,
   splitPatch,
@@ -49,7 +50,8 @@ export async function loadFirstScreen(change: string): Promise<FirstScreen> {
     const item = itemFromPatch(text);
     if (item == null) continue;
     const annotations = annotationsFor(byPath.get(item.id) ?? []);
-    const { layout: _layout, stickyHeaders: _sticky, ...options } = CODE_VIEW_OPTIONS;
+    const { layout: _layout, stickyHeaders: _sticky, ...shared } = CODE_VIEW_OPTIONS;
+    const options = { ...shared, preferredHighlighter: highlighter() };
     serverFiles.push({
       path: item.id,
       html: await preloadDiffHTML({ fileDiff: item.fileDiff, annotations, options }),

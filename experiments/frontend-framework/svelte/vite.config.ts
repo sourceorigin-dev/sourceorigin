@@ -12,7 +12,9 @@ export default defineConfig({
   worker: { format: 'es' },
   plugins: [
     sveltekit({
-      adapter: adapter(),
+      // Not compressed ahead of time: the React build is not either, and a
+      // proxy would compress both the same way in production.
+      adapter: adapter({ precompress: false }),
       // SvelteKit adds a nonce to script-src and style-src for what it writes
       // inline. hooks.server.ts loosens style-src where Pierre needs it.
       csp: {
