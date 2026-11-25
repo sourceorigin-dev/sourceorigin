@@ -56,7 +56,6 @@ pub(super) async fn list(cx: &Cx) -> Result<Response> {
                     && invitation.email.is_some()
                     && app.service.mails())
                 .then(|| action(href!(resend, Invitation(invitation.id)).resolve(cx))),
-                // Until it is redeemed or revoked, expired or not.
                 revoke: matches!(state, InvitationState::Open | InvitationState::Expired)
                     .then(|| action(href!(revoke, Invitation(invitation.id)).resolve(cx))),
             }
@@ -80,8 +79,6 @@ pub(super) async fn list(cx: &Cx) -> Result<Response> {
 #[route([GET, POST] "/invitations/new")]
 pub(super) async fn create(cx: &Cx, form: Option<Form<CreateInvitation>>) -> Result<Response> {
     let admin = App::admin(cx).await?;
-    // The page showing a new link needs no confirmation: sending the browser to
-    // confirm would lose the link.
     let revealed: Option<CreatedInvitation> = App::revealed(cx, admin);
     if revealed.is_none() {
         App::confirm(cx, admin)?;

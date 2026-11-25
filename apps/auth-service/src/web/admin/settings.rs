@@ -93,7 +93,6 @@ pub(super) async fn sign_in(cx: &Cx, body: Body) -> Result<Response> {
     let passkeys = account.passkeys(&viewer).await?;
     let identities = account.identities(&viewer).await?;
     let recovery = account.recovery_notice(&viewer).await?.map(Recovery::from);
-    // Only a linked provider is listed: an administrator links none.
     let providers: Vec<_> = identities
         .iter()
         .map(|identity| ProviderRow {
@@ -116,7 +115,6 @@ pub(super) async fn sign_in(cx: &Cx, body: Body) -> Result<Response> {
             recovery: recovery.as_ref(),
         )
     };
-    // The largest settings section: its future is boxed, off the handler's stack.
     Box::pin(App::settings_page(
         cx,
         user,
@@ -137,8 +135,6 @@ pub(super) async fn profile(cx: &Cx, body: Body) -> Result<Response> {
         let subject = App::subject(user, admin, reason);
         match change {
             ProfileChange::Remove => Ok(App::of(cx).account.remove_picture(&subject).await?),
-            // An administrator changes the name and the handle on their own pages,
-            // which take no cooldown.
             ProfileChange::Upload
             | ProfileChange::DisplayName { .. }
             | ProfileChange::Handle { .. } => Err(App::owners()),
@@ -149,7 +145,6 @@ pub(super) async fn profile(cx: &Cx, body: Body) -> Result<Response> {
     let account = &App::of(cx).account;
     let profile = account.profile(&viewer).await?;
     let administrator = account.is_administrator(&viewer).await?;
-    // Stored in any status; shown only while the account is active.
     let stored = account.picture(&viewer).await?.is_some();
     let picture = App::picture(cx, profile.picture);
     let reason = refused.as_ref().map_or("", Refused::reason);
@@ -161,7 +156,6 @@ pub(super) async fn profile(cx: &Cx, body: Body) -> Result<Response> {
         administrator,
     };
     let alert = refused.as_deref();
-    // Only removing the picture is posted here, so only its dialog reopens.
     let state = &ProfileState {
         open: refused.is_some().then_some(ProfileDialog::Remove),
         ..ProfileState::default()
@@ -182,9 +176,6 @@ pub(super) async fn profile(cx: &Cx, body: Body) -> Result<Response> {
             alert: alert,
         )
     };
-    // The refusal is said in the dialog shown again, not behind it, or above the
-    // profile when the page no longer has that dialog. The page's
-    // dialogs make its future large: it is boxed, off the handler's stack.
     Box::pin(App::settings_page(cx, user, Tab::Profile, None, section)).await
 }
 

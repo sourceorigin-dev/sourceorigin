@@ -22,8 +22,6 @@ pub(super) async fn list(cx: &Cx) -> Result<Response> {
         .service
         .list_administrators(&admin.operator)
         .await?;
-    // The viewer is an active administrator, so revoking anyone else's rights
-    // leaves one; the service refuses the last active administrator's anyway.
     let inline = admin.operator.is_confirmed(super::FORM_TIME);
     let rows: Vec<_> = administrators
         .iter()

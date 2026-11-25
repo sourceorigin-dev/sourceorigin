@@ -227,7 +227,6 @@ async fn signing_in_goes_on_to_the_path_asked_for() {
     let page = html(browser.visit(&replicas.a, &link(LOGIN, &passkey)).await).await;
     assert!(page.contains(&format!("Signed in as @{handle}.")), "{page}");
     assert!(page.contains(">Sign out</button>"), "{page}");
-    // A page saying why something failed stays, as for a provider's sign-in gone.
     let gone = waiting(PendingDestination::Link, settings::SESSIONS);
     let page = html(browser.visit(&replicas.a, &gone).await).await;
     assert!(
@@ -440,7 +439,6 @@ async fn signing_up_starts_with_the_invitation() {
         page.contains(r#"name="handle" autocomplete="username""#),
         "{page}"
     );
-    // The browser checks a handle's syntax before posting it.
     assert!(
         page.contains(r#"pattern="[a-z0-9]+(-[a-z0-9]+)*""#),
         "{page}"
@@ -668,7 +666,6 @@ async fn linking_for_an_application_says_so_before_going_on() {
         .expect("linked");
     assert_eq!(identity.user_id, owner.user_id);
 
-    // A link anyone can write says nothing was linked when nothing is.
     let other = Browser::new_account(&database).await;
     let page = html(other.visit(&replicas.a, &link(LOGIN, &shown)).await).await;
     assert!(!page.contains("Sign-in method added"), "{page}");
@@ -686,7 +683,6 @@ async fn linking_for_an_application_says_so_before_going_on() {
         "{page}"
     );
     assert!(page.contains(">Continue</button>"), "{page}");
-    // Going on says the authorization expired, the link still made.
     let went = owner
         .post(&replicas, &link(LOGIN, &shown), &LoginChange::SignedIn {})
         .await;
@@ -927,8 +923,6 @@ async fn sign_in_asks_to_restore_an_account_scheduled_for_deletion() {
 
     let page = html(holder.visit(&replicas.a, LOGIN).await).await;
     assert!(page.contains("Restore your account?"), "{page}");
-    // A browser signed in to another account is asked too: its passkey just named
-    // this one.
     let other = Browser::new_account(&database).await;
     let signed_in = Browser {
         cookie: format!("{}; {}", other.cookie, holder.cookie),

@@ -171,7 +171,6 @@ impl<R: Query> Applied<R> {
         cx: &Cx,
         owner: Owner,
     ) -> Result<Response, Failure> {
-        // The page's own path, not its route's template.
         let here = uri(cx).path();
         match self {
             Self::Revealed(row) => {
@@ -342,26 +341,22 @@ impl WebApplication {
             Ok(applied) => return applied.answer::<P>(web, cx, owner).await,
             Err(error) => error,
         };
-        // A confirmation asked for is asked for again, by the page's forms.
         let stale = matches!(
             error,
             AccountError::Owner(SessionError::StepUpRequired { .. })
         );
         let (status, message, field) = match error {
-            // A setting refused is said beside its input.
             AccountError::Client(OwnedClientError::InvalidSetting(invalid)) => (
                 StatusCode::BAD_REQUEST,
                 invalid.reason().to_string(),
                 Some(invalid.field().clone()),
             ),
-            // Internal failures are logged here, once, as `ApiError` logs them.
             error => {
                 let error = ApiError::from(error);
                 let (status, message) = error.public();
                 (status, message.to_owned(), None)
             }
         };
-        // Read once the failure is logged, so a read that fails too hides nothing.
         let mut reader = Reader::new(web, owner).await?;
         if stale {
             reader.confirmation = Confirmation::Stale;
@@ -487,14 +482,10 @@ impl WebApplication {
         let administrator = self.account.is_administrator(&viewer).await?;
         let accepted = self.account.accepted_passkeys(reader.owner()).await?;
         let unread = self.account.unread_notifications(&viewer).await?;
-        // The top bar's search finds the account's apps.
         let clients = self.account.clients(reader.owner()).await?;
         let apps: Vec<_> = clients.iter().map(AppLink::from).collect();
         let session = reader.owner().session_id();
         let confirmed = reader.owner().was_passkey_confirmed();
-        // The preference forms come back here by GET, which a page answering a
-        // POST, such as one showing a new secret, cannot show again: those come
-        // back to the section's home.
         let section_home = match section {
             Section::Account => page::settings::HOME,
             Section::Developers => page::developers::HOME,
@@ -513,8 +504,6 @@ impl WebApplication {
             picture: picture.as_deref(),
             administrator,
         };
-        // Only an administrator's sidebar links the dashboard, on deployments
-        // that serve one; its origin starts the handoff itself.
         let dashboard = self
             .dashboard
             .as_ref()

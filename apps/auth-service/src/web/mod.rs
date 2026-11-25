@@ -223,8 +223,6 @@ impl WebApplication {
                 Self::logout,
                 Self::end_session
             ),
-            // An application's logout request, by query or form: its page asks to
-            // confirm it, posting it to `LOGOUT`.
             page!(
                 routes::oidc::LOGOUT,
                 Title::Logout.as_str(),
@@ -296,12 +294,8 @@ impl WebApplication {
     pub(crate) fn routes(self) -> axum::Router {
         let mut pages = Router::builder()
             .app_context(self)
-            // The security layer already accepts forms only from auth's own pages, by a
-            // stricter rule: Topcoat's also takes `Sec-Fetch-Site: none`.
             .origin_policy(OriginPolicy::dangerous_disable())
-            // axum's body limit does not reach Topcoat, whose own default is 2 MiB.
             .layer(BodyLimit::max(MAX_REQUEST_BODY_BYTES))
-            // An upload's image, and the rest of its form.
             .layer(
                 BodyLimit::max(pictures::MAX_UPLOAD_BYTES + MAX_REQUEST_BODY_BYTES)
                     .at(routes::page::settings::PROFILE),
@@ -317,9 +311,6 @@ impl WebApplication {
             .fold(axum::Router::new(), |router, (path, ..)| {
                 router
                     .route_service(path, service.clone())
-                    // Links ending in a slash, which sourceorigin.dev's settings accepted, go on
-                    // to the page: Topcoat answers them with a `308` to its own path,
-                    // the query kept.
                     .route_service(&format!("{path}/"), service.clone())
             })
             .route(routes::page::ROOT, axum::routing::get(Self::root))
@@ -497,7 +488,6 @@ impl WebApplication {
         .single()
         .await?
         .render(cx);
-        // The security layer's policy lets the page's forms redirect on to them.
         let targets = FormTargets(targets.iter().filter_map(FormTarget::of).collect());
         let mut response = (
             status,

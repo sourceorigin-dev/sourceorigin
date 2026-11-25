@@ -42,7 +42,6 @@ pub(super) async fn list(cx: &Cx) -> Result<Response> {
         .iter()
         .map(|detail| AlertCard {
             detail,
-            // A kind this release cannot read, it cannot update either.
             update: detail.alert.alert.is_some().then(|| Action {
                 href: href!(update, Alert(detail.alert.id)).resolve(cx),
                 inline,
@@ -64,7 +63,6 @@ pub(super) async fn previous(cx: &Cx) -> Result<Response> {
         .service
         .alerts(&admin.operator, AlertsShown::Previous)
         .await?;
-    // An alert that cleared takes no update.
     let cards: Vec<_> = alerts
         .iter()
         .map(|detail| AlertCard {
@@ -90,7 +88,6 @@ pub(super) async fn update(cx: &Cx, form: Option<Form<UpdateForm>>) -> Result<Re
     let alerts = service
         .alerts(&admin.operator, AlertsShown::Current)
         .await?;
-    // A kind this release cannot read, it cannot update either.
     let subject = alerts
         .iter()
         .find(|detail| detail.alert.id == id)

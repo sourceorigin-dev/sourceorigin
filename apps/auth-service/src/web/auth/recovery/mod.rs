@@ -178,9 +178,6 @@ impl WebApplication {
                     }
                 }
             }
-            // The finish says whether it signed the browser in; one it did not has a
-            // disabled account, whatever session the browser holds. The settings show
-            // a browser whose new session went missing as signed out.
             UndoChange::Undone { signed_in } => {
                 if signed_in {
                     Self::notify(cx, settings::HOME, Notice::RecoveryUndone)

@@ -326,8 +326,6 @@ async fn the_undo_page_cancels_or_undoes_by_id() {
         cookie(&answered, BrowserCookie::Notice).0,
         "recovery_undone"
     );
-    // An undo that signed nobody in says so even in a browser holding another
-    // account's session.
     let other = Browser::new_account(&database).await;
     for holder in [&browser, &other] {
         let done = holder.post(&replicas, RECOVER_UNDO, &undone(false)).await;
@@ -353,7 +351,6 @@ async fn settings_show_the_recovery() {
     let database = Replicas::database().await;
     let recovering = Recovering::new(&database, true).await;
     let browser = recovering.signed_in().await;
-    // The passkey sign-in confirmed the session.
     let key = |stage| {
         format!(
             "sourceorigin-recovery:{}:{stage}:confirmed",
@@ -439,7 +436,6 @@ async fn settings_show_the_recovery() {
     let page = html(browser.visit(&replicas.a, settings::HISTORY).await).await;
     assert!(page.contains("The recovery's passkey renamed"), "{page}");
 
-    // Reporting the older passkey's addition offers no removal: it would be refused.
     let report = HistoryChange::Report {
         event_id: recovering.older.expect("a passkey from before"),
         before: None,
@@ -534,7 +530,6 @@ async fn every_sign_in_for_an_app_asks_about_a_recovery() {
     let replicas = &app.replicas;
     let recovering = &app.recovering;
 
-    // Signing in on the sign-in page.
     let transaction = app.start().await;
     let question = ForAnApp::sign_in(&transaction, true);
     let browser = recovering.signed_in().await;
@@ -543,14 +538,12 @@ async fn every_sign_in_for_an_app_asks_about_a_recovery() {
         .post(replicas, &here, &LoginChange::SignedIn {})
         .await;
     assert_eq!(ForAnApp::to(&signed_in), question);
-    // Resuming it instead, as a link could, asks again.
     let resumed = browser
         .visit(&replicas.a, &ForAnApp::resume(&transaction))
         .await;
     assert_eq!(ForAnApp::to(&resumed), question);
     let asked = browser.visit(&replicas.a, &question).await;
     assert_eq!(asked.status(), StatusCode::OK);
-    // Its form may go on to the app.
     let form_action = policy(&asked)
         .split(';')
         .find(|directive| directive.trim().starts_with("form-action"))
@@ -570,8 +563,6 @@ async fn every_sign_in_for_an_app_asks_about_a_recovery() {
         recovering.id
     );
     assert!(page.contains(&no), "{page}");
-    // An answer about another recovery, as from a tab another account left open,
-    // answers nothing.
     let stale = LoginChange::RecoveryRecognized {
         recovery: RecoveryId::new(),
     };
@@ -582,7 +573,6 @@ async fn every_sign_in_for_an_app_asks_about_a_recovery() {
     };
     app.reaches_the_app(&browser.post(replicas, &question, &answer).await);
 
-    // Signing in some other way resumes the authorization, which asks.
     let transaction = app.start().await;
     let browser = recovering.signed_in().await;
     let resumed = browser
@@ -593,7 +583,6 @@ async fn every_sign_in_for_an_app_asks_about_a_recovery() {
         ForAnApp::sign_in(&transaction, true)
     );
 
-    // A browser already signed in goes on without asking.
     app.reaches_the_app(&browser.visit(&replicas.a, &app.authorize).await);
 
     let settled = browser

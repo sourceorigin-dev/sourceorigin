@@ -319,22 +319,15 @@ impl WebApplication {
     ) -> Result<Response, Refusal> {
         let recovery = RecoveryQuestion::from(&change);
         let (mut response, cookie) = match change {
-            // The passkey script signed the browser in before posting, or it was
-            // signed in already, as when it goes on after linking a provider,
-            // unless its passkey's account is scheduled for deletion: then it left
-            // an offer to restore it instead, which the page shows.
             LoginChange::SignedIn {} | LoginChange::Registered {} => {
                 if self.restore_offer(cx).await?.is_some() {
                     return Ok(see_other(Self::here(cx, page)).into_response(cx)?);
                 }
                 return Ok(self.go_on(cx, page, visit.continuation, recovery).await?);
             }
-            // The signed-in browser answered the question, whatever offer it holds.
             LoginChange::RecoveryRecognized { .. } => {
                 return Ok(self.go_on(cx, page, visit.continuation, recovery).await?);
             }
-            // Restored, the browser is signed in by this response's cookie, so it
-            // goes on by a redirect, which the next request carries it on.
             LoginChange::Restore {} => {
                 let restored = self
                     .account
@@ -357,10 +350,6 @@ impl WebApplication {
                 self.start_social(cx, page, &visit.continuation, provider)
                     .await?
             }
-            // Linked, the browser goes on by a redirect, so going on, which may
-            // fail, as for an expired authorization, never shows a link that was
-            // made as failed: to the path, or to this page, which says it is
-            // linked and offers to go on to the application.
             LoginChange::Link {} => {
                 let owner = self
                     .owner(cx)
@@ -386,8 +375,6 @@ impl WebApplication {
                 };
                 (see_other(next).into_response(cx)?, cookie)
             }
-            // An explicit link goes back to where it started; an email match offers
-            // a signed-out browser to sign in before going on.
             LoginChange::CancelLink {} => {
                 let pending = visit
                     .pending
@@ -412,7 +399,6 @@ impl WebApplication {
                 };
                 (response, cookie)
             }
-            // Signed out, the page offers to sign in to another account.
             LoginChange::SwitchAccount {} => {
                 let signed_out = self
                     .account
@@ -576,7 +562,6 @@ impl WebApplication {
     ) -> Result<Option<SignedIn>, Failure> {
         let profile = match self.account.profile(&Viewer::from(owner)).await {
             Ok(profile) => profile,
-            // An account gone since its session was found is signed out.
             Err(AccountError::Owner(SessionError::Missing)) => return Ok(None),
             Err(error) => return Err(error.into()),
         };
@@ -646,9 +631,6 @@ impl WebApplication {
             pending,
             continuation,
         } = visit;
-        // A provider just linked says so even when the authorization it goes on to
-        // was refused meanwhile, as once it expired: going on says that instead.
-        // An internal failure still fails the page, which logs it.
         let linked = self.just_linked(cx, &query).await?;
         let (targets, target_acr) = match self.targets(&continuation, &query).await {
             Err(Failure::Explained {
@@ -718,7 +700,6 @@ impl WebApplication {
             .as_ref()
             .map(|error| error.public().1)
             .or_else(|| query.error.map(CallbackError::message));
-        // The page stays when it says why something failed.
         if alert.is_none()
             && let Some(path) = continuation.skipped(&step, target_acr)
         {
@@ -740,7 +721,6 @@ impl WebApplication {
                 alert: alert,
             )
         };
-        // A large page: its future is boxed, off the handler's stack.
         Ok(Box::pin(self.render(cx, status, step.title().as_str(), &targets, view)).await?)
     }
 }

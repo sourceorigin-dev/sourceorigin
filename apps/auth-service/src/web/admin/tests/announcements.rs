@@ -144,7 +144,6 @@ async fn announcements_are_drafted_then_sent_from_the_dashboard() {
     let unconfirmed_send = harness.visit(&unconfirmed, &send).await;
     assert_eq!(location(&unconfirmed_send).path(), routes::page::ADMIN);
 
-    // The draft changes after its page was read, which needs no confirmation.
     let edited = unconfirmed
         .submit(
             &harness.dashboard,
@@ -162,8 +161,6 @@ async fn announcements_are_drafted_then_sent_from_the_dashboard() {
         )
         .await;
     assert_eq!(redirect(&edited), page);
-    // The send page, reached through auth's confirmation, still posts the
-    // revision the draft's page showed, so the change is refused, not sent.
     let confirmed = harness.confirmed(&admin, &send, Utc::now()).await;
     let confirming = html(harness.visit(&confirmed, &send).await).await;
     assert!(
@@ -194,7 +191,6 @@ async fn announcements_are_drafted_then_sent_from_the_dashboard() {
     for sent in [format!("{page}/edit"), format!("{page}/send?revision=2")] {
         assert_eq!(redirect(&harness.visit(&confirmed, &sent).await), page);
     }
-    // The recipient reads it in their inbox, its paragraphs kept.
     let inbox = html(
         owner
             .visit(&harness.auth.a, routes::page::settings::NOTIFICATIONS)

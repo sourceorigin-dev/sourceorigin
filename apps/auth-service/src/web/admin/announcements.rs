@@ -102,8 +102,6 @@ pub(super) async fn show(cx: &Cx) -> Result<Response> {
         .map(|user| (user, App::account(cx, user.id)))
         .collect();
     let editing = &href!(edit, Announcement(id)).resolve(cx);
-    // Sending needs the dashboard's confirmation, which a dialog on this page
-    // cannot ask for; discarding a draft needs none.
     let drafts = match detail.announcement.sent_at {
         Some(_) => None,
         None => Some(DraftActions {
@@ -121,8 +119,6 @@ pub(super) async fn show(cx: &Cx) -> Result<Response> {
             },
         }),
     };
-    // The page, with its email and accounts, makes a large view and future,
-    // both boxed.
     let page = Child::new(view! { cx =>
         sourceorigin_ui::announcement_page(
             detail: detail,
@@ -188,7 +184,6 @@ pub(super) async fn send(cx: &Cx, form: Option<Form<SendAnnouncement>>) -> Resul
     .await?;
     let detail = service.view_announcement(&admin.operator, id).await?;
     let announcement = &detail.announcement;
-    // One already sent is not sent again: its page shows it.
     if refusal.is_none() && announcement.sent_at.is_some() {
         return Err(see_other(back).into());
     }
@@ -295,9 +290,6 @@ impl App {
             if !admin.operator.is_confirmed(Duration::zero()) {
                 return Ok(Saved::Send(id, revision));
             }
-            // The draft is saved: a send refused because it changed or was sent
-            // meanwhile, or because the dashboard must confirm first, goes on to
-            // the send page, rather than leave the form to save it again.
             match service
                 .send_announcement(&admin.operator, id, revision)
                 .await
@@ -328,7 +320,6 @@ impl App {
             None => match id {
                 Some(id) => {
                     let detail = service.view_announcement(&admin.operator, id).await?;
-                    // A sent announcement no longer changes: its page shows it.
                     if detail.announcement.sent_at.is_some() {
                         return Err(see_other(back).into());
                     }

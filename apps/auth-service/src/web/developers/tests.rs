@@ -153,7 +153,6 @@ async fn secrets_show_once_in_the_answer_that_makes_them() {
         page.contains(r#"data-replace-url="/developers/new""#),
         "{page}"
     );
-    // The answer's own link, not the top bar's results, which list the app too.
     let id: ClientId = value_after(&page, r#"<a class="button" href="/developers/clients/"#)
         .parse()
         .expect("app ID");
@@ -327,7 +326,6 @@ async fn every_change_needs_a_passkey() {
     };
     let before = app().await;
 
-    // As the form shows the app, renamed.
     let renamed = ClientDraft {
         display_name: "Renamed".into(),
         redirect_uris: Lines::from("https://saved.example/callback"),
@@ -463,7 +461,6 @@ async fn backchannel_logout_uris_are_set_changed_and_removed() {
     let saved = browser.post(&replicas, &settings, &save).await;
     assert_eq!(saved.status(), StatusCode::SEE_OTHER);
     assert_eq!(stored().await.as_deref(), Some(moved));
-    // A blank input is no URI.
     let save = AppChange::Save { draft: with(" ") };
     let saved = browser.post(&replicas, &settings, &save).await;
     assert_eq!(saved.status(), StatusCode::SEE_OTHER);

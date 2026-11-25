@@ -93,7 +93,6 @@ async fn the_dashboard_ends_with_the_auth_session_and_the_rights() {
 
     let revoked = harness.admin().await;
     let dashboard = harness.sign_in(&revoked, "/users").await;
-    // Another administrator, so the rights revoked are not the last.
     harness.admin().await;
     AdminService::new(harness.database.clone(), true)
         .revoke_administrator(&operator(), revoked.user_id, reason())
@@ -121,7 +120,6 @@ async fn the_dashboard_ends_with_the_auth_session_and_the_rights() {
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn a_sign_in_racing_a_revocation_never_outlives_it() {
     let harness = Harness::new().await;
-    // Another administrator, so the rights revoked are not the last.
     harness.admin().await;
     let service = AdminService::new(harness.database.clone(), true);
     let database = &harness.database;
@@ -132,8 +130,6 @@ async fn a_sign_in_racing_a_revocation_never_outlives_it() {
             .expect("sessions")
     };
 
-    // A redemption holding the rights writes its session before the revocation,
-    // which waited for it, ends it.
     let admin = harness.admin().await;
     let mut redeeming = harness.database.begin().await.expect("transaction");
     let held = redeeming
@@ -160,8 +156,6 @@ async fn a_sign_in_racing_a_revocation_never_outlives_it() {
         "ended by the revocation"
     );
 
-    // A revocation holding the rights first refuses both the handoff and the
-    // redemption waiting for it.
     let admin = harness.admin().await;
     let (dashboard, query, _) = harness.hand_off(&admin, "/users").await;
     let owner = admin.owner(&harness.database).await;
@@ -375,7 +369,6 @@ async fn a_form_shown_in_time_may_be_posted_until_the_confirmation_ends() {
     let admin = harness.admin().await;
     let user = Browser::new_account(&harness.database).await;
     let disable = format!("/users/{}/disable", user.user_id);
-    // Ninety seconds left: less than a form needs, more than a post does.
     let ninety_seconds_left = Utc::now() - chrono::Duration::seconds(210);
     let confirmed = harness
         .confirmed(&admin, &disable, ninety_seconds_left)

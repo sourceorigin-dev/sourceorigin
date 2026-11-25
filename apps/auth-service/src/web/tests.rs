@@ -249,7 +249,6 @@ async fn consent_page_decides_from_its_own_form() {
         ("transaction", transaction.as_str()),
         ("decision", "approve"),
     ];
-    // Neither another site's form nor a body over the limit decides.
     let foreign = [
         ("sec-fetch-site", "cross-site"),
         ("origin", "https://evil.example"),
@@ -399,7 +398,6 @@ async fn logout_page_ends_the_session_from_its_own_form() {
         assert!(page.contains(&form), "{page}");
         let field = format!(r#"<input type="hidden" name="state" value="{state}">"#);
         assert!(page.contains(&field), "{page}");
-        // The application may post the request from its own site instead.
         let posted = harness
             .submit(
                 routes::oidc::LOGOUT,
@@ -425,7 +423,6 @@ async fn logout_page_ends_the_session_from_its_own_form() {
             .to_str()
             .expect("Set-Cookie is text");
         assert!(cookie.contains("Max-Age=0"), "{cookie}");
-        // Signing out forgets the session, not the browser.
         assert!(
             signed_out
                 .headers()
@@ -494,7 +491,6 @@ async fn account_pages_ask_a_signed_out_browser_to_sign_in() {
             .await;
         assert_eq!(posted.status(), StatusCode::UNAUTHORIZED, "{path}");
         assert!(html(posted).await.contains(heading), "{path}");
-        // Only a page's route takes forms from auth's own pages.
         let posted = browser
             .post(&replicas, &format!("{path}/"), &DeviceChange::SignOutOthers)
             .await;
@@ -579,8 +575,6 @@ async fn account_pages_tell_the_password_manager_every_passkey() {
     };
     assert_eq!(told(settings::HOME).await, Vec::<String>::new());
 
-    // Credential IDs of the shortest and longest lengths WebAuthn allows, and
-    // bytes base64url writes as `-` and `_`.
     let passkey = |user_id, length: usize, byte: u8| {
         let mut credential_id = PasskeyId::new().as_uuid().as_bytes().to_vec();
         credential_id.resize(length, byte);

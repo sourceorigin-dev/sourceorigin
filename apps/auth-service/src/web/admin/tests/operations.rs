@@ -65,9 +65,7 @@ async fn invitations_offer_mailing_only_while_email_is_on() {
     let mut config = AuthConfig::test(&AUTH_ORIGIN.parse().expect("auth origin"));
     config.email.smtp = None;
     let harness = Harness::of(config).await;
-    // Unique, since other scenarios share the database.
     let jane = format!("jane-{}@example.com", TokenId::new());
-    // Mailed while email was on.
     let invitation = AdminService::new(harness.database.clone(), true)
         .create_invitation(
             &operator(),
@@ -144,7 +142,6 @@ async fn deliveries_are_cancelled_and_retried_from_the_dashboard() {
     let page = html(harness.visit(&dashboard, &listed).await).await;
     assert!(page.contains(&format!(r#"action="{retry}""#)), "{page}");
     assert!(page.contains("Cancelled"), "{page}");
-    // Cancelled already, it is refused, saying why.
     let refused = html(post(&cancel).await).await;
     assert!(
         refused.contains("No pending or failed delivery"),
@@ -173,8 +170,6 @@ async fn deliveries_are_cancelled_and_retried_from_the_dashboard() {
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn signing_keys_are_rotated_and_revoked_from_the_dashboard() {
-    // Generating a key holds the signing key lock, which the replicas of other
-    // tests on the shared database wait for as they start.
     let harness = Harness::isolated().await;
     let admin = harness.admin().await;
     let dashboard = harness.confirmed(&admin, "/keys/rotate", Utc::now()).await;
@@ -382,7 +377,6 @@ async fn alerts_take_updates_from_the_dashboard() {
     };
     let harness = Harness::isolated().await;
     let admin = harness.admin().await;
-    // A position to find on the page.
     let position = Utc::now().timestamp_micros().unsigned_abs();
     let context = EventContext::system(JobName::AuditVerification);
     let mut tx = harness.database.begin().await.expect("transaction");

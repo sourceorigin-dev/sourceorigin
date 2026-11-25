@@ -58,8 +58,6 @@ impl AccountPage for History {
         }: HistoryChange,
     ) -> Result<Applied<HistoryState>, AccountError> {
         web.account.report(&owner, event_id).await?;
-        // The report went through; a notification gone since, or never the
-        // owner's, has nothing left to mark.
         if let Some(notification) = notification {
             match web
                 .account
