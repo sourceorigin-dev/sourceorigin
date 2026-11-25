@@ -784,19 +784,14 @@ impl Client {
         Ok(tokens)
     }
 
-    /// Redeems a refresh token of the sign-in that `signed_in` describes: the claims
-    /// of the sign-in's ID token, or of a session's that passed this check before
-    /// with the sign-in's `nonce` kept, as the axum login routes keep them. For a
-    /// public client, the response carries a new refresh token and the old one must
-    /// not be used again; a confidential client's stays valid, and the response
-    /// carries none. A returned ID token is validated, then must carry over the
-    /// sign-in (OIDC Core §12.2): the same user, `auth_time` and `acr`, and no `nonce`
-    /// but the sign-in's.
+    /// Redeems a refresh token of the sign-in that `signed_in` describes: the claims of the
+    /// sign-in's ID token, or of a session's that passed this check before, with the sign-in's
+    /// `nonce` kept. A public client's response carries a new refresh token, and the old one must
+    /// not be used again; a confidential client's carries none. A returned ID token must carry
+    /// over the sign-in (OIDC Core §12.2): the same user, `auth_time` and `acr`.
     ///
     /// # Errors
-    /// See [`OAuthError`]; [`OAuthError::IdToken`] with
-    /// [`TokenError::SubjectMismatch`] or [`TokenError::AuthenticationChanged`] when
-    /// the new ID token breaks §12.2.
+    /// See [`OAuthError`]; [`OAuthError::IdToken`] when the new ID token breaks §12.2.
     ///
     /// ```no_run
     /// # async fn run(client: sourceorigin_auth::Client, stored: sourceorigin_auth::RefreshToken, signed_in: sourceorigin_auth::IdToken) -> Result<(), Box<dyn std::error::Error>> {

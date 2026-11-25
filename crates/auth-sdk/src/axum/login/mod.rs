@@ -178,28 +178,15 @@ pub(super) struct Login {
 }
 
 /// Server-side login for apps: the routes, and the layer the session extractors need.
-/// Sessions live in the browser, in a cookie sealed with the [`CookieKey`], so the app
-/// stores nothing.
+/// Sessions live in a cookie sealed with the [`CookieKey`], so the app stores nothing.
 ///
-/// - `GET /login?return_to=…` keeps a pending login in a cookie named for its
-///   `state`, sealed with the [`CookieKey`], and redirects to auth, pushing the
-///   request first when auth advertises it ([`Client::authorize`]). It answers 502 if
-///   the push fails. A browser keeps up to three logins at once, in slots chosen by
-///   their `state`; a login that lands in a taken slot replaces the one there.
-/// - `GET /callback` completes the login its `state` names and starts a session,
-///   revoking the refresh token of the session it replaces first. A step-up must
-///   sign in the same user as that session, or it fails and keeps the session.
-/// - `POST /logout` revokes the session's refresh token at auth, clears the cookie,
-///   and redirects to RP-initiated logout.
+/// - `GET /login?return_to=…` starts a login, pushing the request first when auth allows.
+/// - `GET /callback` completes it and starts a session.
+/// - `POST /logout` revokes the refresh token and redirects to RP-initiated logout.
 /// - `POST /backchannel-logout`, only with [`Self::on_backchannel_logout`].
 ///
-/// The routes always request `offline_access`: a session learns that auth ended it,
-/// at a logout, an app removal or an account suspension, when its next refresh is
-/// refused, within an access token's 5 minutes. A sign-in auth gives no refresh token
-/// lasts as long as its access token.
-///
-/// Mount the router at `/auth`, or tell [`Self::mounted_at`], and add
-/// [`Self::layer`] around every route that uses [`SignedIn`] or [`MaybeSignedIn`].
+/// Mount the router at `/auth`, or tell [`Self::mounted_at`], and add [`Self::layer`]
+/// around every route that uses [`SignedIn`] or [`MaybeSignedIn`].
 ///
 /// ```no_run
 /// # async fn run(issuer: sourceorigin_auth::Issuer) -> Result<(), Box<dyn std::error::Error>> {
@@ -310,24 +297,14 @@ impl LoginRoutes {
     }
 
     /// Receives auth's back-channel logouts (OIDC Back-Channel Logout 1.0) at
-    /// `POST <mount>/backchannel-logout`, for an app that must end sessions sooner
-    /// than their next refresh. Register `https://<app><mount>/backchannel-logout` as
-    /// the client's back-channel logout URI.
+    /// `POST <mount>/backchannel-logout`, for an app that must end sessions sooner than their
+    /// next refresh. Register `https://<app><mount>/backchannel-logout` as the client's
+    /// back-channel logout URI.
     ///
-    /// The route validates the logout token and hands it to `handler`. The SDK keeps
-    /// no sessions, so the handler records what the token names, its
-    /// [`scope`](LogoutToken::scope), where every replica sees it, and the app
-    /// refuses those sessions itself: by [`SignedIn::sid`] for an auth session, or for
-    /// a logout naming only the user, every session of [`SignedIn::subject`] whose
-    /// sign-in (`auth_time`) came before the token was issued. A record can go once
-    /// no session it names can still be live, a [session
-    /// lifetime](Self::session_lifetime) after the token.
-    ///
-    /// The handler must be idempotent and return only once its record is durable:
-    /// auth retries a delivery until it is answered 200, so a token can arrive twice,
-    /// and an error answers 500 for auth to retry. The route answers 200 once the
-    /// handler succeeds; 400 with `{"error":"invalid_request"}` for an invalid token
-    /// or a request over 64 KiB; and 503 when auth's keys cannot be fetched.
+    /// The route validates the logout token and hands it to `handler`, which durably records what
+    /// its [`scope`](LogoutToken::scope) names; the app then refuses those sessions itself, by
+    /// [`SignedIn::sid`] or [`SignedIn::subject`]. An error answers 500 and auth retries, so the
+    /// handler must be idempotent. An invalid token or a body over 64 KiB answers 400.
     ///
     /// ```no_run
     /// # fn run(auth: sourceorigin_auth::axum::LoginRoutes) {

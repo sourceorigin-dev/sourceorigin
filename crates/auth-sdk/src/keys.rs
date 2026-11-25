@@ -364,17 +364,13 @@ struct KeyCacheInner {
 /// A cache of an issuer's signing keys, usable with any JWKS URL. Cheap to clone;
 /// clones share keys.
 ///
-/// - An unknown `kid` triggers one refetch; it then fails with
-///   [`TokenError::UnknownKey`].
-/// - Keys are fetched at most once every 30 seconds, whatever the reason.
-/// - Keys stay fresh for the response's `max-age`, bounded to 30 seconds through 24
-///   hours, or one hour without one; `no-store` or `no-cache` keeps them 30 seconds.
-/// - Every fetch is `https`, follows no redirect, and gives up after 10 seconds,
-///   whatever the client builder says.
-/// - A failed fetch keeps the last good keys, which keep verifying until 15 minutes
-///   past their freshness, as auth bounds its own stale keys. Past that, verification
-///   fails with [`KeyError::Unavailable`], or the failed fetch's own error, until a
-///   fetch succeeds, so a resource server answers 503 and clients retry.
+/// - An unknown `kid` triggers one refetch, then fails with [`TokenError::UnknownKey`]; fetches
+///   are at least 30 seconds apart.
+/// - Keys stay fresh for the response's `max-age`, bounded to 30 seconds through 24 hours,
+///   or one hour without one.
+/// - Every fetch is `https`, follows no redirect and gives up after 10 seconds.
+/// - A failed fetch keeps the last good keys verifying until 15 minutes past their freshness;
+///   then verification fails with [`KeyError::Unavailable`] or the fetch's own error.
 ///
 /// ```no_run
 /// # async fn run(token: &str) -> Result<(), Box<dyn std::error::Error>> {
