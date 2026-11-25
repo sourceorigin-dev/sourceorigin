@@ -102,9 +102,11 @@ history exists this can't be fixed, so it is settled before then.
   principals come from. The issuer stays out of records, and travels with them
   because the policy does.
 - **A total encoding of the subject.** Other providers' subjects contain `|`,
-  `:` or `/`, which a principal name rejects. An encoding maps any subject to
-  a valid name, one to one, with a length cap. A UUID, which is what Origin
-  Auth issues, already fits, so the record format doesn't change for it.
+  `:` or `/`, which a principal name rejects. A subject made only of letters,
+  digits, `.` and `-` is used as it is. Any other byte, and `_` itself, is
+  written as `_` followed by two hex digits, and so is a leading `.`. The
+  result is at most 255 bytes. A UUID, which is what Origin Auth issues,
+  passes through unchanged, so the record format doesn't change for it.
 - **Workers.** A client that signs in as itself becomes `node:<id>`, where a
   person is `user:<id>`.
 - For solo local use, the ID is random, generated beside the node key. It is
@@ -500,7 +502,7 @@ any real repository. Tracked in origin#76, in Origin's v0.1.
 acceptance gets a time. This changes the record encoding, so it goes in before
 real history exists. Tracked in origin#77, in Origin's v0.1.
 
-**Proposed** shape, not answered yet:
+**Decided** shape:
 
 - **One type:** milliseconds since the Unix epoch, in UTC, as an unsigned
   64-bit integer. Seconds would tie the many revisions an agent writes within
@@ -535,7 +537,7 @@ into the wrong directory, ever serves one under the other's name, a fresh
 clone, the git mirror and piqueld's build all receive the wrong code. Every
 signature on it is valid, so nothing can notice.
 
-**Proposed** shape, not answered yet:
+**Decided** shape:
 
 - The first policy of a repository holds a random ID, in `policy.toml`. Its
   first acceptance is then unique, and that acceptance's ID is the
