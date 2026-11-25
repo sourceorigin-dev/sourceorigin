@@ -31,8 +31,8 @@ important first:
    picture, or your handle as its display name.
 
 Select **Not now** to hide a suggestion for your account in this browser, and
-the next one shows. The backup passkey and email address come back after 30 days, since
-they keep you able to get back in; the others stay hidden.
+the next one shows. The backup passkey and email address come back after 30
+days, since they keep you able to get back in; the others stay hidden.
 
 ## Find a setting
 

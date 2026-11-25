@@ -79,7 +79,7 @@ fn recommends_what_the_account_lacks_most_pressing_first() {
     };
     assert_eq!(
         recommended(&new),
-        ["passkey", "email", "link:github", "profile",],
+        ["passkey", "email", "link:github", "profile"],
         "a disabled provider is never offered"
     );
     let held = AccountOverview {
