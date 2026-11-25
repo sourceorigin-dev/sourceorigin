@@ -82,7 +82,7 @@ this list and say which entries applied:
 - the browser tests' accessibility pass, for a new page;
 - the documentation, in the same pull request: the user guide, the contributor
   guide, the screenshots and the skills in `docs/user/agents/skills`. Use the
-  `sourceorigin-docs` skill.
+  `docs` skill, with `docs/dev/documentation.md` as the documentation page.
 
 Every way in needs a way out and a way to see it, on the same surfaces: create
 needs delete, enable needs disable, grant needs revoke, and each state shows
@@ -99,7 +99,9 @@ with a documented reason next to its arm, as `PurgeUser`, `ApplyClient` and
 
 Generated files are committed; regenerate them with `just db prepare` (SQLx
 cache), `just sdk-vectors`, `just sdk-types` and `just docs reference` (the CLI
-and configuration references).
+and configuration references). Nobody edits a `snapshots/` file by hand: insta
+writes it, as `docs/dev/testing.md` shows. Nor does anyone edit an applied
+migration in `crates/database/migrations`: a new migration changes the schema.
 
 Read a dependency's real source, at the version `Cargo.lock` pins, in
 `~/.cargo/registry/src` (`node_modules` for TypeScript), rather than trusting
@@ -110,9 +112,10 @@ before breaking it.
 
 ## Conventions
 
-Follow `docs/dev/rust-conventions.md`, which applies the shared
-[engineering standard](https://gist.github.com/PiquelChips/04330e52c03efbe9ce4c889c88673a27)
-to SourceOrigin, and `docs/dev/testing.md` for which tests to write.
+The engineering standard is the `sourceorigin-standard` crate, whose README lists
+its rules: `just standard` checks them, and the `standard` skill says how to fix
+a violation or challenge a rule. Follow `docs/dev/rust-conventions.md` for what
+is particular to SourceOrigin, and `docs/dev/testing.md` for which tests to write.
 
 ## Validation
 
@@ -122,13 +125,16 @@ checks, unit tests, Rust docs and audits. Run it before handing work back, plus
 or the database, and the browser suite when it changes a page, a script or a
 sign-in flow. While iterating, run only what you changed, such as
 `just test -p auth-service`. If a step cannot run, report the exact command and
-why.
+why. Coverage is `just coverage` for Rust, or the `rust-coverage` artifact of
+the latest merge queue run, and `just web test` for the TypeScript SDK.
 
 ## Issues, commits & pull requests
 
-Issues live in GitHub Issues. Titles of issues and pull requests follow
-Conventional Commits and say what changes for whoever uses it; pull requests
-are squash-merged, so the title becomes the commit on `main`.
+Issues live in GitHub Issues, labelled with their kind, such as `bug` or
+`refactor`, and the other labels that fit (`gh label list`). Titles of issues
+and pull requests follow Conventional Commits and say what changes for whoever
+uses it; pull requests are squash-merged, so the title becomes the commit on
+`main`.
 
 Keep pull requests small and focused: one change each, which a reviewer can
 read in one sitting. Split refactors from behaviour changes, and stack
