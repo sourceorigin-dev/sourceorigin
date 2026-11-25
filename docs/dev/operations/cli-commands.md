@@ -37,6 +37,7 @@ Commands:
 - [`auth-service deliveries`](#auth-service-deliveries): Inspect, retry and cancel outbound deliveries.
 - [`auth-service announcement`](#auth-service-announcement): Draft, send and read announcements to accounts, such as a security incident or a change to the privacy policy.
 - [`auth-service alerts`](#auth-service-alerts): List the alerts that need an administrator's attention, and post updates on them.
+- [`auth-service analytics`](#auth-service-analytics): Read the analytics database, as the dashboard's reader, which may only read: what the Analytics page charts, a trace, or a query of your own. Needs `ANALYTICS_READER_URL` and `ANALYTICS_READER_PASSWORD`.
 - [`auth-service account`](#auth-service-account): Read or change one account's settings on its owner's behalf, or send it a message.
 
 ## `auth-service serve`
@@ -1292,6 +1293,72 @@ Options:
 
 - `--status <STATUS>`: Where its handling stands: investigating, fixing or monitoring. Required.
 - `--note <NOTE>`: What to add, such as who is on it, recorded as the update's reason: 1 to 500 characters. Required.
+- `--operator <NAME>`: Who runs the command, as its events record them, such as your handle. Defaults to `AUTH_OPERATOR`, then `$USER`; administrative commands need one.
+- `--json`: Print the result as JSON for scripts, and every message, prompt and failure as one JSON object per line on standard error, among the service's log lines: read only the lines that start with `{`. A result has the shape of the view the admin dashboard shows, where it has one.
+
+## `auth-service analytics`
+
+Read the analytics database, as the dashboard's reader, which may only read: what the Analytics page charts, a trace, or a query of your own. Needs `ANALYTICS_READER_URL` and `ANALYTICS_READER_PASSWORD`.
+
+```text
+auth-service analytics [OPTIONS] <COMMAND>
+```
+
+Options:
+
+- `--operator <NAME>`: Who runs the command, as its events record them, such as your handle. Defaults to `AUTH_OPERATOR`, then `$USER`; administrative commands need one.
+- `--json`: Print the result as JSON for scripts, and every message, prompt and failure as one JSON object per line on standard error, among the service's log lines: read only the lines that start with `{`. A result has the shape of the view the admin dashboard shows, where it has one.
+
+Commands:
+
+- [`auth-service analytics report`](#auth-service-analytics-report): Print what the dashboard's Analytics page charts: the last 24 hours' requests, slowest routes, page speed and browser errors, 30 days of sign-ins, how far sign-ins to apps get, passkeys, and storage.
+- [`auth-service analytics trace`](#auth-service-analytics-trace): Print one trace's spans, each under the span that started it, and its log lines.
+- [`auth-service analytics query`](#auth-service-analytics-query): Run a read-only SQL query on the analytics database and print its rows, such as `SELECT kind, count() FROM events GROUP BY kind`. ClickHouse refuses anything but reading, and stops a query past 5 seconds, 512 MiB or 10,000 rows. Leave out `FORMAT`: rows come back as JSON.
+
+## `auth-service analytics report`
+
+Print what the dashboard's Analytics page charts: the last 24 hours' requests, slowest routes, page speed and browser errors, 30 days of sign-ins, how far sign-ins to apps get, passkeys, and storage.
+
+```text
+auth-service analytics report [OPTIONS]
+```
+
+Options:
+
+- `--operator <NAME>`: Who runs the command, as its events record them, such as your handle. Defaults to `AUTH_OPERATOR`, then `$USER`; administrative commands need one.
+- `--json`: Print the result as JSON for scripts, and every message, prompt and failure as one JSON object per line on standard error, among the service's log lines: read only the lines that start with `{`. A result has the shape of the view the admin dashboard shows, where it has one.
+
+## `auth-service analytics trace`
+
+Print one trace's spans, each under the span that started it, and its log lines.
+
+```text
+auth-service analytics trace [OPTIONS] <ID>
+```
+
+Arguments:
+
+- `<ID>`: The trace ID: 32 hex digits, as error pages, the `X-Trace-Id` header and each event show it.
+
+Options:
+
+- `--operator <NAME>`: Who runs the command, as its events record them, such as your handle. Defaults to `AUTH_OPERATOR`, then `$USER`; administrative commands need one.
+- `--json`: Print the result as JSON for scripts, and every message, prompt and failure as one JSON object per line on standard error, among the service's log lines: read only the lines that start with `{`. A result has the shape of the view the admin dashboard shows, where it has one.
+
+## `auth-service analytics query`
+
+Run a read-only SQL query on the analytics database and print its rows, such as `SELECT kind, count() FROM events GROUP BY kind`. ClickHouse refuses anything but reading, and stops a query past 5 seconds, 512 MiB or 10,000 rows. Leave out `FORMAT`: rows come back as JSON.
+
+```text
+auth-service analytics query [OPTIONS] <SQL>
+```
+
+Arguments:
+
+- `<SQL>`: The query.
+
+Options:
+
 - `--operator <NAME>`: Who runs the command, as its events record them, such as your handle. Defaults to `AUTH_OPERATOR`, then `$USER`; administrative commands need one.
 - `--json`: Print the result as JSON for scripts, and every message, prompt and failure as one JSON object per line on standard error, among the service's log lines: read only the lines that start with `{`. A result has the shape of the view the admin dashboard shows, where it has one.
 

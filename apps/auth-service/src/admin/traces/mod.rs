@@ -3,7 +3,7 @@
 //! dashboard's reader. See `docs/dev/operations/analytics.md`.
 
 use super::{AdminError, AdminService, Operator};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sourceorigin_common::TraceId;
 use sourceorigin_telemetry::analytics::Store;
 use std::collections::BTreeMap;
@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 pub(crate) const SHOWN: usize = 1000;
 
 /// One span of a trace.
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 pub(crate) struct Span {
     /// When it started, in microseconds since the epoch.
     pub(crate) start_us: i64,
@@ -34,7 +34,7 @@ pub(crate) struct Span {
 }
 
 /// One log line of a trace.
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 pub(crate) struct LogLine {
     /// When it was logged, in microseconds since the epoch.
     pub(crate) at_us: i64,
@@ -49,7 +49,7 @@ pub(crate) struct LogLine {
 }
 
 /// What the trace page shows.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub(crate) struct Trace {
     /// Its spans, each after its parent and its earlier siblings, with how deep
     /// it is: a root span is 0.

@@ -255,7 +255,10 @@ is that every query is a fixed statement with its values bound, never the
 grant. Its trace page, `AdminService::trace`
 (`apps/auth-service/src/admin/traces`), reads one trace's spans and log lines
 through it, and `AdminApplication::charted` turns what either page reads into
-`Charted`: off, unavailable, or shown.
+`Charted`: off, unavailable, or shown. `auth-service analytics` runs the same reads
+at the terminal, `report` and `trace`, and `query`, an operator's own
+read-only SQL through `Store::rows`, which only the reader runs; agents use
+them through the `sourceorigin-analytics` skill.
 `Store::query` sends a fixed statement and its values as ClickHouse query
 parameters (`{name:Type}`), never as SQL text, and decodes each `JSONEachRow`
 line into a struct; an error names the query. The reader's settings keep

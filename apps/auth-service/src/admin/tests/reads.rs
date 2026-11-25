@@ -4,6 +4,7 @@ use super::{announcements::announcement, *};
 use crate::AuditKeys;
 use sourceorigin_common::protocol::claims::Acr;
 use sourceorigin_common::{AnnouncementId, alerts::AlertsShown};
+use sourceorigin_telemetry::analytics::Store;
 
 /// Production's committed audit keys.
 fn committed_keys() -> AuditKeys {
@@ -25,6 +26,12 @@ impl AdminOperation {
         operator: &Operator,
     ) -> Option<Vec<Result<(), AdminError>>> {
         let (user, client) = (UserId::new(), "notes");
+        let (reader, trace) = (
+            Store::test(),
+            "4bf92f3577b34da6a3ce929d0e0e4736"
+                .parse()
+                .expect("trace ID"),
+        );
         let (id, everyone) = (
             AnnouncementId::new(),
             announcement(AnnouncementRecipients::Everyone),
@@ -99,6 +106,14 @@ impl AdminOperation {
                     .map(drop),
                 service
                     .alerts(operator, AlertsShown::Previous)
+                    .await
+                    .map(drop),
+            ],
+            Self::ViewAnalytics => vec![service.analytics(operator, &reader).await.map(drop)],
+            Self::ViewTrace => vec![service.trace(operator, &reader, trace).await.map(drop)],
+            Self::QueryAnalytics => vec![
+                service
+                    .query_analytics(operator, &reader, "SELECT 1")
                     .await
                     .map(drop),
             ],
