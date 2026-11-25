@@ -453,7 +453,6 @@ pub struct ErrorResponse {
 
 /// The token endpoint's success response (RFC 6749 §5.1), omitting the tokens the
 /// grant did not issue.
-// It holds credentials, so it has no `Debug`.
 #[derive(Serialize, Deserialize)]
 #[cfg_attr(test, derive(ts_rs::TS), ts(optional_fields))]
 pub struct TokenResponse {

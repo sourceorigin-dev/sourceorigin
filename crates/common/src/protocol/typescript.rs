@@ -316,7 +316,6 @@ impl Declarations {
                 continue;
             }
             if line == " */" {
-                // An example that ended a doc leaves an empty line before its end.
                 if lines.last().is_some_and(|last| last == " *") {
                     lines.pop();
                 }
@@ -338,7 +337,6 @@ impl Declarations {
 /// Every type the TypeScript SDK reads, grouped as in `docs/dev/architecture/sdk.md`.
 fn generate() -> String {
     Declarations::new()
-        // claims
         .add::<AccessTokenClaims>()
         .add::<IdTokenClaims>()
         .add::<LogoutTokenClaims>()
@@ -352,12 +350,9 @@ fn generate() -> String {
         .closed::<Amr>()
         .closed::<Acr>()
         .constants(claims::typescript())
-        // metadata
         .add::<ServerMetadata>()
         .constants(metadata::typescript())
-        // step_up
         .add::<StepUpRequirement>()
-        // jwt
         .closed::<TokenType>()
         .closed::<Claim>()
         .closed::<Algorithm>()
@@ -366,7 +361,6 @@ fn generate() -> String {
         .closed::<KeyType>()
         .closed::<KeyUse>()
         .add::<KeyOperation>()
-        // oauth
         .closed::<GrantType>()
         .closed::<ResponseType>()
         .closed::<ResponseMode>()
@@ -379,14 +373,11 @@ fn generate() -> String {
         .add::<ErrorResponse>()
         .add::<TokenResponse>()
         .add::<PushedAuthorization>()
-        // challenge
         .add::<BearerChallenge>()
         .add::<BearerError>()
-        // sdk
         .add::<SdkError>()
         .closed::<ErrorCategory>()
         .closed::<ErrorReason>()
-        // constants
         .constants(constants::typescript())
         .finish()
 }

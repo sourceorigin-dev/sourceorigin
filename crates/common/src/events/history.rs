@@ -79,7 +79,6 @@ impl DomainEvent {
                     .and_then(|inline| inline.origin.value().cloned()),
             },
             Self::SessionRevoked { reason, .. } => match reason {
-                // Switching accounts signs this one out of the browser.
                 RevocationReason::Logout
                 | RevocationReason::AccountSwitched
                 | RevocationReason::RelyingPartyLogout { .. } => HistoryEntry::SignedOut,
@@ -137,14 +136,11 @@ impl DomainEvent {
             Self::ConsentRevoked { .. } => HistoryEntry::ConsentRevoked,
             Self::GrantRevoked { reason, .. } => match reason {
                 GrantRevocation::RefreshReplay => HistoryEntry::TokenReused,
-                // A replayed code shows once, as its `CodeReplayed`.
                 GrantRevocation::CodeReplay
                 | GrantRevocation::ClientRevoked
                 | GrantRevocation::PolicyRejected => return None,
             },
             Self::CodeReplayed { .. } => HistoryEntry::TokenReused,
-            // Its reason shows as every administrator change's does, from the
-            // event's context.
             Self::AccountDisabled { .. } => HistoryEntry::AccountDisabled,
             Self::AccountEnabled {} => HistoryEntry::AccountEnabled,
             Self::AdministratorGranted {} => HistoryEntry::AdministratorGranted,
@@ -179,15 +175,10 @@ impl DomainEvent {
             | Self::InvitationMailed { .. }
             | Self::InvitationRedeemed { .. }
             | Self::InvitationRevoked { .. }
-            // The app's own mistake, or a stolen code's failed use: either way, the
-            // account's owner has nothing to do about it.
             | Self::CodeRedemptionFailed { .. }
-            // The handle was the account's no more.
             | Self::HandleReleased { .. }
-            // Reservations concern names, not an account.
             | Self::HandleReserved { .. }
             | Self::HandleUnreserved { .. }
-            // Changes to an application concern no account.
             | Self::ClientRegistered { .. }
             | Self::ClientUpdated { .. }
             | Self::ClientEnabled { .. }
@@ -198,23 +189,17 @@ impl DomainEvent {
             | Self::ClientSecretRotated { .. }
             | Self::RelatedOriginApproved { .. }
             | Self::RelatedOriginRemoved { .. }
-            // The delivery queue is operations' business; the audit keeps it.
             | Self::DeliveryRetried { .. }
             | Self::DeliveryCancelled { .. }
             | Self::SigningKeyChanged { .. }
             | Self::AuditHistoryPruned { .. }
             | Self::AuditChainVerified(_)
-            // Alerts are the administrators', about the service.
             | Self::AlertRaised { .. }
             | Self::AlertUpdated { .. }
             | Self::AlertCleared { .. }
-            // A read may be a misclick or a confidential inquiry; the owner sees
-            // changes, each with its reason, not what an administrator looked at.
             | Self::AccountViewed {}
-            // Recipients read announcements and messages in their inbox.
             | Self::AnnouncementSent { .. }
             | Self::MessageSent {}
-            // Nobody can read the history of an account that no longer exists.
             | Self::AccountPurged {} => return None,
         })
     }

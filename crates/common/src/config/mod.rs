@@ -98,7 +98,6 @@ impl Variable {
         match self.raw().map(OsString::into_string) {
             None => Ok(None),
             Some(Ok(value)) => Ok(Some(value)),
-            // The error is the value itself, which must not enter diagnostics.
             Some(Err(_)) => Err(self.invalid("must contain UTF-8 text")),
         }
     }
@@ -305,7 +304,6 @@ impl SecretReference {
     )]
     pub fn resolve(&self) -> Result<SecretBytes, SecretError> {
         let bytes = match &self.0 {
-            // var_os keeps the value out of the error, unlike env::var.
             SecretLocation::Environment(name) => Variable::os(name)
                 .ok_or(SecretError::MissingVariable)?
                 .into_string()

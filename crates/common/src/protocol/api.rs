@@ -76,7 +76,6 @@ pub enum ErrorCode {
 /// An active passkey of an account, without its cryptographic contents.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Passkey {
-    // Fields stay in the settings API's original order, for byte-for-byte replies.
     /// The label its owner chose.
     pub friendly_name: String,
     /// Passkey ID, used to rename or remove it.

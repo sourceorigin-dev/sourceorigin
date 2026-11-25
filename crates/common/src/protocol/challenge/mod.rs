@@ -233,7 +233,6 @@ impl BearerChallenge {
                             .map_err(ChallengeError::InvalidErrorDescription)?,
                     );
                 }
-                // RFC 6750 §3: scope tokens separated by single spaces.
                 "scope" => {
                     challenge.scope = Some(
                         value
@@ -244,8 +243,6 @@ impl BearerChallenge {
                             .ok_or(ChallengeError::InvalidValue("scope"))?,
                     );
                 }
-                // Most preferred first: the target is the first value this version
-                // knows, as auth picks it (OIDC Core §3.1.2.1).
                 "acr_values" => challenge.step_up.acr = Acr::select(&value),
                 "max_age" => {
                     challenge.step_up.max_age =
@@ -361,7 +358,6 @@ impl<'a> Parser<'a> {
             let name = self.token()?;
             let spaced = self.skip_whitespace();
             if self.peek() == Some(b'=') {
-                // A parameter continuing the current challenge's list.
                 let value = self.value()?;
                 challenges
                     .last_mut()
@@ -370,11 +366,9 @@ impl<'a> Parser<'a> {
                     .parameters
                     .push((name, value));
             } else {
-                // A new challenge, whose credentials follow after a space.
                 let mut challenge = Challenge {
                     scheme: name,
                     parameters: Vec::new(),
-                    // RFC 9110 §11: credentials follow the scheme after a space.
                     accepts_parameters: spaced,
                 };
                 if spaced && self.peek().is_some_and(|byte| byte != b',') {
@@ -393,7 +387,6 @@ impl<'a> Parser<'a> {
                 }
                 challenges.push(challenge);
             }
-            // Every element ends at a comma or the end of the header.
             self.skip_whitespace();
             if self.peek().is_some_and(|byte| byte != b',') {
                 return Err(ChallengeError::Syntax(self.position));

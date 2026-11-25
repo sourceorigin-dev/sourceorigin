@@ -104,7 +104,6 @@ impl NormalizedEmail {
         if domain.is_empty() {
             return Err(InvalidEmail::EmptyDomain);
         }
-        // Normalization can lengthen both parts, so limits apply again to the result.
         let local = local.nfc().collect::<String>();
         let domain = domain.nfc().collect::<String>().to_lowercase();
         if local.len() > MAX_LOCAL_BYTES {
