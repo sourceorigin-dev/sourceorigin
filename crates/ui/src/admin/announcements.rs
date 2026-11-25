@@ -207,7 +207,6 @@ pub async fn announcement_page<'a>(
     let unmailed = announcement.recipients.saturating_sub(detail.mailed);
     let emails = detail.emails;
     let revision = announcement.revision.to_string();
-    // The announcement, as the passkey dialog names it.
     let named = format!("{} ({})", announcement.subject, announcement.id);
     Ok(view! {
         page_head(
@@ -336,8 +335,6 @@ pub async fn announcement_form<'a>(
     refusal: Option<&'a str>,
 ) -> Result<impl View> {
     let chosen = form.audience == AnnouncementAudience::Accounts;
-    // What its Send asks a passkey for: the announcement, by the subject it
-    // was shown with, if it has one yet.
     let subject = Some(form.subject.trim()).filter(|subject| !subject.is_empty());
     let sending = Change::SendAnnouncement.confirming(subject);
     Ok(view! {
@@ -414,8 +411,6 @@ async fn chosen_accounts<'a>(
                 </label>
                 <button class="secondary" name="intent" value="find" formnovalidate="" data-live-submit="">"Find"</button>
             </div>
-            // What the search script swaps in as the administrator types, finding
-            // as the Find button does.
             <div class="live-results" id="found-accounts">
                 if !find.is_empty() {
                     if found.is_empty() {

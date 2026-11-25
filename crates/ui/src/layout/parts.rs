@@ -150,12 +150,10 @@ pub(crate) async fn page_messages<'a>(
     messages: Messages<'a>,
 ) -> Result<impl View> {
     Ok(view! {
-        // A refused setting is said beside its input instead.
         if let Some(Alert::Page(alert)) = messages.alert {
             alert_notice(message: alert)
         }
         if let Some(notice) = messages.notice {
-            // A checkbox, visually hidden, dismisses it, so it needs no script.
             <p class="notice" role="status">
                 icon(kind: Icon::Check)
                 <span class="text">(notice.message())</span>

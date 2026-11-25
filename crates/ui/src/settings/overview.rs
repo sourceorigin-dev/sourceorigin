@@ -135,8 +135,6 @@ pub async fn account_overview<'a>(
                     activity_feed(rows: overview.activity, holds: &overview.holds)
                 }
             </section>
-            // A summary of the Devices tab, which search finds instead: its
-            // heading needs no ID.
             <section class="card" aria-label="Devices">
                 <header>
                     <h2>"Devices"</h2>

@@ -235,8 +235,6 @@ pub(crate) async fn search_box<'a>(
                 <div id=(RESULTS) role="listbox" aria-label="Results"></div>
                 <p class="results-empty" role="status" hidden="">"Nothing matches."</p>
             </div>
-            // Outside the document until the script lists them, so hidden results
-            // never stand beside the page's own text.
             <template class="search-source">
                 search_results(found: search.destinations)
                 if let Some(page) = page {

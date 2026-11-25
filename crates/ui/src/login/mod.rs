@@ -569,7 +569,6 @@ async fn sign_up_form<'a>(
         match invited {
             Invited::Open(Some(email)) => {
                 <p class="notice info">
-                    // One flex item, so the address flows with the sentence.
                     <span>"You’re invited. Your account starts with " <strong>(email)</strong> ", already confirmed."</span>
                 </p>
             },
@@ -656,7 +655,6 @@ async fn link_forms<'a>(
                 class: "full",
                 confirm: !account.confirmed,
             ),
-            // A passkey sign-in also confirms the new session.
             None => passkey_sign_in(
                 action: action,
                 page: page,
@@ -666,7 +664,6 @@ async fn link_forms<'a>(
                 handle_open: handle_open,
             ),
         }
-        // An explicit link belongs to this session: signing out would strand it.
         if signed_in.is_some() && kind == LinkKind::Email {
             switch_account(action: action, label: "Use a different account", class: "secondary")
         }

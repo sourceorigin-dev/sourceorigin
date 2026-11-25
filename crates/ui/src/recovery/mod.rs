@@ -311,7 +311,6 @@ pub async fn undo_recovery<'a>(
                 unavailable: NEEDS_SCRIPTS,
                 alert: alert,
                 alert_replaces_missing: true,
-                // A link that names a recovery wins over the account's own.
                 missing: view! {
                     match signed_in {
                         Some((recovery, handle)) => undoing(action: action, recovery: recovery, handle: Some(handle)),
@@ -398,7 +397,6 @@ async fn undoing<'a>(
             passkey_form(
                 action: action,
                 ceremony: Ceremony::Undo { recovery: recovery.id },
-                // Whatever the stage was, the page says only that it is undone.
                 change: UndoChange::Undone { signed_in: false },
                 label: label,
                 class: "full",

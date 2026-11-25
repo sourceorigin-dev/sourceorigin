@@ -206,7 +206,6 @@ impl Tab {
         let parts = Part::ALL
             .into_iter()
             .filter_map(|part| spot(part.tab(), format!("#{}", part.id()), part.spot()));
-        // A dialog whose query cannot be written is left out; none fails.
         let dialogs = ProfileDialog::ALL.into_iter().filter_map(|dialog| {
             let state = ProfileState {
                 open: Some(dialog),

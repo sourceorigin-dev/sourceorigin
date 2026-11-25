@@ -253,8 +253,6 @@ pub async fn shell<'a>(
     Ok(view! {
         <div class="shell">
             <a class="skip" href="#content">"Skip to content"</a>
-            // The drawer's state, ahead of the drawer so the keyboard goes on
-            // into it once opened; the top bar's button is its label.
             <input type="checkbox" id="menu" class="menu-state" aria-label="Menu">
             sidebar(frame: frame)
             <label class="scrim" for="menu" aria-hidden="true"></label>
@@ -285,8 +283,6 @@ async fn sidebar<'a>(
     Ok(view! {
         <aside class="sidebar">
             <div class="top">
-                // Named by what it shows, as voice control users read it; with
-                // the sidebar collapsed, which hides the words, by its title.
                 <a class="brand" href=(frame.home) title="Origin Auth">
                     <span class="mark" aria-hidden="true">"o"</span>
                     <span class="name">"Origin Auth"</span>
@@ -361,8 +357,6 @@ async fn topbar<'a>(
     frame: &'a Shell<'a>,
 ) -> Result<impl View> {
     Ok(view! {
-        // Boxed, so the page's type stops at the search: its results nest deeper
-        // than the compiler follows a page's type.
         let search = frame
             .search
             .map(|search| Child::new(view! { search_box(search: search) }));
@@ -383,7 +377,6 @@ async fn topbar<'a>(
                 if let Some(search) = search {
                     (search)
                 }
-                // One group, so phones keep the shortcuts and the avatar together.
                 <div class="links">
                     for shortcut in frame.shortcuts {
                         <a

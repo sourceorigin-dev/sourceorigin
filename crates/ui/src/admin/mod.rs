@@ -248,7 +248,6 @@ impl SearchAction {
             Self::ReserveHandle => {
                 Change::ReserveHandle.spot("block keep protect username trademark")
             }
-            // Registering confirms first, as every change of a client does.
             Self::RegisterClient => Spot::action(
                 "Register a client",
                 "new client create oidc oauth app application",
@@ -373,9 +372,6 @@ pub async fn dashboard_frame<'a>(
             count: None,
         })
         .collect();
-    // A page inside a tab, such as one account under Users, has the tab in its
-    // crumb, then the page it is under; the tab's own page, at its path, is
-    // named once.
     let path = dashboard.here.split('?').next().unwrap_or_default();
     let tab = dashboard
         .current
@@ -411,7 +407,6 @@ pub async fn dashboard_frame<'a>(
             area_home: dashboard.home,
             groups: &groups,
             who: dashboard.administrator,
-            // Only the account's own pages on auth tell the password manager.
             signal: None,
             me: dashboard.administrator.map(|_| dashboard.me),
             shortcuts: dashboard.shortcuts,
@@ -443,8 +438,6 @@ pub async fn dashboard_frame<'a>(
                 <span class="dialog-mark">icon(kind: Icon::Key)</span>
                 <h2 id="passkey-confirmation-title">"Confirm it's you"</h2>
                 <p class="help" id="passkey-confirmation-help">"This change needs your passkey. It confirms the dashboard only, for five minutes."</p>
-                // What the change is, and what it acts on, which the dashboard's
-                // script writes from the link or form that opened the dialog.
                 <p data-confirming="" data-default=(confirmation.target.map(Target::text)) hidden=""><strong></strong></p>
                 alert_notice(passkey: true)
                 <div class="row actions">
@@ -707,7 +700,6 @@ impl Change {
             Self::ReleaseHandle => "Release",
             Self::ReserveHandle => "Reserve",
             Self::RetryDelivery => "Retry",
-            // Not "Cancel", which closes its dialog.
             Self::CancelDelivery => "Cancel delivery",
             Self::RotateSigningKey => "Rotate",
             Self::RewrapSigningKeys => "Rewrap",
@@ -844,9 +836,6 @@ impl Change {
             | Self::RotateSigningKey
             | Self::RevokeSigningKey
             | Self::RewrapSigningKeys => Some(REASON),
-            // A draft's own changes record nothing, and an announcement's or a
-            // message's text says why it is sent; an alert update's note is its
-            // reason, which its own fields ask for.
             Self::Message
             | Self::DraftAnnouncement
             | Self::EditAnnouncement
@@ -1065,8 +1054,6 @@ pub(crate) async fn confirm<'a>(
     Ok(view! {
         if action.inline {
             <button type="button" class=(class) popovertarget=(dialog.as_str()) aria-label=(name.as_deref())>(change.label())</button>
-            // The title's ID is prefixed, so no subject can make it another
-            // dialog's ID: every dialog's starts with "dialog".
             <div class="dialog" id=(dialog.as_str()) popover="" role="dialog" aria-labelledby=(format!("title-{dialog}"))>
                 <h2 id=(format!("title-{dialog}"))>(change.title())</h2>
                 if let Some(subject) = subject {

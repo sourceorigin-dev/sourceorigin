@@ -132,8 +132,6 @@ pub async fn handle_list<'a>(
                             <div class="text">
                                 <strong>(handle.as_str())</strong>
                                 <small>
-                                    // A purge releases the account's handles; one an older
-                                    // release purged has no release time.
                                     match (&row.account, row.released.released_at) {
                                         (Some(account), Some(at)) => {
                                             "Held by " <a href=(account.as_str())>"an account"</a> " until " moment(at: at)
