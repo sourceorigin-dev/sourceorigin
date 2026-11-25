@@ -78,7 +78,8 @@ Every item carries one of these:
 | Deploys | piqueld builds from Origin, told by a webhook. Deploys are recorded as statements. Environments stay in piqueld | Decided | [origin](origin.md#deploys) |
 | Hidden paths | Only folders can be hidden, each with a nonce. Built once the mirror is no longer needed | Decided | [origin](origin.md#hidden-paths) |
 | Release channels | Nightly and stable map to targets for the CLI and the SDKs. The hosted service uses feature flags on one version | Deferred | [origin](origin.md#releases-and-channels) |
-| Frontend framework | SvelteKit, chosen by an experiment against React with TanStack Start. Topcoat goes. The product renders on a server | Decided | [frontend](frontend.md#the-experiment) |
+| Frontend framework | SvelteKit, chosen by an experiment against React with TanStack Start. The product renders on a server | Decided | [frontend](frontend.md#the-experiment) |
+| Topcoat | It goes entirely. The pages that stay in Rust move to maud, last. One stylesheet is the source of the look for both kinds of page, and a browser test compares them | Decided | [frontend](frontend.md#topcoat-goes) |
 | Origin Auth's pages | Sign-in, consent and recovery stay in Origin Auth. The settings, on a hostname of their own, the developer console and the admin dashboard move to the product's frontend, as one admin app for both services | Decided | [review](review.md#the-auth-port-and-the-admin-dashboard) |
 | Between services | Calls between the node and SourceOrigin's services use private listeners, linked through piqueld | Decided | [origin](origin.md#between-services) |
 | Private changes | A change can be made private by choice, for sensitive fixes | Decided | [origin](origin.md#private-changes) |

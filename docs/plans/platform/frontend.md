@@ -25,8 +25,8 @@ From piquel's [notes](notes.md) and the discussion:
 frontend, which is SvelteKit. Sign-in, consent and recovery stay in Origin
 Auth, rendered in Rust.
 
-**Proposed,** not answered yet: those pages and the emails move from Topcoat
-to maud, so the dependency goes away entirely.
+**Decided:** those pages and the emails move from Topcoat to maud, so the
+dependency goes away entirely. piquel approved maud as a new dependency.
 
 - What stays in Rust once the other pages have moved is about 2,000 lines of
   views (sign-in, recovery, consent and the emails), plus part of the layout
@@ -40,7 +40,7 @@ to maud, so the dependency goes away entirely.
 - It is done last, after the other pages have moved. Porting now would port
   10,000 lines that are about to be deleted.
 
-**Proposed** with it, for one consistent look across both kinds of page:
+**Decided** with it, for one consistent look across both kinds of page:
 
 - **One stylesheet is the source of the look.** The CSS in
   `crates/ui/assets/style` moves to a shared package that the SvelteKit apps
