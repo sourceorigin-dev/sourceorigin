@@ -108,7 +108,9 @@ async fn pushed_requests_are_read_before_other_parameters() {
 
 /// A client is challenged with Basic only when it sent an `Authorization`
 /// header; token responses aren't cached by HTTP/1.0 caches either; and a missing
-/// `code` or `refresh_token` is a malformed request, not an unusable grant.
+/// `code`, `refresh_token` or `device_code` is a malformed request, not an
+/// unusable grant. Client credentials need no parameter of their own, so that
+/// request is well formed, and refused because the client lacks the grant.
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn token_endpoint_errors_follow_rfc_6749() {
@@ -145,11 +147,13 @@ async fn token_endpoint_errors_follow_rfc_6749() {
                 flow.basic.as_deref(),
             )
             .await;
-        assert_eq!(
-            json(response).await["error"],
-            OAuthCode::InvalidRequest.as_str(),
-            "{grant}"
-        );
+        let expected = match grant {
+            GrantType::AuthorizationCode | GrantType::RefreshToken | GrantType::DeviceCode => {
+                OAuthCode::InvalidRequest
+            }
+            GrantType::ClientCredentials => OAuthCode::UnauthorizedClient,
+        };
+        assert_eq!(json(response).await["error"], expected.as_str(), "{grant}");
     }
 }
 

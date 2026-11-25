@@ -55,7 +55,8 @@ Then take what each handler needs:
   `insufficient_scope`.
 - `Authenticated` requires a valid token, and nothing more.
 - Each holds the validated `AccessToken`. Its `subject()` is the user it acts for,
-  `Subject::User`, or `Subject::Client` for an app acting for itself.
+  `Subject::User`, or `Subject::Client` for an
+  [app acting for itself](service-tokens.md).
 
 A request without a token passes through the layer, so public routes can share
 the router: only the extractors refuse it. Outside axum, `ResourceValidator`
@@ -84,7 +85,7 @@ Then authenticate each request:
 - `token.require(...scopes)` requires more scopes later, and `token.has(scope)`
   checks one without throwing. A scope you didn't declare doesn't compile.
 - `token.subject` is `{ kind: 'user', id }`, or `{ kind: 'client', id }` for an
-  app acting for itself.
+  [app acting for itself](service-tokens.md).
 - Every failure is an `AuthError`. `toResponse()` answers with its status and
   `WWW-Authenticate` challenge.
 

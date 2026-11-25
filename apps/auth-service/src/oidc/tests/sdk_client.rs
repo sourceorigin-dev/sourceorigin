@@ -2,15 +2,9 @@
 
 use super::*;
 
-/// The Rust SDK signs in, validates, refreshes, revokes and logs out against the real
-/// provider over HTTPS, and rejects a mixed-up callback before any code exchange.
-#[tokio::test]
-#[ignore = "requires TEST_DATABASE_URL"]
-async fn sdk_login_client_runs_against_the_provider() {
-    use sourceorigin_auth::{
-        AuthorizeRequest, CallbackParams, ClientConfig, Credentials, LoginError, OAuthError,
-        Resource, Scopes, Subject,
-    };
+/// A scenario with a confidential client, whose provider answers over HTTPS on a
+/// port of its own, and the SDK's issuer discovered from it.
+async fn discovered() -> (Flow, sourceorigin_auth::Issuer) {
     let tcp = tokio::net::TcpListener::bind("127.0.0.1:0")
         .await
         .expect("bind provider");
@@ -24,6 +18,19 @@ async fn sdk_login_client_runs_against_the_provider() {
         .discover(&origin)
         .await
         .expect("discover the provider");
+    (flow, issuer)
+}
+
+/// The Rust SDK signs in, validates, refreshes, revokes and logs out against the real
+/// provider over HTTPS, and rejects a mixed-up callback before any code exchange.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL"]
+async fn sdk_login_client_runs_against_the_provider() {
+    use sourceorigin_auth::{
+        AuthorizeRequest, CallbackParams, ClientConfig, Credentials, LoginError, OAuthError,
+        Resource, Scopes, Subject,
+    };
+    let (flow, issuer) = discovered().await;
     let client = issuer.client(ClientConfig {
         client_id: flow.client.id.clone(),
         credentials: Credentials::Secret(flow.secret.clone().expect("confidential").into()),
@@ -112,4 +119,32 @@ async fn sdk_login_client_runs_against_the_provider() {
     let fields: Vec<_> = logout.fields().collect();
     let confirmed = flow.log_out(&fields).await;
     assert_eq!(location(&confirmed), post_logout);
+}
+
+/// The Rust SDK reads a client's own token, from the client credentials grant,
+/// as the client's and not a user's, for the resource it was issued for.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL"]
+async fn sdk_reads_a_clients_own_token_as_the_clients() {
+    use sourceorigin_auth::{Resource, Scopes, Subject};
+    let (flow, issuer) = discovered().await;
+    let mut service = flow.client.clone();
+    service.grant_types =
+        sourceorigin_common::clients::GrantTypes::new(GrantType::ALL).expect("every grant");
+    crate::tests::replace(&flow.app.database, &service)
+        .await
+        .expect("client credentials grant");
+    let (_, api) = crate::tests::api(&flow.app.database, &flow.client.id, "notes:read").await;
+    let grant = [("grant_type", GrantType::ClientCredentials.as_str())];
+    let own = flow
+        .request(Method::POST, "/oauth/token", &grant, flow.basic.as_deref())
+        .await;
+    let own = json(own).await;
+    let own = issuer
+        .resource(Resource::new(api.as_str()).expect("resource"))
+        .validate::<Scopes>(own["access_token"].as_str().expect("access token"))
+        .await
+        .expect("valid client token");
+    assert_eq!(own.subject(), &Subject::Client(flow.client.id.clone()));
+    assert!(own.scopes().contains("notes:read"));
 }

@@ -605,12 +605,12 @@ export const KEY_USES: readonly KeyUse[] = ["sig"];
 
 export type KeyOperation = "sign" | "verify" | "encrypt" | "decrypt" | "wrapKey" | "unwrapKey" | "deriveKey" | "deriveBits" | (string & Record<never, never>);
 
-export type GrantType = "authorization_code" | "refresh_token" | "urn:ietf:params:oauth:grant-type:device_code";
+export type GrantType = "authorization_code" | "refresh_token" | "urn:ietf:params:oauth:grant-type:device_code" | "client_credentials";
 
 /**
  * Every `GrantType` this version knows.
  */
-export const GRANT_TYPES: readonly GrantType[] = ["authorization_code", "refresh_token", "urn:ietf:params:oauth:grant-type:device_code"];
+export const GRANT_TYPES: readonly GrantType[] = ["authorization_code", "refresh_token", "urn:ietf:params:oauth:grant-type:device_code", "client_credentials"];
 
 export type ResponseType = "code";
 

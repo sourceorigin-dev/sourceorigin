@@ -218,12 +218,7 @@ impl OidcApplication {
         let client = app
             .authenticate_client(&headers, form.client_id.as_deref())
             .await?;
-        if !client.grant_types.contains(&GrantType::DeviceCode) {
-            return Err(OAuthCode::UnauthorizedClient.reject(format!(
-                "this client is not registered for the {} grant",
-                GrantType::DeviceCode
-            )));
-        }
+        Self::registered_for(&client, GrantType::DeviceCode)?;
         let (audience, scopes) = Scopes::requested(&form.scope, form.resource.as_deref(), &client)?;
         let scopes = scopes.into_stored();
         let device_code = OpaqueToken::new(TokenPrefix::DeviceCode)?;

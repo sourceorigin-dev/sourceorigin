@@ -11,7 +11,7 @@ use sourceorigin_common::{
     admin::{ApprovedOrigin, Client, ClientDetail},
     clients::{
         AllowedScopes, BackchannelLogoutUri, ClientKind, ClientRegistration, ClientStatus,
-        DisplayName, GrantTypes, PostLogoutUris, RedirectUri, RedirectUris, RelatedOrigin,
+        DisplayName, PostLogoutUris, RedirectUri, RedirectUris, RelatedOrigin,
     },
     config::{Origin, SecretReference},
     protocol::oauth::{GrantType, Scope},
@@ -415,10 +415,12 @@ pub(super) struct CreateClient {
     confidential: bool,
     /// A grant the client may use at the token endpoint; repeat for several:
     /// `authorization_code`, `refresh_token`, which lets it receive refresh tokens
-    /// when it requests `offline_access`, and
+    /// when it requests `offline_access`,
     /// `urn:ietf:params:oauth:grant-type:device_code`, which signs devices
-    /// without a browser in. Defaults to `authorization_code`, and `refresh_token`
-    /// for a confidential client.
+    /// without a browser in, and `client_credentials`, which gives a confidential
+    /// client tokens for itself, with no user, for the resources it was granted.
+    /// Defaults to `authorization_code`, and `refresh_token` for a confidential
+    /// client.
     #[arg(long = "grant-type")]
     grant_types: Vec<GrantType>,
     /// The client skips the consent screen. Only for first-party clients.
@@ -506,12 +508,11 @@ impl CreateClient {
             post_logout_uris: PostLogoutUris::new(self.post_logout_uris)
                 .map_err(CliError::count("post-logout URIs"))?,
             allowed_scopes: AllowedScopes::new(scopes).map_err(CliError::count("scopes"))?,
-            grant_types: GrantTypes::new(if self.grant_types.is_empty() {
+            grant_types: kind.grant_types(if self.grant_types.is_empty() {
                 kind.default_grant_types().to_vec()
             } else {
                 self.grant_types
-            })
-            .map_err(CliError::count("grant types"))?,
+            })?,
             trusted: self.trusted,
             require_pushed_authorization_requests: self.require_par,
             backchannel_logout_uri: self.backchannel_logout_uri,
@@ -601,12 +602,11 @@ impl UpdateClient {
             )?)
             .map_err(CliError::count("post-logout URIs"))?,
             allowed_scopes: AllowedScopes::new(scopes).map_err(CliError::count("scopes"))?,
-            grant_types: GrantTypes::new(if self.grant_types.is_empty() {
+            grant_types: client.kind.grant_types(if self.grant_types.is_empty() {
                 client.grant_types.clone()
             } else {
                 self.grant_types
-            })
-            .map_err(CliError::count("grant types"))?,
+            })?,
             trusted: self.trusted || (client.trusted && !self.untrusted),
             require_pushed_authorization_requests: self.require_par
                 || (client.require_pushed_authorization_requests && !self.no_require_par),

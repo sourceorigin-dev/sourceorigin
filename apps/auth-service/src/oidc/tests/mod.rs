@@ -27,6 +27,7 @@ use url::Url;
 
 mod app_removal;
 mod authorization;
+mod client_credentials;
 mod device;
 mod errors;
 mod logout;

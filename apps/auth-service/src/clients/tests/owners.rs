@@ -2,6 +2,7 @@
 //! confirmation, valid settings, and never past an operator's suspension.
 use super::*;
 use crate::security::SessionError;
+use sourceorigin_common::protocol::oauth::GrantType;
 
 /// An account lists and finds only its own live clients: another account's, an
 /// operator's, an unknown ID and a malformed one are not found. Every operation
@@ -150,8 +151,9 @@ async fn confirmations_never_reach_owners_found_before_them() {
 
 /// An invalid setting names its field apart from what is wrong with it, so a
 /// form can show the message beside it: owners grant only the standard scopes,
-/// send browsers only to URIs auth accepts and name no client after a reserved
-/// brand. Settings are checked before
+/// send browsers only to URIs auth accepts, name no client after a reserved
+/// brand, and give an app without a backend, which has no credentials of its
+/// own, no client credentials grant. Settings are checked before
 /// anything else, so an unconfirmed owner's invalid registration is refused for
 /// its settings rather than for the confirmation.
 #[tokio::test]
@@ -202,6 +204,13 @@ async fn invalid_settings_name_their_field_first() {
         (
             ClientPatch {
                 grant_types: Some(Vec::new()),
+                ..ClientPatch::default()
+            },
+            ClientField::GrantTypes,
+        ),
+        (
+            ClientPatch {
+                grant_types: Some(vec![GrantType::ClientCredentials]),
                 ..ClientPatch::default()
             },
             ClientField::GrantTypes,

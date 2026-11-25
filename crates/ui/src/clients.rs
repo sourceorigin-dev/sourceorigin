@@ -247,6 +247,8 @@ switches! {
         /// The device grant, under its URN.
         #[serde(rename = "urn:ietf:params:oauth:grant-type:device_code")]
         device_code => DeviceCode,
+        /// `client_credentials`.
+        client_credentials => ClientCredentials,
     }
 }
 
@@ -430,6 +432,10 @@ const fn grant_description(grant: GrantType) -> (&'static str, &'static str) {
         GrantType::DeviceCode => (
             "Device code",
             "Your app shows a code on a device without a browser, such as a command-line tool or a TV, and users approve it on Origin Auth from another device.",
+        ),
+        GrantType::ClientCredentials => (
+            "Client credentials",
+            "Your backend gets tokens for itself, with its secret and no user, for the APIs that gave it access. Only for an app with a backend.",
         ),
     }
 }

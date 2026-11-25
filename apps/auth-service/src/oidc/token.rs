@@ -17,6 +17,7 @@ use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, de::DeserializeOwned};
 use sourceorigin_common::{
     ClientId, SessionId, TokenId, UserId,
+    admin::ClientResource,
     events::{CodeRedemptionFailure, DomainEvent, EventContext, GrantRevocation},
     protocol::{
         challenge::{BearerChallenge, BearerError},
@@ -70,6 +71,52 @@ struct Refresh {
     scope: Option<String>,
     /// The resource the grant was issued for, if the client repeats it.
     resource: Option<String>,
+}
+
+/// The parameters of a `client_credentials` grant (RFC 6749 §4.4.2).
+#[derive(Deserialize)]
+struct ClientCredentials {
+    /// Space-separated scopes of the resource to ask for; every one the client
+    /// was granted when absent.
+    scope: Option<String>,
+    /// The resource the token is for; the client's only one when absent.
+    resource: Option<String>,
+}
+
+impl ClientCredentials {
+    /// The resource the token is for, with the scopes of it `client` may
+    /// request: the one `resource` names, or the only one `client` has access to.
+    /// A token for the client itself would let it call nothing, so there is no
+    /// other target.
+    fn target<'a>(&self, client: &'a StoredOidcClient) -> Result<&'a ClientResource, OAuthError> {
+        let (found, refusal) = match (self.resource.as_deref(), client.resources.as_slice()) {
+            (Some(resource), granted) => (
+                granted.iter().find(|access| access.resource == resource),
+                "this client has no access to the resource",
+            ),
+            (None, [only]) => (Some(only), ""),
+            (None, _) => (
+                None,
+                "resource is required unless this client has access to exactly one",
+            ),
+        };
+        found.ok_or_else(|| OAuthCode::InvalidTarget.reject(refusal))
+    }
+
+    /// The scopes the token carries: those asked for, each of which `access`
+    /// must allow, or all it allows. Origin Auth's own scopes describe a user,
+    /// which this grant has none of, so no resource allows them.
+    fn scopes(&self, access: &ClientResource) -> Result<Scopes, OAuthError> {
+        let Some(requested) = self.scope.as_deref() else {
+            return Ok(Scopes::from_stored(&access.scopes)?);
+        };
+        let scopes = Scopes::parse(requested)?;
+        if !scopes.allowed_by(&access.scopes) {
+            return Err(OAuthCode::InvalidScope
+                .reject("scope includes values this client was not granted for this resource"));
+        }
+        Ok(scopes)
+    }
 }
 
 impl CodeExchange {
@@ -156,6 +203,61 @@ static TOKENS_ISSUED: Counter<[Label; 2]> = Counter::new(
     "Tokens issued by the token endpoint, by grant type and token type.",
 );
 
+/// What an access token says whoever it is for: its client, its audience, its
+/// scopes and when it was issued. A user's grant adds who the user is
+/// ([`TokenGrant::issue`]). A client's own token adds nothing, so it can never
+/// carry a user's claims.
+struct AccessGrant<'a> {
+    /// The client the token is issued to.
+    client: &'a ClientId,
+    /// The client itself, or the resource, the token is for.
+    audience: &'a str,
+    /// The scopes granted.
+    scopes: &'a Scopes,
+    /// When the token is issued.
+    issued_at: DateTime<Utc>,
+}
+
+impl AccessGrant<'_> {
+    /// When the token expires.
+    fn expires_at(&self) -> DateTime<Utc> {
+        self.issued_at + Duration::seconds(ACCESS_TOKEN_SECONDS.into())
+    }
+
+    /// The claims of a token for `subject` that say nothing of a user: no
+    /// session, no authentication and no profile.
+    fn claims(&self, app: &OidcApplication, subject: String) -> AccessTokenClaims {
+        AccessTokenClaims {
+            iss: app.issuer.clone(),
+            sub: subject,
+            aud: Audience::One(self.audience.to_owned()),
+            client_id: self.client.clone(),
+            jti: TokenId::new(),
+            scope: self.scopes.wire().clone(),
+            iat: self.issued_at,
+            exp: self.expires_at(),
+            nbf: None,
+            authentication: AuthenticationClaims::default(),
+            act: None,
+            cnf: None,
+            profile: ProfileClaims::default(),
+            extra: (),
+        }
+    }
+
+    /// The token response carrying `access_token` alone.
+    fn response(&self, access_token: String) -> TokenResponse {
+        TokenResponse {
+            access_token,
+            token_type: AuthScheme::Bearer.as_str().to_owned(),
+            expires_in: ACCESS_TOKEN_SECONDS,
+            scope: self.scopes.wire().clone(),
+            id_token: None,
+            refresh_token: None,
+        }
+    }
+}
+
 /// Client-bound claim policy shared by every grant a user approved: code
 /// exchanges, refreshes and device authorizations.
 pub(super) struct TokenGrant<'a> {
@@ -189,8 +291,12 @@ impl TokenGrant<'_> {
             session,
             authentication,
         } = self;
-        let issued_at = Utc::now();
-        let expires_at = issued_at + Duration::seconds(ACCESS_TOKEN_SECONDS.into());
+        let grant = AccessGrant {
+            client,
+            audience,
+            scopes,
+            issued_at: Utc::now(),
+        };
         let authentication = AuthenticationClaims {
             sid: Some(*session),
             auth_time: Some(authentication.auth_time),
@@ -211,20 +317,9 @@ impl TokenGrant<'_> {
         let access_token = keys.sign(
             TokenType::Access,
             &AccessTokenClaims {
-                iss: app.issuer.clone(),
-                sub: user.id.to_string(),
-                aud: Audience::One((*audience).to_owned()),
-                client_id: (*client).clone(),
-                jti: TokenId::new(),
-                scope: scopes.wire().clone(),
-                iat: issued_at,
-                exp: expires_at,
-                nbf: None,
                 authentication: authentication.clone(),
-                act: None,
-                cnf: None,
                 profile: profile.clone(),
-                extra: (),
+                ..grant.claims(app, user.id.to_string())
             },
         )?;
         let id_token = if scopes.contains(Scope::OpenId) {
@@ -235,8 +330,8 @@ impl TokenGrant<'_> {
                     sub: user.id.to_string(),
                     aud: Audience::One(client.to_string()),
                     azp: None,
-                    iat: issued_at,
-                    exp: expires_at,
+                    iat: grant.issued_at,
+                    exp: grant.expires_at(),
                     nbf: None,
                     nonce: nonce.map(str::to_owned),
                     authentication,
@@ -247,12 +342,8 @@ impl TokenGrant<'_> {
             None
         };
         Ok(TokenResponse {
-            access_token,
-            token_type: AuthScheme::Bearer.as_str().to_owned(),
-            expires_in: ACCESS_TOKEN_SECONDS,
-            scope: scopes.wire().clone(),
             id_token,
-            refresh_token: None,
+            ..grant.response(access_token)
         })
     }
 }
@@ -302,12 +393,40 @@ impl OidcApplication {
                 app.redeem_device(Self::parameters(&body)?, &client.id, request)
                     .await
             }
+            GrantType::ClientCredentials => {
+                app.client_credentials(&Self::parameters(&body)?, &client)
+            }
         }?;
         Self::count_issued(grant, &tokens);
         if let Err(error) = app.database.oidc().touch_client(&client.id).await {
             ApiError::log_error(&error);
         }
         Ok(([(header::PRAGMA, "no-cache")], Json(tokens)))
+    }
+
+    /// Issues the authenticated `client` an access token for itself (RFC 6749
+    /// §4.4), for a resource it has access to: its subject is the client's ID
+    /// (RFC 9068 §2.2), and it carries no session, authentication or profile. It
+    /// comes with no refresh token, since the client's credentials get another,
+    /// and no ID token, since nobody signed in. Nothing is stored or recorded:
+    /// the grant is the client's access, which granting it recorded.
+    fn client_credentials(
+        &self,
+        request: &ClientCredentials,
+        client: &StoredOidcClient,
+    ) -> Result<TokenResponse, OAuthError> {
+        Self::registered_for(client, GrantType::ClientCredentials)?;
+        let access = request.target(client)?;
+        let scopes = request.scopes(access)?;
+        let grant = AccessGrant {
+            client: &client.id,
+            audience: &access.resource,
+            scopes: &scopes,
+            issued_at: Utc::now(),
+        };
+        let claims = grant.claims(self, client.id.to_string());
+        let access_token = self.keys.current()?.sign(TokenType::Access, &claims)?;
+        Ok(grant.response(access_token))
     }
 
     /// Reads the parameters `T` names from a token request's form `body`. One

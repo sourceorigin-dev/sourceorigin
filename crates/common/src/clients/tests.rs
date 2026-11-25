@@ -226,3 +226,24 @@ fn client_status_takes_the_first_that_applies() {
     assert_eq!(ClientStatus::of(true, None, None), ClientStatus::Enabled);
     assert_eq!(ClientStatus::Deleted { at: deleted }.to_string(), "deleted");
 }
+
+/// Only a confidential client is registered with the client credentials grant,
+/// and a client of either kind needs at least one grant.
+#[test]
+fn only_confidential_clients_take_the_client_credentials_grant() {
+    let own = [GrantType::AuthorizationCode, GrantType::ClientCredentials];
+    assert_eq!(
+        ClientKind::Public.grant_types(own),
+        Err(InvalidGrantTypes::Confidential)
+    );
+    let granted = ClientKind::Confidential.grant_types(own).expect("grants");
+    assert!(granted.contains(&GrantType::ClientCredentials));
+    for kind in ClientKind::ALL {
+        assert!(matches!(
+            kind.grant_types([]),
+            Err(InvalidGrantTypes::Count(_))
+        ));
+        let defaults = kind.default_grant_types().iter().copied();
+        kind.grant_types(defaults).expect("its defaults");
+    }
+}

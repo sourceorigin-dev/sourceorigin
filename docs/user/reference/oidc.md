@@ -116,7 +116,8 @@ an account without a confirmed primary address has no `email` claim. Browser
 clients should keep tokens in memory and use SSO again after reload.
 
 Each app is registered with the grant types it may use: `authorization_code`,
-`refresh_token` and `urn:ietf:params:oauth:grant-type:device_code`. An app without `authorization_code` is refused with
+`refresh_token`, `urn:ietf:params:oauth:grant-type:device_code` and
+`client_credentials`. An app without `authorization_code` is refused with
 `unauthorized_client` when it starts a sign-in. A token request names its grant
 in `grant_type` and sends that grant's parameters: one that is missing is
 refused with `invalid_request`, and a `grant_type` Origin Auth doesn't know
@@ -174,6 +175,31 @@ narrow `scope`, and keeps its audience.
 When a client loses its access to an API, or the API is deleted, the refresh
 tokens issued for it stop working. One that holds a scope the client may no
 longer request is refused at its next use.
+
+## Client credentials
+
+A confidential client registered for `client_credentials` gets an access token
+for itself (RFC 6749 §4.4): see
+[calling an API as your app](../apps/service-tokens.md). It posts
+`grant_type=client_credentials` to the token endpoint with its HTTP Basic
+credentials, and may send `resource` and `scope`.
+
+The token is for an [API](#apis-and-the-resource-parameter) the client has
+access to: the one `resource` names, or its only one when `resource` is left
+out. `scope` lists scopes of that API the client was granted, and every one of
+them when it is left out. Origin Auth's own scopes are refused, since they
+describe a user.
+
+The access token follows RFC 9068 §2.2: `sub` and `client_id` are both the
+client's ID, `aud` is the API's identifier, and it carries no `sid`,
+`auth_time`, `acr`, `amr` or profile claim. It lasts five minutes. The response
+has no refresh token and no ID token. `UserInfo` refuses the token.
+
+| Error | When |
+| --- | --- |
+| `unauthorized_client` | The client isn't registered for the grant. A public client never is. |
+| `invalid_target` | The client has no access to the `resource`, or none was sent and the client has access to no API, or to several. |
+| `invalid_scope` | A scope isn't one the client was granted for that API. |
 
 ## Authentication claims
 
