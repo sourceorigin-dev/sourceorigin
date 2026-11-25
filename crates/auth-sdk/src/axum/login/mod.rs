@@ -430,8 +430,6 @@ impl Login {
             "{name}={value}; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age={}",
             max_age.num_seconds().max(0)
         );
-        // Names are made of client ID and base64url characters, and values are
-        // base64url, so the header is always valid.
         HeaderValue::try_from(cookie).unwrap_or(HeaderValue::from_static(""))
     }
 

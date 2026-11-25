@@ -519,7 +519,6 @@ impl KeyCache {
             Some(_) => Some(self.0.fetching.lock().await),
             None => None,
         };
-        // Another request may have fetched the key while this one waited.
         if let Some(key) = self.fresh(kid) {
             return Ok(key);
         }
@@ -531,8 +530,6 @@ impl KeyCache {
                     .fetched_at
                     .is_none_or(|at| now.signed_duration_since(at) >= MIN_KEY_FETCH_INTERVAL);
             if due {
-                // Counted as failed until it succeeds, so a fetch whose caller is
-                // cancelled mid-request still reports keys as unavailable.
                 cached.fetched_at = Some(now);
                 cached.failed = true;
             }
@@ -547,8 +544,6 @@ impl KeyCache {
                     cached.fresh_until = Some(now + lifetime);
                     cached.failed = false;
                 }
-                // Stale keys that hold `kid` are better than failing every request
-                // while the key endpoint is down, until their deadline.
                 Err(error) => {
                     if cached.usable(kid, now).is_none() {
                         return Err(TokenError::Keys(error));
@@ -571,7 +566,6 @@ impl KeyCache {
             .get(&source.url, Authorization::None)
             .await?
             .ok(&source.url)?;
-        // A `max-age` too large to represent is longer than the cap anyway.
         let lifetime = reply
             .max_age
             .map_or(DEFAULT_KEYS_LIFETIME, |seconds| {

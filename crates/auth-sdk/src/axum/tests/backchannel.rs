@@ -87,7 +87,6 @@ async fn backchannel_logout_hands_tokens_to_the_handler() {
     });
     let sid = SessionId::new();
     let by_session = logout(Some(USER), Some(sid));
-    // Auth delivers again when it lost the answer: the handler sees it twice.
     for body in [&by_session, &by_session, &logout(Some(USER), None)] {
         let response = post_logout(&app, format!("logout_token={body}")).await;
         assert_eq!(status(&response), (StatusCode::OK, Some("no-store")));

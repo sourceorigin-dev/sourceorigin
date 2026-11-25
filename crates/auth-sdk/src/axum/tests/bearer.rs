@@ -90,12 +90,10 @@ async fn bearer_rejections_match_the_challenge_vectors() {
     assert_eq!(challenge(&response), expected("invalid-request"));
     let response = get_with(&plain, "/me", &[(header::AUTHORIZATION, "Bearer")]).await;
     assert_eq!(challenge(&response), expected("invalid-request"));
-    // Only the extractors reject a malformed header: public routes still answer.
     for headers in [&twice[..], &[(header::AUTHORIZATION, "Bearer")]] {
         let response = get_with(&plain, "/public", headers).await;
         assert_eq!(response.status(), StatusCode::OK);
     }
-    // Other schemes are not bearer tokens: the request has none.
     let response = get_with(&plain, "/me", &[(header::AUTHORIZATION, "Basic abc")]).await;
     assert_eq!(challenge(&response), expected("missing-token"));
 

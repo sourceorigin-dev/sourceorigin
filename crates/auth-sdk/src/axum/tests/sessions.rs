@@ -60,7 +60,6 @@ fn cookie_key_vectors() {
             .step_by(2)
             .map(|at| u8::from_str_radix(&hex[at..at + 2], 16).expect("hex"))
             .collect();
-        // The same bytes derive the same keys: one opens what the other sealed.
         let sealed = parsed
             .expect(&case.name)
             .session
@@ -96,8 +95,6 @@ async fn home(app: &Router, session: &str) -> (StatusCode, String, Option<String
 /// session twice refreshes once.
 #[tokio::test]
 async fn concurrent_refreshes_all_succeed() {
-    // Auth answers a refresh only once two are in flight, so the first two overlap:
-    // a lease between them would leave the first unanswered.
     let arrived = tokio::sync::watch::Sender::new(0_usize);
     let endpoint = TokenEndpoint::refreshing(move |call| {
         let arrived = arrived.clone();
@@ -293,7 +290,6 @@ async fn sessions_end_on_time_even_mid_refresh() {
     let clock = clock();
     let during = clock.clone();
     let endpoint = TokenEndpoint::refreshing(move |call| {
-        // The refresh takes ten seconds.
         during.advance(10);
         async move { ::axum::Json(TokenEndpoint::tokens(&format!("access-{call}"))).into_response() }
     })
@@ -383,13 +379,10 @@ fn sessions_without_a_refresh_token_end_with_their_access_token() {
 #[tokio::test]
 async fn revocations_give_up_after_their_deadline() {
     let endpoint = TokenEndpoint::start().await;
-    // An injected client without a timeout of its own.
     let http = Http::plain(reqwest::Client::builder());
     let app = login_app(&endpoint.issuer_with(&clock(), http));
     let session = sign_in(&app, USER).await;
     endpoint.revocations_hang.store(true, Ordering::SeqCst);
-    // The revocation never answers: the SDK's deadline ends it, which paused
-    // time reaches at once.
     tokio::time::pause();
     let logout = Request::post("/auth/logout")
         .header(header::COOKIE, &session)
@@ -406,8 +399,6 @@ async fn revocations_give_up_after_their_deadline() {
     assert_eq!(response.status(), StatusCode::BAD_GATEWAY);
     assert_eq!(set_cookie(&response, SESSION_COOKIE), None);
     assert!(endpoint.revoked.lock().expect("revocations").is_empty());
-    // The logout's, the replaced session's and then the refused new grant's revocations
-    // all reached the hanging endpoint, so the deadline, not an early error, ended them.
     assert_eq!(endpoint.revocations_received.load(Ordering::SeqCst), 3);
 }
 

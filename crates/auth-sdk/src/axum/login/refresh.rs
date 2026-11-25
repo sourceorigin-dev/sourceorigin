@@ -74,8 +74,6 @@ impl Login {
             match self.refresh(&login).await {
                 Refresh::Refreshed(refreshed) => {
                     let refreshed = *refreshed;
-                    // On failure, as when new profile claims outgrow the cookie, this
-                    // request still uses the new tokens, and the next refreshes again.
                     match self.session_cookie(&refreshed) {
                         Ok(cookie) => request.set_cookie(cookie),
                         Err(error) => tracing::warn!(
@@ -93,7 +91,6 @@ impl Login {
                 }
             }
         }
-        // The session may have reached its end while the refresh ran.
         let now = self.now();
         if login.ends_at() <= now {
             request.set_cookie(Self::clear_cookie(&self.cookies.session));
@@ -118,15 +115,12 @@ impl Login {
         };
         match refreshed {
             Ok(tokens) => Refresh::Refreshed(Box::new(login.refreshed(tokens))),
-            // The new ID token names another user or another sign-in (OIDC Core
-            // §12.2): the session cannot go on as either.
             Err(OAuthError::IdToken(
                 error @ (TokenError::SubjectMismatch { .. } | TokenError::AuthenticationChanged(_)),
             )) => {
                 tracing::warn!(error = %ErrorChain(&error), "a refresh changed the signed-in user or sign-in");
                 Refresh::Ended
             }
-            // Auth refused the refresh token: the grant is over.
             Err(
                 error @ OAuthError::Rejected {
                     response:

@@ -196,7 +196,6 @@ impl Http {
         let request = match authorization {
             Authorization::None => request,
             Authorization::Bearer(token) => request.bearer_auth(token),
-            // RFC 6749 §2.3.1 form-encodes the ID and secret before base64.
             Authorization::Basic(id, secret) => {
                 let encode = |value: &str| {
                     url::form_urlencoded::byte_serialize(value.as_bytes()).collect::<String>()
