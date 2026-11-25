@@ -43,7 +43,6 @@ impl RequestSession {
 
     /// Makes the response set `cookie`.
     pub(super) fn set_cookie(&self, cookie: HeaderValue) {
-        // Holding the lock cannot leave the value half-written, so poisoning is ignored.
         *self.cookie.lock().unwrap_or_else(PoisonError::into_inner) = Some(cookie);
     }
 
@@ -122,14 +121,11 @@ where
     }
 
     fn call(&mut self, mut request: Request) -> Self::Future {
-        // The clone that was polled ready handles this request.
         let ready = self.inner.clone();
         let mut inner = std::mem::replace(&mut self.inner, ready);
         let login = self.login.clone();
         let navigation = Login::navigation(request.method(), request.headers());
         let path = Login::requested(request.extensions(), request.uri());
-        // The `GET` a step-up login returns to is its retry, and uses up the marker.
-        // Another tab loading the same page within the minute would use it instead.
         let retry = request.method() == Method::GET
             && Login::cookie(request.headers(), &login.cookies.step_up)
                 .is_some_and(|marker| marker == Login::step_up_marker(&path));
@@ -145,8 +141,6 @@ where
             let headers = response.headers_mut();
             if let Some(cookie) = session.take_cookie() {
                 headers.append(header::SET_COOKIE, cookie);
-                // The response is this user's, and carries their session: no shared
-                // cache may keep it.
                 headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
             }
             if retry {

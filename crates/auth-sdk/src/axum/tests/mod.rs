@@ -233,7 +233,6 @@ impl TokenEndpoint {
         let mut metadata = metadata();
         metadata.token_endpoint = self.url.clone();
         metadata.revocation_endpoint = self.revocation.clone();
-        // Logins redirect at once, with the request in the URL.
         metadata.pushed_authorization_request_endpoint = None;
         let jwks = serde_json::to_vec(token_case("access-valid").input("jwks")).expect("JWKS");
         Issuer::with_keys(

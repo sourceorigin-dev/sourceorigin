@@ -167,8 +167,6 @@ impl LoginError {
         let reason = match self {
             Self::Denied { .. } => return SdkError::category(ErrorCategory::OAuth),
             Self::Push(error) | Self::Exchange(error) => return error.code(),
-            // No shared category names a local failure; like an HTTP client that
-            // cannot be built, it keeps the SDK from reaching auth.
             Self::Randomness(_) => return SdkError::category(ErrorCategory::Network),
             Self::StateMismatch | Self::ForeignLogin => ErrorReason::StateMismatch,
             Self::IssuerMismatch { .. } => ErrorReason::IssuerMismatch,
@@ -653,8 +651,6 @@ impl Client {
         &self,
         request: &AuthorizeRequest,
     ) -> Result<(Url, PendingLogin), LoginError> {
-        // `state`, `nonce` and the PKCE verifier are each a secret of 256 random
-        // bits, which encode to a 43-character verifier, the shortest RFC 7636 allows.
         let random = || -> Result<String, LoginError> {
             Ok(Secret::generate()
                 .map_err(LoginError::Randomness)?
@@ -676,8 +672,6 @@ impl Client {
         let mut scopes = request.scopes.clone();
         scopes.insert(Scope::OpenId);
         let challenge = Digest::sha256(pending.verifier.as_bytes()).encoded();
-        // `audience` is never sent: auth then picks the client's default resource.
-        // `client_id` is added where the request goes, as `post` adds it.
         let mut parameters = vec![
             ("response_type", ResponseType::Code.as_str().to_owned()),
             ("redirect_uri", pending.redirect_uri.to_string()),
@@ -715,7 +709,6 @@ impl Client {
                     let reply = self.post(endpoint, &parameters).await?;
                     let pushed: PushedAuthorization =
                         Self::read("pushed authorization", &reply, StatusCode::CREATED)?;
-                    // A request URI is one token (RFC 9126 §2.2): an empty one names nothing.
                     if pushed.request_uri.is_empty()
                         || pushed.request_uri.contains(char::is_whitespace)
                     {
@@ -749,7 +742,6 @@ impl Client {
         pending: PendingLogin,
         callback: &CallbackParams,
     ) -> Result<Tokens, LoginError> {
-        // The code and verifier go only to the client and issuer that started the login.
         if pending.issuer != self.issuer().issuer() || pending.client_id != self.config().client_id
         {
             return Err(LoginError::ForeignLogin);
@@ -770,7 +762,6 @@ impl Client {
         let tokens = self
             .tokens(response, Some(&pending.nonce), pending.step_up.max_age)
             .await?;
-        // `openid` was requested, so a response without an ID token names no user.
         let Some(id_token) = &tokens.id_token else {
             return Err(OAuthError::UnexpectedResponse {
                 endpoint: "token",
@@ -779,17 +770,12 @@ impl Client {
             }
             .into());
         };
-        // A step-up login that fell short would only be asked for again, and one that
-        // signed in another account must not replace the hinted one.
         id_token
             .require_authentication(pending.step_up, self.issuer().now())
             .map_err(OAuthError::IdToken)?;
         if let Some(subject) = &pending.subject
             && let Err(error) = id_token.require_subject(subject)
         {
-            // The code is spent: revoke its grant, which would otherwise live on at
-            // auth unused. The mismatch is the error either way, so a revocation
-            // that fails adds nothing to report.
             if let Some(refresh_token) = &tokens.refresh_token {
                 let _revoked = self.revoke(refresh_token).await;
             }
@@ -852,7 +838,6 @@ impl Client {
     pub async fn revoke(&self, refresh: &RefreshToken) -> Result<(), OAuthError> {
         let url = &self.issuer().metadata().revocation_endpoint;
         let reply = self.post(url, &[("token", refresh.expose())]).await?;
-        // A success's body carries nothing and is ignored (RFC 7009 §2.2).
         if reply.status == StatusCode::OK {
             return Ok(());
         }

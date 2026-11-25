@@ -58,7 +58,6 @@ impl Login {
             acr: query.acr_values.as_deref().and_then(Acr::select),
             max_age: query.max_age,
         };
-        // Without a refresh token, a session could not learn that auth ended it.
         let mut scopes = login.scopes.clone();
         scopes.insert(Scope::OfflineAccess);
         let request = AuthorizeRequest {
@@ -72,7 +71,6 @@ impl Login {
                 tracing::error!("operating system randomness is unavailable");
                 return StatusCode::INTERNAL_SERVER_ERROR.into_response();
             }
-            // Auth refused or could not take the pushed request.
             Err(error) => {
                 tracing::warn!(error = %ErrorChain(&error), "sign-in could not start");
                 return (
@@ -83,9 +81,6 @@ impl Login {
             }
         };
         let name = login.cookies.pending(pending.state());
-        // A step-up strengthens the session it starts from, so it is pinned to its
-        // user. The session holds no raw ID token to send as `id_token_hint`, so auth
-        // may let another account sign in; the callback refuses it.
         let subject = match login.open_session(&headers) {
             SessionCookie::Open(session) if query.step_up => Some(session.subject().to_owned()),
             _ => None,
@@ -97,8 +92,6 @@ impl Login {
             subject,
             expires_at: login.now() + PENDING_LOGIN_LIFETIME,
         };
-        // A `return_to` too long for the cookie returns home instead, or to the root
-        // if home is too long too.
         let mut fallbacks = [login.home.clone(), ReturnTo::root()].into_iter();
         let sealed = loop {
             let sealed = match login.seal_pending(&pending, &name) {
@@ -153,7 +146,6 @@ impl Login {
         let pending = Self::cookie(&headers, &name)
             .and_then(|sealed| login.open_pending(sealed, &name))
             .filter(|pending| pending.login.state() == state);
-        // A cookie that does not open, or holds another tab's login, is left alone.
         let Some(pending) = pending else {
             return (
                 StatusCode::BAD_REQUEST,
@@ -170,7 +162,6 @@ impl Login {
             )
                 .into_response()
         };
-        // Spent whatever the outcome: the code may have been redeemed.
         response
             .headers_mut()
             .append(header::SET_COOKIE, Self::clear_cookie(&name));
@@ -197,8 +188,6 @@ impl Login {
             Ok(tokens) => tokens,
             Err(error) => {
                 tracing::debug!(error = %ErrorChain(&error), "sign-in failed");
-                // The issuer's failures, unreachable or with unusable keys, are not the
-                // browser's: answer 502, as the bearer path answers 503.
                 let status = match error.code().code {
                     ErrorCategory::Network | ErrorCategory::Keys => StatusCode::BAD_GATEWAY,
                     _ => StatusCode::BAD_REQUEST,
@@ -254,8 +243,6 @@ impl Login {
         let mut response = Redirect::to(pending.return_to.as_str()).into_response();
         let cookies = response.headers_mut();
         cookies.append(header::SET_COOKIE, session);
-        // A step-up marks its return; any other sign-in drops an unused marker, which
-        // belonged to the session this one replaces.
         let marker = if pending.step_up {
             Self::set_cookie(
                 &self.cookies.step_up,
@@ -356,15 +343,12 @@ impl Login {
             let body = Json(serde_json::json!({ "error": "invalid_request" }));
             (StatusCode::BAD_REQUEST, body).into_response()
         };
-        // The route is mounted only with a handler.
         let Some(handler) = &self.on_logout else {
             return StatusCode::NOT_FOUND.into_response();
         };
         let form = match form {
             Ok(Form(form)) => form,
             Err(rejection) => {
-                // The rejection's text already ends with its cause, which is also its
-                // source, so a chain would repeat it.
                 tracing::warn!(error = %rejection, "back-channel logout form rejected");
                 return invalid();
             }

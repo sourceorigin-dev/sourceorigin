@@ -137,15 +137,11 @@ where
     }
 
     fn call(&mut self, mut request: Request) -> Self::Future {
-        // The clone that was polled ready handles this request.
         let ready = self.inner.clone();
         let mut inner = std::mem::replace(&mut self.inner, ready);
         let validator = self.validator.clone();
         Box::pin(async move {
             let mut values = request.headers().get_all(header::AUTHORIZATION).iter();
-            // Other schemes pass through as no token; a malformed Bearer header, or
-            // several headers, is a bad request to the extractors only, so public
-            // routes still answer.
             let outcome = match (values.next(), values.next()) {
                 (Some(value), None) => match value.to_str() {
                     Err(_) => Outcome::Malformed,

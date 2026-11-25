@@ -104,7 +104,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         credentials: Credentials::Secret(env::var("NOTES_CLIENT_SECRET")?.into()),
         redirect_uri: env::var("NOTES_REDIRECT_URI")?.parse()?,
     };
-    // Sessions live in the browser, sealed with this key: every replica uses the same.
     let key = CookieKey::parse(&env::var("NOTES_COOKIE_KEY")?)?;
     let auth = LoginRoutes::new(issuer.client(config), key)?.scopes("profile".parse()?);
     // ANCHOR_END: login
@@ -113,7 +112,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let ended = Ended::default();
     let recorded = ended.clone();
     let auth = auth.on_backchannel_logout(move |logout| {
-        // Auth's logout tokens always name the session that ended.
         if let LogoutScope::Session(sid) = logout.scope() {
             recorded
                 .lock()

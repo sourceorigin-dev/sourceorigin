@@ -103,8 +103,6 @@ async fn step_ups_in_nested_routers_keep_their_prefix() {
 async fn logins_in_several_tabs_complete() {
     let endpoint = TokenEndpoint::start().await;
     let app = login_app(&endpoint.issuer(&clock()));
-    // Start logins until every slot is used: random `state`s land in all three
-    // within 200 but for a chance of about 1 in 10^35.
     let (mut started, mut slots) = (Vec::new(), std::collections::BTreeSet::new());
     while slots.len() < 3 && started.len() < 200 {
         let login = Started::at(&app, "%2Fnotes", &[]).await;
@@ -156,7 +154,6 @@ async fn logins_in_several_tabs_complete() {
 async fn pending_cookies_fit_their_slots() {
     let endpoint = TokenEndpoint::start().await;
     let issuer = endpoint.issuer(&clock());
-    // Quotes double in JSON, so 2048 of them would seal to some 6 KB.
     let quotes = format!("%2F{}", "%22".repeat(2047));
     let home = format!("/{}", "\"".repeat(2047))
         .parse()
@@ -299,23 +296,18 @@ async fn step_ups_stay_on_the_signed_in_account() {
         );
     };
 
-    // Started from the session, then completed as another account.
     let login = Started::at(&app, step_up, std::slice::from_ref(&session)).await;
     let both = [login.cookie.clone(), session.clone()];
     refused(&login.complete(&app, OTHER, &both).await);
-    // Started from the session, which another tab then signed out of: the pin alone
-    // stops another account.
     let login = Started::at(&app, step_up, std::slice::from_ref(&session)).await;
     refused(
         &login
             .complete(&app, OTHER, std::slice::from_ref(&login.cookie))
             .await,
     );
-    // Started without a session, then completed beside another account's.
     let login = Started::at(&app, step_up, &[]).await;
     let both = [login.cookie.clone(), session.clone()];
     refused(&login.complete(&app, OTHER, &both).await);
-    // The session's grant is `refresh-0`; each refused sign-in's, revoked, the next.
     assert_eq!(
         *endpoint.revoked.lock().expect("revoked"),
         ["refresh-1", "refresh-2", "refresh-3"]

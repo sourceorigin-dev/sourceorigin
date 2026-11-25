@@ -112,9 +112,6 @@ impl SealingKey {
     /// `value` as JSON, sealed for `context`: base64url of the nonce, the ciphertext
     /// and the tag.
     pub(super) fn seal(&self, value: &impl Serialize, context: &str) -> Result<String, SealError> {
-        // The value holds the user's tokens, so it is serialized into a zeroizing
-        // buffer with room for any cookie, which never reallocates and leaves no
-        // partial copy behind.
         let mut plaintext = Zeroizing::new(Vec::with_capacity(MAX_COOKIE_BYTES));
         serde_json::to_writer(&mut *plaintext, value)?;
         let sealed = self.0.seal(&plaintext, context.as_bytes())?;
@@ -189,7 +186,6 @@ impl CookieKey {
     /// [`CookieKeyError::Unrecognized`] if it is in none of these encodings.
     pub fn parse(text: &str) -> Result<Self, CookieKeyError> {
         let text = text.trim_ascii();
-        // Each candidate holds the key, so each is zeroized when dropped.
         let decoded: Vec<Zeroizing<Vec<u8>>> = Encoding::ALL
             .iter()
             .filter_map(|encoding| encoding.decode(text).map(Zeroizing::new))

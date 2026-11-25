@@ -351,7 +351,6 @@ impl KeyServer {
             get(move || {
                 served.fetch_add(1, Ordering::SeqCst);
                 let document = documents.get(current.load(Ordering::SeqCst)).cloned();
-                // Empty without `max_age`, which leaves the default lifetime.
                 let cache_control = max_age.map(|seconds| format!("max-age={seconds}"));
                 async move {
                     document
@@ -440,7 +439,6 @@ async fn key_rotation_refetches_once_and_survives_outages() {
     let keys = server.keys(&clock);
     let old = vector_token("access-valid");
     let new = vector_token("access-new-key");
-    // The same token with a header naming a key no set has.
     let (_, rest) = old.split_once('.').expect("compact token");
     let header = URL_SAFE_NO_PAD.encode(r#"{"alg":"RS256","kid":"key-2027","typ":"at+jwt"}"#);
     let unknown = format!("{header}.{rest}");
@@ -486,7 +484,6 @@ async fn key_rotation_refetches_once_and_survives_outages() {
         Err(TokenError::Keys(KeyError::Network(_)))
     ));
     assert_eq!(server.requests(), 4);
-    // Until a fetch succeeds, a missing key is unavailable rather than unknown.
     assert!(matches!(
         verify(&keys, &unknown).await,
         Err(TokenError::Keys(KeyError::Unavailable))
@@ -575,7 +572,6 @@ fn cache_control_is_read_like_a_cache() {
 /// no timeout of its own.
 #[tokio::test(start_paused = true)]
 async fn hanging_servers_time_out() {
-    // Accepts connections but never answers.
     let silent = tokio::net::TcpListener::bind("127.0.0.1:0")
         .await
         .expect("bind");
@@ -703,7 +699,6 @@ async fn authorize_pushes_when_advertised() {
     let (url, pending) = client.authorize(&request).await.expect("authorize");
     assert_eq!(endpoint.field("client_id").as_deref(), Some("notes-web"));
     assert_eq!(endpoint.field("state").as_deref(), Some(pending.state()));
-    // The step-up requirement travels in the pushed request, not the URL.
     assert_eq!(endpoint.field("acr_values").as_deref(), Some("phr"));
     assert_eq!(endpoint.field("max_age").as_deref(), Some("300"));
     assert_eq!(url.path(), metadata().authorization_endpoint.path());
@@ -789,7 +784,6 @@ async fn pending_logins_complete_only_with_their_client() {
 /// missing key is unavailable rather than unknown.
 #[tokio::test]
 async fn cancelled_fetches_leave_keys_unavailable() {
-    // Accepts connections but never answers.
     let silent = tokio::net::TcpListener::bind("127.0.0.1:0")
         .await
         .expect("bind");
@@ -800,7 +794,6 @@ async fn cancelled_fetches_leave_keys_unavailable() {
         Arc::new(ManualClock::at(1_767_225_600)),
     );
     let token = vector_token("access-valid");
-    // Cancelled once the server accepts its connection.
     tokio::select! {
         verified = verify(&keys, &token) => panic!("the fetch never completes: {verified:?}"),
         accepted = silent.accept() => drop(accepted.expect("the fetch connects")),
@@ -908,7 +901,6 @@ async fn logout_requests_post_the_id_token_hint() {
     assert!(!page.contains("b=\"2\""), "{page}");
     let debug = format!("{request:?}");
     assert!(!debug.contains(id_token.as_str()), "{debug}");
-    // Without an ID token, the request may be a URL.
     let redirect = client.logout_redirect(Some(&after));
     assert_eq!(redirect.path(), request.action().path());
     assert_eq!(

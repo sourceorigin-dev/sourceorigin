@@ -51,8 +51,6 @@ pub trait ScopeSet: sealed::Names + Send + Sync + 'static {
     fn required() -> Scopes {
         let mut names = Vec::new();
         Self::collect(&mut names);
-        // `scopes!` checks its names at compile time; a name declared by hand that is
-        // not a scope token is never granted, and is left out here.
         Scopes::try_from_iter(names.into_iter().filter(|name| Scopes::is_token(name)))
             .unwrap_or_default()
     }
