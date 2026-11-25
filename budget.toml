@@ -8,3 +8,7 @@ sourceorigin-crypto = 12
 sourceorigin-repository = 20
 sourceorigin-telemetry = 1
 sourceorigin-ui = 3
+
+[wall-clock]
+auth-service = 2
+sourceorigin-repository = 2

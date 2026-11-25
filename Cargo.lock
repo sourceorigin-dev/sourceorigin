@@ -3190,9 +3190,9 @@ dependencies = [
 
 [[package]]
 name = "sourceorigin-standard"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c08d5fbe7aeaa982f5464cc43f8fd568957ceef4a0ce528704451c7ed9d6219"
+checksum = "624a7e167ea5055ef78238a91eb5e2764eb606920566086ba81e016b841b8525"
 dependencies = [
  "globset",
  "proc-macro2",
