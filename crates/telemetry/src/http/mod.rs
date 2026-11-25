@@ -157,10 +157,7 @@ impl HttpTelemetry {
         let quiet = route
             .as_deref()
             .is_some_and(|route| this.quiet.contains(&route));
-        // Entered, so the exported log record carries the span's trace context.
         span.in_scope(|| {
-            // e.g. `GET /account/passkeys/{id}`: the route template, never the
-            // path or query.
             let target = route.as_deref().unwrap_or(UNMATCHED);
             macro_rules! access {
                 ($level:ident) => {

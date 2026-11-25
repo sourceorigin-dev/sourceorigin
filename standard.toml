@@ -199,7 +199,6 @@ paths = [
     "apps/auth-service/src/web/settings/profile.rs",
     "apps/auth-service/src/web/settings/tests.rs",
     "apps/auth-service/src/web/tests.rs",
-    "apps/web/src/site/mod.rs",
     "crates/auth-sdk/examples/notes.rs",
     "crates/auth-sdk/src/axum/bearer.rs",
     "crates/auth-sdk/src/axum/login/layer.rs",
@@ -278,8 +277,6 @@ paths = [
     "crates/database/src/repositories/users/tests.rs",
     "crates/database/src/transaction.rs",
     "crates/database/tests/recoveries.rs",
-    "crates/telemetry/src/http/mod.rs",
-    "crates/telemetry/src/lib.rs",
     "crates/ui/src/admin/announcements.rs",
     "crates/ui/src/admin/audit.rs",
     "crates/ui/src/admin/clients.rs",
@@ -302,8 +299,6 @@ paths = [
     "crates/ui/src/settings/overview.rs",
     "crates/ui/src/settings/profile.rs",
     "crates/ui/src/settings/timeline.rs",
-    "tools/xtask/src/publish.rs",
-    "tools/xtask/src/release.rs",
 ]
 
 [deviations.doc-length]
