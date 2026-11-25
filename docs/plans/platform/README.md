@@ -31,7 +31,7 @@ same time as Origin itself.
 | [Roadmap](roadmap.md) | The milestones, what each one waits for, and where the three repositories stood when this was written |
 | [What the platform needs from Origin](origin.md) | Identity, authorization, keys, the registry, the git mirror, hidden paths, and what running more than one server needs |
 | [The platform](platform.md) | What SourceOrigin stores, its services, hosting, notifications, integrations and product ideas |
-| [The frontend](frontend.md) | Why Topcoat goes, what replaces it, and the experiment that picks between React and SvelteKit |
+| [The frontend](frontend.md) | Why Topcoat goes, why SvelteKit replaces it, and what the experiment that chose it found |
 | [The repository, CI and deployment](repository.md) | The layout of this repository, the databases, the piqueld applications, CI by area and the tests to add |
 | [The council review](review.md) | What three reviewers found in this plan, what was decided about each finding, and what is still unanswered |
 | [The original notes](notes.md) | piquel's notes that started the discussion, unchanged |
@@ -78,7 +78,7 @@ Every item carries one of these:
 | Deploys | piqueld builds from Origin, told by a webhook. Deploys are recorded as statements. Environments stay in piqueld | Decided | [origin](origin.md#deploys) |
 | Hidden paths | Only folders can be hidden, each with a nonce. Built once the mirror is no longer needed | Decided | [origin](origin.md#hidden-paths) |
 | Release channels | Nightly and stable map to targets for the CLI and the SDKs. The hosted service uses feature flags on one version | Deferred | [origin](origin.md#releases-and-channels) |
-| Frontend framework | Topcoat goes. An experiment picks between React with TanStack Start and SvelteKit. Leptos is out. The product renders on a server | Decided | [frontend](frontend.md) |
+| Frontend framework | SvelteKit, chosen by an experiment against React with TanStack Start. Topcoat goes. The product renders on a server | Decided | [frontend](frontend.md#the-experiment) |
 | Origin Auth's pages | Sign-in, consent and recovery stay in Origin Auth. The settings, on a hostname of their own, the developer console and the admin dashboard move to the product's frontend, as one admin app for both services | Decided | [review](review.md#the-auth-port-and-the-admin-dashboard) |
 | Between services | Calls between the node and SourceOrigin's services use private listeners, linked through piqueld | Decided | [origin](origin.md#between-services) |
 | Private changes | A change can be made private by choice, for sensitive fixes | Decided | [origin](origin.md#private-changes) |
@@ -111,8 +111,6 @@ offered and declined for now.
   [authorization](origin.md#authorization).
 - How authority keys are rotated and recovered. See
   [authority keys](origin.md#authority-keys).
-- Which frontend framework wins the experiment. See
-  [the experiment](frontend.md#the-experiment).
 - Whether v0.2 is exactly milestones 0 and 1. It was proposed and not answered.
   See [the roadmap](roadmap.md#milestones).
 - How deeply T3 Code depends on git, which decides how much the fork must

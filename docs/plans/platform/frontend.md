@@ -1,7 +1,7 @@
 # The frontend
 
-This page records why Topcoat goes, what the frontend must do, and the
-experiment that picks its framework.
+This page records what the frontend must do, why Topcoat goes, why SvelteKit
+replaces it, and what the experiment that chose it found.
 
 See [the plan's overview](README.md) for what each status means.
 
@@ -21,7 +21,10 @@ From piquel's [notes](notes.md) and the discussion:
 
 ## Topcoat goes
 
-**Decided.** Topcoat is dropped everywhere, Origin Auth included.
+**Decided.** Topcoat is dropped from every page that moves to the new
+frontend, which is SvelteKit. Sign-in, consent and recovery stay in Origin
+Auth, rendered in Rust. Whether those few pages stay on Topcoat or move to a
+small Rust templater is not decided.
 
 - Topcoat is early and experimental, and its own README says to expect
   breaking changes. piquel would rather have something with more established
@@ -39,31 +42,30 @@ From piquel's [notes](notes.md) and the discussion:
 
 ## Moving over
 
-**Proposed** order, not answered in detail:
+**Decided.** See
+[the auth port and the admin dashboard](review.md#the-auth-port-and-the-admin-dashboard)
+for how this was reached.
 
-1. Build the product app first, with a shared component library in
-   `packages/ui`.
-2. Port Origin Auth's surfaces onto it: the admin dashboard first, since it is
-   private, then the developer console, the account settings, and sign-in
-   last.
-3. Build auth's pages as static files embedded in the auth executable. Origin
-   Auth stays one Rust executable, and no Node process ever sees a session
-   cookie.
-4. Give auth a JSON API for what its pages do. Being friendly to agents needs
-   one anyway.
-5. Move the email templates in `crates/ui` to a small Rust templater such as
-   maud. They must stay on the server.
+1. Build the product app first, in SvelteKit, with a shared component library
+   in `packages/ui`.
+2. Then move Origin Auth's account settings, developer console and admin
+   dashboard onto it. The admin dashboard becomes one app for both services.
+   The account settings get a hostname of their own.
+3. Sign-in, consent and recovery stay in Origin Auth, rendered on its server.
+4. Origin Auth gains a JSON API for every account and admin operation, which
+   the moved pages call. Being friendly to agents needs one anyway.
+5. The email templates in `crates/ui` stay in Rust. They must be rendered on
+   the server that sends them.
 
-The design tokens in `crates/ui/assets/style` are plain CSS, so they can stay
-the single source of the look while the pages move.
+The design tokens in `crates/ui/assets/style` are plain CSS, so they stay the
+single source of the look while the pages move.
 
-**Decided:** the product app renders on a server. piquel calls it a must, for
-search engines, above all on repository home pages. For Origin Auth's own
-pages it is nice to have and not important.
+The product app renders on a server. piquel calls it a must, for search
+engines, above all on repository home pages.
 
-**Open:** how much of Origin Auth moves, and where its settings and admin
-pages live. The council's three reviewers all said that porting every auth
-page is not earned. See [the council review](review.md#the-auth-port-and-the-admin-dashboard).
+An earlier proposal was **dropped**: building every Origin Auth page as static
+files embedded in its executable. The council's three reviewers all said that
+porting the sign-in pages is not earned.
 
 ## What Pierre provides
 
@@ -96,43 +98,83 @@ its documentation on 13 November 2026.
   `@pierre/highlights`, and parsing the patch as a stream, file by file. Any
   framework can use all four.
 
-Not verified: exactly how an annotation is rendered through the plain
-JavaScript API. The experiment will show it.
+The experiment confirmed that annotations can be rendered through the plain
+JavaScript API, without React. Our Svelte wrapper does it.
 
 ## The experiment
 
-**Decided.** Build the same single screen in two frameworks, with a time
-limit, then delete the loser.
+**Decided: SvelteKit.** The experiment ran on 25 November 2026, as
+sourceorigin#774, and piquel chose SvelteKit on its result. Its code and its
+full report are on the branch `chore/frontend-framework-spike`, in
+`experiments/frontend-framework`, which never merges.
 
-- **Candidates:** React with TanStack Start, and SvelteKit.
-- **Out:** Leptos. The diff viewer and the file tree are JavaScript libraries,
-  so in Leptos they would sit behind WebAssembly interop, and every UI change
-  would cost a Rust compile.
-- **Not a factor:** that T3 Code and diffshub use React. piquel has worked in
-  neither codebase, and the choice is for this project alone.
-- **Not needed:** Effect. With a Rust backend and a thin client it adds a
-  paradigm for little gain. This was proposed and not answered.
+It built the same two screens in React with TanStack Start and in SvelteKit:
+change review, and a small account-settings form with a dialog. Both rendered
+on a server, passed the same walk under the same Content Security Policy, and
+were measured in turn on one machine. The fixture was 755 files of this
+repository's history, a 2.5 MB patch.
 
-The screen is change review: the file tree, a large diff in `CodeView`,
-comment threads inline, files marked as reviewed, and live updates.
+The recommendation was SvelteKit, as a close call:
 
-Measure, on one large real diff:
+| | React, TanStack Start | SvelteKit |
+| --- | --- | --- |
+| The diff's first live line | 549 ms | 564 ms |
+| The same, CPU slowed four times | 2,089 ms | 1,885 ms |
+| Scrolling, frames a second | 58.8 | 58.3 |
+| Scripts of the review page, gzipped | 1,221 kB | 1,153 kB |
+| Scripts of the settings page, gzipped | 141 kB | 65 kB |
+| Our wrapper around Pierre's components | 39 lines | 134 lines |
+| The review screen | 469 lines | 393 lines |
 
-- the time to the first diff line;
-- how smooth scrolling is;
-- the bundle size;
-- how many lines the wrapper around Pierre's components takes;
-- how the generated API client feels to use;
-- which accessible form and dialog components exist, for the auth port.
+- **Speed does not decide.** Pierre's code does the work in both, and every
+  timing of the review screen is inside the other's range.
+- **The feared cost was small.** A wrapper of our own around `CodeView` was
+  the reason to expect React to win. It is 134 lines and scrolls as Pierre's
+  React wrapper does.
+- **SvelteKit sends less script on every page,** about 70 kB less gzipped.
+  That is more than half of the settings page, so the account pages gain
+  most.
+- **A page's data kept its type in SvelteKit.** In TanStack Start,
+  `Route.useLoaderData()` took its type from where it was used, so a wrong
+  shape compiled.
+- **What React does better:** Pierre maintains its wrapper, and Base UI has
+  form parts that Bits UI lacks.
 
-What is known before running it:
+Out of the experiment: Leptos, Effect, and which framework T3 Code and
+diffshub use.
 
-- Pierre maintains the React wrapper. With Svelte, we would maintain our own
-  around the plain JavaScript API.
-- Svelte is lighter, and it is piquel's preference. SvelteKit was the first
-  choice in the notes.
-- No lean either way remains. An early lean toward SvelteKit, then one toward
-  React, both rested on arguments that were later set aside.
+## What the experiment taught
+
+These hold for the product, whatever the framework:
+
+- **`CodeView` can't render on a server.** The server renders the file tree
+  and the first files of a diff, and the browser takes over from there. A
+  search engine sees the tree, those files and their comment threads, not the
+  whole diff.
+- **Pierre's components need a looser Content Security Policy** than Origin
+  Auth sends: inline styles, and WebAssembly for `@pierre/highlights`. So
+  pages that show diffs get their own policy, and the account pages keep the
+  strict one. That is one more reason the account settings have their own
+  hostname.
+- **`@pierre/highlights` has to be asked for,** and its WebAssembly allowed
+  in the policy, on the page and in each worker. Without both, the slower
+  default runs and nothing says so.
+- **We own the Svelte wrapper.** It covers what the review screen uses. Line
+  selection as state, edit mode and the other slots are written when the
+  product needs them. It stands on an API of Pierre's that could change;
+  `@pierre/diffs` went from 1.6.4 to 1.7.1 within two weeks.
+- **Components:** Bits UI for dialogs and menus, with a form field of our own,
+  since Bits UI has none.
+- **The API client** is generated by `@hey-api/openapi-ts` from the OpenAPI
+  document, and worked well in both. utoipa's attributes can drift from the
+  handlers they describe, and nothing checks them: that is where types from
+  the database to the page would break first.
+- **Accessibility inside Pierre's components isn't ours to fix:** contrast
+  failures in the theme, and regions a keyboard can't reach.
+- **SvelteKit 3 is new.** It came out on 1 October 2026, and parts of its
+  ecosystem still ask for version 2.
+- **Not verified:** any browser but Chromium, a screen reader, and scrolling
+  by hand.
 
 ## Type safety
 

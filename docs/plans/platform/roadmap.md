@@ -198,8 +198,8 @@ while piquel merges Origin's stack.
   with their own scopes (sourceorigin#71), the client credentials grant
   (sourceorigin#69), and a lookup from an account's ID to its handle
   (sourceorigin#773). A thread of its own is doing these.
-- **The frontend experiment,** sourceorigin#774, in a thread of its own. See
-  [the frontend](frontend.md#the-experiment).
+- **The frontend experiment,** sourceorigin#774. It ran, and SvelteKit was
+  chosen. See [the frontend](frontend.md#the-experiment).
 - **Reorganize the repository,** sourceorigin#775. See
   [the repository](repository.md). It waits until the cleanup pull requests
   that touch every crate have merged, since every rename conflicts with them.
