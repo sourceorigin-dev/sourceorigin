@@ -29,6 +29,9 @@
   --admin-ring: #d62d2d;
   --admin-line: linear-gradient(90deg, #d62d2d, #f07a3c);
   --focus: #4353e0;
+  /* Chart series, checked for color-blind readers against this surface. */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
   --radius: 7px;
   --sans: 'DM Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -60,6 +63,8 @@
     --admin-ring: #ff4d4d;
     --admin-line: linear-gradient(90deg, #ff4d4d, #ff8a5b);
     --focus: #9fb0ff;
+    --series-1: #3987e5;
+    --series-2: #d95926;
     color-scheme: dark;
   }
 }
@@ -85,6 +90,8 @@
   --admin-ring: #ff4d4d;
   --admin-line: linear-gradient(90deg, #ff4d4d, #ff8a5b);
   --focus: #9fb0ff;
+  --series-1: #3987e5;
+  --series-2: #d95926;
   color-scheme: dark;
 }
 /* The admin dashboard: the brand marks turn red, so no page is mistaken for

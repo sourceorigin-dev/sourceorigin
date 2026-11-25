@@ -595,3 +595,111 @@ img.avatar {
 form:has(input[name='audience'][value='everyone']:checked) .chosen-accounts {
   display: none;
 }
+
+/* Charts the server draws as SVG: hairline grid and axis, thin marks in the
+   series colors, text in the text colors, and a table of the same numbers.
+   A drawing keeps a minimum width, so its text stays legible, and scrolls
+   sideways in its frame below it, as on a phone. */
+.chart {
+  margin: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+.chart-frame {
+  overflow-x: auto;
+}
+.chart svg {
+  display: block;
+  width: 100%;
+  min-width: 640px;
+  height: auto;
+  font-family: var(--sans);
+}
+.chart svg.bars {
+  min-width: 320px;
+}
+.chart .grid {
+  stroke: var(--line);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.chart .baseline {
+  stroke: var(--muted);
+  stroke-opacity: 0.5;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.chart .axis,
+.chart .label,
+.chart .value {
+  font-size: 13px;
+  fill: var(--muted);
+}
+.chart .label,
+.chart .value {
+  fill: var(--fg);
+}
+.chart .mark.s1 {
+  fill: var(--series-1);
+}
+.chart .line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.chart .line.s1 {
+  stroke: var(--series-1);
+}
+.chart .line.s2 {
+  stroke: var(--series-2);
+  stroke-dasharray: 6 4;
+}
+.chart .marker {
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+.chart .marker.s1 {
+  fill: var(--series-1);
+}
+.chart .marker.s2 {
+  fill: var(--series-2);
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.86rem;
+  color: var(--muted);
+}
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.legend .key {
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+}
+.legend .key.s1 {
+  background: var(--series-1);
+}
+.legend .key.s2 {
+  background: repeating-linear-gradient(90deg, var(--series-2) 0 6px, transparent 6px 9px);
+}
+.chart-table summary {
+  font-size: 0.86rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+.chart-table table {
+  margin-top: 0.5rem;
+}
+td.number {
+  font-variant-numeric: tabular-nums;
+}

@@ -65,6 +65,7 @@ test("the dashboard's pages", async ({ browser }) => {
   const admin = await administrator(browser, handle);
   for (const path of [
     '/',
+    '/analytics',
     '/users',
     '/administrators',
     '/invitations',

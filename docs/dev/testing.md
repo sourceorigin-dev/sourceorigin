@@ -128,7 +128,8 @@ just analytics test
 Tests that need ClickHouse are marked `#[ignore]`, with a reason that names
 `TEST_ANALYTICS_URL`, and have `analytics` in their names. `just analytics test`
 starts a throwaway ClickHouse in Docker, the image `infra/piqueld.toml` runs, on
-a free loopback port, runs them, and deletes it. To run any command against
+a free loopback port, runs them, and deletes it. It leaves out the admin
+dashboard's, under `web::`, which need PostgreSQL too. To run any command against
 one, use `just analytics scratch -- <command>`. `just db test` and
 `just coverage` run them too, in a scratch ClickHouse of their own unless
 `TEST_ANALYTICS_URL` names one, so they need Docker. A test

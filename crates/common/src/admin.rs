@@ -1085,3 +1085,42 @@ pub struct ReleasedHandle {
     /// When the account stopped using it, or `None` for a purged account's last one.
     pub released_at: Option<DateTime<Utc>>,
 }
+
+crate::str_enum! {
+    /// How far a sign-in to an app got, as the `authorization_steps` analytics
+    /// table counts it, in the order a sign-in passes the steps.
+    pub enum AuthorizationStepKind {
+        /// The app sent the browser here, or started a sign-in on its own page.
+        Requested = "requested",
+        /// The sign-in page showed.
+        SignIn = "sign_in",
+        /// The consent page showed.
+        Consent = "consent",
+        /// The app got its code.
+        Authorized = "authorized",
+        /// The person declined.
+        Denied = "denied",
+        /// One a newer or older release counts, which this one doesn't know:
+        /// only read, never recorded.
+        Other = "other",
+    } else Other
+}
+
+crate::str_enum! {
+    /// How a passkey can be reached, as the browser said when it was added, as
+    /// the `passkeys_used` analytics table counts it.
+    pub enum PasskeyTransport {
+        /// Built in to the device.
+        Internal = "internal",
+        /// On a phone, through the browser's phone flow.
+        Hybrid = "hybrid",
+        /// Over USB.
+        Usb = "usb",
+        /// Over NFC.
+        Nfc = "nfc",
+        /// Over Bluetooth.
+        Ble = "ble",
+        /// Not said, or not one of these.
+        Unknown = "unknown",
+    } else Unknown
+}

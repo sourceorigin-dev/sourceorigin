@@ -195,8 +195,15 @@ impl Command {
                 if let Some(role) = runtime_role {
                     database.provision(&role).await?;
                 }
-                if let Some((store, writer)) = analytics
-                    && let Err(error) = store.migrate(ANALYTICS_TABLES, writer.as_ref()).await
+                if let Some(migration) = analytics
+                    && let Err(error) = migration
+                        .store
+                        .migrate(
+                            ANALYTICS_TABLES,
+                            migration.writer.as_ref(),
+                            migration.reader.as_ref(),
+                        )
+                        .await
                 {
                     out.warning(format_args!(
                         "analytics tables not migrated: {}",
@@ -336,7 +343,7 @@ impl Administration {
 
 /// Every signal's table, which `migrate` creates: auth's, and the requests
 /// sourceorigin.dev's web server records too.
-const ANALYTICS_TABLES: &[Table] = &[
+pub(crate) const ANALYTICS_TABLES: &[Table] = &[
     EventRecorded::TABLE,
     PoolSampled::TABLE,
     RequestServed::TABLE,

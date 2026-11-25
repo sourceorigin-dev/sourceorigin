@@ -1,5 +1,5 @@
 //! ClickHouse through its own client, `clickhouse`, over its HTTP interface:
-//! inserts as `JSONEachRow`, and the statements `migrate` runs.
+//! inserts as `JSONEachRow`, the statements `migrate` runs, and typed reads.
 
 use super::{Table, TableKind};
 use bytes::Bytes;
@@ -25,6 +25,23 @@ sourceorigin_common::variables! {
 }
 
 sourceorigin_common::variables! {
+    /// The variables of the service that reads analytics back, auth's admin
+    /// dashboard, in the configuration reference's order.
+    pub const READER_VARIABLES;
+
+    /// The ClickHouse user the admin dashboard reads analytics as, in the same
+    /// format as `ANALYTICS_URL`, such as
+    /// `http://sourceorigin_reader@clickhouse:8123/sourceorigin`. With
+    /// `ANALYTICS_OWNER_URL`, `migrate` creates or resets it, allowed only to
+    /// read the signals' tables, and every table's name and size, within limits
+    /// on each query, so it must be a user of its own. Unset, the dashboard's Analytics page says analytics are
+    /// off.
+    const READER_URL = "ANALYTICS_READER_URL";
+    /// Where to read that user's password, as for `ANALYTICS_PASSWORD`.
+    const READER_PASSWORD = "ANALYTICS_READER_PASSWORD";
+}
+
+sourceorigin_common::variables! {
     /// The variables `migrate` reads too, in the configuration reference's order.
     pub const OWNER_VARIABLES;
 
@@ -39,6 +56,27 @@ sourceorigin_common::variables! {
 
 /// How long one request to ClickHouse may take.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+/// What each of the reader's queries may use, which ClickHouse enforces: no
+/// change, 5 seconds, 512 MiB, and 10,000 rows back. Its rows' 64-bit
+/// integers are JSON numbers, never quoted, whatever the server's default.
+const READER_LIMITS: &str = "readonly = 1, max_execution_time = 5, \
+                             max_memory_usage = 536870912, max_result_rows = 10000, \
+                             output_format_json_quote_64bit_integers = 0";
+/// What the reader may read of ClickHouse's own tables: how much each table
+/// stores, for the dashboard's storage card. `system.parts` lists only the
+/// tables a user may see, so the reader may see every table's name, though
+/// not read `spans` and `logs`.
+const READER_SYSTEM: &str = "SELECT(database, table, active, rows, bytes_on_disk) ON system.parts";
+
+/// What `migrate` connects as, and the users it provisions.
+pub struct Migration {
+    /// The owner, or the writer when no owner is configured.
+    pub store: Store,
+    /// The writer, when connected as the owner.
+    pub writer: Option<Store>,
+    /// The reader, when connected as the owner and it is configured.
+    pub reader: Option<Store>,
+}
 
 /// A ClickHouse user's connection to one database.
 #[derive(Clone)]
@@ -72,6 +110,15 @@ pub enum StoreError {
         /// `unknown`.
         code: String,
     },
+    /// ClickHouse refused a query of auth's own, or its rows do not match the
+    /// row type it is read as.
+    #[error("ClickHouse refused `{query}`, or its rows don't match their type")]
+    Query {
+        /// The query.
+        query: &'static str,
+        /// What ClickHouse answered, or which column did not match.
+        source: clickhouse::error::Error,
+    },
     /// ClickHouse refused a statement of `migrate`.
     #[error("ClickHouse refused `{statement}`")]
     Statement {
@@ -97,17 +144,45 @@ impl Store {
     /// without `ANALYTICS_URL`.
     ///
     /// # Errors
-    /// Fails when a variable is malformed, a password cannot be read, or the
-    /// owner is set without the writer's password.
-    pub fn migration_from_environment() -> Result<Option<(Self, Option<Self>)>, ConfigurationError>
-    {
+    /// Fails when a variable is malformed, a password cannot be read, the
+    /// owner is set without the writer's password, or the reader is the owner
+    /// or the writer, which `migrate` would lock out or stop inserting.
+    pub fn migration_from_environment() -> Result<Option<Migration>, ConfigurationError> {
         let Some(writer) = Self::from_environment()? else {
             return Ok(None);
         };
         Ok(Some(match Self::read(OWNER_URL, OWNER_PASSWORD)? {
-            Some(owner) => (owner, Some(writer)),
-            None => (writer, None),
+            Some(owner) => {
+                let reader = Self::reader_from_environment()?;
+                if reader
+                    .as_ref()
+                    .is_some_and(|reader| [&owner.user, &writer.user].contains(&&reader.user))
+                {
+                    return Err(READER_URL.invalid(
+                        "must name a user of its own, not ANALYTICS_URL's or ANALYTICS_OWNER_URL's",
+                    ));
+                }
+                Migration {
+                    store: owner,
+                    writer: Some(writer),
+                    reader,
+                }
+            }
+            None => Migration {
+                store: writer,
+                writer: None,
+                reader: None,
+            },
         }))
+    }
+
+    /// The connection `ANALYTICS_READER_URL` and `ANALYTICS_READER_PASSWORD`
+    /// configure, if any: the admin dashboard's.
+    ///
+    /// # Errors
+    /// Fails when either is malformed, or the password cannot be read.
+    pub fn reader_from_environment() -> Result<Option<Self>, ConfigurationError> {
+        Self::read(READER_URL, READER_PASSWORD)
     }
 
     /// Reads one connection from its URL and password variables.
@@ -183,6 +258,16 @@ impl Store {
             SecretString::from(password),
             self.database.clone(),
         )
+    }
+
+    /// Inserts `rows`, one JSON object per line, into `table`, as a test seeds
+    /// a table.
+    ///
+    /// # Errors
+    /// Returns what ClickHouse refused the insert with.
+    #[cfg(any(test, feature = "test-util"))]
+    pub async fn insert_rows(&self, table: &'static str, rows: String) -> Result<(), StoreError> {
+        self.insert(table, Bytes::from(rows)).await
     }
 
     /// The first column of `query`'s rows, as text, one row per line.
@@ -262,6 +347,18 @@ impl Store {
         }
     }
 
+    /// `query`, a fixed query of auth's own, to read with its `{name:Type}`
+    /// placeholders bound by ClickHouse: [`Read::param`] binds each, and
+    /// [`Read::rows`] reads them. Its text is `'static`, so no value is ever
+    /// spliced into it, and `?fields` names the columns of the row type.
+    #[must_use]
+    pub fn query(&self, query: &'static str) -> Read {
+        Read {
+            query,
+            request: self.client.query(query),
+        }
+    }
+
     /// Runs one statement, e.g. a `CREATE TABLE`, in `database`. `shown` is how
     /// errors quote it. It is sent as it is: a `?` in a comment binds nothing.
     async fn execute(
@@ -282,13 +379,20 @@ impl Store {
     /// Creates the database, and every table of `tables` and its own `spans`
     /// and `logs` that does not exist, adds the columns a table lacks, and sets
     /// each one's retention and comments; then, when connected as the owner,
-    /// creates or resets `writer`, allowed only to insert. Running it again
-    /// changes nothing. A column's type and a table's sort order never change:
-    /// give a new type a new column, and a new order a new table.
+    /// creates or resets `writer`, allowed only to insert, and `reader`, allowed
+    /// only to read the tables of `tables`, and every table's name and size,
+    /// within limits on each query. Running it again changes nothing. A column's
+    /// type and a table's sort order never change: give a new type a new column,
+    /// and a new order a new table.
     ///
     /// # Errors
     /// Returns the first statement ClickHouse refuses.
-    pub async fn migrate(&self, tables: &[Table], writer: Option<&Self>) -> Result<(), StoreError> {
+    pub async fn migrate(
+        &self,
+        tables: &[Table],
+        writer: Option<&Self>,
+        reader: Option<&Self>,
+    ) -> Result<(), StoreError> {
         let create = format!("CREATE DATABASE IF NOT EXISTS {}", self.database);
         self.execute("system", &create, &create).await?;
         for table in tables.iter().chain(crate::export::TABLES) {
@@ -296,31 +400,57 @@ impl Store {
                 self.execute(&self.database, &statement, &statement).await?;
             }
         }
+        let database = &self.database;
         if let Some(writer) = writer {
-            let user = &writer.user;
-            let password = Self::quoted(writer.password.expose_secret());
-            for (statement, shown) in [
-                (
-                    format!(
-                        "CREATE USER IF NOT EXISTS {user} IDENTIFIED WITH sha256_password BY {password}"
-                    ),
-                    format!("CREATE USER IF NOT EXISTS {user}"),
-                ),
-                (
-                    format!("ALTER USER {user} IDENTIFIED WITH sha256_password BY {password}"),
-                    format!("ALTER USER {user}"),
-                ),
-                (
-                    format!(
-                        "GRANT INSERT ON {}.* TO {user} WITH REPLACE OPTION",
-                        self.database
-                    ),
-                    String::new(),
-                ),
-            ] {
-                let shown = if shown.is_empty() { &statement } else { &shown };
-                self.execute(&self.database, &statement, shown).await?;
-            }
+            self.provision(writer, &format!("INSERT ON {database}.*"), None)
+                .await?;
+        }
+        if let Some(reader) = reader {
+            let mut grants: Vec<String> = tables
+                .iter()
+                .map(|table| format!("SELECT ON {database}.{}", table.name))
+                .collect();
+            grants.push(format!("SHOW TABLES ON {database}.*"));
+            grants.push(READER_SYSTEM.to_owned());
+            self.provision(reader, &grants.join(", "), Some(READER_LIMITS))
+                .await?;
+        }
+        Ok(())
+    }
+
+    /// Creates or resets `user`'s SQL user with its password, then gives it
+    /// `grants`, such as `INSERT ON sourceorigin.*`, replacing any other right
+    /// at once, so a running replica never lacks one, and `limits` on its
+    /// queries.
+    async fn provision(
+        &self,
+        user: &Self,
+        grants: &str,
+        limits: Option<&str>,
+    ) -> Result<(), StoreError> {
+        let (name, database) = (&user.user, &self.database);
+        let password = Self::quoted(user.password.expose_secret());
+        let identified = format!("IDENTIFIED WITH sha256_password BY {password}");
+        let settings = limits.map_or_else(
+            || "SETTINGS NONE".to_owned(),
+            |limits| format!("SETTINGS {limits}"),
+        );
+        for (statement, shown) in [
+            (
+                format!("CREATE USER IF NOT EXISTS {name} {identified}"),
+                format!("CREATE USER IF NOT EXISTS {name}"),
+            ),
+            (
+                format!("ALTER USER {name} {identified} {settings}"),
+                format!("ALTER USER {name} {settings}"),
+            ),
+            (
+                format!("GRANT {grants} TO {name} WITH REPLACE OPTION"),
+                String::new(),
+            ),
+        ] {
+            let shown = if shown.is_empty() { &statement } else { &shown };
+            self.execute(database, &statement, shown).await?;
         }
         Ok(())
     }
@@ -337,6 +467,41 @@ impl Store {
         }
         quoted.push('\'');
         quoted
+    }
+}
+
+/// A fixed query and the values bound to it, which [`Store::query`] starts.
+pub struct Read {
+    /// The query, as errors quote it.
+    query: &'static str,
+    /// The request, with its values.
+    request: clickhouse::query::Query,
+}
+
+impl Read {
+    /// Binds `value` to the `{name:Type}` placeholder `name`, as its type
+    /// writes it, such as an `i64` for an `Int64`.
+    #[must_use]
+    pub fn param(self, name: &str, value: impl serde::Serialize) -> Self {
+        Self {
+            request: self.request.param(name, value),
+            ..self
+        }
+    }
+
+    /// The rows, each a `T`, which the client checks against the names and
+    /// types of the columns ClickHouse returns.
+    ///
+    /// # Errors
+    /// Returns what ClickHouse refused the query with, or the column that does
+    /// not match `T`.
+    pub async fn rows<T: clickhouse::RowOwned + clickhouse::RowRead>(
+        self,
+    ) -> Result<Vec<T>, StoreError> {
+        let query = self.query;
+        Store::within(self.request.fetch_all())
+            .await?
+            .map_err(|source| StoreError::Query { query, source })
     }
 }
 

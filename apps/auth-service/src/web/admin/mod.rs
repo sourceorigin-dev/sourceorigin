@@ -13,6 +13,8 @@
 mod administrators;
 /// The alerts administrators are shown, and the updates they post on them.
 mod alerts;
+/// What the analytics database counts, as charts.
+mod analytics;
 /// Announcements to accounts.
 mod announcements;
 /// The audit chain's state, and the checkpoints it may be pruned through.
@@ -63,7 +65,7 @@ use serde::Deserialize;
 use sourceorigin_common::{ClientId, ErrorChain, UserId, config::Origin};
 use sourceorigin_crypto::NoteVerifier;
 use sourceorigin_repository::Database;
-use sourceorigin_telemetry::HttpTelemetry;
+use sourceorigin_telemetry::{HttpTelemetry, analytics::Store};
 use sourceorigin_ui::{
     Change, Crumb, Dashboard, DashboardConfirmation, DashboardTab, Health, PreferenceChange,
     SearchAction, SearchPage, Shortcut, ShortcutKind, Target, Who,
@@ -215,6 +217,8 @@ impl AttentionCache {
 pub(crate) struct AdminApplication {
     /// Every administrative operation.
     service: AdminService,
+    /// Reads the analytics database for the Analytics page, if configured.
+    analytics: Option<Store>,
     /// The settings administrators share with owners.
     account: AccountService,
     /// Who is signed in, and signing in through auth.
@@ -324,6 +328,7 @@ impl AdminApplication {
         let auth = config.passkey.origin.clone();
         Self {
             service: AdminService::new(database.clone(), config.email.smtp.is_some()),
+            analytics: dashboard.analytics.clone(),
             account: AccountService::new(database.clone()),
             keys: KeyStore::new(database.clone(), Arc::clone(&config.key_encryption_keys)),
             sign_in: DashboardSignIn::new(database, auth.clone(), dashboard.origin.clone()),
@@ -349,6 +354,7 @@ impl AdminApplication {
             .layer(BodyLimit::max(MAX_DASHBOARD_BODY_BYTES))
             .layer(answers)
             .route(overview::overview)
+            .route(analytics::analytics)
             .route(preferences)
             .route(sign_in)
             .route(start_confirmation)
@@ -986,11 +992,15 @@ impl AdminApplication {
     }
 
     /// Each tab's page, in the sidebar's order.
-    fn tabs(cx: &Cx) -> [(DashboardTab, String); 12] {
+    fn tabs(cx: &Cx) -> [(DashboardTab, String); 13] {
         [
             (
                 DashboardTab::Overview,
                 href!(overview::overview).resolve(cx),
+            ),
+            (
+                DashboardTab::Analytics,
+                href!(analytics::analytics).resolve(cx),
             ),
             (DashboardTab::Users, href!(users::search).resolve(cx)),
             (

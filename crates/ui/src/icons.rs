@@ -39,6 +39,8 @@ pub enum Icon {
     Client,
     /// Events.
     Events,
+    /// Analytics: three columns on a baseline.
+    Chart,
     /// The audit chain.
     Audit,
     /// Searching.
@@ -100,6 +102,7 @@ impl Icon {
             Self::Invitation => &["M14 8A6 6 0 112 8a6 6 0 0112 0z", "M8 5v6M5 8h6"],
             Self::Client => &["M2 3h12v10H2z", "M5 7l2 1.5L5 10M8.5 10h3"],
             Self::Events => &["M2 8h3l2-4 2 8 2-4h3"],
+            Self::Chart => &["M2 14h12", "M4 11.5v-3M8 11.5v-7M12 11.5v-5"],
             Self::Audit => &["M4 2h6l3 3v9H4zM10 2v3h3M6.5 8.5h4M6.5 11h4"],
             Self::Search => &[
                 "M11.5 7a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z",

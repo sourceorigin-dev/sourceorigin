@@ -5,7 +5,9 @@ use super::{PasskeyApplication, PasskeyError};
 use crate::recovery::ProbationPasskey;
 use crate::security::{Credential, RequestContext};
 use serde_json::Value;
-use sourceorigin_common::{AccountStatus, AuthenticationMethod, PasskeyId, UserId, events::Actor};
+use sourceorigin_common::{
+    AccountStatus, AuthenticationMethod, PasskeyId, UserId, admin::PasskeyTransport, events::Actor,
+};
 use sourceorigin_repository::{DatabaseError, DatabaseTransaction};
 use sourceorigin_telemetry::analytics::Product;
 use webauthn_rs::prelude::*;
@@ -28,9 +30,9 @@ sourceorigin_telemetry::signal! {
         /// Whether it may be synced, though it may not be now: a security key's
         /// never is.
         pub(crate) syncable: bool,
-        /// How it can be reached, as the browser said when it was added, the most
-        /// specific way first: `internal` (built in), `hybrid` (a phone), `usb`,
-        /// `nfc`, `ble`, or `unknown`.
+        /// A `PasskeyTransport`: how it can be reached, as the browser said when
+        /// it was added, the most specific way first: `internal` (built in),
+        /// `hybrid` (a phone), `usb`, `nfc`, `ble`, or `unknown`.
         pub(crate) transport: &'static str,
     }
 }
@@ -52,12 +54,13 @@ impl PasskeyUsed {
         let listed = credential
             .pointer(CREDENTIAL_TRANSPORTS_POINTER)
             .and_then(Value::as_array);
-        ["internal", "hybrid", "usb", "nfc", "ble"]
+        PasskeyTransport::ALL
             .into_iter()
             .find(|transport| {
-                listed.is_some_and(|listed| listed.iter().any(|value| value == transport))
+                listed.is_some_and(|listed| listed.iter().any(|value| value == transport.as_str()))
             })
-            .unwrap_or("unknown")
+            .unwrap_or(PasskeyTransport::Unknown)
+            .as_str()
     }
 }
 

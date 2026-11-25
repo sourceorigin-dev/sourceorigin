@@ -12,6 +12,7 @@ use sourceorigin_common::{
 };
 use sourceorigin_crypto::CryptoError;
 use sourceorigin_repository::DatabaseError;
+use sourceorigin_telemetry::analytics::StoreError;
 
 /// Failures of an administrative operation, or of signing its administrator in.
 #[derive(Debug, thiserror::Error)]
@@ -192,6 +193,9 @@ pub(crate) enum AdminError {
     /// Persistence failed.
     #[error(transparent)]
     Database(#[from] DatabaseError),
+    /// The analytics database refused or didn't answer a query.
+    #[error("the analytics database did not answer")]
+    Analytics(#[from] StoreError),
     /// A client change was refused or failed.
     #[error(transparent)]
     Client(#[from] ClientRegistryError),
@@ -275,6 +279,7 @@ impl AdminError {
             Self::AnnouncementSent => "announcement_sent",
             Self::AnnouncementChanged => "announcement_changed",
             Self::Database(_) => "database",
+            Self::Analytics(_) => "analytics",
             Self::Client(_) => "client",
             Self::Deletion(_) => "deletion",
             Self::Crypto(_) => "crypto",
@@ -368,6 +373,7 @@ impl From<AdminError> for ApiError {
             AdminError::Database(error) | AdminError::SigningKey(KeyError::Database(error)) => {
                 error.into()
             }
+            AdminError::Analytics(error) => ApiError::unavailable(error),
             AdminError::Client(error) => error.for_operators(),
             AdminError::Deletion(error) => error.into(),
             error @ (AdminError::Crypto(_)
