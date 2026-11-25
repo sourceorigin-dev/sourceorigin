@@ -33,6 +33,8 @@ mod lists;
 mod overview;
 /// An account's recent recoveries.
 mod recoveries;
+/// One trace's spans and log lines.
+mod traces;
 /// Account search and one account.
 mod users;
 
@@ -61,6 +63,7 @@ pub use lists::{
 };
 pub use overview::{AdminOverview, Measure, Problem, admin_overview};
 pub use recoveries::{RecoveryKey, RecoveryRow, recovery_list};
+pub use traces::{TraceLog, TracePage, TraceReport, TraceSpan, admin_trace};
 pub use users::{
     AccountPages, MessageIntent, MessagePreview, MessageUser, SessionRow, UserRow, message_page,
     user_page, user_search,

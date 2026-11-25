@@ -132,3 +132,80 @@ async fn the_dashboard_charts_what_clickhouse_counts() {
         "an unmatched route in {page}"
     );
 }
+
+/// The trace page shows a trace's spans, nested and marked when they failed,
+/// and its log lines with their fields, and nothing of another trace's; an ID
+/// that isn't one is missing, and without a reader, analytics are off.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL and TEST_ANALYTICS_URL: run `just db test`"]
+async fn the_trace_page_shows_what_a_trace_did_in_analytics() {
+    let owner = Store::test();
+    let reader = owner.as_user("trace_reader", "reader-password");
+    owner
+        .migrate(crate::cli::ANALYTICS_TABLES, None, Some(&reader))
+        .await
+        .expect("migrated");
+    let trace = "4bf92f3577b34da6a3ce929d0e0e4736";
+    let time = Utc::now().format("%Y-%m-%d %H:%M:%S%.6f").to_string();
+    let span = |trace: &str, span: &str, parent: &str, name: &str, status: &str| {
+        serde_json::json!({"time": time, "trace": trace, "span": span, "parent": parent,
+            "service": "auth-service", "instance": "test", "name": name, "kind": "server",
+            "status": status, "duration_us": 1500, "attributes": {"http.route": "/login"}})
+        .to_string()
+    };
+    let spans = [
+        span(trace, "00f067aa0ba902b7", "", "GET /login", "unset"),
+        span(
+            trace,
+            "00f067aa0ba902b8",
+            "00f067aa0ba902b7",
+            "charted query",
+            "error",
+        ),
+        span(
+            "0af7651916cd43dd8448eb211c80319c",
+            "00f067aa0ba902b9",
+            "",
+            "another trace's",
+            "unset",
+        ),
+    ];
+    owner
+        .insert_rows("spans", spans.join("\n"))
+        .await
+        .expect("spans");
+    let line = serde_json::json!({"time": time, "trace": trace, "span": "00f067aa0ba902b7",
+        "service": "auth-service", "instance": "test", "level": "INFO", "target": "auth",
+        "body": "event recorded", "attributes": {"event.kind": "signed_in"}});
+    owner
+        .insert_rows("logs", line.to_string())
+        .await
+        .expect("logs");
+    let mut config = AuthConfig::test(&AUTH_ORIGIN.parse().expect("auth origin"));
+    config.analytics = Some(reader);
+    let harness = Harness::of(config).await;
+    let admin = harness.admin().await;
+    let path = format!("/traces/{trace}");
+    let dashboard = harness.sign_in(&admin, &path).await;
+    let page = html(harness.visit(&dashboard, &path).await).await;
+    for shown in [
+        "GET /login",
+        "charted query (failed)",
+        "event recorded",
+        "event.kind",
+        "http.route",
+    ] {
+        assert!(page.contains(shown), "{shown} in {page}");
+    }
+    assert!(
+        !page.contains("another trace&#39;s") && !page.contains("another trace's"),
+        "{page}"
+    );
+    let missing = harness.visit(&dashboard, "/traces/not-a-trace").await;
+    assert_eq!(missing.status(), StatusCode::NOT_FOUND);
+    let off = Harness::new().await;
+    let admin = off.admin().await;
+    let dashboard = off.sign_in(&admin, &path).await;
+    let page = html(off.visit(&dashboard, &path).await).await;
+    assert!(page.contains("Analytics are off"), "{page}");
+}

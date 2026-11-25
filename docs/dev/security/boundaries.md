@@ -250,3 +250,12 @@ and header attributes as a second line of defense
 a sign-in or code exchange exports a secret
 ([what never goes in telemetry](../architecture/telemetry.md#what-never-goes-in-telemetry)).
 User IDs are pseudonymous and may appear.
+
+Auth reads it back as `sourceorigin_reader` (`ANALYTICS_READER_URL`), which
+may only read, within limits on each query: the admin dashboard's Analytics
+and trace pages, and each app's Insights in the developer console, on the
+public listener. That reader can read every span and log line. An app's owner
+reads only their own app's counts because every Insights query is a fixed
+statement whose client ID is bound from the app the console found them to
+own, never because of the grant
+([reading it back](../architecture/analytics.md#reading-it-back)).

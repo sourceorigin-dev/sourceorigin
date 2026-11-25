@@ -19,6 +19,8 @@ mod overview;
 mod service;
 /// Signing administrators in to the dashboard.
 mod sign_in;
+/// The dashboard's trace page.
+mod traces;
 /// Validated inputs.
 mod types;
 
@@ -31,6 +33,7 @@ pub(crate) use overview::{Kinds, Overview, Problem};
 pub(crate) use service::ALERTS_SHOWN;
 pub(crate) use service::AdminService;
 pub(crate) use sign_in::{DashboardCookie, DashboardSignIn, SignedInAdmin};
+pub(crate) use traces::{SHOWN, Trace};
 pub(crate) use types::{
     AnnouncementDraft, AnnouncementRecipients, GracePeriod, HandleProblem, InvalidLifetime,
     InviteExpiry, Letter, Reason, UserRef,
