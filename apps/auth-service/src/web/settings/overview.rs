@@ -74,6 +74,7 @@ impl AccountPage for Overview {
             default_profile: profile.keeps_default(),
             now,
             unread,
+            user: reader.owner().user(),
         };
         let links = OverviewLinks {
             sign_in: settings::SIGN_IN,

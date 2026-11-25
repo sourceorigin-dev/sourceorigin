@@ -16,9 +16,9 @@ the apps you signed in to, your notifications and your data.
 The overview suggests what your account still lacks, two at a time, most
 important first:
 
-1. **Add a backup passkey**, while you have only one. If you lose it, getting
-   back in takes a [recovery](your-data/recover-your-account.md) through
-   support. Select **Add a passkey** to add one on
+1. **Add a backup passkey**, while you have only one. If you lose it, only a
+   [recovery](your-data/recover-your-account.md) through support can give you
+   a new one. Select **Add a passkey** to add one on
    [Sign-in methods](account/sign-in-methods.md#add-a-passkey).
 2. **Add an email address**, while you have no
    [confirmed address](account/email-addresses.md). Recovery links and
@@ -30,8 +30,8 @@ important first:
 4. **Finish your profile**, while your [profile](account/profile.md) has no
    picture, or your handle as its display name.
 
-Select **Not now** to hide a suggestion in this browser, and the next one
-shows. The backup passkey and email address come back after 30 days, since
+Select **Not now** to hide a suggestion for your account in this browser, and
+the next one shows. The backup passkey and email address come back after 30 days, since
 they keep you able to get back in; the others stay hidden.
 
 ## Find a setting

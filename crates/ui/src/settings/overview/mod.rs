@@ -11,7 +11,7 @@ use crate::{
     layout::page_head,
 };
 use chrono::{DateTime, Utc};
-use sourceorigin_common::Provider;
+use sourceorigin_common::{Provider, UserId};
 use topcoat::{
     Result,
     view::{View, component, view},
@@ -75,6 +75,9 @@ pub struct AccountOverview<'a> {
     pub now: DateTime<Utc>,
     /// How many notifications are unread.
     pub unread: u64,
+    /// The account, whose recommendations this browser dismisses apart from
+    /// another account's.
+    pub user: UserId,
 }
 
 impl<'a> AccountOverview<'a> {
@@ -106,8 +109,8 @@ impl<'a> AccountOverview<'a> {
 /// browser dismisses it.
 #[derive(Clone, Copy, Debug)]
 enum Recommendation<'a> {
-    /// A second passkey, while the account has one: losing it takes a recovery
-    /// through support.
+    /// A second passkey, while the account has one: once it is lost, only a
+    /// recovery through support adds another.
     Passkey,
     /// A confirmed address, while the account has none: recovery links and
     /// security alerts go to it. `pending` is an address added but not yet
@@ -123,15 +126,23 @@ enum Recommendation<'a> {
 }
 
 impl Recommendation<'_> {
-    /// The key a dismissal keeps in the browser. A provider's is kept from
-    /// before the other recommendations, so its dismissal holds.
-    fn key(self) -> String {
+    /// The key a dismissal by `user` keeps in the browser, so it never hides
+    /// another account's.
+    fn key(self, user: UserId) -> String {
+        format!("sourceorigin-recommend:{user}:{}", self.kind())
+    }
+
+    /// Which recommendation it is, in its key. A pending address's names the
+    /// address, so dismissing it never hides the next address added.
+    fn kind(self) -> String {
         match self {
-            Self::Passkey => "sourceorigin-recommend:passkey".to_owned(),
-            Self::Email { pending: None } => "sourceorigin-recommend:email".to_owned(),
-            Self::Email { pending: Some(_) } => "sourceorigin-recommend:confirm-email".to_owned(),
-            Self::Provider(provider) => format!("sourceorigin-link:{}", provider.as_str()),
-            Self::Profile => "sourceorigin-recommend:profile".to_owned(),
+            Self::Passkey => "passkey".to_owned(),
+            Self::Email { pending: None } => "email".to_owned(),
+            Self::Email {
+                pending: Some(email),
+            } => format!("confirm-email:{}", email.id),
+            Self::Provider(provider) => format!("link:{}", provider.as_str()),
+            Self::Profile => "profile".to_owned(),
         }
     }
 
@@ -168,7 +179,7 @@ impl Recommendation<'_> {
     /// Why.
     fn detail(self) -> String {
         match self {
-            Self::Passkey => "If you lose your only passkey, getting back in takes a recovery through support. Keep a second one on another device or password manager.".to_owned(),
+            Self::Passkey => "If you lose your only passkey, only a recovery through support can give you a new one. Keep a second one on another device or password manager.".to_owned(),
             Self::Email { pending: None } => "Recovery links and security alerts go to a confirmed address. Without one, they can't reach you.".to_owned(),
             Self::Email { pending: Some(_) } => "Open the link Origin Auth emailed to it. Until then, recovery links and security alerts can't reach you.".to_owned(),
             Self::Provider(provider) => format!(
@@ -192,8 +203,10 @@ async fn recommendation_hint<'a>(
     links: OverviewLinks<'a>,
     /// Whether the session was confirmed with a passkey recently.
     confirmed: bool,
+    /// The account, whose dismissals are its own.
+    user: UserId,
 ) -> Result<impl View> {
-    let key = recommendation.key();
+    let key = recommendation.key(user);
     let days = recommendation.returns_after().map(|days| days.to_string());
     Ok(view! {
         <section class="hint" data-dismiss=(key.as_str()) data-dismiss-days=(days) hidden="">
@@ -288,6 +301,7 @@ pub async fn account_overview<'a>(
                     recommendation: recommendation,
                     links: links,
                     confirmed: overview.confirmed,
+                    user: overview.user,
                 )
             }
         </div>

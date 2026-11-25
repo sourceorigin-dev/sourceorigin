@@ -7,12 +7,12 @@ use sourceorigin_common::{
 };
 use topcoat::{context::Cx, view::ViewExt};
 
-/// The keys of what `overview` recommends, in order.
+/// What `overview` recommends, in order, as their keys name them.
 fn recommended(overview: &AccountOverview<'_>) -> Vec<String> {
     overview
         .recommendations()
         .into_iter()
-        .map(Recommendation::key)
+        .map(Recommendation::kind)
         .collect()
 }
 
@@ -75,15 +75,11 @@ fn recommends_what_the_account_lacks_most_pressing_first() {
         default_profile: true,
         now: Utc::now(),
         unread: 0,
+        user: UserId::new(),
     };
     assert_eq!(
         recommended(&new),
-        [
-            "sourceorigin-recommend:passkey",
-            "sourceorigin-recommend:email",
-            "sourceorigin-link:github",
-            "sourceorigin-recommend:profile",
-        ],
+        ["passkey", "email", "link:github", "profile",],
         "a disabled provider is never offered"
     );
     let held = AccountOverview {
@@ -106,7 +102,7 @@ fn recommends_what_the_account_lacks_most_pressing_first() {
     };
     assert_eq!(
         recommended(&unconfirmed),
-        ["sourceorigin-recommend:confirm-email"]
+        [format!("confirm-email:{}", pending[0].id)]
     );
     let silent = AccountOverview {
         sends: false,
@@ -116,7 +112,8 @@ fn recommends_what_the_account_lacks_most_pressing_first() {
 }
 
 /// A pending address's new link posts to the email addresses page, asking for a
-/// passkey confirmation first unless the session was confirmed recently.
+/// passkey confirmation first unless the session was confirmed recently. Its
+/// dismissal is the account's own, for that address.
 #[tokio::test]
 async fn a_pending_address_is_sent_a_new_link_from_the_overview() {
     let pending = EmailRow {
@@ -133,6 +130,7 @@ async fn a_pending_address_is_sent_a_new_link_from_the_overview() {
         history: "/settings/history",
         notifications: "/settings/notifications",
     };
+    let user = UserId::new();
     for confirmed in [false, true] {
         let cx = Cx::default();
         let hint = view! { cx =>
@@ -140,6 +138,7 @@ async fn a_pending_address_is_sent_a_new_link_from_the_overview() {
                 recommendation: Recommendation::Email { pending: Some(&pending) },
                 links: links,
                 confirmed: confirmed,
+                user: user,
             )
         }
         .single()
@@ -152,5 +151,7 @@ async fn a_pending_address_is_sent_a_new_link_from_the_overview() {
             "{hint}"
         );
         assert_eq!(hint.contains("data-passkey-confirm"), !confirmed, "{hint}");
+        let key = format!("sourceorigin-recommend:{user}:confirm-email:{}", pending.id);
+        assert!(hint.contains(&format!(r#"data-dismiss="{key}""#)), "{hint}");
     }
 }

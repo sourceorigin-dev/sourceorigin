@@ -203,6 +203,9 @@ test('the overview recommends what a new account lacks', async ({ page, context 
   await expect(shown).toHaveCount(2);
   await expect(shown.first()).toContainText('Add a backup passkey');
   const second = (await shown.nth(1).locator('strong').textContent()) ?? '';
+  // The account's own key, which another account's dismissals never touch.
+  const key = (await passkey.getAttribute('data-dismiss')) ?? '';
+  expect(key).toMatch(/^sourceorigin-recommend:[\w-]+:passkey$/);
   expect(second).not.toBe('');
   await passkey.getByRole('button', { name: 'Not now', exact: true }).click();
   await expect(passkey).toHaveCount(0);
@@ -215,9 +218,12 @@ test('the overview recommends what a new account lacks', async ({ page, context 
   await expect(passkey).toHaveCount(0);
   // A month on, the dismissal has lapsed.
   const month = 31 * 24 * 60 * 60 * 1000;
-  await page.evaluate((month) => {
-    localStorage.setItem('sourceorigin-recommend:passkey', String(Date.now() - month));
-  }, month);
+  await page.evaluate(
+    ({ key, month }) => {
+      localStorage.setItem(key, String(Date.now() - month));
+    },
+    { key, month }
+  );
   await page.reload();
   await expect(shown.first()).toContainText('Add a backup passkey');
   await shown.first().getByRole('link', { name: 'Add a passkey', exact: true }).click();
