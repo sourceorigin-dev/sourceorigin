@@ -215,6 +215,15 @@ impl From<StoredUser> for Profile {
     }
 }
 
+impl Profile {
+    /// Whether it keeps a default an account starts with: no picture, or its
+    /// handle as its display name. A display name kept from before a handle
+    /// change no longer matches, so it counts as chosen.
+    pub(crate) fn keeps_default(&self) -> bool {
+        self.picture.is_none() || self.display_name == self.handle.as_str()
+    }
+}
+
 /// A change to the account's profile, as the owner's route takes it.
 #[derive(Deserialize)]
 struct ProfileChange {

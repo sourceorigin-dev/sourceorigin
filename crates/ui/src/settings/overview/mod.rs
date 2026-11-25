@@ -1,0 +1,362 @@
+//! The account at a glance: what is signed in and connected now, what happened
+//! lately, and what the account still lacks.
+
+use super::{
+    ConnectedAppRow, DeviceRow, EmailChange, EmailRow, HistoryRow, Holdings, Part, ProviderRow,
+    SignInChange, notifications::unread_hint, timeline::activity_feed,
+};
+use crate::{
+    form::change_form,
+    icons::{Icon, icon},
+    layout::page_head,
+};
+use chrono::{DateTime, Utc};
+use sourceorigin_common::{Provider, UserId};
+use topcoat::{
+    Result,
+    view::{View, component, view},
+};
+
+/// How many devices the overview lists.
+const DEVICES_SHOWN: usize = 4;
+
+/// How many recommendations the overview shows at once. Dismissing one shows the
+/// next.
+const RECOMMENDATIONS_SHOWN: usize = 2;
+
+/// How many days a dismissed recommendation that protects the account stays
+/// hidden before it shows again.
+const RETURNS_AFTER_DAYS: u32 = 30;
+
+/// The pages the overview links.
+#[derive(Clone, Copy, Debug)]
+pub struct OverviewLinks<'a> {
+    /// The sign-in methods, whose form links a provider.
+    pub sign_in: &'a str,
+    /// The email addresses, whose form sends a pending address a new link.
+    pub emails: &'a str,
+    /// The profile.
+    pub profile: &'a str,
+    /// The devices.
+    pub devices: &'a str,
+    /// The security history.
+    pub history: &'a str,
+    /// The inbox.
+    pub notifications: &'a str,
+}
+
+/// What the overview shows of the account.
+#[derive(Clone, Copy, Debug)]
+pub struct AccountOverview<'a> {
+    /// Every browser and app signed in, most recently active first.
+    pub devices: &'a [DeviceRow<'a>],
+    /// The apps that keep access to the account.
+    pub apps: &'a [ConnectedAppRow<'a>],
+    /// How many times apps signed the account in over the last seven days.
+    pub app_sign_ins_week: u64,
+    /// How many security events the last seven days recorded.
+    pub security_events_week: u64,
+    /// The newest entries of the security history.
+    pub activity: &'a [HistoryRow<'a>],
+    /// What the account holds, to name what the entries refer to and to see what
+    /// it still lacks.
+    pub holds: Holdings<'a>,
+    /// The social sign-in providers, to offer one not yet linked.
+    pub providers: &'a [ProviderRow<'a>],
+    /// Whether SourceOrigin sends email, without which no address can be confirmed.
+    pub sends: bool,
+    /// Whether the session was confirmed with a passkey recently enough to send a
+    /// pending address a new link without confirming again.
+    pub confirmed: bool,
+    /// Whether the profile keeps a default: no picture, or the handle as its
+    /// display name.
+    pub default_profile: bool,
+    /// Now, to say when devices were active.
+    pub now: DateTime<Utc>,
+    /// How many notifications are unread.
+    pub unread: u64,
+    /// The account, whose recommendations this browser dismisses apart from
+    /// another account's.
+    pub user: UserId,
+}
+
+impl<'a> AccountOverview<'a> {
+    /// What the account still lacks, most pressing first.
+    fn recommendations(&self) -> Vec<Recommendation<'a>> {
+        let holds = &self.holds;
+        let passkey = (holds.passkeys.len() == 1).then_some(Recommendation::Passkey);
+        let email = (self.sends && !holds.emails.iter().any(|email| email.verified)).then(|| {
+            Recommendation::Email {
+                pending: holds.emails.first(),
+            }
+        });
+        let providers = self
+            .providers
+            .iter()
+            .filter(|row| row.enabled && row.identity.is_none())
+            .map(|row| Recommendation::Provider(row.provider));
+        let profile = self.default_profile.then_some(Recommendation::Profile);
+        passkey
+            .into_iter()
+            .chain(email)
+            .chain(providers)
+            .chain(profile)
+            .collect()
+    }
+}
+
+/// Something the account still lacks, which the overview suggests until this
+/// browser dismisses it.
+#[derive(Clone, Copy, Debug)]
+enum Recommendation<'a> {
+    /// A second passkey, while the account has one: once it is lost, only a
+    /// recovery through support adds another.
+    Passkey,
+    /// A confirmed address, while the account has none: recovery links and
+    /// security alerts go to it. `pending` is an address added but not yet
+    /// confirmed, which the hint sends a new link.
+    Email {
+        /// The address awaiting confirmation, if any.
+        pending: Option<&'a EmailRow<'a>>,
+    },
+    /// Linking a provider SourceOrigin offers, another way to sign in.
+    Provider(Provider),
+    /// A picture and a display name of the owner's choosing, which apps show.
+    Profile,
+}
+
+impl Recommendation<'_> {
+    /// The key a dismissal by `user` keeps in the browser, so it never hides
+    /// another account's.
+    fn key(self, user: UserId) -> String {
+        format!("sourceorigin-recommend:{user}:{}", self.kind())
+    }
+
+    /// Which recommendation it is, in its key. A pending address's names the
+    /// address, so dismissing it never hides the next address added.
+    fn kind(self) -> String {
+        match self {
+            Self::Passkey => "passkey".to_owned(),
+            Self::Email { pending: None } => "email".to_owned(),
+            Self::Email {
+                pending: Some(email),
+            } => format!("confirm-email:{}", email.id),
+            Self::Provider(provider) => format!("link:{}", provider.as_str()),
+            Self::Profile => "profile".to_owned(),
+        }
+    }
+
+    /// How many days a dismissal lasts, if not for good: those that protect the
+    /// account come back.
+    fn returns_after(self) -> Option<u32> {
+        match self {
+            Self::Passkey | Self::Email { .. } => Some(RETURNS_AFTER_DAYS),
+            Self::Provider(_) | Self::Profile => None,
+        }
+    }
+
+    /// Its icon.
+    fn icon(self) -> Icon {
+        match self {
+            Self::Passkey => Icon::Key,
+            Self::Email { .. } => Icon::Mail,
+            Self::Provider(_) => Icon::Link,
+            Self::Profile => Icon::Profile,
+        }
+    }
+
+    /// What it suggests.
+    fn title(self) -> String {
+        match self {
+            Self::Passkey => "Add a backup passkey".to_owned(),
+            Self::Email { pending: None } => "Add an email address".to_owned(),
+            Self::Email { pending: Some(_) } => "Confirm your email address".to_owned(),
+            Self::Provider(provider) => format!("You can still link {}", provider.name()),
+            Self::Profile => "Finish your profile".to_owned(),
+        }
+    }
+
+    /// Why.
+    fn detail(self) -> String {
+        match self {
+            Self::Passkey => "If you lose your only passkey, only a recovery through support can give you a new one. Keep a second one on another device or password manager.".to_owned(),
+            Self::Email { pending: None } => "Recovery links and security alerts go to a confirmed address. Without one, they can't reach you.".to_owned(),
+            Self::Email { pending: Some(_) } => "Open the link Origin Auth emailed to it. Until then, recovery links and security alerts can't reach you.".to_owned(),
+            Self::Provider(provider) => format!(
+                "Sign in with a {} account you already have. Linking never replaces your passkeys.",
+                provider.name()
+            ),
+            Self::Profile => "Apps you sign in to show your display name and picture. Choose your own instead of your handle and initials.".to_owned(),
+        }
+    }
+}
+
+/// A [`Recommendation`] as a hint, hidden until the passkey script finds this
+/// browser has not dismissed it, with its action on the pages in `links`. A
+/// pending address's new link asks for a passkey confirmation unless the session
+/// is `confirmed`.
+#[component]
+async fn recommendation_hint<'a>(
+    /// What it recommends.
+    recommendation: Recommendation<'a>,
+    /// The pages its action leads to or posts to.
+    links: OverviewLinks<'a>,
+    /// Whether the session was confirmed with a passkey recently.
+    confirmed: bool,
+    /// The account, whose dismissals are its own.
+    user: UserId,
+) -> Result<impl View> {
+    let key = recommendation.key(user);
+    let days = recommendation.returns_after().map(|days| days.to_string());
+    Ok(view! {
+        <section class="hint" data-dismiss=(key.as_str()) data-dismiss-days=(days) hidden="">
+            icon(kind: recommendation.icon())
+            <div class="text">
+                <strong>(recommendation.title())</strong>
+                <small>(recommendation.detail())</small>
+            </div>
+            match recommendation {
+                Recommendation::Passkey => {
+                    <a class="button small" href=(Part::AddPasskey.on(links.sign_in))>"Add a passkey"</a>
+                }
+                Recommendation::Email { pending: None } => {
+                    <a class="button small" href=(Part::AddAddress.on(links.emails))>"Add an address"</a>
+                }
+                Recommendation::Email { pending: Some(email) } => {
+                    change_form(
+                        action: links.emails,
+                        change: EmailChange::Add { email: email.address.to_owned() },
+                        label: "Resend link",
+                        class: "small",
+                        aria_label: format!("Resend link to {}", email.address),
+                        confirm: !confirmed,
+                    )
+                }
+                Recommendation::Provider(provider) => {
+                    change_form(
+                        action: links.sign_in,
+                        change: SignInChange::Link { provider },
+                        label: format!("Link {}", provider.name()),
+                        class: "small",
+                    )
+                }
+                Recommendation::Profile => {
+                    <a class="button small" href=(links.profile)>"Edit profile"</a>
+                }
+            }
+            <button type="button" class="secondary small" data-dismisses=(key.as_str())>"Not now"</button>
+        </section>
+    })
+}
+
+/// The overview page: what is unread in the inbox, the tiles, two at a time of
+/// what the account still lacks, which the page offers until the browser
+/// dismisses them, the newest security activity and the devices signed in,
+/// linking the pages in `links`.
+#[component]
+pub async fn account_overview<'a>(
+    /// What the page shows.
+    overview: AccountOverview<'a>,
+    /// Where each tile leads.
+    links: OverviewLinks<'a>,
+) -> Result<impl View> {
+    let devices = overview.devices;
+    let (browsers, other) = devices.iter().fold((0, 0), |(browsers, other), device| {
+        if device.device.is_some() {
+            (browsers + 1, other)
+        } else {
+            (browsers, other + 1)
+        }
+    });
+    let names: Vec<_> = overview.apps.iter().map(|app| app.name).collect();
+    let recommendations = overview.recommendations();
+    Ok(view! {
+        page_head(title: "Overview", lead: "Your account at a glance.".to_owned())
+        unread_hint(unread: overview.unread, page: links.notifications)
+        <div class="stats">
+            <div class="stat">
+                <span class="label">"Active sessions"</span>
+                <span class="value">(devices.len().to_string())</span>
+                <span class="detail">(sessions_detail(browsers, other))</span>
+            </div>
+            <div class="stat">
+                <span class="label">"Connected apps"</span>
+                <span class="value">(overview.apps.len().to_string())</span>
+                <span class="detail">(if names.is_empty() { "none yet".to_owned() } else { names.join(" · ") })</span>
+            </div>
+            <div class="stat">
+                <span class="label">"App sign-ins, 7 days"</span>
+                <span class="value">(overview.app_sign_ins_week.to_string())</span>
+                <span class="detail">"through apps you use"</span>
+            </div>
+            <div class="stat">
+                <span class="label">"Security events, 7 days"</span>
+                <span class="value">(overview.security_events_week.to_string())</span>
+                <span class="detail">"sign-ins and changes"</span>
+            </div>
+        </div>
+        <div class="hints" data-dismiss-limit=(RECOMMENDATIONS_SHOWN.to_string())>
+            for recommendation in recommendations {
+                recommendation_hint(
+                    recommendation: recommendation,
+                    links: links,
+                    confirmed: overview.confirmed,
+                    user: overview.user,
+                )
+            }
+        </div>
+        <div class="two side">
+            <section class="card" aria-labelledby=(Part::Activity.id())>
+                <header>
+                    <h2 id=(Part::Activity.id())>"Recent security activity"</h2>
+                    <a href=(links.history)>"See all history"</a>
+                </header>
+                if overview.activity.is_empty() {
+                    <p class="empty">"Nothing has happened to your account yet."</p>
+                } else {
+                    activity_feed(rows: overview.activity, holds: &overview.holds)
+                }
+            </section>
+            <section class="card" aria-label="Devices">
+                <header>
+                    <h2>"Devices"</h2>
+                    <a href=(links.devices)>"Manage"</a>
+                </header>
+                <ul class="list">
+                    for device in devices.iter().take(DEVICES_SHOWN) {
+                        <li>
+                            <div class="text">
+                                <strong>(device.name())</strong>
+                                if device.current {
+                                    " " <span class="badge ok">"This device"</span>
+                                }
+                                <small>(device.details(overview.now).join(" · "))</small>
+                            </div>
+                        </li>
+                    }
+                </ul>
+                if devices.len() > DEVICES_SHOWN {
+                    <p class="help">
+                        <a href=(links.devices)>(format!("And {} more", devices.len() - DEVICES_SHOWN))</a>
+                    </p>
+                }
+            </section>
+        </div>
+    })
+}
+
+/// How many of the sessions are recorded `browsers`, and how many `other`
+/// devices went unrecorded, in words.
+fn sessions_detail(browsers: usize, other: usize) -> String {
+    let plural =
+        |count: usize, word: &str| format!("{count} {word}{}", if count == 1 { "" } else { "s" });
+    match (browsers, other) {
+        (0, 0) => "none".to_owned(),
+        (browsers, 0) => plural(browsers, "browser"),
+        (0, other) => plural(other, "unrecorded device"),
+        (browsers, other) => format!("{} · {other} unrecorded", plural(browsers, "browser")),
+    }
+}
+
+#[cfg(test)]
+mod tests;

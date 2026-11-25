@@ -205,7 +205,7 @@ impl Tab {
         };
         let parts = Part::ALL
             .into_iter()
-            .filter_map(|part| spot(part.tab(), format!("#{}", part.id()), part.spot()));
+            .filter_map(|part| spot(part.tab(), part.on(""), part.spot()));
         let dialogs = ProfileDialog::ALL.into_iter().filter_map(|dialog| {
             let state = ProfileState {
                 open: Some(dialog),
@@ -296,6 +296,11 @@ impl Part {
             Self::Export => "export-heading",
             Self::Delete => "delete-heading",
         }
+    }
+
+    /// Its address on `page`, its tab's page.
+    pub(crate) fn on(self, page: &str) -> String {
+        format!("{page}#{}", self.id())
     }
 
     /// The tab whose page it is on.

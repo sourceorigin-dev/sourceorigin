@@ -84,7 +84,7 @@ When you link a provider while signing in to an app, **Sign-in method added**
 says it is linked. Select **Continue** to go on to the app.
 
 The **Overview** tab also offers **Link GitHub** or **Link Google** while one
-is not linked. Select **Not now** to hide that suggestion in this browser.
+is not linked, among its [recommendations](../introduction.md#recommendations).
 
 ## Unlink GitHub or Google
 

@@ -379,9 +379,11 @@ class Passkeys {
  * - an element marked `data-dismiss` shows unless this browser dismissed its value, a
  *   key, whether it was rendered hidden, as a hint is, or shown, as a security question
  *   is, so it asks without scripts; a `data-dismisses` element inside it dismisses its key
- *   when clicked, hiding it from then on and giving the focus to the page's heading.
- *   Where the browser keeps no local storage, it shows on every page, and a dismissal
- *   hides it on that page only.
+ *   when clicked, hiding it from then on and giving the focus to the page's heading. With
+ *   `data-dismiss-days`, a dismissal lasts that many days, then it shows again. Inside an
+ *   element marked `data-dismiss-limit`, only that many of them show at once, in order:
+ *   dismissing one shows the next. Where the browser keeps no local storage, they show on
+ *   every page, and a dismissal hides one on that page only.
  * A passkey form's button, a confirming form's included, starts disabled until
  * passkeys are known to work here; its `data-unavailable` note says why, and hides
  * once it is enabled.
@@ -588,26 +590,55 @@ function wire(document) {
       return undefined;
     }
   };
-  for (const element of /** @type {NodeListOf<HTMLElement>} */ (
-    document.querySelectorAll('[data-dismiss]')
-  ))
-    element.hidden = Boolean(stored((storage) => storage.getItem(element.dataset.dismiss ?? '')));
+  /** The keys dismissed on this page, which hide even where nothing is stored. */
+  const dismissedHere = new Set();
+  /**
+   * Whether this browser dismissed `element`'s key, and the dismissal still lasts. A
+   * dismissal keeps the time it happened.
+   * @param {HTMLElement} element
+   * @returns {boolean}
+   */
+  const dismissed = (element) => {
+    const key = element.dataset.dismiss ?? '';
+    if (dismissedHere.has(key)) return true;
+    const at = stored((storage) => storage.getItem(key));
+    if (at == null) return false;
+    const days = Number(element.dataset.dismissDays);
+    return !days || Date.now() - Number(at) < days * 24 * 60 * 60 * 1000;
+  };
+  /** Shows each `data-dismiss` element unless dismissed, within its group's limit. */
+  const showUndismissed = () => {
+    for (const element of /** @type {NodeListOf<HTMLElement>} */ (
+      document.querySelectorAll('[data-dismiss]')
+    ))
+      element.hidden = dismissed(element);
+    for (const group of /** @type {NodeListOf<HTMLElement>} */ (
+      document.querySelectorAll('[data-dismiss-limit]')
+    ))
+      for (const [index, element] of [
+        .../** @type {NodeListOf<HTMLElement>} */ (group.querySelectorAll('[data-dismiss]'))
+      ]
+        .filter((element) => !element.hidden)
+        .entries())
+        element.hidden = index >= Number(group.dataset.dismissLimit);
+  };
+  showUndismissed();
   for (const button of /** @type {NodeListOf<HTMLElement>} */ (
     document.querySelectorAll('[data-dismisses]')
   ))
     button.addEventListener('click', () => {
       const key = button.dataset.dismisses ?? '';
-      const dismissed = /** @type {HTMLElement | null} */ (button.closest('[data-dismiss]'));
-      if (dismissed?.dataset.dismiss === key) {
+      if (button.closest('[data-dismiss]')?.getAttribute('data-dismiss') === key) {
         // Hiding it takes the focus from the button, so the page's heading gets it.
         const heading = document.querySelector('h1');
         heading?.setAttribute('tabindex', '-1');
         heading?.focus();
-        dismissed.hidden = true;
       }
+      dismissedHere.add(key);
       stored((storage) => {
-        storage.setItem(key, '1');
+        storage.setItem(key, String(Date.now()));
       });
+      showUndismissed();
     });
   const replaced = /** @type {HTMLElement | null} */ (document.querySelector('[data-replace-url]'))
     ?.dataset.replaceUrl;

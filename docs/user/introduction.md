@@ -9,7 +9,30 @@ Your account lives at [auth.sourceorigin.dev](https://auth.sourceorigin.dev). It
 at `auth.sourceorigin.dev/settings`, manage your passkeys, email addresses, devices,
 the apps you signed in to, your notifications and your data.
 
-![The settings overview: active sessions, connected apps, recent security activity and devices](../images/account/settings.png)
+![The settings overview: active sessions, connected apps, recommendations to add a backup passkey and an email address, recent security activity and devices](../images/account/settings.png)
+
+## Recommendations
+
+The overview suggests what your account still lacks, two at a time, most
+important first:
+
+1. **Add a backup passkey**, while you have only one. If you lose it, only a
+   [recovery](your-data/recover-your-account.md) through support can give you
+   a new one. Select **Add a passkey** to add one on
+   [Sign-in methods](account/sign-in-methods.md#add-a-passkey).
+2. **Add an email address**, while you have no
+   [confirmed address](account/email-addresses.md). Recovery links and
+   [security alerts](account/security-alerts.md) go to it. If you added one
+   that isn't confirmed yet, it says **Confirm your email address** instead,
+   with **Resend link**.
+3. **You can still link GitHub** (or Google), while one SourceOrigin offers
+   isn't [linked](account/sign-in-methods.md#link-github-or-google).
+4. **Finish your profile**, while your [profile](account/profile.md) has no
+   picture, or your handle as its display name.
+
+Select **Not now** to hide a suggestion for your account in this browser, and
+the next one shows. The backup passkey and email address come back after 30
+days, since they keep you able to get back in; the others stay hidden.
 
 ## Find a setting
 
