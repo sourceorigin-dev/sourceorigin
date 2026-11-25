@@ -272,7 +272,11 @@ which `just check-changed` reads too.
 
 The merge queue and manual runs run every job. The `ci` check sums the others
 up: it fails if any job failed, and passes when the rest succeeded or were
-skipped. It is the one check the merge queue waits for.
+skipped. The merge queue waits for it and for `standard / pr-checks`, which
+[pr.yml](https://github.com/sourceorigin-dev/sourceorigin/blob/main/.github/workflows/pr.yml)
+runs: the engineering standard's checks of the pull request itself, such as its
+title, its description and the exceptions it adds, which need the
+`approved-exception` label from an approver.
 
 `main` receives the exact commit the merge queue tested, so a push to `main`
 doesn't test it again. It only refreshes the caches that pull requests and the

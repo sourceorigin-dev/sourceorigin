@@ -8,6 +8,37 @@ cargo-in-ci = [
     "cargo install --locked piquelctl",
 ]
 
+# The pull request checks of .github/workflows/pr.yml, read at a pull
+# request's base. The scopes are the ones titles on main use.
+[pr-checks]
+scopes = [
+    "admin",
+    "agents",
+    "audit",
+    "auth",
+    "auth-sdk",
+    "browser",
+    "cli",
+    "common",
+    "config",
+    "crypto",
+    "database",
+    "deliveries",
+    "deps",
+    "dev",
+    "infra",
+    "jobs",
+    "lint",
+    "operations",
+    "sdk",
+    "t3",
+    "telemetry",
+    "ui",
+    "user",
+    "web",
+]
+approvers = ["PiquelChips"]
+
 # Each deviation lists the files its findings were in when SourceOrigin adopted
 # the standard; `cargo xtask standard --fix` drops each file once it complies.
 [deviations]
