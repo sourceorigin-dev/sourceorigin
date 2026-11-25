@@ -1,28 +1,46 @@
 //! Auditable cryptographic primitives for authentication, shared by auth and the
 //! Rust SDK; no browser or database policy.
+//!
+//! With no features, this crate is what the SDK builds on: random secrets,
+//! digests, RS256 verification and sealing. The `server` feature adds what only
+//! auth uses: RS256 signing and key sets, client secrets, PKCE, the key-encryption
+//! key, Ed25519 signed notes and SCRAM verifiers.
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![warn(clippy::print_stdout, clippy::print_stderr)]
 /// The one RS256 verifier auth and the SDK share, and compact JWS splitting.
 mod jws;
 /// Ed25519 signed notes, for audit checkpoints.
+#[cfg(feature = "server")]
 mod note;
+/// Client secrets and PKCE, as auth checks them.
+#[cfg(feature = "server")]
+mod oauth;
 /// SCRAM-SHA-256 password verifiers, for database roles.
+#[cfg(feature = "server")]
 mod scram;
 /// AES-256-GCM sealing of private keys at rest, and of the SDK's cookies.
 mod sealing;
 /// RSA signing and verification of compact JWTs, by key set.
+#[cfg(feature = "server")]
 mod signing;
 pub use jws::{Compact, KeyDefect, Malformed, Rs256VerifyingKey, Split, VerifyError};
+#[cfg(feature = "server")]
 pub use note::{NoteKey, NoteVerifier, NoteVerifiers};
+#[cfg(feature = "server")]
+pub use oauth::{ClientSecret, Pkce};
+#[cfg(feature = "server")]
 pub use scram::ScramVerifier;
-pub use sealing::{KeyEncryptionKey, SealingKey};
+#[cfg(feature = "server")]
+pub use sealing::KeyEncryptionKey;
+pub use sealing::SealingKey;
+#[cfg(feature = "server")]
 pub use signing::{KeySet, PublicKey, Rs256Key};
 
 use aws_lc_rs::{
     constant_time, digest, error::KeyRejected, error::Unspecified, hmac, rand as random,
 };
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
-use secrecy::{ExposeSecret, SecretBox, SecretString, zeroize::Zeroizing};
+use secrecy::{ExposeSecret, SecretBox, zeroize::Zeroizing};
 use sourceorigin_common::protocol::jwt::InvalidKeyId;
 use sourceorigin_common::protocol::registered::ClaimsError;
 use std::fmt;
@@ -30,12 +48,6 @@ use thiserror::Error;
 
 /// Byte length of 256-bit secrets and SHA-256 results.
 const SECRET_BYTES: usize = 32;
-/// Starts every generated client secret, so secret scanners can recognize leaked ones.
-const CLIENT_SECRET_PREFIX: &str = "socs_";
-/// RFC 7636 minimum verifier length.
-const MIN_PKCE_VERIFIER_LENGTH: usize = 43;
-/// RFC 7636 maximum verifier length.
-const MAX_PKCE_VERIFIER_LENGTH: usize = 128;
 
 /// Cryptographic failures, preserving provider diagnostics without secret values.
 #[derive(Debug, Error)]
@@ -240,92 +252,6 @@ impl Digest {
     }
 }
 
-/// A confidential OIDC client's secret: `socs_` followed by 256 random bits in
-/// unpadded base64url. It is shown once; only its digest is stored.
-///
-/// SHA-256 suffices for the digest, rather than a slow password hash: a 256-bit
-/// random value cannot be guessed, so slowing each guess down adds nothing but
-/// latency to every token request. The secret is zeroized when dropped.
-pub struct ClientSecret(SecretString);
-impl ClientSecret {
-    /// Generates a secret using operating system randomness.
-    ///
-    /// # Errors
-    /// Preserves failures from the random source.
-    pub fn generate() -> Result<Self, CryptoError> {
-        let encoded = Zeroizing::new(Secret::generate()?.encoded());
-        let mut secret = String::with_capacity(CLIENT_SECRET_PREFIX.len() + encoded.len());
-        secret.push_str(CLIENT_SECRET_PREFIX);
-        secret.push_str(&encoded);
-        Ok(Self(secret.into()))
-    }
-    /// A secret generated elsewhere, such as by the deployment of the client that
-    /// uses it: 256 random bits in unpadded base64url, with or without the prefix.
-    ///
-    /// # Errors
-    /// Rejects other encodings and lengths, so a guessable secret is never stored.
-    pub fn parse(value: &str) -> Result<Self, CryptoError> {
-        Secret::parse(value.strip_prefix(CLIENT_SECRET_PREFIX).unwrap_or(value))?;
-        Ok(Self(value.into()))
-    }
-    /// The secret, to show the operator once.
-    #[must_use]
-    pub fn expose(&self) -> &str {
-        self.0.expose_secret()
-    }
-    /// The digest stored for this secret.
-    #[must_use]
-    pub fn digest(&self) -> Digest {
-        Self::digest_presented(self.expose())
-    }
-    /// The digest of a secret a client presents, to compare with stored digests.
-    /// Secrets that predate the prefix are hashed the same way, so they keep working.
-    #[must_use]
-    pub fn digest_presented(secret: &str) -> Digest {
-        Digest::sha256(secret.as_bytes())
-    }
-}
-impl fmt::Debug for ClientSecret {
-    /// Renders a safe diagnostic representation without exposing the secret.
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str("ClientSecret(REDACTED)")
-    }
-}
-
-/// PKCE S256 (RFC 7636) operations, shared by the OIDC provider and the social-login client.
-pub struct Pkce;
-impl Pkce {
-    /// Computes an S256 challenge from a validated verifier.
-    ///
-    /// # Errors
-    /// Rejects invalid verifier length or characters.
-    pub fn challenge(verifier: &str) -> Result<String, CryptoError> {
-        if !(MIN_PKCE_VERIFIER_LENGTH..=MAX_PKCE_VERIFIER_LENGTH).contains(&verifier.len())
-            || !verifier.bytes().all(|byte| {
-                byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~')
-            })
-        {
-            return Err(CryptoError::PkceVerifier);
-        }
-        Ok(Digest::sha256(verifier.as_bytes()).encoded())
-    }
-    /// Checks whether a verifier matches an S256 challenge.
-    ///
-    /// # Errors
-    /// Reports invalid verifier syntax or a mismatch.
-    pub fn verify(verifier: &str, challenge: &str) -> Result<(), CryptoError> {
-        if Digest::constant_time_eq(Self::challenge(verifier)?.as_bytes(), challenge.as_bytes()) {
-            Ok(())
-        } else {
-            Err(CryptoError::PkceMismatch)
-        }
-    }
-    /// Checks that an incoming challenge encodes a SHA-256 result.
-    #[must_use]
-    pub fn valid_challenge(challenge: &str) -> bool {
-        Secret::parse(challenge).is_ok()
-    }
-}
 /// Focused tests for this module and its security contracts.
 #[cfg(test)]
 mod tests;

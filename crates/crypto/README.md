@@ -10,6 +10,14 @@ To sign users in or validate tokens, use
 [`sourceorigin-auth`](https://crates.io/crates/sourceorigin-auth) instead, which
 depends on this crate.
 
+## Features
+
+With no features, the crate is what the Rust SDK uses: random secrets, digests,
+HMAC, RS256 verification and AES-256-GCM sealing. `server` adds what only auth
+uses, and compiles nothing unless enabled: RS256 signing and key sets, Ed25519
+signed notes, SCRAM-SHA-256 verifiers, the key-encryption key, client secrets
+and PKCE.
+
 It needs Rust 1.88 or newer. The
 [API documentation](https://docs.rs/sourceorigin-crypto) describes each primitive.
 

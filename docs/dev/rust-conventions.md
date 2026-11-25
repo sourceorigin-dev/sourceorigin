@@ -27,16 +27,18 @@ Keep implementations simple. Follow neighbouring modules and share repeated logi
   notifications they give owners and the alerts administrators see),
   `similarity` (look-alike detection for handles and client names) and `sqlx`
   (column decoding, enabled only by the database crate).
-- `sourceorigin-crypto` (`crates/crypto`): random secrets, digests, HMAC, constant-time
-  comparison, PKCE, RS256 signing and verification, key sets, AES-256-GCM sealing
-  of keys at rest, Ed25519 signed notes, for audit checkpoints, and SCRAM-SHA-256
-  verifiers of database passwords.
+- `sourceorigin-crypto` (`crates/crypto`): with no features, what the SDK uses:
+  random secrets, digests, HMAC, constant-time comparison, RS256 verification and
+  AES-256-GCM sealing. The `server` feature adds what only auth uses: PKCE, client
+  secrets, RS256 signing, key sets, the key-encryption key that seals keys at rest,
+  Ed25519 signed notes, for audit checkpoints, and SCRAM-SHA-256 verifiers of
+  database passwords.
 - `sourceorigin-auth` (`crates/auth-sdk`): the public Rust SDK, following
   [sdk.md](architecture/sdk.md): token validation, typed scopes, login and the JWKS cache auth
   also uses for Google; its `axum` feature adds extractors, a bearer layer and
   login routes over an application's own session backend. Among the workspace
   crates it depends only on `sourceorigin-common`, with `client-spans` alone, and
-  `sourceorigin-crypto`, since it is published.
+  `sourceorigin-crypto`, with no features, since it is published.
 - `sourceorigin-repository` (`crates/database`): the only SQLx consumer; PostgreSQL
   connections, migrations, typed repositories, transactions and storage
   vocabulary.

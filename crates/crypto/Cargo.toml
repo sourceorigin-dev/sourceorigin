@@ -11,13 +11,18 @@ readme = "README.md"
 keywords = ["jwt", "pkce", "aead", "authentication"]
 categories = ["cryptography", "authentication"]
 
+[features]
+# What only auth uses: RS256 signing and key sets, client secrets, PKCE, the
+# key-encryption key, signed notes and SCRAM verifiers.
+server = ["dep:chrono", "dep:serde"]
+
 [dependencies]
 sourceorigin-common.workspace = true
 aws-lc-rs.workspace = true
 base64.workspace = true
-chrono.workspace = true
+chrono = { workspace = true, optional = true }
 secrecy.workspace = true
-serde.workspace = true
+serde = { workspace = true, optional = true }
 serde_json.workspace = true
 thiserror.workspace = true
 
@@ -25,6 +30,11 @@ thiserror.workspace = true
 # The vector test reads its `UPDATE_SDK_VECTORS` flag through `Variable`, and
 # the vectors record how auth's sessions map to `amr`, with `AuthenticationMethod`.
 sourceorigin-common = { workspace = true, features = ["config", "server"] }
+
+[[test]]
+name = "sdk_vectors"
+# The vectors are signed with `Rs256Key`.
+required-features = ["server"]
 
 [package.metadata.docs.rs]
 all-features = true

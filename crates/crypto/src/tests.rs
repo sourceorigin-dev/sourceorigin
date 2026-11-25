@@ -1,6 +1,10 @@
 //! Known vectors and boundary tests for each primitive.
 use super::*;
+#[cfg(feature = "server")]
 use chrono::Timelike;
+#[cfg(feature = "server")]
+use oauth::CLIENT_SECRET_PREFIX;
+#[cfg(feature = "server")]
 use sourceorigin_common::protocol::{
     claims::{Audience, AuthenticationClaims, IdTokenClaims, ProfileClaims},
     jwt::TokenType,
@@ -48,6 +52,7 @@ fn digests_match_vectors() {
 
 /// Client secrets carry their scanner prefix and are stored as the digest of
 /// exactly what clients present.
+#[cfg(feature = "server")]
 #[test]
 fn client_secret_contract() {
     let secret = ClientSecret::generate().expect("secret");
@@ -64,6 +69,7 @@ fn client_secret_contract() {
 
 /// Secrets generated elsewhere are kept exactly as given, and must be as strong
 /// as generated ones.
+#[cfg(feature = "server")]
 #[test]
 fn client_secret_parse() {
     let random = Secret::generate().expect("secret").encoded();
@@ -78,6 +84,7 @@ fn client_secret_parse() {
 }
 
 /// PKCE matches RFC 7636 appendix B and enforces verifier syntax.
+#[cfg(feature = "server")]
 #[test]
 fn pkce_matches_rfc() {
     let verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
@@ -93,6 +100,7 @@ fn pkce_matches_rfc() {
 }
 
 /// A JWK thumbprint matches RFC 7638's example, and names the key whatever its ID.
+#[cfg(feature = "server")]
 #[test]
 fn thumbprints_match_rfc() {
     use sourceorigin_common::protocol::jwt::{Jwk, KeyType};
@@ -119,6 +127,7 @@ fn thumbprints_match_rfc() {
 }
 
 /// Key loading preserves parse sources and rejects unsafe key identifiers and sizes.
+#[cfg(feature = "server")]
 #[test]
 fn rsa_configuration_boundaries() {
     assert!(Rs256Key::from_pem("key", "not PEM").is_err());
@@ -131,6 +140,7 @@ fn rsa_configuration_boundaries() {
 }
 
 /// Generated keys survive PEM persistence and reject unrelated keys and malformed claims.
+#[cfg(feature = "server")]
 #[test]
 fn jwt_persistence_and_trust_boundaries() {
     let key = Rs256Key::generate("persistent").expect("RSA key");
@@ -196,6 +206,7 @@ fn jwt_persistence_and_trust_boundaries() {
 
 /// Signed notes match the Go reference implementation (`golang.org/x/mod/sumdb/note`):
 /// the same seed gives the same verifier key and the same signature line.
+#[cfg(feature = "server")]
 #[test]
 fn notes_match_the_reference_vectors() {
     let key = NoteKey::from_hex_seed(
@@ -232,6 +243,7 @@ fn notes_match_the_reference_vectors() {
 
 /// A note opens only with a valid signature by a listed key. Other keys'
 /// signatures are ignored, but a listed key's invalid signature fails.
+#[cfg(feature = "server")]
 #[test]
 fn notes_open_only_with_a_valid_listed_signature() {
     let key = NoteKey::generate("auth.example/audit").expect("key");
@@ -289,6 +301,7 @@ fn notes_open_only_with_a_valid_listed_signature() {
 
 /// Seeds must be exactly 32 hex-encoded bytes.
 /// Key names must be usable in signature lines and verifier keys.
+#[cfg(feature = "server")]
 #[test]
 fn note_keys_reject_malformed_seeds_and_names() {
     let seed = "00".repeat(32);
@@ -320,6 +333,7 @@ fn note_keys_reject_malformed_seeds_and_names() {
 
 /// A verifier matches the one `PostgreSQL` 18 derived for the same password and
 /// salt, in the form it stores, and each new one has a salt of its own.
+#[cfg(feature = "server")]
 #[test]
 fn scram_verifiers_match_postgresql() {
     const DERIVED: &str = "SCRAM-SHA-256$4096:HGPlm+ubr/bvXpBiFegrkQ==$\

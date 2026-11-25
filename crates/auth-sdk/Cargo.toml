@@ -34,6 +34,8 @@ url.workspace = true
 
 [dev-dependencies]
 axum.workspace = true
+# Tests sign their tokens with `Rs256Key`.
+sourceorigin-crypto = { workspace = true, features = ["server"] }
 # Paused time, so a test can wait out a deadline without waiting.
 tokio = { workspace = true, features = ["test-util"] }
 trybuild.workspace = true

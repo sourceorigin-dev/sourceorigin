@@ -89,8 +89,10 @@ impl fmt::Debug for SealingKey {
 
 /// The key that seals signing keys in the database, from configuration, as a
 /// [`SealingKey`]: the associated data binds each sealed key to its record.
+#[cfg(feature = "server")]
 pub struct KeyEncryptionKey(SealingKey);
 
+#[cfg(feature = "server")]
 impl KeyEncryptionKey {
     /// Parses the KEK from its configured text: 32 bytes in unpadded base64url.
     ///
@@ -126,6 +128,7 @@ impl KeyEncryptionKey {
     }
 }
 
+#[cfg(feature = "server")]
 impl fmt::Debug for KeyEncryptionKey {
     /// Renders a safe diagnostic representation without exposing the key.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -133,5 +136,6 @@ impl fmt::Debug for KeyEncryptionKey {
     }
 }
 
-#[cfg(test)]
+/// The key-encryption key's tests, which seal through it.
+#[cfg(all(test, feature = "server"))]
 mod tests;
