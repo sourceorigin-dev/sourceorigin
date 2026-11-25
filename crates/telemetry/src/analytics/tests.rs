@@ -139,16 +139,26 @@ crate::signal! {
     }
 }
 
-/// `migrate` creates a signal's table, again without error, and a writer that
-/// may insert rows but read none; a recorded row reaches the table once flushed.
+/// A row the reader reads back.
+#[derive(serde::Deserialize)]
+struct Refused {
+    /// Requests refused.
+    refused: u64,
+}
+
+/// `migrate` creates a signal's table, again without error, a writer that may
+/// insert rows but read none, and a reader that may read them, bound to its
+/// parameters, but insert none, nor read spans; a recorded row reaches the
+/// table once flushed.
 #[tokio::test]
 #[ignore = "needs TEST_ANALYTICS_URL, a scratch ClickHouse: run `just analytics test`"]
-async fn migrate_provisions_a_writer_that_only_inserts() {
+async fn migrate_provisions_a_writer_that_only_inserts_and_a_reader_that_only_reads_signals() {
     let owner = super::Store::test();
     let writer = owner.as_user("test_writer", "writer-password");
+    let reader = owner.as_user("test_reader", "reader-password");
     for _ in 0..2 {
         owner
-            .migrate(&[Throttled::TABLE], Some(&writer))
+            .migrate(&[Throttled::TABLE], Some(&writer), Some(&reader))
             .await
             .expect("migrated");
     }
@@ -166,5 +176,21 @@ async fn migrate_provisions_a_writer_that_only_inserts() {
             .await
             .is_err(),
         "the writer may not read"
+    );
+    let read: Vec<Refused> = reader
+        .query(
+            "SELECT refused FROM throttled WHERE category = {category:String}",
+            &[("category", "login")],
+        )
+        .await
+        .expect("read");
+    assert_eq!(read.iter().map(|row| row.refused).collect::<Vec<_>>(), [3]);
+    let inserted = reader
+        .insert("throttled", bytes::Bytes::from_static(b"{}"))
+        .await;
+    assert!(inserted.is_err(), "the reader may not insert");
+    assert!(
+        reader.select("SELECT count() FROM spans").await.is_err(),
+        "the reader may not read what one request did"
     );
 }

@@ -12,6 +12,7 @@ async fn a_server_error_shows_its_trace_id() {
     let dashboard = DashboardConfig {
         listener: SocketAddr::from(([127, 0, 0, 1], 0)),
         origin: DASHBOARD.parse().expect("dashboard origin"),
+        analytics: None,
     };
     let config = AuthConfig::test(&AUTH_ORIGIN.parse().expect("auth origin"));
     let database = Replicas::database().await;

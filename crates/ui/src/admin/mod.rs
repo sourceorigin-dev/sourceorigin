@@ -11,6 +11,8 @@
 
 /// The alerts administrators are shown.
 mod alerts;
+/// The Analytics page: charts of what the analytics database counts.
+mod analytics;
 /// Announcements to accounts.
 mod announcements;
 /// The audit chain's state and its checkpoints.
@@ -35,6 +37,7 @@ mod recoveries;
 mod users;
 
 pub use alerts::{AlertCard, alert_list, alert_update_fields, previous_alerts};
+pub use analytics::{AnalyticsPage, AnalyticsReport, SlowRoute, StoredTable, admin_analytics};
 pub use announcements::{
     AdminAnnouncementRow, AnnouncementAudience, DraftActions, DraftAnnouncement, DraftIntent,
     FoundAccount, announcement_form, announcement_list, announcement_page,
@@ -117,6 +120,8 @@ impl Query for SendAnnouncement {}
 pub enum Tab {
     /// What needs attention, and what the service is doing now.
     Overview,
+    /// What the analytics database counts, as charts.
+    Analytics,
     /// Accounts.
     Users,
     /// Who administers Origin Auth.
@@ -146,6 +151,7 @@ impl Tab {
     const fn icon(self) -> Icon {
         match self {
             Self::Overview => Icon::Home,
+            Self::Analytics => Icon::Chart,
             Self::Users => Icon::Users,
             Self::Administrators => Icon::Shield,
             Self::Invitations => Icon::Invitation,
@@ -166,6 +172,7 @@ impl Label for Tab {
     fn label(self) -> &'static str {
         match self {
             Self::Overview => "Overview",
+            Self::Analytics => "Analytics",
             Self::Users => "Users",
             Self::Administrators => "Administrators",
             Self::Invitations => "Invitations",
@@ -189,6 +196,9 @@ impl Searchable for Tab {
     fn terms(self) -> &'static str {
         match self {
             Self::Overview => "home health status attention summary",
+            Self::Analytics => {
+                "charts statistics traffic requests latency sign-ins funnel passkeys storage clickhouse"
+            }
             Self::Users => "accounts people members search",
             Self::Administrators => "admins rights roles operators",
             Self::Invitations => "invites signup links codes",

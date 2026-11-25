@@ -621,7 +621,7 @@ async fn account_apps_remove_withdraws_the_consent() {
 #[ignore = "needs TEST_ANALYTICS_URL, a scratch ClickHouse: run `just analytics test`"]
 async fn every_analytics_table_migrates() {
     Store::test()
-        .migrate(ANALYTICS_TABLES, None)
+        .migrate(ANALYTICS_TABLES, None, None)
         .await
         .expect("migrated");
 }

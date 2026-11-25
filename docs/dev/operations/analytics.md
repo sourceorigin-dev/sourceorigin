@@ -1,9 +1,9 @@
 # Analytics database
 
 This page helps you run each environment's analytics database, a ClickHouse
-server, and read it when you need to: sign in to its pages, look up a failed
-request by its trace ID, follow what administrators do, and check how much disk
-it uses.
+server, and read it: chart it on the admin dashboard, sign in to its own pages,
+look up a failed request by its trace ID, follow what administrators do, and
+check how much disk it uses.
 
 Every environment and preview runs `clickhouse`, beside `postgres`, from
 `infra/piqueld.toml`. Auth and sourceorigin.dev's web server write their
@@ -17,6 +17,30 @@ it and lets the deployment go on. Check the migration job's output for
 `analytics tables not migrated` after a deployment that changed a table or a
 variable: until a `migrate` succeeds, ClickHouse refuses the rows it lacks a
 table for.
+
+## Read it on the admin dashboard
+
+The dashboard's **Analytics** page charts what ClickHouse counts, for any
+administrator:
+
+- requests per hour over the last 24 hours, to every server: auth, its
+  dashboard and sourceorigin.dev's web server, and how many were server
+  errors;
+- sign-ins and failed sign-ins over the last 30 days, per day;
+- how far sign-ins to apps got, step by step, and which kinds of passkeys
+  people used, over the last 30 days;
+- the slowest routes of the last 24 hours, by their 95th percentile, each with
+  its method and the server that answered;
+- how many rows each table holds, and the disk they take.
+
+Times are UTC, and **Show as a table**, below each chart, lists its values.
+The page reads ClickHouse as `sourceorigin_reader` (see
+[users and secrets](#users-and-secrets)), which may only read, and only within
+limits on each query. Without `ANALYTICS_READER_URL`, it says analytics are off.
+When ClickHouse refuses or doesn't answer, the page says the database didn't
+answer, and auth logs `the analytics page could not be read` with the query and
+the reason. ClickHouse's own pages, below, can say more. Every other page of
+the dashboard works either way.
 
 ## Sign in to ClickHouse
 
@@ -136,22 +160,25 @@ caps its memory at three quarters of the container's 1 GiB.
 | --- | --- | --- | --- |
 | `sourceorigin` | `analytics-password` | the `migrate` job, and you on its pages | everything, and managing users |
 | `sourceorigin_writer` | `analytics-writer-password` | `auth`, `web` | insert rows, into any table |
+| `sourceorigin_reader` | `analytics-reader-password` | the admin dashboard, in `auth` | read the signals' tables, not `spans` or `logs`, and every table's size: 5 seconds, 512 MiB and 10,000 rows a query |
 
 The image configures `sourceorigin` from the password it mounts each time
 ClickHouse starts, so regenerating `analytics-password` takes effect on the
 next deployment, which restarts `clickhouse`. `migrate` creates
-`sourceorigin_writer` as a SQL user, and every deployment's `migrate` resets
-its password to `analytics-writer-password`, so regenerate that one like
+`sourceorigin_writer` and `sourceorigin_reader` as SQL users, and every
+deployment's `migrate` resets their passwords to `analytics-writer-password`
+and `analytics-reader-password`, so regenerate those like
 [the database runtime password](secrets.md#the-database-runtime-password).
 
 ## Locally
 
 ```sh
-just analytics scratch -- sh -c 'export ANALYTICS_URL=$TEST_ANALYTICS_URL ANALYTICS_PASSWORD=env://TEST_ANALYTICS_PASSWORD; just db migrate && just auth serve'
+just analytics scratch -- sh -c 'export ANALYTICS_URL=$TEST_ANALYTICS_URL ANALYTICS_READER_URL=$TEST_ANALYTICS_URL ANALYTICS_PASSWORD=env://TEST_ANALYTICS_PASSWORD ANALYTICS_READER_PASSWORD=env://TEST_ANALYTICS_PASSWORD; just db migrate && just auth serve'
 ```
 
 This starts a throwaway ClickHouse in Docker, creates its tables, and serves
-auth with your own configuration, writing its spans, logs and rows there. The
+auth with your own configuration, writing its spans, logs and rows there, and
+charting them on the dashboard's **Analytics** page. The
 container is deleted once auth stops. To point a local auth at a ClickHouse of
 your own, set `ANALYTICS_URL` and `ANALYTICS_PASSWORD`, and run
 `just db migrate` with `ANALYTICS_OWNER_URL` and `ANALYTICS_OWNER_PASSWORD`

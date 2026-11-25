@@ -210,8 +210,9 @@ pub(crate) mod dashboard {
     pub(crate) const SEARCH: &str = "/search";
     /// Every path the dashboard serves is one of these, or under one: the admin
     /// listener mounts the pages on them, and nowhere else.
-    pub(crate) const PREFIXES: [&str; 18] = [
+    pub(crate) const PREFIXES: [&str; 19] = [
         "/",
+        "/analytics",
         SIGN_IN,
         CONFIRM,
         "/sign-out",

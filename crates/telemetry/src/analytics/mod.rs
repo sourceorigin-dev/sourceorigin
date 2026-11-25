@@ -21,7 +21,7 @@ mod capture;
 
 #[cfg(any(test, feature = "test-util"))]
 pub use capture::AnalyticsCapture;
-pub use store::{OWNER_VARIABLES, Store, StoreError, VARIABLES};
+pub use store::{Migration, OWNER_VARIABLES, READER_VARIABLES, Store, StoreError, VARIABLES};
 pub(crate) use writer::Writer;
 
 use serde::{Serialize, Serializer};

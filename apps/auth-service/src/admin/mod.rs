@@ -5,6 +5,8 @@
 //! an administrator signed in to the dashboard, whom only [`DashboardSignIn`]
 //! finds, from the dashboard's session cookie, or an operator at the terminal.
 
+/// The dashboard's Analytics page.
+mod analytics;
 /// Admin failures and their status and message.
 mod error;
 /// The list of operations the CLI covers.
@@ -20,6 +22,7 @@ mod sign_in;
 /// Validated inputs.
 mod types;
 
+pub(crate) use analytics::Analytics;
 pub(crate) use error::AdminError;
 pub(crate) use operation::AdminOperation;
 use operator::AdminSession;

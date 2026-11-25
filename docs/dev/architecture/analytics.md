@@ -196,6 +196,28 @@ An invalid `ANALYTICS_URL` or `ANALYTICS_PASSWORD` stops `serve` and the web
 app, as broken telemetry does. Other commands warn and discard their rows.
 Unset, every row is discarded.
 
+## Reading it back
+
+The admin dashboard's **Analytics** page reads ClickHouse through
+`AdminService::analytics` (`apps/auth-service/src/admin/analytics`), as
+`sourceorigin_reader`, a user `migrate` allows only to read the signals'
+tables, and every table's size, with a time, memory and row limit on each
+query.
+`Store::query` sends a fixed statement and its values as ClickHouse query
+parameters (`{name:Type}`), never as SQL text, and decodes each `JSONEachRow`
+line into a struct; an error names the query. The reader's settings keep
+64-bit integers unquoted in JSON, but other users' may not, so the queries
+never return one. The page's queries run at once, each from the
+start of the first hour or day its chart shows, in UTC, and a `Period` fills in
+those that counted nothing. They cast counts to `UInt32` and sizes to
+`Float64`, which a chart's `f64` holds exactly or near enough. A column whose
+values are a vocabulary, such as `authorization_steps.step`, is recorded and
+read through its `str_enum!`, in `sourceorigin_common::admin`, so both agree;
+its `else` variant reads a spelling another release wrote, so one row never
+breaks the page.
+To chart a new signal, add its query there, and its chart to
+`crates/ui/src/admin/analytics.rs`, with `crates/ui/src/charts`.
+
 ## Testing
 
 `AnalyticsCapture::start()` captures the rows a test records on its thread,
@@ -208,5 +230,6 @@ assert!(analytics.rows("events").iter().any(|row| row["kind"] == "account_disabl
 ```
 
 Tests that need ClickHouse itself are marked `#[ignore]`, with a reason naming
-`TEST_ANALYTICS_URL`. `just analytics test` runs them in a scratch ClickHouse:
+`TEST_ANALYTICS_URL`. `just analytics test` runs them in a scratch ClickHouse,
+and `just db test` runs them with the dashboard's, which need PostgreSQL too:
 see [testing](../testing.md#analytics-tests).

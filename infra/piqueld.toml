@@ -202,9 +202,16 @@ generate = { type = "random", bytes = 32, encoding = "hex" }
 name = "analytics-writer-password"
 generate = { type = "random", bytes = 32, encoding = "hex" }
 
+# The password of `sourceorigin_reader`, the ClickHouse user the admin dashboard
+# reads analytics as, allowed only to read, within limits on each query.
+# `migrate` sets it on every deploy.
+[[spec.secrets]]
+name = "analytics-reader-password"
+generate = { type = "random", bytes = 32, encoding = "hex" }
+
 # Applies migrations as the superuser, then creates or resets `sourceorigin_auth`;
 # likewise creates the analytics tables as ClickHouse's `sourceorigin`, then
-# creates or resets `sourceorigin_writer`.
+# creates or resets `sourceorigin_writer` and `sourceorigin_reader`.
 [[spec.jobs]]
 name = "migrate"
 service = "auth"
@@ -264,10 +271,16 @@ AUTH_GOOGLE_CLIENT_ID = "${{ vars.google_client_id }}"
 AUTH_GOOGLE_CLIENT_SECRET = "file:///run/secrets/google-client-secret"
 ANALYTICS_URL = "http://sourceorigin_writer@clickhouse:8123/sourceorigin"
 ANALYTICS_PASSWORD = "file:///run/secrets/analytics-writer-password"
+ANALYTICS_READER_URL = "http://sourceorigin_reader@clickhouse:8123/sourceorigin"
+ANALYTICS_READER_PASSWORD = "file:///run/secrets/analytics-reader-password"
 
 [[spec.services.secrets]]
 name = "analytics-writer-password"
 target = "/run/secrets/analytics-writer-password"
+
+[[spec.services.secrets]]
+name = "analytics-reader-password"
+target = "/run/secrets/analytics-reader-password"
 
 [[spec.services.secrets]]
 name = "database-runtime-password"

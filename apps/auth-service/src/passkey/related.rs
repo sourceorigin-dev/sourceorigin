@@ -23,6 +23,7 @@ use axum::{
 };
 use serde::Deserialize;
 use sourceorigin_common::{
+    admin::AuthorizationStepKind,
     clients::RelatedOrigin,
     events::{Actor, InlineSignIn},
 };
@@ -97,7 +98,9 @@ impl PasskeyApplication {
             .await?;
         let consent = context.consent(&mut tx, claim.hinted_user_id).await?;
         let client = client_id.clone();
-        tx.after_commit(move || AuthorizationStep::count(consent, &client, "requested"));
+        tx.after_commit(move || {
+            AuthorizationStep::count(consent, &client, AuthorizationStepKind::Requested);
+        });
         let (challenge, state) = app.discoverable()?;
         let sign_in = if let Some(user_id) = claim.hinted_user_id {
             if tx.passkeys().list_active(user_id).await?.is_empty() {
@@ -182,7 +185,9 @@ impl PasskeyApplication {
             .complete_inline(&mut tx, &claim, &session, &client_id, &origin)
             .await?;
         let consent = context.consent(&mut tx, Some(user_id)).await?;
-        tx.after_commit(move || AuthorizationStep::count(consent, &client_id, "authorized"));
+        tx.after_commit(move || {
+            AuthorizationStep::count(consent, &client_id, AuthorizationStepKind::Authorized);
+        });
         tx.commit().await?;
         Ok(Json(response))
     }

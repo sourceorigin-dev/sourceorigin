@@ -20,6 +20,10 @@ Two surfaces run the same code (`AdminService` in
 
 ![The admin dashboard's overview: sign-in counts, recent events and the newest accounts](../../images/admin/overview.png)
 
+The dashboard's **Analytics** page charts traffic, sign-ins and what the
+analytics database stores: see
+[analytics](analytics.md#read-it-on-the-admin-dashboard).
+
 ## Grant the first administrator
 
 Only the command line grants the first administrator, once the environment is

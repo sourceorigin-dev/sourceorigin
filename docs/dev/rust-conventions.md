@@ -71,7 +71,8 @@ Keep implementations simple. Follow neighbouring modules and share repeated logi
   including the `Checkbox` and `Lines` types for values a form sends as text;
   `clients` the client views the console shares with the dashboard; `settings`,
   `developers` and `admin` each area's pages, an overview first, with the forms
-  they render, such as the dashboard's `DraftAnnouncement`; `icons` the
+  they render, such as the dashboard's `DraftAnnouncement`; `charts` the
+  charts it draws as SVG, each with a table of its numbers; `icons` the
   inline glyphs; `asset` the files pages link, embedded in the executable: the
   stylesheet, `STYLESHEET`, under a path naming its content, and the `FONTS` it
   links, under paths naming their version, which the admin dashboard serves

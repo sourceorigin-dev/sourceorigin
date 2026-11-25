@@ -45,6 +45,11 @@
 - `ANALYTICS_URL`: The ClickHouse database analytics rows are written to, as an HTTP URL naming the user and the database, such as `http://sourceorigin_writer@clickhouse:8123/sourceorigin`. Unset or empty, rows are discarded.
 - `ANALYTICS_PASSWORD`: Where to read that user's password, through `env://NAME` or `file:///path`.
 
+### Analytics dashboard
+
+- `ANALYTICS_READER_URL`: The ClickHouse user the admin dashboard reads analytics as, in the same format as `ANALYTICS_URL`, such as `http://sourceorigin_reader@clickhouse:8123/sourceorigin`. With `ANALYTICS_OWNER_URL`, `migrate` creates or resets it, allowed only to read the signals' tables, and every table's name and size, within limits on each query, so it must be a user of its own. Unset, the dashboard's Analytics page says analytics are off.
+- `ANALYTICS_READER_PASSWORD`: Where to read that user's password, as for `ANALYTICS_PASSWORD`.
+
 ### Analytics migrations
 
 - `ANALYTICS_OWNER_URL`: The ClickHouse user `migrate` connects as instead, in the same format as `ANALYTICS_URL`. `migrate` then creates or resets the user `ANALYTICS_URL` names, with the `ANALYTICS_PASSWORD` password, allowed only to insert rows. The owner must be allowed to manage users.

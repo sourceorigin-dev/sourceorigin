@@ -4,6 +4,7 @@
 use super::Table;
 use bytes::Bytes;
 use secrecy::{ExposeSecret, SecretString};
+use serde::de::DeserializeOwned;
 use sourceorigin_common::config::{ConfigurationError, SecretReference, Variable};
 use std::{fmt::Write as _, time::Duration};
 use thiserror::Error;
@@ -25,6 +26,23 @@ sourceorigin_common::variables! {
 }
 
 sourceorigin_common::variables! {
+    /// The variables of the service that reads analytics back, auth's admin
+    /// dashboard, in the configuration reference's order.
+    pub const READER_VARIABLES;
+
+    /// The ClickHouse user the admin dashboard reads analytics as, in the same
+    /// format as `ANALYTICS_URL`, such as
+    /// `http://sourceorigin_reader@clickhouse:8123/sourceorigin`. With
+    /// `ANALYTICS_OWNER_URL`, `migrate` creates or resets it, allowed only to
+    /// read the signals' tables, and every table's name and size, within limits
+    /// on each query, so it must be a user of its own. Unset, the dashboard's Analytics page says analytics are
+    /// off.
+    const READER_URL = "ANALYTICS_READER_URL";
+    /// Where to read that user's password, as for `ANALYTICS_PASSWORD`.
+    const READER_PASSWORD = "ANALYTICS_READER_PASSWORD";
+}
+
+sourceorigin_common::variables! {
     /// The variables `migrate` reads too, in the configuration reference's order.
     pub const OWNER_VARIABLES;
 
@@ -39,6 +57,27 @@ sourceorigin_common::variables! {
 
 /// How long one request to ClickHouse may take.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+/// What each of the reader's queries may use, which ClickHouse enforces: no
+/// change, 5 seconds, 512 MiB, and 10,000 rows back. Its rows' 64-bit
+/// integers are JSON numbers, never quoted, whatever the server's default.
+const READER_LIMITS: &str = "readonly = 1, max_execution_time = 5, \
+                             max_memory_usage = 536870912, max_result_rows = 10000, \
+                             output_format_json_quote_64bit_integers = 0";
+/// What the reader may read of ClickHouse's own tables: how much each table
+/// stores, for the dashboard's storage card. `system.parts` lists only the
+/// tables a user may see, so the reader may see every table's name, though
+/// not read `spans` and `logs`.
+const READER_SYSTEM: &str = "SELECT(database, table, active, rows, bytes_on_disk) ON system.parts";
+
+/// What `migrate` connects as, and the users it provisions.
+pub struct Migration {
+    /// The owner, or the writer when no owner is configured.
+    pub store: Store,
+    /// The writer, when connected as the owner.
+    pub writer: Option<Store>,
+    /// The reader, when connected as the owner and it is configured.
+    pub reader: Option<Store>,
+}
 
 /// A ClickHouse user's connection to one database.
 #[derive(Clone)]
@@ -70,6 +109,22 @@ pub enum StoreError {
         /// ClickHouse's error code, such as `60` for a missing table.
         code: String,
     },
+    /// ClickHouse refused a query, with its message.
+    #[error("ClickHouse refused `{query}`: {message}")]
+    Query {
+        /// The query.
+        query: &'static str,
+        /// What ClickHouse answered.
+        message: String,
+    },
+    /// A query's rows did not decode as asked.
+    #[error("the rows of `{query}` do not decode")]
+    Decode {
+        /// The query.
+        query: &'static str,
+        /// Why a row did not decode.
+        source: serde_json::Error,
+    },
     /// ClickHouse refused a statement of `migrate`, with its message.
     #[error("ClickHouse refused `{statement}`: {message}")]
     Statement {
@@ -95,17 +150,45 @@ impl Store {
     /// without `ANALYTICS_URL`.
     ///
     /// # Errors
-    /// Fails when a variable is malformed, a password cannot be read, or the
-    /// owner is set without the writer's password.
-    pub fn migration_from_environment() -> Result<Option<(Self, Option<Self>)>, ConfigurationError>
-    {
+    /// Fails when a variable is malformed, a password cannot be read, the
+    /// owner is set without the writer's password, or the reader is the owner
+    /// or the writer, which `migrate` would lock out or stop inserting.
+    pub fn migration_from_environment() -> Result<Option<Migration>, ConfigurationError> {
         let Some(writer) = Self::from_environment()? else {
             return Ok(None);
         };
         Ok(Some(match Self::read(OWNER_URL, OWNER_PASSWORD)? {
-            Some(owner) => (owner, Some(writer)),
-            None => (writer, None),
+            Some(owner) => {
+                let reader = Self::reader_from_environment()?;
+                if reader
+                    .as_ref()
+                    .is_some_and(|reader| [&owner.user, &writer.user].contains(&&reader.user))
+                {
+                    return Err(READER_URL.invalid(
+                        "must name a user of its own, not ANALYTICS_URL's or ANALYTICS_OWNER_URL's",
+                    ));
+                }
+                Migration {
+                    store: owner,
+                    writer: Some(writer),
+                    reader,
+                }
+            }
+            None => Migration {
+                store: writer,
+                writer: None,
+                reader: None,
+            },
         }))
+    }
+
+    /// The connection `ANALYTICS_READER_URL` and `ANALYTICS_READER_PASSWORD`
+    /// configure, if any: the admin dashboard's.
+    ///
+    /// # Errors
+    /// Fails when either is malformed, or the password cannot be read.
+    pub fn reader_from_environment() -> Result<Option<Self>, ConfigurationError> {
+        Self::read(READER_URL, READER_PASSWORD)
     }
 
     /// Reads one connection from its URL and password variables.
@@ -165,6 +248,16 @@ impl Store {
         }
     }
 
+    /// Inserts `rows`, one JSON object per line, into `table`, as a test seeds
+    /// a table.
+    ///
+    /// # Errors
+    /// Returns what ClickHouse refused the insert with.
+    #[cfg(any(test, feature = "test-util"))]
+    pub async fn insert_rows(&self, table: &'static str, rows: String) -> Result<(), StoreError> {
+        self.insert(table, Bytes::from(rows)).await
+    }
+
     /// The first column of `query`'s rows, as text, one row per line.
     ///
     /// # Errors
@@ -174,7 +267,7 @@ impl Store {
         let response = self
             .send(
                 &self.database,
-                None,
+                &[],
                 Bytes::from(format!("{query} FORMAT TSV")),
             )
             .await?;
@@ -199,10 +292,48 @@ impl Store {
             && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
     }
 
+    /// The rows `query` returns, each decoded as a `T` from a JSON object, with
+    /// `parameters` bound to its `{name:Type}` placeholders by ClickHouse. The
+    /// query's text is `'static`, so no value is ever spliced into it.
+    ///
+    /// # Errors
+    /// Returns what ClickHouse refused the query with, or a row that does not
+    /// decode.
+    pub async fn query<T: DeserializeOwned>(
+        &self,
+        query: &'static str,
+        parameters: &[(&str, &str)],
+    ) -> Result<Vec<T>, StoreError> {
+        let parameters: Vec<(String, &str)> = parameters
+            .iter()
+            .map(|(name, value)| (format!("param_{name}"), *value))
+            .collect();
+        let parameters: Vec<(&str, &str)> = parameters
+            .iter()
+            .map(|(name, value)| (name.as_str(), *value))
+            .collect();
+        let body = Bytes::from(format!("{query}\nFORMAT JSONEachRow"));
+        let response = self.send(&self.database, &parameters, body).await?;
+        let status = response.status();
+        let text = response.text().await?;
+        if !status.is_success() {
+            return Err(StoreError::Query {
+                query,
+                message: text.trim().to_owned(),
+            });
+        }
+        text.lines()
+            .map(serde_json::from_str)
+            .collect::<Result<_, _>>()
+            .map_err(|source| StoreError::Decode { query, source })
+    }
+
     /// Inserts `rows`, one JSON object per line, into `table`.
     pub(crate) async fn insert(&self, table: &'static str, rows: Bytes) -> Result<(), StoreError> {
         let query = format!("INSERT INTO {table} FORMAT JSONEachRow");
-        let response = self.send(&self.database, Some(&query), rows).await?;
+        let response = self
+            .send(&self.database, &[("query", &query)], rows)
+            .await?;
         if response.status().is_success() {
             return Ok(());
         }
@@ -224,7 +355,7 @@ impl Store {
         shown: &str,
     ) -> Result<(), StoreError> {
         let response = self
-            .send(database, None, Bytes::from(statement.to_owned()))
+            .send(database, &[], Bytes::from(statement.to_owned()))
             .await?;
         if response.status().is_success() {
             return Ok(());
@@ -235,17 +366,18 @@ impl Store {
         })
     }
 
-    /// Sends `body` to `database`: the statement itself, or the rows that
-    /// `insert`, an `INSERT` statement, reads.
+    /// Sends `body` to `database`, with `parameters` in the URL: the statement
+    /// itself, or the rows that a `query` parameter, an `INSERT` statement,
+    /// reads.
     async fn send(
         &self,
         database: &str,
-        insert: Option<&str>,
+        parameters: &[(&str, &str)],
         body: Bytes,
     ) -> Result<reqwest::Response, StoreError> {
         let mut url = self.endpoint.clone();
         url.query_pairs_mut()
-            .extend_pairs(insert.map(|query| ("query", query)))
+            .extend_pairs(parameters)
             .append_pair("database", database);
         Ok(self
             .client
@@ -261,13 +393,19 @@ impl Store {
     /// retention, and every table of `tables` that does not exist, adds the
     /// columns a signal's table lacks, and sets each one's retention and
     /// comments; then, when connected as the owner, creates or resets `writer`,
-    /// allowed only to insert. Running it again changes nothing. A column's type
-    /// and a table's sort order never change: give a new type a new column, and
-    /// a new order a new table.
+    /// allowed only to insert, and `reader`, allowed only to read the tables of
+    /// `tables`, and every table's name and size, within limits on each query. Running it
+    /// again changes nothing. A column's type and a table's sort order never
+    /// change: give a new type a new column, and a new order a new table.
     ///
     /// # Errors
     /// Returns the first statement ClickHouse refuses.
-    pub async fn migrate(&self, tables: &[Table], writer: Option<&Self>) -> Result<(), StoreError> {
+    pub async fn migrate(
+        &self,
+        tables: &[Table],
+        writer: Option<&Self>,
+        reader: Option<&Self>,
+    ) -> Result<(), StoreError> {
         let create = format!("CREATE DATABASE IF NOT EXISTS {}", self.database);
         self.execute("system", &create, &create).await?;
         for statement in crate::export::TABLES {
@@ -278,31 +416,59 @@ impl Store {
                 self.execute(&self.database, &statement, &statement).await?;
             }
         }
+        let database = &self.database;
         if let Some(writer) = writer {
-            let user = &writer.user;
-            let password = Self::quoted(writer.password.expose_secret());
-            for (statement, shown) in [
-                (
-                    format!(
-                        "CREATE USER IF NOT EXISTS {user} IDENTIFIED WITH sha256_password BY {password}"
-                    ),
-                    format!("CREATE USER IF NOT EXISTS {user}"),
-                ),
-                (
-                    format!("ALTER USER {user} IDENTIFIED WITH sha256_password BY {password}"),
-                    format!("ALTER USER {user}"),
-                ),
-                (
-                    format!(
-                        "GRANT INSERT ON {}.* TO {user} WITH REPLACE OPTION",
-                        self.database
-                    ),
-                    String::new(),
-                ),
-            ] {
-                let shown = if shown.is_empty() { &statement } else { &shown };
-                self.execute(&self.database, &statement, shown).await?;
-            }
+            self.provision(writer, &format!("INSERT ON {database}.*"), None)
+                .await?;
+        }
+        if let Some(reader) = reader {
+            // The signals' tables, never `spans` and `logs`, which say what
+            // one request did.
+            let mut grants: Vec<String> = tables
+                .iter()
+                .map(|table| format!("SELECT ON {database}.{}", table.name))
+                .collect();
+            grants.push(format!("SHOW TABLES ON {database}.*"));
+            grants.push(READER_SYSTEM.to_owned());
+            self.provision(reader, &grants.join(", "), Some(READER_LIMITS))
+                .await?;
+        }
+        Ok(())
+    }
+
+    /// Creates or resets `user`'s SQL user with its password, then gives it
+    /// `grants`, such as `INSERT ON sourceorigin.*`, replacing any other right
+    /// at once, so a running replica never lacks one, and `limits` on its
+    /// queries.
+    async fn provision(
+        &self,
+        user: &Self,
+        grants: &str,
+        limits: Option<&str>,
+    ) -> Result<(), StoreError> {
+        let (name, database) = (&user.user, &self.database);
+        let password = Self::quoted(user.password.expose_secret());
+        let identified = format!("IDENTIFIED WITH sha256_password BY {password}");
+        let settings = limits.map_or_else(
+            || "SETTINGS NONE".to_owned(),
+            |limits| format!("SETTINGS {limits}"),
+        );
+        for (statement, shown) in [
+            (
+                format!("CREATE USER IF NOT EXISTS {name} {identified}"),
+                format!("CREATE USER IF NOT EXISTS {name}"),
+            ),
+            (
+                format!("ALTER USER {name} {identified} {settings}"),
+                format!("ALTER USER {name} {settings}"),
+            ),
+            (
+                format!("GRANT {grants} TO {name} WITH REPLACE OPTION"),
+                String::new(),
+            ),
+        ] {
+            let shown = if shown.is_empty() { &statement } else { &shown };
+            self.execute(database, &statement, shown).await?;
         }
         Ok(())
     }
