@@ -24,25 +24,14 @@ use super::{AdminError, Operator, Reason};
 use sourceorigin_common::{UserId, events::DomainEvent};
 use sourceorigin_repository::{Database, DatabaseTransaction};
 
-/// Owns each administrative operation. Dashboard pages and CLI commands are thin
-/// adapters that say which [`Operator`] acts. Every mutation, and viewing an
-/// account's details, records a domain event attributed to it in the same
-/// transaction. Every mutation that records one takes the operator's [`Reason`],
-/// which its events carry. Drafting, editing and discarding an announcement are
-/// not mutations here: a draft is the administrators' own working copy, which
-/// they change with what a read needs, recording nothing.
-///
-/// Every operation takes its [`Operator`] and checks it, so a caller in the same
-/// process, such as the dashboard, needs no check of its own. Reads first require
-/// an administrator to still hold their rights and session, signed in with a
-/// passkey (`Operator::authorize_read`). Mutations recheck that an administrator
-/// still holds their rights, session and recent confirmation after their last
-/// write, just before committing. Those on accounts refuse
-/// administrator accounts unless the CLI acts, so a stolen dashboard session
-/// cannot lock other administrators out; revoking their rights comes first, and is itself
-/// guarded. Nothing, the CLI included, revokes, disables or deletes the last
-/// active administrator: each asks `AdministratorRepository::is_last_active`
-/// under the administrator lock, so two such changes cannot both pass.
+/// Owns each administrative operation. Dashboard pages and CLI commands are thin adapters
+/// that say which [`Operator`] acts. Every mutation, and viewing an account's details, records
+/// a domain event attributed to the operator in the same transaction; a mutation takes the
+/// operator's [`Reason`], which its events carry. Every operation checks its [`Operator`]:
+/// reads require an administrator to still hold their rights and session, signed in with a
+/// passkey (`Operator::authorize_read`), and mutations recheck them after their last write.
+/// Those on accounts refuse administrator accounts unless the CLI acts, and nothing revokes,
+/// disables or deletes the last active administrator.
 #[derive(Clone)]
 pub(crate) struct AdminService {
     /// Accounts, sessions, invitations, clients, events, deliveries and administrators.

@@ -1,18 +1,11 @@
-//! The OIDC clients, as the `client` command manages them: the list, one
-//! client's page, registering and changing one, enabling, disabling,
-//! suspending and deleting it, and rotating a confidential client's secret. The
-//! origins approved for a client's pages have their own pages, in [`origins`].
-//! Applying a client a deployment manages stays the CLI's: see
+//! The OIDC clients, as the `client` command manages them: the list, one client's page,
+//! registering and changing one, enabling, disabling, suspending and deleting it, and rotating
+//! a confidential client's secret. The origins approved for a client's pages have their own
+//! pages, in [`origins`]. Applying a client a deployment manages stays the CLI's: see
 //! [`AdminApplication::page`](super::AdminApplication::page).
 //!
-//! A page whose change could only be refused says so in place of its form: a
-//! deleted client's change pages, approving an origin for its pages among them,
-//! and a public client's secrets page, which has none, answer with the
-//! registry's refusal.
-//!
-//! Every page of one client sits under its ID, its overview too, at
-//! `/clients/{client}/overview`, so none shares a path with the registration
-//! page at `/clients/new`, whatever the client's ID.
+//! Every page of one client sits under its ID, at `/clients/{client}/overview` for the
+//! overview, so none shares a path with the registration page at `/clients/new`.
 
 use super::{
     AdminApplication as App, Administered, ReasonForm, ReasonPage, Refusal,

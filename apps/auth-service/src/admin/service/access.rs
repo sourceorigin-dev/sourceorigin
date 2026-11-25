@@ -27,18 +27,14 @@ impl AdminService {
         Ok(self.database.security().list_invitations().await?)
     }
 
-    /// Creates a single-use signup invitation, valid for `expires_in`, for
-    /// `reason`, whatever the signup setting: while signup is open, it is a
-    /// tracked signup link. With an `email`, its link is mailed there, and the
-    /// account created with it starts with that address, verified; it is refused
-    /// before anything is created while email is disabled, when the sender can't
-    /// send to the address, or when an account already holds it verified, even a
-    /// disabled one. Without one, its link is returned for the operator to pass
-    /// on: only its token's digest is stored, so it is never shown again.
+    /// Creates a single-use signup invitation, valid for `expires_in`, for `reason`, whatever
+    /// the signup setting. With an `email`, its link is mailed there and the account created with
+    /// it starts with that address, verified; without one, its link is returned for the operator
+    /// to pass on, and only its token's digest is stored.
     ///
     /// # Errors
-    /// Fails when the operator may not make changes, the invitation cannot be
-    /// mailed, or token derivation or persistence fails.
+    /// Fails when the operator may not make changes, email is disabled or the sender can't send
+    /// to the address, an account already holds it verified, or token derivation or persistence fails.
     pub(crate) async fn create_invitation(
         &self,
         operator: &Operator,
@@ -164,19 +160,13 @@ impl AdminService {
         Ok(self.database.administrators().list().await?)
     }
 
-    /// Makes the active account `user_id` an administrator, for `reason`, which
-    /// its owner sees in their history. Administrators cannot
-    /// grant themselves rights: one whose rights were revoked while the request
-    /// waited would otherwise restore them. While a recovery of the account can
-    /// still be undone, it is refused, by the CLI too: granted during a probation,
-    /// the rights would go live for whoever used its link once it settles. The
-    /// migration's `administrators_no_grant_mid_recovery` backs it for every
-    /// writer.
+    /// Makes the active account `user_id` an administrator, for `reason`, which its owner sees
+    /// in their history. While a recovery of the account can still be undone it is refused, by
+    /// the CLI too: the rights would go live for whoever used its link once it settles.
     ///
     /// # Errors
-    /// Fails when the operator may not make changes, or the account is unknown,
-    /// disabled, already an administrator, the caller's own, or has a recovery
-    /// that can still be undone.
+    /// Fails when the operator may not make changes, or the account is unknown, disabled,
+    /// already an administrator, the caller's own, or has a recovery that can still be undone.
     pub(crate) async fn grant_administrator(
         &self,
         operator: &Operator,

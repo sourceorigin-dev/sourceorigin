@@ -1,33 +1,12 @@
-//! Signing administrators in to the admin dashboard, which auth serves on its
-//! admin listener, for the dashboard's own origin. It is no OIDC client: auth's
-//! handoff page hands an administrator's passkey session over in-process.
+//! Signing administrators in to the admin dashboard, which auth serves on its admin
+//! listener, for the dashboard's own origin. It is no OIDC client: auth's handoff page hands
+//! an administrator's passkey session over in-process ([`DashboardSignIn::start`],
+//! [`DashboardSignIn::hand_off`] and [`DashboardSignIn::finish`]).
 //!
-//! 1. A browser without a dashboard session, or whose change needs a passkey
-//!    confirmation, is sent to auth's handoff page ([`DashboardSignIn::start`]),
-//!    with a state whose digest the dashboard keeps in a cookie of its own origin.
-//! 2. The handoff page needs a session signed in with a passkey, of an account
-//!    that still holds administrator rights, and a passkey's proof, in a ceremony
-//!    it started for the handoff, never a confirmation of the auth session
-//!    itself: a browser left signed in to auth cannot open the dashboard without
-//!    the administrator's passkey. It answers with a single-use code, valid for
-//!    [`HANDOFF_LIFETIME`], bound to that session and to the state
-//!    ([`DashboardSignIn::hand_off`]).
-//! 3. The dashboard redeems the code in the browser holding the state, and starts
-//!    a session of its own, confirmed by the proof, storing only its cookie's
-//!    digest, with the auth session ([`DashboardSignIn::finish`]).
-//!
-//! The dashboard's own page may confirm its session later, with a passkey proved
-//! for the dashboard's origin, a related origin of auth's RP ID
-//! ([`DashboardSignIn::confirm`]), sparing the browser the trip to the handoff
-//! page and back.
-//!
-//! A dashboard session lasts while its auth session does: signing out of auth,
-//! revoking that session or replacing it ends the dashboard's too. It also ends
-//! [`DASHBOARD_IDLE_MINUTES`] after its last request, [`DASHBOARD_LIFETIME_HOURS`]
-//! after its sign-in, and when the account's rights are revoked. Every request
-//! checks the administrator's rights again ([`DashboardSignIn::signed_in`]).
-//! Signing in and out are recorded in the administrator's history; a session
-//! that times out records nothing.
+//! A dashboard session lasts while its auth session does, ends [`DASHBOARD_IDLE_MINUTES`] after
+//! its last request and [`DASHBOARD_LIFETIME_HOURS`] after its sign-in, and checks the
+//! administrator's rights on every request ([`DashboardSignIn::signed_in`]). Signing in and out
+//! are recorded in the administrator's history.
 
 use super::{AdminError, AdminSession, Operator};
 use crate::{

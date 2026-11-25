@@ -1,23 +1,11 @@
-//! What can be done to an account, as [`AccountService`] operations on the
-//! account and who acts on it: an [`Owner`], only for what the owner alone may
-//! do; a [`Subject`], for changes any administrator may also make; or a
-//! [`Viewer`], for reads. The owner's routes run them with the owner of their
-//! session cookie, and the `account` command with the operator at the terminal.
-//! The admin dashboard calls them in-process, as an administrator.
+//! What can be done to an account, as [`AccountService`] operations on the account and who
+//! acts on it: an [`Owner`], only for what the owner alone may do; a [`Subject`], for changes
+//! any administrator may also make; or a [`Viewer`], for reads.
 //!
-//! The rule for sharing: administrators may view, edit and remove, but never add
-//! a way to sign in or to receive the account's email, which would let them take
-//! the account over. Adding a passkey, linking an identity, adding an address
-//! and reporting a history entry take an [`Owner`], which only the session cookie
-//! builds, so an administrator cannot call them. So does downloading the
-//! account's data: the export copies every IP address and the whole history out
-//! of auth, and only the owner's recently confirmed session may receive it.
-//! Support recovers an owner who lost every passkey instead, who then downloads
-//! it themselves. Verifying an address is
-//! authorized by its link's token instead, and takes the signed-in owner only if
-//! there is one, to refuse a browser signed in to another account. The owner's
-//! clients, which administrators manage through `AdminService`, are the owner's
-//! too.
+//! Administrators may view, edit and remove, but never add a way to sign in or to receive
+//! the account's email: adding a passkey, linking an identity, adding an address, reporting a
+//! history entry and downloading its data take an [`Owner`], which only the session cookie
+//! builds. Verifying an address is authorized by its link's token instead.
 
 /// Failures of the account operations.
 mod error;

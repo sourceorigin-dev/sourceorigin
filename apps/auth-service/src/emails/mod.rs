@@ -303,19 +303,11 @@ impl<'a, 'tx> Emails<'a, 'tx> {
         Ok(())
     }
 
-    /// Imports the address `pending`'s provider verified, from `client_ip`,
-    /// while linking that identity. It joins verified and primary when the
-    /// provider is authoritative for it; otherwise unverified, with its
-    /// verification email, as when the owner adds it, since it may have changed
-    /// owners since the provider verified it.
-    /// Only an account with no verified address and without it takes one, and
-    /// never one another account holds verified, even while that one is disabled
-    /// or being deleted: a provider never replaces the owner's own address or takes
-    /// someone else's. An address that would be one
-    /// too many, or whose link cannot be sent now, is skipped, since signing in
-    /// matters more: the owner can add it later. Another account verifying the
-    /// same address in the same instant still fails the ownership trigger, and so
-    /// the transaction; retrying skips the address.
+    /// Imports the address `pending`'s provider verified, from `client_ip`, while linking that
+    /// identity. It joins verified and primary when the provider is authoritative for it;
+    /// otherwise unverified, with its verification email. Only an account with no verified address
+    /// takes one, and never one another account holds verified. An address that would be one too
+    /// many, or whose link cannot be sent now, is skipped, since signing in matters more.
     pub(crate) async fn import(
         &mut self,
         config: &EmailConfig,

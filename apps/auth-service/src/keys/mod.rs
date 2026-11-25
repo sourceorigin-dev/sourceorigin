@@ -1,16 +1,11 @@
-//! Signing keys: sealed in PostgreSQL, rotated on a schedule by one replica at a
-//! time, and reloaded by every replica.
+//! Signing keys: sealed in PostgreSQL, rotated on a schedule by one replica at a time, and
+//! reloaded by every replica.
 //!
-//! A key is published as `next` for [`PRE_PUBLICATION`] before it signs, so
-//! verifiers have it before its first token. It then signs as `active` for
-//! [`ROTATION_PERIOD`], and stays published as `retiring` for
-//! [`RETIRING_WINDOW`], while the tokens it signed may be valid. As `retired` it
-//! verifies only `id_token_hint`s, which may be expired, for [`RETIRED_WINDOW`],
-//! the longest session, and is then deleted.
-//!
-//! Every replica reloads its key set each [`RELOAD_EVERY`]. One that cannot turns
-//! unready after [`UNREADY_AFTER`], and stops using its stale key set after
-//! [`STALE_AFTER`], since it may still trust a revoked key.
+//! A key is published as `next` for [`PRE_PUBLICATION`], signs as `active` for
+//! [`ROTATION_PERIOD`], stays published as `retiring` for [`RETIRING_WINDOW`], and as `retired`
+//! verifies only `id_token_hint`s for [`RETIRED_WINDOW`] before it is deleted. Every replica
+//! reloads each [`RELOAD_EVERY`]; one that cannot turns unready after [`UNREADY_AFTER`] and
+//! stops using its stale key set after [`STALE_AFTER`].
 
 use crate::{
     AdminError, KeyEncryptionKeys, Operator, Reason, jobs::Shutdown, oidc::ACCESS_TOKEN_SECONDS,

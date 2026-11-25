@@ -1,28 +1,13 @@
-//! The admin dashboard at admin.sourceorigin.dev, which auth serves on its admin
-//! listener: pages over [`AdminService`], and over [`AccountService`] for the
-//! settings administrators share with owners, in-process, for the administrator
-//! [`DashboardSignIn`] finds from the dashboard's own session cookie. Each page
-//! renders `sourceorigin-ui`'s dashboard components, or the owner's settings sections.
+//! The admin dashboard at admin.sourceorigin.dev, which auth serves on its admin listener:
+//! pages over [`AdminService`], and over [`AccountService`] for the settings administrators
+//! share with owners, for the administrator [`DashboardSignIn`] finds from the dashboard's own
+//! session cookie.
 //!
-//! The pages declare their own paths, under [`routes::dashboard::PREFIXES`], and
-//! the admin listener mounts them there, never as the fallback, so the listener's
-//! security layer gives each its request context and rate budget, and gives every
-//! answer the dashboard's Content-Security-Policy (`security::content`): its own
-//! scripts and stylesheet alone, with auth's profile pictures, fetching from the
-//! dashboard only, and forms posting only to the dashboard, whose answer may go
-//! on to auth's handoff page.
-//!
-//! A browser without a dashboard session, or whose session timed out, goes
-//! through auth's handoff page, which asks for a passkey, and back. A page that
-//! changes something needs the dashboard's own passkey
-//! confirmation, recent enough that the service still accepts it once the form
-//! is submitted; without one, it sends the browser to confirm on auth's handoff
-//! page, and back to the page. The dashboard's script spares the page that trip:
-//! before following a link to such a page or posting a change, as the frame says
-//! it must (see `sourceorigin_ui::DashboardConfirmation`), it asks for a passkey in a
-//! dialog on the page itself, [`start_confirmation`] and [`finish_confirmation`]
-//! running the ceremony for the dashboard's origin, which auth lists as a related
-//! origin of its RP ID. Every page still works without it.
+//! The pages declare their own paths, under [`routes::dashboard::PREFIXES`], and the listener
+//! mounts them there, so its security layer gives each its request context, rate budget and
+//! Content-Security-Policy (`security::content`). A change needs the dashboard's own passkey
+//! confirmation ([`start_confirmation`], [`finish_confirmation`]), or a trip through auth's
+//! handoff page.
 
 /// The administrators.
 mod administrators;

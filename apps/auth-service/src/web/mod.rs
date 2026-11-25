@@ -1,20 +1,12 @@
-//! The server-rendered pages, grouped by area: auth.sourceorigin.dev's sign-in flows
-//! (`auth`), account settings (`settings`) and developer console (`developers`),
-//! and the admin dashboard at admin.sourceorigin.dev ([`admin`]), which has a router and
-//! a security layer of its own. Each handler resolves who acts, calls the
-//! service in-process and renders `sourceorigin-ui` components. The rest of this
-//! module is auth.sourceorigin.dev's router.
+//! The server-rendered pages, grouped by area: auth.sourceorigin.dev's sign-in flows (`auth`),
+//! account settings (`settings`) and developer console (`developers`), and the admin dashboard
+//! at admin.sourceorigin.dev ([`admin`]), which has a router and a security layer of its own.
+//! Each handler resolves who acts, calls the service in-process and renders `sourceorigin-ui`
+//! components. The rest of this module is auth.sourceorigin.dev's router.
 //!
 //! A page answers `GET` with itself and `POST` with its form's result, at the route
-//! [`routes::page`] declares. Axum mounts the Topcoat router on exactly those routes
-//! and their trailing-slash twins, which Topcoat redirects to the page, never as the
-//! fallback, so the security layer classifies them as pages by their route: it
-//! attaches the request context, spends the pages' own rate budget, and accepts a
-//! form only from auth's own pages. The security layer's Content-Security-Policy
-//! (`security::content`) loads nothing but the stylesheet, the scripts and auth's
-//! own images, the profile pictures and the `blob:` of one being chosen, and lets
-//! a page's forms post only to auth and to where they redirect, the
-//! [`FormTargets`] the page names.
+//! [`routes::page`] declares, which the security layer classifies as a page: it attaches the
+//! request context, spends the pages' rate budget, and accepts a form only from auth's own pages.
 
 /// A page's entry in [`WebApplication::pages`]: its path, and the handlers showing it
 /// and taking its form, whose failures explain themselves as the page `title`.

@@ -1,29 +1,12 @@
 //! Account recovery for an owner who lost every passkey.
 //!
-//! An operator starts one (`AdminService::recover_account`). It ends the
-//! account's sessions and refresh grants, removes its unverified addresses, and
-//! emails its owner a link that enrolls one new passkey, once, within a day. The
-//! link's token is derived from the recovery's ID with [`RecoveryLinks`], so it
-//! is stored nowhere, not even in the email's delivery. The token alone
-//! authorizes the link.
-//!
-//! For [`PROBATION`] after its link is used, the recovery is in probation: its
-//! passkey signs in like a social login, a [`ProbationPasskey`], and never
-//! confirms a session. Every step-up gate refuses it (account changes, the admin
-//! API, relying parties that ask for `phr`), so whoever used the link can use the
-//! account but add no way into it. Undoing a recovery in probation therefore
-//! takes back a short, fixed list: its passkey, every session and refresh grant,
-//! and every consent ([`AccountService::revert`]). Undoing one whose link was
-//! not used only cancels the link.
-//!
-//! The owner undoes with any passkey but the recovery's own, in a passkey
-//! ceremony that needs no session, so signing them out cannot stop it, and that
-//! works on a disabled account too. While the recovery can be undone, its link
-//! unused or its probation running, no passkey but its own is removed, by anyone, so nothing takes that ability away
-//! ([`AccountService::refuse_mid_recovery`]). Support undoes for an owner with
-//! none (`AdminService::undo_recovery`). The database backs the probation and
-//! that rule for every writer, whatever it is granted: see the account
-//! recoveries section of the initial migration.
+//! An operator starts one (`AdminService::recover_account`): it ends the account's sessions and
+//! grants and emails its owner a link, derived from the recovery's ID with [`RecoveryLinks`],
+//! that enrolls one new passkey. For [`PROBATION`] after the link is used, that passkey signs
+//! in but never confirms a session ([`ProbationPasskey`]), so undoing the recovery takes back
+//! only a short, fixed list ([`AccountService::revert`]). The owner undoes it with any other
+//! passkey, and support with none (`AdminService::undo_recovery`); until then no other passkey
+//! is removed ([`AccountService::refuse_mid_recovery`]).
 
 /// Recovery failures and their browser response mapping.
 mod error;

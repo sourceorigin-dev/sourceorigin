@@ -49,31 +49,6 @@ paths = [
     "crates/auth-sdk/examples/notes.rs",
 ]
 
-[deviations.doc-length]
-reason = "48 findings, fixed in a follow-up"
-paths = [
-    "apps/auth-service/src/account/mod.rs",
-    "apps/auth-service/src/admin/operator.rs",
-    "apps/auth-service/src/admin/service/access.rs",
-    "apps/auth-service/src/admin/service/mod.rs",
-    "apps/auth-service/src/admin/service/recovery.rs",
-    "apps/auth-service/src/admin/sign_in.rs",
-    "apps/auth-service/src/audit/sealer.rs",
-    "apps/auth-service/src/audit/verify.rs",
-    "apps/auth-service/src/cli/user.rs",
-    "apps/auth-service/src/deletion/mod.rs",
-    "apps/auth-service/src/deliveries/email/mod.rs",
-    "apps/auth-service/src/emails/mod.rs",
-    "apps/auth-service/src/grants/mod.rs",
-    "apps/auth-service/src/keys/mod.rs",
-    "apps/auth-service/src/oidc/inline.rs",
-    "apps/auth-service/src/recovery/mod.rs",
-    "apps/auth-service/src/web/admin/clients.rs",
-    "apps/auth-service/src/web/admin/mod.rs",
-    "apps/auth-service/src/web/admin/reveal.rs",
-    "apps/auth-service/src/web/mod.rs",
-]
-
 [deviations.duplicate-items]
 reason = "4 findings, fixed in a follow-up"
 paths = [
