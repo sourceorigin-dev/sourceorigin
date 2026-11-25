@@ -44,7 +44,7 @@ approvers = ["PiquelChips"]
 [deviations]
 
 [deviations.rust-comments]
-reason = "852 findings, fixed in a follow-up"
+reason = "mdBook includes the example's parts by its `// ANCHOR:` comments, which docs/user/apps/protect-an-api.md and sign-in-rust.md need"
 paths = [
     "crates/auth-sdk/examples/notes.rs",
 ]
