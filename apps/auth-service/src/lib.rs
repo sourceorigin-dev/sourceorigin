@@ -64,6 +64,8 @@ mod sessions;
 /// Fixtures shared by the applications' tests.
 #[cfg(test)]
 mod tests;
+/// What auth's pages report about themselves: page speed and script errors.
+mod vitals;
 /// auth.sourceorigin.dev's server-rendered pages.
 mod web;
 
@@ -88,6 +90,7 @@ use oidc::OidcApplication;
 use passkey::PasskeyApplication;
 use pictures::PictureApplication;
 use service::ServiceApplication;
+use vitals::VitalsApplication;
 use web::{AdminApplication, WebApplication};
 
 use account::AccountApplication;
@@ -166,6 +169,7 @@ impl AuthConfig {
             .merge(AccountApplication::new(database.clone()).routes())
             .merge(EmailApplication::new(database.clone(), &self.email).routes())
             .merge(PictureApplication::new(database.clone()).routes())
+            .merge(VitalsApplication::routes())
             .merge(web.routes())
             .merge(oidc.routes());
         let policy = security::HttpSecurity::new(self, database)?;

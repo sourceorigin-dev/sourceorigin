@@ -441,6 +441,7 @@ impl HttpSecurity {
             | Endpoint::Dashboard
             | Endpoint::DashboardSearch
             | Endpoint::Unsubscribe
+            | Endpoint::Beacon
             | Endpoint::Other => false,
         })
     }

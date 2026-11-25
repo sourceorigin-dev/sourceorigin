@@ -31,6 +31,14 @@ administrator:
   people used, over the last 30 days;
 - the slowest routes of the last 24 hours, by their 95th percentile, each with
   its method and the server that answered;
+- **Page speed, 24 hours**: up to 8 of auth's pages, slowest first, with how
+  many views reported, and the 75th percentile of their largest contentful
+  paint (LCP), their longest interaction (INP) and their layout shift (CLS),
+  as browsers [report them](../architecture/analytics.md#what-auths-pages-report).
+  A dash means no view measured it, such as INP for a page nobody clicked on;
+- **Browser errors, 24 hours**: the errors auth's pages hit that no script
+  caught, by kind, such as `TypeError`, and by script, such as `passkey`, most
+  frequent first;
 - how many rows each table holds, and the disk they take.
 
 Times are UTC, and **Show as a table**, below each chart, lists its values.

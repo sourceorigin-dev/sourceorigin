@@ -148,7 +148,10 @@ independent: an app's userinfo calls never block its code exchanges, browsing
 auth's pages never blocks a passkey ceremony, and the dashboard's searches never
 block its pages: `/search`, which the top bar asks as the administrator types,
 and the live searches' refreshes, which the search script marks with
-`x-sourceorigin-live`, spend the `search` budget. An exhausted budget answers `429`
+`x-sourceorigin-live`, spend the `search` budget. The report each of auth's
+pages sends of itself, to `/telemetry/page`, spends the `beacon` budget
+([analytics](analytics.md#what-auths-pages-report)), so it never blocks a
+passkey ceremony either. An exhausted budget answers `429`
 with `Retry-After: 60` and records a `throttled` row with its category. Discovery and
 health probes spend nothing, and an unmatched path has no route, so it spends
 nothing either.

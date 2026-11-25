@@ -171,6 +171,29 @@ async fn router_enforces_exact_browser_origins_csrf_and_public_client_cors_bound
     );
 }
 
+/// A page's report of itself is taken only from auth's own pages, with the CSRF
+/// header, so no other site can post reports into the page speed and browser
+/// error counts.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL"]
+async fn only_auth_pages_report_themselves() {
+    let fixture = SecurityFixture::new().await;
+    let page = crate::routes::telemetry::PAGE;
+    let own = "https://auth.sourceorigin.dev";
+    let response = fixture.request(Method::POST, page, Some(own), true).await;
+    assert_eq!(response.status(), StatusCode::ACCEPTED);
+    let response = fixture.request(Method::POST, page, Some(own), false).await;
+    assert_eq!(response.status(), StatusCode::FORBIDDEN, "no CSRF header");
+    for origin in [
+        None,
+        Some("https://evil.example"),
+        Some("https://sourceorigin.dev"),
+    ] {
+        let response = fixture.request(Method::POST, page, origin, true).await;
+        SecurityFixture::denied(&response);
+    }
+}
+
 /// Browser origin and mutation proof are required everywhere except protocol
 /// endpoints, and pages, which have their own rule.
 #[test]
@@ -188,6 +211,7 @@ fn endpoint_policy_requires_browser_proof_outside_protocol_endpoints() {
         (Endpoint::Authorize, true),
         (Endpoint::Logout, true),
         (Endpoint::Account, false),
+        (Endpoint::Beacon, false),
         (Endpoint::Other, false),
     ] {
         assert_eq!(endpoint.is_protocol(), protocol);
