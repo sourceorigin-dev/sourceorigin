@@ -311,8 +311,6 @@ impl EventRow<'_> {
             DomainEvent::InvitationRevoked { invitation_id } => {
                 Description::new("Invitation revoked").with("invitation", invitation_id)
             }
-            // Its reason shows beside its administrator, as every change's does;
-            // only one recorded before changes carried theirs keeps it here.
             DomainEvent::AccountDisabled { reason } if self.event.reason.is_none() => {
                 Description::new("Account disabled").personal("reason", &reason)
             }
@@ -576,8 +574,6 @@ pub async fn event_list<'a>(
             title: "Events",
             lead: format!("{} recorded, newest first.", pages.paging.total),
         )
-        // The search script refreshes the events, and the views' toggle, which
-        // the kind decides, as the administrator types.
         <form method="get" action=(action) class="row search">
             <input
                 type="search"
@@ -650,7 +646,6 @@ pub async fn event_rows<'a>(
                                 if let Some(reason) = &row.event.reason {
                                     ": “" <span class="fact">(reason.as_str())</span> "”"
                                 }
-                                // The account it concerns, unless that is who caused it.
                                 if let Some(account) = row.account.as_ref().filter(|account| row.actor.as_ref() != Some(account)) {
                                     " · " <a href=(account.as_str())>"account"</a>
                                 }

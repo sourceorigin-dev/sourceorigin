@@ -33,7 +33,6 @@
 //! # Ok(())
 //! # }
 //! ```
-// A library leaves printing to its caller: it returns errors and logs through tracing.
 #![warn(clippy::print_stdout, clippy::print_stderr)]
 #![expect(
     unreachable_pub,

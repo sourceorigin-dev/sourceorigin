@@ -233,7 +233,6 @@ impl HistoryRow<'_> {
         new_device: bool,
     ) -> String {
         let signed_in = match (method, origin) {
-            // An application's own page signed in, with a passkey.
             (_, Some(origin)) => format!("Signed in with a passkey on {}", origin.host()),
             (AuthenticationMethod::Passkey, None) => "Signed in with a passkey".to_owned(),
             (AuthenticationMethod::Federation, None) => {
@@ -394,7 +393,6 @@ pub async fn history<'a>(
         (None, false) => "Nothing has happened to this account yet.",
     };
     Ok(view! {
-        // The dashboard heads an account's tab itself.
         if owner {
             page_head(title: "Security history", lead: lead.to_owned())
         } else {

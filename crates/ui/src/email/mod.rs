@@ -33,9 +33,6 @@ use topcoat::{
     view::{View, ViewExt, component, view},
 };
 
-// The email's styles. The dashboard's preview, whose policy forbids inline
-// styles, draws the same with `.email-preview` in `assets/style/base.css`.
-
 /// The `<body>`'s style: the page every email is read on.
 const BODY: &str = "margin:0;padding:24px;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-size:16px;line-height:1.5;color:#1a1a1a;background:#ffffff";
 /// The column the text reads in.

@@ -216,7 +216,6 @@ pub async fn user_page<'a>(
     all_events: &'a str,
 ) -> Result<impl View> {
     let user = &detail.user;
-    // The account, as the passkey dialog names it.
     let named = format!("{} ({})", user.handle, user.id);
     let who = Who {
         name: &user.display_name,
@@ -323,8 +322,6 @@ async fn session_list<'a>(
                     <td>moment(at: row.session.authenticated_at)</td>
                     <td>
                         (row.methods())
-                        // An administrator's sign-in to this dashboard,
-                        // resting on the session.
                         if let Some(dashboard) = row.session.dashboard.first() {
                             <br><small>"dashboard, used " moment(at: dashboard.last_used_at)</small>
                         }
@@ -433,7 +430,6 @@ pub async fn message_page<'a>(
     refusal: Option<&'a str>,
 ) -> Result<impl View> {
     let change = Change::Message;
-    // What its Send asks a passkey for: the account, by handle and ID.
     let named = target.map(Target::text);
     let confirming = change.confirming(named.as_deref());
     Ok(view! {

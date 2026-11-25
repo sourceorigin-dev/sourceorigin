@@ -93,8 +93,6 @@ impl ProfileDialog {
             Self::Picture => Spot::setting("Profile picture", "avatar photo image upload remove"),
             Self::Name => Spot::setting("Change display name", "name full name rename"),
             Self::Handle => Spot::setting("Change handle", "username @ rename user name"),
-            // Only an account with a picture has it; the picture's dialog is
-            // found instead, beside the button removing it.
             Self::Remove => return None,
         })
     }
@@ -335,9 +333,6 @@ async fn profile_dialogs<'a>(
                         "Picture"
                         <input type="file" name=(PICTURE_FIELD) accept=(PICTURE_TYPES) required="" autofocus="">
                     </label>
-                    // The picture script shows the image chosen here, to move and
-                    // zoom it; without a script it stays hidden and auth keeps the
-                    // centred square.
                     <div class="cropper" data-cropper="" hidden="">
                         <div
                             class="crop-stage"
@@ -363,7 +358,6 @@ async fn profile_dialogs<'a>(
             )
         }
         if available(ProfileDialog::Remove) {
-            // It asks no input, so its Close takes the focus.
             dialog(id: ProfileDialog::Remove.id(), title: "Remove the picture?", shown: shown(ProfileDialog::Remove), back: page, alert: alert, focus_close: true,
                 <p class="help">
                     if audience.owns() {

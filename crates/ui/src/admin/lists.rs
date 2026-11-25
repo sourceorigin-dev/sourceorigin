@@ -120,7 +120,6 @@ pub async fn grant_search<'a>(
     refusal: Option<&'a str>,
 ) -> Result<impl View> {
     let change = Change::GrantAdministrator;
-    // The page is shown only to a confirmed dashboard, so every grant is a dialog.
     let grant = Action {
         href: action.to_owned(),
         inline: true,
@@ -144,7 +143,6 @@ pub async fn grant_search<'a>(
             </label>
             <button class="secondary">"Search"</button>
         </form>
-        // What the search script swaps in as the administrator types.
         <div class="stack" id="grant-results">
             if q.is_empty() {
                 <section class="card"><p class="empty">"Search for the account to make an administrator."</p></section>

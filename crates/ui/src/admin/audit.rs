@@ -28,7 +28,6 @@ pub async fn audit_page<'a>(
     /// Where the next page of checkpoints is, if there is one.
     later: Option<String>,
 ) -> Result<impl View> {
-    // Without a committed key, the CLI checks against the one the notice saves.
     let uncommitted = keys == VerificationKeys::Uncommitted;
     let key = if uncommitted {
         " --key audit-key.pub"
@@ -104,8 +103,6 @@ async fn chain_card<'a>(
         .as_ref()
         .map(|verified| &verified.verification);
     let broken = verification.and_then(|verification| verification.broken.as_ref());
-    // Events sealed since an intact verification, which it could not check. A
-    // broken one stopped before the newest events, so none of those count.
     let since = verification
         .filter(|verification| verification.broken.is_none())
         .map(|verification| position(&chain.newest).saturating_sub(position(&verification.newest)));

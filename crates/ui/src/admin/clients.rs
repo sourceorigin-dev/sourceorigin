@@ -537,7 +537,6 @@ async fn client_actions<'a>(
     changes: &'a ClientChanges,
 ) -> Result<impl View> {
     Ok(view! {
-        // The client, as the passkey dialog names it.
         let named = format!("{} ({})", client.name, client.id);
         let target = Some(named.as_str());
         <div class="row actions">

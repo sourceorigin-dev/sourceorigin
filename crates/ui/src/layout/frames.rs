@@ -131,7 +131,6 @@ pub async fn auth_shell<'a>(
     Ok(view! {
         <div class="auth">
             <header>
-                // Named by what it shows, as voice control users read it.
                 <a class="brand" href=(home)>
                     <span class="mark" aria-hidden="true">"o"</span>
                     "Origin Auth"

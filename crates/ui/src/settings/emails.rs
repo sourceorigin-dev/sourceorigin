@@ -83,8 +83,6 @@ pub async fn addresses<'a>(
     /// Whether the service can send email.
     sends: bool,
 ) -> Result<impl View> {
-    // The primary address can be removed only while no other verified one could
-    // replace it.
     let replaceable = emails.iter().any(|email| email.verified && !email.primary);
     Ok(view! {
         if audience.owns() {
@@ -112,7 +110,6 @@ pub async fn addresses<'a>(
             if emails.is_empty() {
                 <p class="empty">"Add an address so SourceOrigin can tell you about changes to your account."</p>
             }
-            // Open again after an addition that failed, with what was typed.
             if audience.owns() && sends {
                 <details class="disclosure" id=(Part::AddAddress.id()) open=(state.adding.is_some())>
                     <summary><span class="button secondary small">"Add an address"</span></summary>
@@ -215,8 +212,6 @@ async fn address_row<'a>(
                         class: "secondary small",
                         aria_label: format!("Make primary {address}"),
                         confirm: audience.confirms(),
-                        // On every verified row: only the refused one keeps its
-                        // reason, so another change's never carries over.
                         reason: if state.making_primary == Some(id) {
                             audience.asks_reason()
                         } else {

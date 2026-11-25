@@ -547,7 +547,6 @@ pub async fn app_settings<'a>(
             "It can sign users in again.",
             Some((AppChange::Enable {}, "Enable")),
         ),
-        // The console never shows a deleted app: it is no longer its owner's.
         ClientStatus::Deleted { .. } => ("Deleted", "This app was deleted.", None),
     };
     Ok(view! {
