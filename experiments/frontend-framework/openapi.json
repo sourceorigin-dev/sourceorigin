@@ -1,0 +1,915 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "utoipa-axum",
+    "description": "Utoipa's axum bindings for seamless integration for the two",
+    "contact": {
+      "name": "Juha Kukkonen",
+      "email": "juha7kukkonen@gmail.com"
+    },
+    "license": {
+      "name": "MIT OR Apache-2.0",
+      "identifier": "MIT OR Apache-2.0"
+    },
+    "version": "0.3.0"
+  },
+  "paths": {
+    "/account": {
+      "get": {
+        "summary": "The caller's account settings.",
+        "operationId": "get_account",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Account"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Saves the account settings, or says which fields are wrong.",
+        "operationId": "update_account",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Account"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/account/sessions": {
+      "delete": {
+        "summary": "Signs every other browser out. The page asks for confirmation first.",
+        "operationId": "revoke_other_sessions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Account"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/changes/{change}": {
+      "get": {
+        "summary": "The change, with every file's counts and no diff.",
+        "operationId": "get_change",
+        "parameters": [
+          {
+            "name": "change",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/changes/{change}/events": {
+      "get": {
+        "summary": "What happens to the change from now on, as server-sent events. Each event's\ndata is one `ChangeEvent` as JSON.",
+        "operationId": "stream_events",
+        "parameters": [
+          {
+            "name": "change",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeEvent"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/changes/{change}/file-patch": {
+      "get": {
+        "summary": "One file's diff as a git patch, at its latest revision.",
+        "operationId": "get_file_patch",
+        "parameters": [
+          {
+            "name": "change",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/x-diff": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/changes/{change}/patch": {
+      "get": {
+        "summary": "The change's diff as a git patch: all of it, or a range of its files.",
+        "operationId": "get_patch",
+        "parameters": [
+          {
+            "name": "change",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "The index of the first file. 0 when absent.",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "How many files. All of them when absent.",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/x-diff": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/changes/{change}/reviewed": {
+      "put": {
+        "summary": "Marks a file as reviewed, or takes the mark away.",
+        "operationId": "set_reviewed",
+        "parameters": [
+          {
+            "name": "change",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewedMark"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewedMark"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/changes/{change}/simulate": {
+      "post": {
+        "summary": "Makes an update arrive as if someone else made it: a new thread, or a new\nrevision of a file. Only the stub has this.",
+        "operationId": "simulate",
+        "parameters": [
+          {
+            "name": "change",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Simulate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {},
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/changes/{change}/threads": {
+      "get": {
+        "summary": "Every comment thread of the change.",
+        "operationId": "list_threads",
+        "parameters": [
+          {
+            "name": "change",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Thread"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Starts a thread on a line.",
+        "operationId": "create_thread",
+        "parameters": [
+          {
+            "name": "change",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewThread"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Thread"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/changes/{change}/threads/{thread}/comments": {
+      "post": {
+        "summary": "Replies to a thread.",
+        "operationId": "add_comment",
+        "parameters": [
+          {
+            "name": "change",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "thread",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewComment"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Comment"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Account": {
+        "type": "object",
+        "description": "The caller's account settings.",
+        "required": [
+          "display_name",
+          "email",
+          "bio",
+          "notify_on_review",
+          "other_sessions"
+        ],
+        "properties": {
+          "bio": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "notify_on_review": {
+            "type": "boolean"
+          },
+          "other_sessions": {
+            "type": "integer",
+            "format": "int32",
+            "description": "How many other browsers are signed in.",
+            "minimum": 0
+          }
+        }
+      },
+      "AccountUpdate": {
+        "type": "object",
+        "description": "The editable part of an account.",
+        "required": [
+          "display_name",
+          "email",
+          "bio",
+          "notify_on_review"
+        ],
+        "properties": {
+          "bio": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "notify_on_review": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ChangeDetail": {
+        "type": "object",
+        "description": "A change under review.",
+        "required": [
+          "id",
+          "title",
+          "description",
+          "author",
+          "base",
+          "head",
+          "additions",
+          "deletions",
+          "files"
+        ],
+        "properties": {
+          "additions": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "author": {
+            "type": "string"
+          },
+          "base": {
+            "type": "string"
+          },
+          "deletions": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "description": {
+            "type": "string"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileSummary"
+            }
+          },
+          "head": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "ChangeEvent": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "Someone started a thread.",
+            "required": [
+              "thread",
+              "type"
+            ],
+            "properties": {
+              "thread": {
+                "$ref": "#/components/schemas/Thread"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "thread_created"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Someone replied to a thread.",
+            "required": [
+              "thread_id",
+              "comment",
+              "type"
+            ],
+            "properties": {
+              "comment": {
+                "$ref": "#/components/schemas/Comment"
+              },
+              "thread_id": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "comment_added"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "The author pushed a new version of a file: fetch its patch again.",
+            "required": [
+              "file",
+              "type"
+            ],
+            "properties": {
+              "file": {
+                "$ref": "#/components/schemas/FileSummary"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "file_revised"
+                ]
+              }
+            }
+          }
+        ],
+        "description": "What happened to a change while a page had it open."
+      },
+      "Comment": {
+        "type": "object",
+        "description": "One comment of a thread.",
+        "required": [
+          "id",
+          "author",
+          "body",
+          "created_at"
+        ],
+        "properties": {
+          "author": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Seconds since the Unix epoch.",
+            "minimum": 0
+          },
+          "id": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "FileStatus": {
+        "type": "string",
+        "description": "How a file changed.",
+        "enum": [
+          "added",
+          "deleted",
+          "modified",
+          "renamed"
+        ]
+      },
+      "FileSummary": {
+        "type": "object",
+        "description": "One file of a change, without its diff.",
+        "required": [
+          "path",
+          "status",
+          "additions",
+          "deletions",
+          "reviewed",
+          "revision"
+        ],
+        "properties": {
+          "additions": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "deletions": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "old_path": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The path before a rename."
+          },
+          "path": {
+            "type": "string"
+          },
+          "reviewed": {
+            "type": "boolean",
+            "description": "Whether the caller marked this file as reviewed."
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Counts up each time the file's diff changes while the change is open.",
+            "minimum": 0
+          },
+          "status": {
+            "$ref": "#/components/schemas/FileStatus"
+          }
+        }
+      },
+      "NewComment": {
+        "type": "object",
+        "description": "A reply to a thread.",
+        "required": [
+          "body"
+        ],
+        "properties": {
+          "body": {
+            "type": "string"
+          }
+        }
+      },
+      "NewThread": {
+        "type": "object",
+        "description": "A new thread, with its first comment.",
+        "required": [
+          "path",
+          "side",
+          "line",
+          "body"
+        ],
+        "properties": {
+          "body": {
+            "type": "string"
+          },
+          "line": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "path": {
+            "type": "string"
+          },
+          "side": {
+            "$ref": "#/components/schemas/Side"
+          }
+        }
+      },
+      "Problem": {
+        "type": "object",
+        "description": "Why a request failed. `fields` names each invalid field of a form.",
+        "required": [
+          "message",
+          "fields"
+        ],
+        "properties": {
+          "fields": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "ReviewedMark": {
+        "type": "object",
+        "description": "Whether the caller has reviewed a file.",
+        "required": [
+          "path",
+          "reviewed"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "reviewed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Side": {
+        "type": "string",
+        "description": "The side of a diff a line is on.",
+        "enum": [
+          "deletions",
+          "additions"
+        ]
+      },
+      "Simulate": {
+        "type": "object",
+        "description": "Asks the stub to make an update arrive, as another person would.",
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/SimulateKind"
+          },
+          "path": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The file to act on. Without it the stub picks one."
+          }
+        }
+      },
+      "SimulateKind": {
+        "type": "string",
+        "description": "Which update the stub should pretend someone else made.",
+        "enum": [
+          "thread",
+          "revision"
+        ]
+      },
+      "Thread": {
+        "type": "object",
+        "description": "A comment thread on one line of one file.",
+        "required": [
+          "id",
+          "path",
+          "side",
+          "line",
+          "comments"
+        ],
+        "properties": {
+          "comments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Comment"
+            }
+          },
+          "id": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "line": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "path": {
+            "type": "string"
+          },
+          "side": {
+            "$ref": "#/components/schemas/Side"
+          }
+        }
+      }
+    }
+  }
+}

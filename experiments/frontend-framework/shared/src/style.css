@@ -1,0 +1,320 @@
+/* The look both candidates share: SourceOrigin's own stylesheet, imported from
+   where it lives, then the few rules the review screen and the settings page
+   add. Nothing here belongs to a framework. */
+@import '../../../../crates/ui/assets/style/tokens.css';
+@import '../../../../crates/ui/assets/style/base.css';
+@import '../../../../crates/ui/assets/style/components.css';
+@import '../../../../crates/ui/assets/style/cards.css';
+
+/* The review screen: a bar, then the tree beside the diff, filling the window. */
+.review {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100vh;
+  height: 100dvh;
+}
+.review-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.2rem 1.5rem;
+  padding: 0.7rem 1rem 0.8rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.review-bar h1 {
+  font-size: 1.1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.review-bar .trail {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.review-bar .trail a {
+  color: inherit;
+  text-decoration: none;
+}
+.review-bar .trail a:hover {
+  color: var(--fg);
+}
+.review-bar .summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.9rem;
+  align-items: center;
+  font-size: 0.87rem;
+  color: var(--muted);
+}
+.review-bar .summary .mono {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+}
+.added {
+  color: var(--ok);
+}
+.removed {
+  color: var(--danger);
+}
+
+/* How far the review is: the one thing on this screen that moves as you work. */
+.progress {
+  display: grid;
+  gap: 0.3rem;
+  justify-items: end;
+  min-width: 13rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.progress strong {
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+.progress progress {
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border: 0;
+  border-radius: 3px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.progress progress::-webkit-progress-bar {
+  background: var(--surface-2);
+}
+.progress progress::-webkit-progress-value {
+  background: var(--ok);
+  transition: inline-size 180ms ease-out;
+}
+.progress progress::-moz-progress-bar {
+  background: var(--ok);
+}
+
+.review-body {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  min-height: 0;
+}
+.review-tree {
+  min-height: 0;
+  padding: 0.5rem 0 0 0.25rem;
+  background: var(--surface);
+  border-right: 1px solid var(--line);
+  /* Pierre's tree reads its colours and type from these. */
+  --trees-bg-override: var(--surface);
+  --trees-fg-override: var(--fg);
+  --trees-fg-muted-override: var(--muted);
+  --trees-accent-override: var(--accent);
+  --trees-selected-bg-override: var(--accent-soft);
+  --trees-border-color-override: var(--line);
+  --trees-focus-ring-color-override: var(--focus);
+  --trees-font-family-override: var(--sans);
+  --trees-font-size-override: 13px;
+  --trees-git-added-color-override: var(--ok);
+  --trees-git-deleted-color-override: var(--danger);
+  --trees-git-modified-color-override: var(--warning);
+  --trees-git-renamed-color-override: var(--accent);
+}
+.review-tree > * {
+  height: 100%;
+}
+/* CodeView and the files the server rendered share one cell: the server's
+   files cover CodeView until it has rendered, then they are removed. */
+.review-diffs {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+}
+.review-diffs > * {
+  grid-area: 1 / 1;
+}
+.review-diff {
+  position: relative;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: clip;
+  overscroll-behavior: contain;
+  background: var(--bg);
+  /* Pierre's diffs read their type from these. */
+  --diffs-font-family: var(--mono);
+  --diffs-header-font-family: var(--sans);
+  --diffs-font-size: 12.5px;
+  --diffs-line-height: 19px;
+}
+.review-diff.server-files {
+  z-index: 1;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+@media (max-width: 760px) {
+  .review-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .review-tree {
+    display: none;
+  }
+}
+
+/* What sits in a file's header: its counts and the reviewed mark. */
+.file-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font: 600 0.8rem var(--sans);
+  color: var(--muted);
+  cursor: pointer;
+}
+.file-mark input {
+  width: 15px;
+  min-height: 15px;
+  height: 15px;
+  padding: 0;
+  accent-color: var(--ok);
+}
+.file-mark:has(input:checked) {
+  color: var(--ok);
+}
+
+/* A comment thread under a line, and the box a new comment is written in. */
+.thread {
+  display: grid;
+  gap: 0.7rem;
+  max-width: 46rem;
+  margin: 0.5rem 0.75rem;
+  padding: 0.75rem 0.85rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font: 0.9rem/1.5 var(--sans);
+  color: var(--fg);
+  white-space: normal;
+}
+.thread.arrived {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.comment {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.1rem 0.55rem;
+}
+.comment .avatar {
+  grid-row: span 2;
+  margin-top: 0.1rem;
+}
+.comment header {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  font-size: 0.84rem;
+}
+.comment header time {
+  color: var(--muted);
+}
+.comment p {
+  overflow-wrap: anywhere;
+}
+.thread form {
+  display: grid;
+  gap: 0.5rem;
+}
+.thread textarea {
+  min-height: 3.4rem;
+  font: inherit;
+}
+.thread .actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+/* The button in the gutter that starts a comment on the hovered line. */
+.add-comment {
+  width: 20px;
+  min-height: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 5px;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+/* An update that arrived while the page was open. */
+.live {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 5;
+  max-width: 24rem;
+  box-shadow: inset 3px 0 0 var(--accent), 0 10px 30px rgba(0, 0, 0, 0.18);
+}
+
+/* The settings page: one column of cards. */
+.settings {
+  width: min(640px, calc(100vw - 2rem));
+  margin: 2.5rem auto;
+  display: grid;
+  gap: 1.2rem;
+}
+.settings form {
+  display: grid;
+  gap: 1rem;
+}
+.settings .check {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-weight: 500;
+}
+.settings .check input {
+  width: 16px;
+  min-height: 16px;
+  height: 16px;
+  padding: 0;
+}
+.settings .field-help,
+.settings .field-error {
+  margin: 0;
+  font-weight: 400;
+}
+/* A dialog a component library opens: the existing dialog look, centred over
+   a scrim, without relying on the popover the Rust pages use. */
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.45);
+}
+.dialog.modal {
+  position: fixed;
+  z-index: 11;
+  display: grid;
+  gap: 0.8rem;
+  height: fit-content;
+}
+.field {
+  display: grid;
+  gap: 0.35rem;
+}
+.settings .trail {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+/* A dialog's title, whichever element the component library gives it. */
+.dialog [role='heading'] {
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+/* SvelteKit's wrapper around the page, which its template writes with a style
+   attribute that a strict policy refuses. */
+.contents {
+  display: contents;
+}

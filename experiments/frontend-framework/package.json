@@ -1,0 +1,6 @@
+{
+  "name": "frontend-framework-experiment",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.25.0"
+}

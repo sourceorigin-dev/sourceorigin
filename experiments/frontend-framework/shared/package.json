@@ -1,0 +1,23 @@
+{
+  "name": "@experiment/shared",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./api": "./src/api/index.ts",
+    "./review": "./src/review.ts",
+    "./server": "./src/server.ts",
+    "./csp": "./src/csp.ts",
+    "./style.css": "./src/style.css"
+  },
+  "scripts": {
+    "generate": "openapi-ts"
+  },
+  "devDependencies": {
+    "@hey-api/openapi-ts": "0.99.0",
+    "typescript": "6.0.3"
+  },
+  "dependencies": {
+    "@pierre/diffs": "1.7.1",
+    "@pierre/trees": "1.0.0"
+  }
+}

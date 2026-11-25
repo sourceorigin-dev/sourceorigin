@@ -1,0 +1,30 @@
+{
+  "name": "@experiment/svelte",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev --port 4202 --strictPort",
+    "build": "vite build",
+    "start": "node server.js",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
+  },
+  "dependencies": {
+    "@experiment/shared": "workspace:*",
+    "@pierre/diffs": "1.7.1",
+    "@pierre/trees": "1.0.0",
+    "bits-ui": "2.22.0"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-node": "6.0.5",
+    "@sveltejs/kit": "3.4.0",
+    "@sveltejs/vite-plugin-svelte": "7.3.2",
+    "@types/node": "24.19.2",
+    "svelte": "5.59.1",
+    "svelte-check": "^4.0.0",
+    "typescript": "6.0.3",
+    "vite": "8.3.8"
+  },
+  "imports": {
+    "#lib/*": "./src/lib/*"
+  }
+}

@@ -1,0 +1,6 @@
+# The experiment's own workspace, apart from the repository's.
+packages:
+  - shared
+  - react
+  - svelte
+  - bench
