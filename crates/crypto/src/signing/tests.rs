@@ -42,7 +42,6 @@ fn verifies_types_signatures_issuers_and_times_at_the_given_time() {
     assert_eq!(token.expect("verify").sub, "user");
     assert_eq!(hint.expect("hint").sub, "user");
 
-    // Expired a second ago: refused as a token, read as a hint.
     let (token, hint) = verify(&claims(&json!({"exp": at(-1).timestamp()})));
     assert!(matches!(
         token,
@@ -113,7 +112,6 @@ fn rejects_algorithm_confusion_and_unrecognized_headers() {
             URL_SAFE_NO_PAD.encode(serde_json::to_vec(&header).expect("header")),
             URL_SAFE_NO_PAD.encode(serde_json::to_vec(&claims).expect("claims"))
         );
-        // A valid RSA signature isolates header-policy rejection from signature failure.
         let token = key.signed(&input).expect("signature");
         assert!(
             matches!(
@@ -123,7 +121,6 @@ fn rejects_algorithm_confusion_and_unrecognized_headers() {
             "accepted {field}"
         );
     }
-    // HMAC with public-key bytes is the classic asymmetric/symmetric algorithm confusion.
     let header = URL_SAFE_NO_PAD.encode(br#"{"alg":"HS256","kid":"headers","typ":"JWT"}"#);
     let payload = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&claims).expect("claims"));
     let input = format!("{header}.{payload}");
@@ -144,7 +141,6 @@ fn key_set_verifies_by_kid_and_limits_retired_keys_to_hints() {
     let claims = claims(&json!({}));
     let [by_retiring, by_retired, by_unknown] =
         [&retiring, &retired, &unknown].map(|key| key.sign(TokenType::Id, &claims).expect("sign"));
-    // A signer must be published, or verifiers could not check its tokens.
     assert!(matches!(
         KeySet::new(unknown, vec![retiring.public_key().clone()], vec![]),
         Err(CryptoError::KeySet)
@@ -176,7 +172,6 @@ fn key_set_verifies_by_kid_and_limits_retired_keys_to_hints() {
         .collect();
     assert_eq!(kids, ["retiring", "active"]);
 
-    // A repeated key identifier, even between published and retired keys, is refused.
     let signer = Rs256Key::generate("same").expect("key");
     let twin = Rs256Key::generate("same").expect("key");
     let published = vec![signer.public_key().clone()];

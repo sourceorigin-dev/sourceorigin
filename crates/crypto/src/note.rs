@@ -44,8 +44,6 @@ impl NoteKey {
         if hex.len() != SEED_BYTES * 2 || !hex.bytes().all(|byte| byte.is_ascii_hexdigit()) {
             return Err(CryptoError::NoteKeySeed);
         }
-        // Every character is an ASCII hex digit, so each pair is a valid slice, and
-        // `from_str_radix` never sees the sign it would otherwise accept.
         let mut seed = Zeroizing::new([0; SEED_BYTES]);
         for (index, byte) in seed.iter_mut().enumerate() {
             #[expect(
@@ -177,7 +175,6 @@ impl NoteVerifier {
 
     /// Whether `signature` is this key's Ed25519 signature of `text`.
     fn verifies(&self, text: &str, signature: &[u8]) -> bool {
-        // No Ed25519 signature has another length.
         signature.len() == ED25519_SIGNATURE_BYTES
             && UnparsedPublicKey::new(&ED25519, &self.public)
                 .verify(text.as_bytes(), signature)
@@ -190,7 +187,6 @@ impl FromStr for NoteVerifier {
 
     /// See [`NoteVerifier::parse`].
     fn from_str(value: &str) -> Result<Self, CryptoError> {
-        // Names hold no `+`, but base64 keys may.
         let mut parts = value.splitn(3, '+');
         let (Some(name), Some(id), Some(key)) = (parts.next(), parts.next(), parts.next()) else {
             return Err(CryptoError::NoteVerifierKey);

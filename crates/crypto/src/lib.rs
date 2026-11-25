@@ -1,8 +1,6 @@
 //! Auditable cryptographic primitives for authentication, shared by auth and the
 //! Rust SDK; no browser or database policy.
-// docs.rs labels feature-gated items with the features they need.
 #![cfg_attr(docsrs, feature(doc_cfg))]
-// A library leaves printing to its caller: it returns errors and logs through tracing.
 #![warn(clippy::print_stdout, clippy::print_stderr)]
 /// The one RS256 verifier auth and the SDK share, and compact JWS splitting.
 mod jws;
@@ -255,8 +253,6 @@ impl ClientSecret {
     /// # Errors
     /// Preserves failures from the random source.
     pub fn generate() -> Result<Self, CryptoError> {
-        // Built at its exact length, so the conversion to the box doesn't
-        // reallocate, and the encoded copy is zeroized.
         let encoded = Zeroizing::new(Secret::generate()?.encoded());
         let mut secret = String::with_capacity(CLIENT_SECRET_PREFIX.len() + encoded.len());
         secret.push_str(CLIENT_SECRET_PREFIX);
