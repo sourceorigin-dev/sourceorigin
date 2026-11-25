@@ -414,9 +414,7 @@ Keep documentation current. Tests should cover meaningful logic and boundaries;
 avoid repeated smoke tests. Run checks relevant to changed code while iterating,
 then the required workspace checks before handing over an integration change.
 
-Unit tests live in `#[cfg(test)] mod tests;` with a sibling `tests.rs`, so a
-module with tests is `foo/mod.rs` and `foo/tests.rs`. A test block of 30 lines or
-fewer may stay inline. A test file that outgrows one read becomes a `tests/`
-directory: `tests/mod.rs` holds the shared fixtures, and each flow gets a file.
+A test file that outgrows one read becomes a `tests/` directory: `tests/mod.rs`
+holds the shared fixtures, and each flow gets a file.
 [Testing](testing.md#write-a-focused-test) says which tests to write, and that
 they wait for events, not time.

@@ -42,7 +42,6 @@ approvers = ["PiquelChips"]
 # Each deviation lists the files its findings were in when SourceOrigin adopted
 # the standard; `cargo xtask standard --fix` drops each file once it complies.
 [deviations]
-skills-synced = "7 findings: the shared skills are synced in the next pull request"
 
 # Four of the findings are `// wall-clock:` comments, which
 # docs/dev/testing.md requires above a test's poll or sleep:
