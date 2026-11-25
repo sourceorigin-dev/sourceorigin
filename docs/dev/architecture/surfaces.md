@@ -34,7 +34,9 @@ script, which lets the picture form choose its crop, the search script, the
 copy script, whose buttons, and the values beside them, copy a value such as a
 client secret or a signup link to the clipboard, and the client form script,
 which sets a new client's scopes and refresh tokens to the defaults of the kind
-chosen.
+chosen. The vitals script, which every page loads first, reports how fast the
+page loaded and the errors its scripts threw
+([analytics](analytics.md#what-auths-pages-report)).
 
 The search script ranks the top bar's results as the user types. Every signed-in
 page holds its area's pages, settings and actions as results

@@ -54,6 +54,35 @@ pub(crate) struct RouteTiming {
     pub p95_ms: f64,
 }
 
+/// How fast one of auth's pages loads, as browsers timed it: the 75th
+/// percentile of each timing, which three in four views do better than. A
+/// timing no view measured is none.
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+pub(crate) struct PageSpeed {
+    /// The page's route template.
+    pub(crate) route: String,
+    /// Views that reported.
+    pub(crate) views: u32,
+    /// Largest contentful paint, in milliseconds.
+    pub(crate) lcp_ms: Option<f64>,
+    /// The longest interaction, in milliseconds.
+    pub(crate) inp_ms: Option<f64>,
+    /// Cumulative layout shift.
+    pub(crate) cls: Option<f64>,
+}
+
+/// How often one kind of error was thrown by one of auth's scripts. Both are
+/// read as written, so a kind or script another release wrote shows as itself.
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+pub(crate) struct BrowserError {
+    /// The error's constructor, such as `TypeError`, or `other`.
+    pub(crate) name: String,
+    /// The script, such as `passkey`, or `other`.
+    pub(crate) script: String,
+    /// How often.
+    pub(crate) count: u32,
+}
+
 /// How often one kind of passkey was used.
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
 pub(crate) struct PasskeyKind {
@@ -102,6 +131,11 @@ pub(crate) struct Analytics {
     pub(crate) requests: Vec<HourOfRequests>,
     /// The slowest routes of those hours, slowest first.
     pub(crate) slowest: Vec<RouteTiming>,
+    /// How fast auth's pages loaded in those hours, slowest first.
+    pub(crate) pages: Vec<PageSpeed>,
+    /// The errors browsers hit on auth's pages in those hours, most frequent
+    /// first.
+    pub(crate) browser_errors: Vec<BrowserError>,
     /// Sign-ins per day, every one of the last 30, oldest first.
     pub(crate) sign_ins: Vec<DayOfSignIns>,
     /// How often each step of signing in to an app was reached in those days,
@@ -131,7 +165,7 @@ impl AdminService {
         let hours = HourOfRequests::since(hour).to_string();
         let days = DayOfSignIns::since(day).to_string();
         let (hours, days) = (&[("since", hours.as_str())], &[("since", days.as_str())]);
-        let (requests, slowest, sign_ins, steps, passkeys, tables) = tokio::try_join!(
+        let (requests, slowest, pages, browser_errors, sign_ins, steps, passkeys, tables) = tokio::try_join!(
             reader.query(
                 "SELECT toUnixTimestamp(toStartOfHour(time, 'UTC')) AS hour,
                     toUInt32(count()) AS requests, toUInt32(countIf(status >= 500)) AS errors
@@ -146,6 +180,20 @@ impl AdminService {
                     quantile(0.95)(duration_us) / 1000 AS p95_ms
                 FROM requests WHERE time >= toDateTime({since:Int64}, 'UTC') AND route IS NOT NULL
                 GROUP BY service, listener, method, route ORDER BY p95_ms DESC LIMIT 8",
+                hours,
+            ),
+            reader.query(
+                "SELECT route, toUInt32(count()) AS views,
+                    quantile(0.75)(lcp_ms) AS lcp_ms, quantile(0.75)(inp_ms) AS inp_ms,
+                    quantile(0.75)(cls) / 1000 AS cls
+                FROM page_timings WHERE time >= toDateTime({since:Int64}, 'UTC')
+                GROUP BY route ORDER BY lcp_ms DESC NULLS LAST LIMIT 8",
+                hours,
+            ),
+            reader.query(
+                "SELECT name, script, toUInt32(count()) AS count FROM script_errors
+                WHERE time >= toDateTime({since:Int64}, 'UTC')
+                GROUP BY name, script ORDER BY count DESC LIMIT 8",
                 hours,
             ),
             reader.query(
@@ -178,6 +226,8 @@ impl AdminService {
         Ok(Analytics {
             requests: HourOfRequests::every(requests, hour),
             slowest,
+            pages,
+            browser_errors,
             sign_ins: DayOfSignIns::every(sign_ins, day),
             steps: StepCount::funnel(&steps),
             passkeys: PasskeyKind::merged(passkeys),

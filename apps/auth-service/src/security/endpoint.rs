@@ -1,7 +1,9 @@
 //! How the HTTP boundary classifies a route, which its origin, CSRF and rate
 //! policies all read, and the independent request budgets of each class.
 
-use crate::routes::{ACCOUNT_PREFIX, audit, dashboard, oidc, page, passkey, pictures, service};
+use crate::routes::{
+    ACCOUNT_PREFIX, audit, dashboard, oidc, page, passkey, pictures, service, telemetry,
+};
 use axum::{
     extract::{MatchedPath, Request},
     http::Method,
@@ -54,6 +56,11 @@ pub(super) enum Endpoint {
     /// from anywhere in one click (RFC 8058): its link's token is its credential,
     /// and it only turns that email off.
     Unsubscribe,
+    /// What auth's own pages report about themselves, from their vitals script,
+    /// on a budget of its own, so a page's report never costs a sign-in its
+    /// budget. Like the other auth-origin routes, only auth's pages may post it,
+    /// with the CSRF header.
+    Beacon,
     /// Passkey ceremonies, the providers' callbacks and the other auth-origin
     /// routes.
     Other,
@@ -99,6 +106,7 @@ impl Endpoint {
             oidc::AUTHORIZE => Self::Authorize,
             oidc::LOGOUT => Self::Logout,
             page::UNSUBSCRIBE => Self::Unsubscribe,
+            telemetry::PAGE => Self::Beacon,
             page::ROOT => Self::Page,
             _ if page::ALL.contains(&path.strip_suffix('/').unwrap_or(path)) => Self::Page,
             _ if path.starts_with(ACCOUNT_PREFIX) => Self::Account,
@@ -124,6 +132,7 @@ impl Endpoint {
             | Self::Dashboard
             | Self::DashboardSearch
             | Self::RelatedLogin
+            | Self::Beacon
             | Self::Other => false,
         }
     }
@@ -148,7 +157,8 @@ impl Endpoint {
             | Self::Health
             | Self::Account
             | Self::DashboardSearch
-            | Self::RelatedLogin => false,
+            | Self::RelatedLogin
+            | Self::Beacon => false,
         }
     }
 
@@ -171,6 +181,7 @@ impl Endpoint {
             Self::DashboardSearch => Some(RateCategory::Search),
             Self::Checkpoints => Some(RateCategory::Audit),
             Self::Picture => Some(RateCategory::Picture),
+            Self::Beacon => Some(RateCategory::Beacon),
             Self::Discovery | Self::Health => None,
         }
     }
@@ -201,5 +212,7 @@ sourceorigin_common::str_enum! {
         Audit = "audit",
         /// Profile pictures, which a page listing accounts loads many of at once.
         Picture = "picture",
+        /// The reports auth's pages send of themselves, one per page view.
+        Beacon = "beacon",
     }
 }

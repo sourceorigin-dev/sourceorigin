@@ -48,6 +48,7 @@ use crate::{
     oidc::{AuthorizationStep, TokensIssued},
     passkey::PasskeyUsed,
     security::Throttled,
+    vitals::{PageTimed, ScriptFailed},
 };
 use account::AccountCommand;
 use admin::AdminCommand;
@@ -355,6 +356,8 @@ pub(crate) const ANALYTICS_TABLES: &[Table] = &[
     JobCounted::TABLE,
     PasskeyUsed::TABLE,
     AuthorizationStep::TABLE,
+    PageTimed::TABLE,
+    ScriptFailed::TABLE,
 ];
 
 /// How long telemetry may take to flush once a command ends. With `serve`'s

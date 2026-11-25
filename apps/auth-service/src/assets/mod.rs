@@ -34,8 +34,14 @@ impl EmbeddedAssets {
     /// dashboard's both load it.
     pub(crate) const CLIENT_FORM_SCRIPT: Asset =
         Asset::script("client-form", include_bytes!("../../assets/client-form.js"));
-    /// The scripts every page of auth's own loads.
-    pub(crate) const SCRIPTS: [Asset; 5] = [
+    /// The vitals script, which reports how fast each of auth's pages loaded,
+    /// and the script errors it hit, to [`routes::telemetry::PAGE`](crate::routes::telemetry::PAGE).
+    pub(crate) const VITALS_SCRIPT: Asset =
+        Asset::script("vitals", include_bytes!("../../assets/vitals.js"));
+    /// The scripts every page of auth's own loads, the vitals script first, so
+    /// it hears the others' errors.
+    pub(crate) const SCRIPTS: [Asset; 6] = [
+        Self::VITALS_SCRIPT,
         Self::SCRIPT,
         Self::PICTURE_SCRIPT,
         Self::SEARCH_SCRIPT,

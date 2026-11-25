@@ -73,12 +73,12 @@ mod settings;
 
 pub use admin::{
     AccountPages, Action, AdminAnnouncementRow, AdminClientRow, AdminOverview, AdministratorRow,
-    AlertCard, AnalyticsPage, AnalyticsReport, AnnouncementAudience, Change, ClientChanges,
-    ClientPage, Confirmation as DashboardConfirmation, Dashboard, DeliveryRow, DraftActions,
-    DraftAnnouncement, DraftIntent, EventRow, FoundAccount, HandlesPage, HandoffProof,
-    HandoffQuery, InvitationRow, Measure, MessageIntent, MessagePreview, MessageUser,
+    AlertCard, AnalyticsPage, AnalyticsReport, AnnouncementAudience, BrowserError, Change,
+    ClientChanges, ClientPage, Confirmation as DashboardConfirmation, Dashboard, DeliveryRow,
+    DraftActions, DraftAnnouncement, DraftIntent, EventRow, FoundAccount, HandlesPage,
+    HandoffProof, HandoffQuery, InvitationRow, Measure, MessageIntent, MessagePreview, MessageUser,
     NewClientForm, OperatorDraft, Problem, RecoveryKey, RecoveryRow, Registration, ReleasedRow,
-    ReservationRow, ReservedHolder, SearchAction, SessionRow, SigningKeyRow, SlowRoute,
+    ReservationRow, ReservedHolder, SearchAction, SessionRow, SigningKeyRow, SlowPage, SlowRoute,
     StoredTable, Tab as DashboardTab, Target, UserRow, account_settings, admin_analytics,
     admin_overview, administrator_list, alert_list, alert_update_fields, announcement_form,
     announcement_list, announcement_page, audit_page, client_created, client_list, client_page,

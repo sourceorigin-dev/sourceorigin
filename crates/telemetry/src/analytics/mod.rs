@@ -154,6 +154,7 @@ columns! {
     u8 => "UInt8" key;
     u16 => "UInt16" key;
     u32 => "UInt32" key;
+    Option<u32> => "Nullable(UInt32)";
     u64 => "UInt64" key;
     i64 => "Int64" key;
     f64 => "Float64" key;

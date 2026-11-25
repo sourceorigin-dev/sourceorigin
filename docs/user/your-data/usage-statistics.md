@@ -25,8 +25,11 @@ doesn't hold your account, your name, your email address or your IP address.
 Counts are kept up to 13 months.
 
 SourceOrigin also keeps service logs and counts that keep it running, such as
-how long pages take and how many sign-ins fail. Those are part of running the
-service, so this setting doesn't turn them off. The
+how long pages take and how many sign-ins fail. Among them, Origin Auth's
+pages report from your browser how fast they loaded and the kind of any script
+error they hit, such as `TypeError`, kept 30 days. A report names only which
+page it was, not its address, and never the error's text. Those are part of
+running the service, so this setting doesn't turn them off. The
 [privacy policy](https://sourceorigin.dev/privacy) lists everything kept, and
 for how long.
 

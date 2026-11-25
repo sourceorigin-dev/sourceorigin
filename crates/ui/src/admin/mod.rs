@@ -37,7 +37,9 @@ mod recoveries;
 mod users;
 
 pub use alerts::{AlertCard, alert_list, alert_update_fields, previous_alerts};
-pub use analytics::{AnalyticsPage, AnalyticsReport, SlowRoute, StoredTable, admin_analytics};
+pub use analytics::{
+    AnalyticsPage, AnalyticsReport, BrowserError, SlowPage, SlowRoute, StoredTable, admin_analytics,
+};
 pub use announcements::{
     AdminAnnouncementRow, AnnouncementAudience, DraftActions, DraftAnnouncement, DraftIntent,
     FoundAccount, announcement_form, announcement_list, announcement_page,

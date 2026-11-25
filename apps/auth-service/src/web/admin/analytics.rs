@@ -7,7 +7,9 @@ use crate::{
     charted::Period,
 };
 use sourceorigin_common::ErrorChain;
-use sourceorigin_ui::{AnalyticsPage, AnalyticsReport, Point, SlowRoute, StoredTable};
+use sourceorigin_ui::{
+    AnalyticsPage, AnalyticsReport, BrowserError, Point, SlowPage, SlowRoute, StoredTable,
+};
 use topcoat::{
     Result,
     context::Cx,
@@ -63,6 +65,26 @@ fn report(read: Analytics) -> AnalyticsReport {
                 requests: route.requests,
                 median_ms: route.median_ms,
                 p95_ms: route.p95_ms,
+            })
+            .collect(),
+        pages: read
+            .pages
+            .into_iter()
+            .map(|page| SlowPage {
+                route: page.route,
+                views: page.views,
+                lcp_ms: page.lcp_ms,
+                inp_ms: page.inp_ms,
+                cls: page.cls,
+            })
+            .collect(),
+        browser_errors: read
+            .browser_errors
+            .into_iter()
+            .map(|error| BrowserError {
+                name: error.name,
+                script: error.script,
+                count: error.count,
             })
             .collect(),
         days: read
