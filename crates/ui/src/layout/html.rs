@@ -1,7 +1,6 @@
 //! The document around every page, and what the browser chose for it: the
 //! theme and the sidebar's width, which a form posts and a cookie keeps.
 
-use crate::form::Fields;
 use serde::{Deserialize, Serialize};
 use topcoat::{
     Result,
@@ -109,14 +108,14 @@ pub struct PreferenceChange {
     /// The theme to keep.
     #[serde(
         default,
-        deserialize_with = "Fields::lenient",
+        deserialize_with = "sourceorigin_common::protocol::known_one",
         skip_serializing_if = "Option::is_none"
     )]
     pub theme: Option<Theme>,
     /// The sidebar's width to keep.
     #[serde(
         default,
-        deserialize_with = "Fields::lenient",
+        deserialize_with = "sourceorigin_common::protocol::known_one",
         skip_serializing_if = "Option::is_none"
     )]
     pub sidebar: Option<Sidebar>,

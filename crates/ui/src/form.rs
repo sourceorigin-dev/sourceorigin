@@ -292,19 +292,11 @@ impl Fields {
         Ok(serde_urlencoded::from_str(&encoded)?)
     }
 
-    /// Reads a field as `T`, or as absent when it does not parse: the
-    /// `deserialize_with` of a field a link or form may get wrong.
-    pub(crate) fn lenient<'de, D: Deserializer<'de>, T: FromStr>(
-        deserializer: D,
-    ) -> std::result::Result<Option<T>, D::Error> {
-        Ok(Option::<String>::deserialize(deserializer)?.and_then(|value| value.parse().ok()))
-    }
-
-    /// [`Self::lenient`], reading a field that does not parse as `T`'s default.
+    /// [`known_one`](sourceorigin_common::protocol::known_one), reading a field that does not parse as `T`'s default.
     pub(crate) fn lenient_or_default<'de, D: Deserializer<'de>, T: FromStr + Default>(
         deserializer: D,
     ) -> std::result::Result<T, D::Error> {
-        Ok(Self::lenient(deserializer)?.unwrap_or_default())
+        Ok(sourceorigin_common::protocol::known_one(deserializer)?.unwrap_or_default())
     }
 }
 

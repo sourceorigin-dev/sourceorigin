@@ -166,7 +166,7 @@ pub enum UndoChange {
         /// when the fragment names none.
         #[serde(
             default,
-            deserialize_with = "Fields::lenient",
+            deserialize_with = "sourceorigin_common::protocol::known_one",
             skip_serializing_if = "Option::is_none"
         )]
         recovery: Option<RecoveryId>,

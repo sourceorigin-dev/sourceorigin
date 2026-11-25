@@ -94,7 +94,7 @@ pub struct LoginQuery {
     /// passkeys.
     #[serde(
         default,
-        deserialize_with = "Fields::lenient",
+        deserialize_with = "sourceorigin_common::protocol::known_one",
         skip_serializing_if = "Option::is_none"
     )]
     pub acr: Option<Acr>,
@@ -108,21 +108,21 @@ pub struct LoginQuery {
     /// Why the provider's sign-in that brought the browser here failed.
     #[serde(
         default,
-        deserialize_with = "Fields::lenient",
+        deserialize_with = "sourceorigin_common::protocol::known_one",
         skip_serializing_if = "Option::is_none"
     )]
     pub error: Option<CallbackError>,
     /// The provider the browser's account was just linked to, before it goes on.
     #[serde(
         default,
-        deserialize_with = "Fields::lenient",
+        deserialize_with = "sourceorigin_common::protocol::known_one",
         skip_serializing_if = "Option::is_none"
     )]
     pub linked: Option<Provider>,
     /// A provider's sign-in waits in this browser, for a signup or a link.
     #[serde(
         default,
-        deserialize_with = "Fields::lenient",
+        deserialize_with = "sourceorigin_common::protocol::known_one",
         skip_serializing_if = "Option::is_none"
     )]
     pub social: Option<PendingDestination>,
