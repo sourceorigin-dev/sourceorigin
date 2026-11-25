@@ -233,8 +233,6 @@ impl AnnouncementRepository<'_> {
             self,
             fetch_one,
             sqlx::query_scalar!(
-                // The accounts too, before the notifications' foreign keys would,
-                // so a purge of one waits for the whole sending.
                 r#"SELECT count(*) AS "count!: Unsigned" FROM (
                     SELECT FROM announcement_recipients r
                     JOIN users u ON u.id = r.user_id
@@ -244,7 +242,6 @@ impl AnnouncementRepository<'_> {
                 id.as_uuid(),
             )
         )?;
-        // Each recipient's inbox gets it, from the recipients just locked.
         let notification = Notification::Announcement {
             announcement_id: id,
             title: sent.subject,

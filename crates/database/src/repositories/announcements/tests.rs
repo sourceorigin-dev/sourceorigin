@@ -152,7 +152,6 @@ async fn drafts_change_until_sent_and_reach_only_their_recipients() {
         let announcements = inbox(&pool, user).await;
         assert_eq!(announcements.contains(&id), received);
     }
-    // Its page counts the recipients who read it in their inbox.
     assert_eq!(announcements.read(id).await.expect("read"), 0);
     let mut notifications = NotificationRepository::from_pool(&pool);
     let opened = notifications.list(mailed, None, 1000).await.expect("inbox");
@@ -365,7 +364,6 @@ async fn sending_and_purging_wait_for_each_other() {
         id
     };
 
-    // The purge goes first: the sending waits for it, then leaves the account out.
     let purged = account(&pool, Some("example.com")).await;
     let everyone = draft(Recipients::Everyone).await;
     let mut purge = DatabaseTransaction::new(pool.begin().await.expect("transaction"));
@@ -380,7 +378,6 @@ async fn sending_and_purging_wait_for_each_other() {
     assert!(!recipients.expect("recipients").contains(&purged));
     sending.rollback().await.expect("rollback");
 
-    // The sending goes first: the purge waits for it, then deletes its email.
     let (purged, kept) = (
         account(&pool, Some("example.com")).await,
         account(&pool, Some("example.com")).await,
@@ -446,8 +443,6 @@ async fn purging_the_last_recipients_at_once_deletes_the_text() {
     assert!(send(&pool, id, 1).await.is_some());
 
     let mut purge = DatabaseTransaction::new(pool.begin().await.expect("transaction"));
-    // Bare purges: auth's callers also serialize on the administrators table
-    // lock, which would hide the repository's own turn-taking.
     assert!(purge.deletions().purge(first).await.expect("purge"));
     let other = async {
         let mut other = DatabaseTransaction::new(pool.begin().await.expect("transaction"));
@@ -489,7 +484,6 @@ async fn a_draft_saved_during_its_accounts_purges_goes_with_them() {
         purge_as_callers_do(&mut purge, user).await;
         purge.commit().await.expect("commit");
     };
-    // Both purges wait: one for the draft, the other behind it.
     tokio::join!(purge(named[0]), purge(named[1]), async {
         drafting.until_blocked(2).await;
         drafting.commit().await.expect("commit");

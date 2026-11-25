@@ -426,7 +426,6 @@ async fn an_older_release_leaves_a_delivery_it_cannot_decode_to_a_newer_one() {
         (DeliveryStatus::Pending, 0, Some(UNDECODABLE))
     );
 
-    // The new release claims it once it is due again.
     assert!(claim::<NewRelease>(&pool, LEASE).await.is_none());
     sqlx::query!(
         "UPDATE deliveries SET next_attempt_at = now() WHERE id = $1",
@@ -479,7 +478,6 @@ async fn revoking_a_session_queues_a_logout_token_for_each_client_to_tell() {
         .await
         .expect("session")
         .id;
-    // Told; without a URI; and with a URI but no tokens from the session.
     let told = format!("told-{user}");
     let told_uri = "https://told.example/backchannel-logout";
     for (client, uri, redeemed) in [
@@ -491,8 +489,6 @@ async fn revoking_a_session_queues_a_logout_token_for_each_client_to_tell() {
             false,
         ),
     ] {
-        // Each client gets a code from the session, which it redeems as every
-        // release does, the previous one included.
         sqlx::query!("WITH client AS (
                 INSERT INTO oidc_clients(id,display_name,allowed_scopes,allowed_audiences,backchannel_logout_uri)
                 VALUES($1,'Logout test','[]','[]',$2) RETURNING id

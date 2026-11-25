@@ -463,10 +463,6 @@ impl OidcRepository<'_> {
         digests: &[Vec<u8>],
         client_id: &ClientId,
     ) -> Result<ConsumedAuthorizationCode, CodeRedemptionError> {
-        // If the code still looks redeemable, this update waits on a concurrent
-        // first redemption's row lock, then re-reads the row and skips it if that
-        // exchange committed. Otherwise it skips the row without waiting, and the
-        // replay lookup below waits instead.
         let code = run!(
             self,
             fetch_optional,
@@ -565,12 +561,6 @@ impl OidcRepository<'_> {
         digests: &[Vec<u8>],
         client_id: &ClientId,
     ) -> Result<Option<(UserId, Vec<TokenId>)>, DatabaseError> {
-        // The row qualifies whether or not it is consumed, so FOR SHARE waits for
-        // an in-flight first redemption and then reads the committed row, together
-        // with its family. Filtering on `consumed_at` would test this statement's
-        // snapshot, where an uncommitted redemption is invisible, and skip the wait.
-        // The lock also stops cleanup from purging the code, and unlinking the
-        // family, before this transaction commits.
         let Some(code) = run!(
             self,
             fetch_optional,
@@ -589,10 +579,6 @@ impl OidcRepository<'_> {
         .filter(|code| code.consumed) else {
             return Ok(None);
         };
-        // A separate statement takes a fresh snapshot, which includes a family
-        // committed while the lock above waited. Only family locks are taken, in
-        // ID order (see `TokenRepository::lock_client_families`), so this stays
-        // within the user -> session -> family order of rotation.
         let revoked = run!(
             self,
             fetch_all,

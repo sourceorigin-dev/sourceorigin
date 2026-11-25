@@ -175,7 +175,6 @@ async fn locked_lookups_read_a_rename_they_waited_for() {
             .expect("lookup")
             .expect("user")
     });
-    // The lookup waits for the rename.
     Database::wait_for_lock(&pool, backend).await;
     rename.commit().await.expect("commit");
     let user = lookup.await.expect("lookup task");

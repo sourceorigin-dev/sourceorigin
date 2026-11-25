@@ -206,10 +206,6 @@ impl<'a> DatabaseTransaction<'a> {
     #[cfg(any(test, feature = "test-util"))]
     pub(crate) async fn blocked_transactions(&mut self) -> Result<i64, DatabaseError> {
         sqlx::query_scalar!(
-            // `pg_locks` is read afresh by every query; `pg_stat_activity` would
-            // keep the backends this transaction saw first.
-            // A waiter queued behind another waiter for the same row reports that
-            // waiter as its blocker, so waiters are followed transitively.
             r#"WITH RECURSIVE waiting (pid) AS (
                 SELECT pid FROM pg_locks
                 WHERE NOT granted AND pg_backend_pid() = ANY(pg_blocking_pids(pid))

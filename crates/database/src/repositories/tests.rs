@@ -12,7 +12,6 @@ use sourceorigin_common::{Handle, SessionId, UserId};
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn undecodable_columns_are_invalid_stored_data() {
     let pool = Database::test_pool().await;
-    // Unique across runs: a v7's bytes with the version bits set to 4.
     let v4 = uuid::Builder::from_random_bytes(*uuid::Uuid::now_v7().as_bytes()).into_uuid();
     let handle = Handle::parse(&format!("v4-{}", &v4.simple().to_string()[20..])).expect("handle");
     sqlx::query!(

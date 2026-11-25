@@ -284,7 +284,6 @@ async fn events_a_newer_release_wrote_read_as_unknown() {
         ]
     );
 
-    // Rolled back, so that consumers of every event never read it.
     let mut tx = DatabaseTransaction::new(pool.begin().await.expect("transaction"));
     tx.events()
         .insert_written_elsewhere(
@@ -340,7 +339,6 @@ async fn actors_a_newer_release_wrote_read_as_unknown() {
     let [older, newer] = actors.map(RecordedActor::Unknown);
     assert_eq!(read, [newer, older]);
 
-    // Rolled back, so that consumers of every event never read it.
     let mut tx = DatabaseTransaction::new(pool.begin().await.expect("transaction"));
     tx.events()
         .insert_written_elsewhere(
@@ -426,7 +424,6 @@ async fn an_alert_updates_note_erases_with_its_event() {
         problem: ChainProblem::EventChanged,
     });
     let alert_id = AlertId::new();
-    // Cleared, so it is not the current alert other tests raise.
     sqlx::query!(
         "INSERT INTO alerts (id, payload, version, cleared_at) VALUES ($1, $2, 1, now())",
         alert_id.as_uuid(),

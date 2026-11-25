@@ -311,7 +311,6 @@ async fn a_kept_token_writes_nothing_and_holds_its_locks_until_commit() {
     .fetch_one(&pool)
     .await
     .expect("family");
-    // Whether another transaction can take each lock a refresh needs exclusively.
     let available = async || {
         let mut free = Vec::new();
         for lock in 0..3 {
@@ -378,7 +377,6 @@ async fn a_kept_token_writes_nothing_and_holds_its_locks_until_commit() {
         tx.commit().await.expect("commit");
         assert_eq!(available().await, [true; 3], "released by commit");
     }
-    // The count does see a write: rotating consumes the token.
     let mut tx = pool.begin().await.expect("transaction");
     let before = written(&mut tx).await;
     TokenRepository::from_transaction(&mut tx)
@@ -718,8 +716,6 @@ async fn removal_expires_codes_an_earlier_exchange_still_sees_live() {
     let pool = Database::test_pool().await;
     let client = client(&pool).await;
     let grant = Grant::new(&pool, &client).await;
-    // `now()` is fixed when a transaction begins, so the code expires after the
-    // exchange began and before the removal does.
     let mut exchange = DatabaseTransaction::new(pool.begin().await.expect("exchange"));
     sqlx::query!(
         "UPDATE authorization_codes SET expires_at = clock_timestamp() WHERE id = $1",

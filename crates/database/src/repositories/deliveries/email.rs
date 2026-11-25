@@ -92,7 +92,6 @@ impl EmailMessage {
         user_id: UserId,
         tx: &mut DatabaseTransaction<'_>,
     ) -> Result<Vec<(EmailId, Self)>, DatabaseError> {
-        // Only the events that mail a link read the addresses.
         if !matches!(
             event,
             DomainEvent::EmailAdded { .. } | DomainEvent::RecoveryStarted { revoke: None, .. }
@@ -101,7 +100,6 @@ impl EmailMessage {
         }
         let emails = tx.emails().list(user_id).await?;
         Ok(match event {
-            // An address a provider imported verified needs no link.
             DomainEvent::EmailAdded { email_id, .. } => emails
                 .iter()
                 .filter(|email| email.id == *email_id && email.verified_at.is_none())
@@ -110,9 +108,6 @@ impl EmailMessage {
                     (email.id, message)
                 })
                 .collect(),
-            // A recovery's link goes to one address, the current primary one, or
-            // nowhere without one. A recovery started with `--revoke` mails no
-            // link, since the account's addresses may be someone else's.
             DomainEvent::RecoveryStarted {
                 recovery_id,
                 revoke: None,
@@ -142,8 +137,6 @@ impl EmailMessage {
         tx: &mut DatabaseTransaction<'_>,
     ) -> Result<Vec<(EmailId, Self)>, DatabaseError> {
         let emails = tx.emails().list(notified.user_id).await?;
-        // The affected address and the recovery are the event's subject's: only
-        // the subject's own notifications are about them.
         let affected = match event {
             DomainEvent::PrimaryEmailChanged {
                 previous_email_id, ..
@@ -151,7 +144,6 @@ impl EmailMessage {
             DomainEvent::EmailRemoved { email_id } => Some(*email_id),
             _ => None,
         };
-        // The recovery whose undo page a notification offering it links.
         let recovery_id = match event {
             DomainEvent::RecoveryStarted { recovery_id, .. }
             | DomainEvent::RecoveryCompleted { recovery_id, .. } => Some(*recovery_id),

@@ -31,8 +31,6 @@ impl Owner {
     /// Connects and migrates.
     async fn new() -> Self {
         let db = Database::test().await;
-        // A repository never hands out its pool, so the raw statements get one
-        // of their own.
         let url = Database::test_url();
         let pool = sqlx::PgPool::connect(&url).await.expect("pool");
         Self { db, pool }
@@ -41,8 +39,6 @@ impl Owner {
     /// Runs `sql` in one transaction, serialized with every other test's: grants
     /// on the same tables from concurrent transactions fail.
     async fn raw(&self, sql: &str) {
-        // Provisioning's lock (`LockKey::Provisioning`): other tests provision
-        // roles at the same time, and privileges on the schema are one catalog row.
         let serialized = format!("BEGIN; SELECT pg_advisory_xact_lock(2); {sql}; COMMIT;");
         sqlx::raw_sql(&serialized)
             .execute(&self.pool)
@@ -237,7 +233,6 @@ fn a_recovery_state_follows_its_link_and_probation() {
         completed_at: Some(now - Duration::minutes(1)),
         passkey_id: Some(PasskeyId::new()),
         settles_at: Some(settles_at),
-        // A used link's expiry no longer matters.
         expires_at: now - Duration::minutes(1),
         ..stored(now)
     };

@@ -129,7 +129,6 @@ impl Table {
             Self::Administrators => Holds::Exported("administrator"),
             Self::DashboardSessions => Holds::Exported("sessions/*/dashboard"),
             Self::UserEmails => Holds::Exported("emails"),
-            // A copy of the verified addresses.
             Self::VerifiedEmailOwnership => Holds::Exported("emails/*/verified"),
             Self::PasskeyCredentials => Holds::Exported("passkeys"),
             Self::ExternalLoginIdentities => Holds::Exported("identities"),
@@ -146,7 +145,6 @@ impl Table {
             Self::EventPersonalData => Holds::Exported("events/*/ip"),
             Self::Notifications => Holds::Exported("notifications"),
             Self::NotificationPreferences => Holds::Exported("notification_preferences"),
-            // Sent ones; a draft is the administrators' until it is sent.
             Self::Announcements | Self::AnnouncementRecipients => Holds::Exported("announcements"),
             Self::AccountDeletions => Holds::Withheld(
                 "it exists only while the account is scheduled for deletion, \

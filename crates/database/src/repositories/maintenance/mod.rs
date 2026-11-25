@@ -98,14 +98,6 @@ impl MaintenanceRepository<'_> {
         batch_size: u32,
     ) -> Result<u64, DatabaseError> {
         let limit = i64::from(batch_size.clamp(1, MAX_PURGE_BATCH));
-        // Runs each statement in order, each removing at most `$1` expired rows
-        // that no live request has locked, and adds up what they removed. A
-        // checked query needs a literal, and each has its own type, so the
-        // statements cannot share a loop. Most delete the rows of one table that
-        // match a condition, which `$table where $condition` writes; the rest
-        // join, lock only some of the tables they read (`FOR UPDATE OF`), or
-        // check other tables against the row, so they keep their full SQL. The
-        // second arm's `+` pieces are only for the first arm to pass through.
         let mut purged = 0;
         macro_rules! purge {
             ($table:literal where $condition:literal) => {
@@ -127,9 +119,6 @@ impl MaintenanceRepository<'_> {
         purge!("request_limits" where "expires_at < now()");
         purge!("invitations" where "expires_at < now()
             OR redeemed_at < now() - interval '1 day'");
-        // An unverified address goes with its expired verification link; the
-        // secret's row cascades. Both rows are locked, skipping any a
-        // verification holds, so cleanup never waits on one.
         purge!(
             "DELETE FROM user_emails
             WHERE id IN (
@@ -148,17 +137,9 @@ impl MaintenanceRepository<'_> {
         purge!("webauthn_ceremonies" where "expires_at < now()
             OR consumed_at < now() - interval '1 day'");
         purge!("dashboard_handoffs" where "expires_at < now()");
-        // A session that went unused too long has ended too, but stays until
-        // its `expires_at`, which comes soon after.
         purge!("dashboard_sessions" where "expires_at < now()");
         purge!("authorization_requests" where "expires_at < now()
             OR consumed_at < now() - interval '1 day'");
-        // A redeemed code stays while a replay could still revoke something: an
-        // unrevoked family it produced whose session is live (refresh tokens expire
-        // with the session). The first day after redemption is kept regardless, so
-        // replays are still recorded even for codes that produced no refresh family.
-        // Retained codes are rechecked on every pass, so this scan grows with
-        // every redeemed code past its first day, not only with purgeable ones.
         purge!(
             "DELETE FROM authorization_codes c
             WHERE c.ctid IN (
@@ -223,26 +204,13 @@ impl MaintenanceRepository<'_> {
                 FOR UPDATE OF secret SKIP LOCKED
             )"
         );
-        // A browser unused for 400 days has lost its device cookie, which
-        // lives as long: its next sign-in is a new device's either way.
         purge!("known_devices" where "last_seen_at < now() - interval '400 days'");
-        // Events are kept indefinitely; the personal data beside them is not.
-        // A purge erasing its apps' origins may hold some of these rows.
         purge!("event_personal_data" where "created_at < now() - interval '90 days'");
-        // An account's ended records go once its history no longer shows their
-        // events' details, 90 days on, as event personal data does.
         purge!("passkey_credentials" where "revoked_at < now() - interval '90 days'");
         purge!("external_login_identities" where "revoked_at < now() - interval '90 days'");
-        // A recovery ends when it is undone or its probation settles, or,
-        // unused, when its link is cancelled or expires, whichever comes first:
-        // cancelling an expired link, as the next start does, ends nothing.
         purge!("account_recoveries" where "CASE WHEN completed_at IS NULL THEN least(expires_at, cancelled_at)
             ELSE least(undone_at, settles_at) END < now() - interval '90 days'");
         purge!("notifications" where "created_at < now() - interval '1 year'");
-        // Who received an announcement goes with the inbox copies, a year on.
-        // One to every account stays, as the administrators' record of what
-        // they said; one to chosen accounts may concern them, so it goes
-        // with its last recipient, as a purge does.
         purge!(
             "DELETE FROM announcement_recipients r
             WHERE r.ctid IN (
@@ -269,9 +237,6 @@ impl MaintenanceRepository<'_> {
                 FOR UPDATE SKIP LOCKED
             )"
         );
-        // A purged account's handles were released at its purge (the
-        // `handles_release_purged` trigger), and stay reserved a year, so
-        // nobody takes one to pass for it.
         purge!("handles" where "user_id IS NULL AND released_at < now() - interval '1 year'");
         purge!(
             "DELETE FROM deliveries d

@@ -114,8 +114,6 @@ impl AdministratorRepository<'_> {
             self,
             fetch_one,
             sqlx::query_scalar!(
-                // True when every active administrator is `user_id`, and there is
-                // one: `bool_and` of no rows is null.
                 r#"SELECT COALESCE(bool_and(a.user_id = $1), FALSE) AS "last!"
                 FROM administrators a
                 JOIN users u ON u.id = a.user_id

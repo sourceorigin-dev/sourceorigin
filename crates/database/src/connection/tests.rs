@@ -81,7 +81,6 @@ fn transport_is_verified_tls_a_local_socket_or_explicit_plaintext() {
             "{url}"
         );
     }
-    // Accepting a URL is not enough: the transport it asked for is the one used.
     let options = |url| {
         DatabaseConfig::new(url, 1, Duration::from_secs(1))
             .expect("accepted")
@@ -128,8 +127,6 @@ fn configuration_errors_name_the_setting_without_credentials() {
 async fn cleanup_skips_rows_locked_by_requests() {
     let pool = Database::test_pool().await;
     let bucket = Uuid::now_v7().as_bytes().to_vec();
-    // Concurrent tests purge too and can delete the expired row before it is
-    // locked, so insert it again until the request holds it.
     let request = loop {
         sqlx::query!(
             "INSERT INTO request_limits (bucket, requests, expires_at)
@@ -179,7 +176,6 @@ async fn cleanup_keeps_redeemed_codes_while_their_session_is_live() {
     let database = Database { pool: pool.clone() };
     let [user, session, code, family] = [(); 4].map(|()| Uuid::now_v7());
     let client = format!("purge_{user}");
-    // One statement keeps the fixture short; foreign keys are checked at its end.
     sqlx::query!("WITH account AS (
             INSERT INTO users (id, display_name) VALUES ($1, 'Purge')
         ), browser AS (
@@ -291,8 +287,6 @@ async fn runtime_role_has_only_row_privileges() {
     let name = format!("sourceorigin_auth_{}", Uuid::now_v7().simple());
     let config = config_for(&name);
     let role = RuntimeRole::new(&config, "runtime password").expect("role");
-    // Overlapping runs, as two `migrate` jobs: one creates the role, the other
-    // waits for it, then resets it.
     let (first, second) = tokio::join!(owner.provision(&role), owner.provision(&role));
     first.expect("create or reset");
     second.expect("create or reset");
@@ -300,7 +294,6 @@ async fn runtime_role_has_only_row_privileges() {
         .await
         .expect("log in as the runtime role");
 
-    // Rolled back, since other tests consume every event.
     let mut append = runtime.pool.begin().await.expect("begin");
     sqlx::query!(
         "INSERT INTO domain_events (id, kind, version, payload, actor)
@@ -318,7 +311,6 @@ async fn runtime_role_has_only_row_privileges() {
         !runtime.audit().may_prune().await.expect("runtime"),
         "auth never prunes"
     );
-    // Sealing locks unsealed events and sets their chain columns, nothing else.
     let mut seal = runtime.begin().await.expect("begin");
     seal.audit()
         .unsealed(1)
@@ -567,7 +559,6 @@ async fn statements_and_lock_waits_past_their_limits_fail() {
     );
     drop(slow);
 
-    // A key no other test takes.
     let key = i64::from_be_bytes(*b"timeout!");
     let mut holder = database.begin().await.expect("transaction");
     sqlx::query!(r#"SELECT 1 AS "one!" FROM pg_advisory_xact_lock($1)"#, key)

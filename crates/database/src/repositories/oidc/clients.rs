@@ -237,7 +237,6 @@ impl OidcRepository<'_> {
         owner: ClientOwner,
     ) -> Result<(), DatabaseError> {
         let redirects = RedirectRows::new(registration);
-        // The redirect rows reference the client inserted by the same statement.
         run!(
             self,
             execute,
@@ -288,8 +287,6 @@ impl OidcRepository<'_> {
         registration: &ClientRegistration,
     ) -> Result<(), DatabaseError> {
         let redirects = RedirectRows::new(registration);
-        // Every CTE runs; the statement returns the updated ID, so an unknown client
-        // is `NotFound`.
         run!(
             self,
             fetch_one,
@@ -362,7 +359,6 @@ impl OidcRepository<'_> {
         id: &ClientId,
         enabled: bool,
     ) -> Result<bool, DatabaseError> {
-        // The locked subquery reads the state this update replaces.
         run!(
             self,
             fetch_one,
@@ -398,8 +394,6 @@ impl OidcRepository<'_> {
     /// Returns [`DatabaseError::NotFound`] for an unknown or already deleted
     /// client, or another [`DatabaseError`] if the query fails.
     pub async fn delete_client(&mut self, id: &ClientId) -> Result<(), DatabaseError> {
-        // Every CTE runs; the statement returns the deleted ID, so an unknown client
-        // is `NotFound`.
         run!(
             self,
             fetch_one,

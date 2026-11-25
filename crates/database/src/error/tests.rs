@@ -22,7 +22,6 @@ fn decode_failures_leave_out_the_value() {
         "stored column payload is invalid: JSON that does not match its type at line 1 \
          column 19"
     );
-    // `from_value`, which most repositories use, has no position to give.
     let decoded = serde_json::from_value::<u8>("alice@example.com".into());
     let error = DatabaseError::InvalidStoredData {
         column: "payload".into(),

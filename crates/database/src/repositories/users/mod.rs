@@ -105,8 +105,6 @@ impl UserRepository<'_> {
             fetch_one,
             sqlx::query_as!(
                 StoredUser,
-                // Foreign keys are checked at the end of the statement, after both
-                // inserts.
                 r#"WITH u AS (
                     INSERT INTO users (id, display_name) VALUES ($1, $3) RETURNING *
                 ), h AS (
@@ -264,7 +262,6 @@ impl UserRepository<'_> {
         id: UserId,
         name: &str,
     ) -> Result<Option<String>, DatabaseError> {
-        // The joined row is the one before the update, so it keeps the old name.
         Ok(run!(
             self,
             fetch_optional,

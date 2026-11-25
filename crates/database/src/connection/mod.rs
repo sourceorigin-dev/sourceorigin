@@ -136,8 +136,6 @@ impl DatabaseConfig {
         }) {
             return Err(DatabaseConnectionError::InvalidSocket);
         }
-        // Plaintext TCP needs an explicit `sslmode=disable`, e.g. on a private container
-        // network. Weaker TLS modes would look encrypted without verifying the server.
         let plaintext = ssl_mode.as_deref() == Some(PLAINTEXT_SSL_MODE);
         let require_verified_tls = socket_path.is_none() && !plaintext;
         if require_verified_tls && ssl_mode.as_deref() != Some(VERIFIED_SSL_MODE) {
@@ -148,8 +146,6 @@ impl DatabaseConfig {
             .map_err(|source| DatabaseConnectionError::Options(Box::new(source)))?
             .options(Limit::DEFAULTS.map(Limit::option));
         Ok(if require_verified_tls {
-            // Keep the effective mode explicit even after validating the URL so
-            // future parser changes cannot silently weaken production TLS.
             options.ssl_mode(PgSslMode::VerifyFull)
         } else {
             options
@@ -337,7 +333,6 @@ impl Database {
             .run(&mut connection)
             .await
             .map_err(|error| DatabaseError::Operation(Box::new(error)))?;
-        // Closing the connection releases the lock.
         Ok(connection.close().await?)
     }
 
@@ -391,8 +386,6 @@ impl Database {
     /// fails.
     pub async fn isolated(config: DatabaseConfig) -> Result<Self, DatabaseError> {
         let name = format!("test_{}", uuid::Uuid::now_v7().simple());
-        // Copying the template database may outlast the statement limit on a loaded
-        // disk, so this one setup connection has none.
         let setup = Self::connect(DatabaseConfig {
             options: config
                 .options
@@ -403,7 +396,6 @@ impl Database {
         })
         .await
         .map_err(|error| DatabaseError::Operation(Box::new(error)))?;
-        // A database name cannot be a bind parameter; this one is generated above.
         sqlx::raw_sql(&format!("CREATE DATABASE {name}"))
             .execute(&setup.pool)
             .await?;

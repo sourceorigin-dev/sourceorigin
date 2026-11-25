@@ -187,7 +187,6 @@ impl From<sqlx::Error> for DatabaseError {
     /// Converts the domain failure at its boundary while retaining internal error sources.
     fn from(value: sqlx::Error) -> Self {
         match value {
-            // RowNotFound has no diagnostic fields beyond the semantic category.
             sqlx::Error::RowNotFound => Self::NotFound,
             sqlx::Error::ColumnDecode { index, source } => Self::InvalidStoredData {
                 column: index,

@@ -110,7 +110,6 @@ async fn locked_session_lookup_waits_for_concurrent_logout() {
             .await
             .expect("lookup")
     });
-    // The lookup waits for the logout.
     Database::wait_for_lock(&pool, backend).await;
     logout.commit().await.expect("commit logout");
     assert!(exchange.await.expect("exchange task").is_none());
@@ -167,7 +166,6 @@ async fn touch_records_activity_at_most_once_per_interval() {
 #[ignore = "requires a disposable TEST_DATABASE_URL"]
 async fn search_lists_the_closest_accounts_first() {
     let pool = Database::test_pool().await;
-    // Unique to this test, so accounts other tests insert never match.
     let query = format!("rank{}", &UserId::new().to_string().replace('-', "")[..10]);
     let account = |handle: String, display_name: String| InsertUser {
         id: UserId::new(),
@@ -180,7 +178,6 @@ async fn search_lists_the_closest_accounts_first() {
         account(format!("named-{query}x"), format!("Someone {query}")),
         account(format!("within{query}"), "Within".to_owned()),
     ];
-    // Inserted in reverse, so the order is the search's, not the insertion's.
     for input in expected.iter().rev() {
         UserRepository::from_pool(&pool)
             .insert(input)
@@ -194,7 +191,6 @@ async fn search_lists_the_closest_accounts_first() {
     let found: Vec<_> = found.iter().map(|user| user.id).collect();
     let expected: Vec<_> = expected.iter().map(|input| input.id).collect();
     assert_eq!(found, expected);
-    // An ID matches whole, in either case, as one pasted from elsewhere.
     let pasted = expected[1].to_string().to_uppercase();
     let found = UserRepository::from_pool(&pool)
         .search(&pasted, 0, 10)
