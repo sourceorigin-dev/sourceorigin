@@ -191,17 +191,26 @@ impl SignedIn {
     }
 }
 
-impl<St: Send + Sync> FromRequestParts<St> for SignedIn {
-    type Rejection = Response;
+/// Implements [`FromRequestParts`] for an extractor that refuses a request from another
+/// origin, then extracts as its [`CrossOrigin`] form does.
+macro_rules! from_request_parts_checking_origin {
+    ($extractor:ty) => {
+        impl<St: Send + Sync> FromRequestParts<St> for $extractor {
+            type Rejection = Response;
 
-    async fn from_request_parts(parts: &mut Parts, state: &St) -> Result<Self, Response> {
-        if let Some(refusal) = Login::refuse_other_origin(parts) {
-            return Err(refusal);
+            async fn from_request_parts(parts: &mut Parts, state: &St) -> Result<Self, Response> {
+                if let Some(refusal) = Login::refuse_other_origin(parts) {
+                    return Err(refusal);
+                }
+                let CrossOrigin(user) =
+                    CrossOrigin::<Self>::from_request_parts(parts, state).await?;
+                Ok(user)
+            }
         }
-        let CrossOrigin(user) = CrossOrigin::<Self>::from_request_parts(parts, state).await?;
-        Ok(user)
-    }
+    };
 }
+
+from_request_parts_checking_origin!(SignedIn);
 
 /// The signed-in user, if any. Never rejects, except with 500 when
 /// [`LoginRoutes::layer`](super::LoginRoutes::layer) is missing, with 403 when a
@@ -221,17 +230,7 @@ impl<St: Send + Sync> FromRequestParts<St> for SignedIn {
 #[derive(Clone, Debug)]
 pub struct MaybeSignedIn(pub Option<SignedIn>);
 
-impl<St: Send + Sync> FromRequestParts<St> for MaybeSignedIn {
-    type Rejection = Response;
-
-    async fn from_request_parts(parts: &mut Parts, state: &St) -> Result<Self, Response> {
-        if let Some(refusal) = Login::refuse_other_origin(parts) {
-            return Err(refusal);
-        }
-        let CrossOrigin(user) = CrossOrigin::<Self>::from_request_parts(parts, state).await?;
-        Ok(user)
-    }
-}
+from_request_parts_checking_origin!(MaybeSignedIn);
 
 /// [`SignedIn`] or [`MaybeSignedIn`] without the origin check, for an endpoint other
 /// origins call with the session cookie, such as a sibling site's `fetch` with
