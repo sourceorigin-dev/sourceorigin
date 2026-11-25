@@ -30,9 +30,10 @@
 # except `docs`, since a change anywhere can break a link to it, and `standard`.
 # The merge queue and manual runs run everything: the queue tests each pull
 # request on top of the latest main before it merges, so two pull requests that
-# pass alone cannot break main together. `ci` is the single status to require,
-# and the queue waits for it: it fails if any job failed and passes when the
-# rest succeeded or were skipped. audit.yml audits new advisories weekly.
+# pass alone cannot break main together. `ci` is one of the two statuses to
+# require, with pr.yml's `standard / pr-checks`, and the queue waits for both:
+# `ci` fails if any job failed and passes when the rest succeeded or were
+# skipped. audit.yml audits new advisories weekly.
 #
 # Rust caches, and the Rust images' layers, are saved from main only: GitHub
 # scopes a cache to the branch that saved it, and every other branch, the
