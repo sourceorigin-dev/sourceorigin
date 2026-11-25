@@ -67,6 +67,7 @@ implement it:
 | Rust type | ClickHouse type |
 | --- | --- |
 | `bool`, `u8` to `u64`, `i64`, `f64` | `Bool`, `UInt8` to `UInt64`, `Int64`, `Float64` |
+| `Option<u32>` | `Nullable(UInt32)` |
 | `&'static str`, and its `Option` | `LowCardinality(String)`, and `LowCardinality(Nullable(String))` |
 | `EventId` | `UUID` |
 | `ClientId`, and its `Option` | `LowCardinality(String)`, and `LowCardinality(Nullable(String))` |
@@ -148,6 +149,62 @@ moment of the sign-in or change it counts. An hour with a single counted
 sign-in still points to it, to whoever reads ClickHouse's own logs and the
 audit history together: consent decides whether a person is counted at all.
 
+## What auth's pages report
+
+Most rows are recorded on the server. Two come from the browser: every page of
+auth's own loads the vitals script (`apps/auth-service/assets/vitals.js`) before
+its other scripts, so it can measure how fast the page loaded and catch the
+errors the other scripts throw:
+
+- the time to the first byte (TTFB), the first and the largest contentful paint
+  (FCP and LCP), and the cumulative layout shift (CLS), in thousandths, from
+  navigation timing and `PerformanceObserver`. CLS is the worst burst of
+  shifts, each less than a second after the last and within 5 seconds, as the
+  standard counts it. A page opened in a background tab reports no paint, since
+  it painted only once someone looked;
+- the longest click, tap or key press, from the `event` entries that have an
+  `interactionId`, as an approximation of Interaction to Next Paint (INP);
+- each error and unhandled rejection no script caught, up to 5, as the name of
+  its constructor, such as `TypeError`, and which of auth's scripts threw it.
+  The script never reads the error's message or sends its stack: either can
+  quote what the page shows.
+
+Once, when the page is hidden or left, the script posts one JSON body to
+`/telemetry/page`, with the CSRF header and `keepalive`, so the request
+outlives the page. The body holds the page's `location.pathname`, never its
+query or fragment. `VitalsApplication` (`apps/auth-service/src/vitals`)
+records it:
+
+1. It maps the path to the page route it is an instance of
+   (`routes::page::template_of`), such as `/developers/clients/{id}` for an
+   app's page, and drops the report when none matches. Only the template is
+   recorded, never the path.
+2. It reads each timing as a whole number, clamped to a minute, and the layout
+   shift to 10. It keeps the first 5 errors, reads an unknown error kind as
+   `other`, through its `str_enum!`, and an unknown script as `other`.
+3. It records a `page_timings` row and one `script_errors` row per error, and
+   answers `204` whether or not the path named a page. A body that isn't a
+   report, such as one with a negative timing, is refused with a `4xx`.
+
+The route reads no session. The security layer takes a report only from auth's
+own pages, with the CSRF header, and gives reports a budget of their own,
+`beacon`, so a page's report never costs a passkey ceremony its `login` budget
+(see [rate limit](request-lifecycle.md#rate-limit)). That budget is a counter in
+PostgreSQL, as every budget is, so each page view costs one more write. Each
+report is also a request, `POST /telemetry/page`, so the request charts count it
+too. A body is limited to 4 KiB.
+
+Nothing proves a report came from a real page view: the origin and the CSRF
+header stop other sites, not a script that sends the same request. Anyone can
+post made-up timings and errors, up to the `beacon` budget, so the numbers are
+a guide, never evidence.
+
+Both tables are kept 30 days. Their rows name no account and no browser, only
+a page's route, so they say how auth runs, as `requests` does, and need no
+consent. The admin dashboard's pages, and sourceorigin.dev's, don't load the
+script. Auth collects no Content-Security-Policy violation reports and no
+Network Error Logging reports.
+
 ## Tables
 
 `auth-service migrate` brings ClickHouse to the declarations of the signals in
@@ -221,7 +278,9 @@ chart's `f64` holds exactly or near enough, and times to `Int64` seconds. A
 column whose values are a vocabulary, such as `authorization_steps.step`, is
 recorded and read through its `str_enum!`, in `sourceorigin_common::admin`, so
 both agree; its `else` variant reads a spelling another release wrote, so one
-row never breaks the page.
+row never breaks the page. A column the page only lists, such as
+`script_errors.name`, is read as text and shown as written, which never breaks
+it either.
 To chart a new signal, add its query there, and its chart to
 `crates/ui/src/admin/analytics.rs`, with `crates/ui/src/charts`.
 

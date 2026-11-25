@@ -35,7 +35,9 @@ async fn the_analytics_page_says_when_clickhouse_refuses() {
 
 /// The page charts what ClickHouse counts, read as a reader `migrate`
 /// provisioned, which may only read, every day of its sign-ins chart, no
-/// request that matched no route, and every table's size, `logs` included.
+/// request that matched no route, every table's size, `logs` included, and
+/// what browsers report: each page's 75th percentile timings, a timing no view
+/// measured as a dash, and the errors by kind and script.
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL and TEST_ANALYTICS_URL: run `just db test`"]
 async fn the_dashboard_charts_what_clickhouse_counts() {
@@ -94,6 +96,17 @@ async fn the_dashboard_charts_what_clickhouse_counts() {
         serde_json::json!({"synced": true, "syncable": true, "transport": "internal"}),
     )
     .await;
+    seed(
+        "page_timings",
+        serde_json::json!({"route": "/settings/sessions", "ttfb_ms": 90, "fcp_ms": 400,
+            "lcp_ms": 1800, "inp_ms": null, "cls": 50}),
+    )
+    .await;
+    seed(
+        "script_errors",
+        serde_json::json!({"route": "/settings/sessions", "name": "TypeError", "script": "passkey"}),
+    )
+    .await;
     let mut config = AuthConfig::test(&AUTH_ORIGIN.parse().expect("auth origin"));
     config.analytics = Some(reader);
     let harness = Harness::of(config).await;
@@ -111,6 +124,12 @@ async fn the_dashboard_charts_what_clickhouse_counts() {
         "Requested",
         "passkeys_used",
         "<code>logs</code>",
+        "<code>/settings/sessions</code>",
+        "1.8 s",
+        "<td class=\"number\">—</td>",
+        "0.05",
+        "<code>TypeError</code>",
+        "<code>passkey</code>",
         &format!("<th scope=\"row\">{first_day}</th>"),
         "<th scope=\"col\">Server errors</th>",
         &format!("<th scope=\"row\">{this_hour}</th><td>3</td><td>1</td>"),

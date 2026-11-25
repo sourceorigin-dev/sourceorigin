@@ -2,7 +2,7 @@
 //! and the limit on requests in flight.
 
 use super::*;
-use crate::routes::{audit, federation, passkey};
+use crate::routes::{audit, federation, passkey, telemetry};
 use crate::tests::Replicas;
 
 /// The request deadline also bounds waiting for a locked rate-limit bucket.
@@ -269,6 +269,7 @@ fn routes_doing_real_work_have_budgets() {
         (federation::IDENTITIES, Some(RateCategory::Account)),
         (passkey::AUTHENTICATE_START, Some(RateCategory::Login)),
         (federation::CALLBACK, Some(RateCategory::Login)),
+        (telemetry::PAGE, Some(RateCategory::Beacon)),
     ] {
         assert_eq!(Endpoint::classify(path).rate_category(), budget, "{path}");
     }

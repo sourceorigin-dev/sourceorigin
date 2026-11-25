@@ -31,6 +31,33 @@ pub struct SlowRoute {
     pub p95_ms: f64,
 }
 
+/// How fast one of auth's pages loads, as the page lists it: the 75th
+/// percentile of each timing, none when no view measured it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SlowPage {
+    /// The page's route template.
+    pub route: String,
+    /// Views that reported.
+    pub views: u32,
+    /// Largest contentful paint, in milliseconds.
+    pub lcp_ms: Option<f64>,
+    /// The longest interaction, in milliseconds.
+    pub inp_ms: Option<f64>,
+    /// Cumulative layout shift.
+    pub cls: Option<f64>,
+}
+
+/// How often one kind of error was thrown by one script, as the page lists it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BrowserError {
+    /// The error's kind, such as `TypeError`.
+    pub name: String,
+    /// The script that threw it, such as `passkey`, or `other`.
+    pub script: String,
+    /// How often.
+    pub count: u32,
+}
+
 /// What one table stores, as the page lists it.
 #[derive(Clone, Debug, PartialEq)]
 pub struct StoredTable {
@@ -53,6 +80,11 @@ pub struct AnalyticsReport {
     pub server_errors: Vec<f64>,
     /// The slowest routes of the last 24 hours.
     pub slowest: Vec<SlowRoute>,
+    /// How fast auth's pages loaded in the last 24 hours, slowest first.
+    pub pages: Vec<SlowPage>,
+    /// The errors browsers hit on auth's pages in the last 24 hours, most
+    /// frequent first.
+    pub browser_errors: Vec<BrowserError>,
     /// The last 30 days, labelled `Nov 24`.
     pub days: Vec<String>,
     /// Sign-ins per day.
@@ -86,6 +118,25 @@ fn size(bytes: f64) -> String {
         value /= 1024.0;
     }
     format!("{value:.1} GiB")
+}
+
+/// `value` as `shown` writes it, or a dash when no view measured it.
+fn measured(value: Option<f64>, shown: fn(f64) -> String) -> String {
+    value.map_or_else(|| "—".to_owned(), shown)
+}
+
+/// A timing of `ms` milliseconds: `850 ms`, or `1.2 s`.
+fn timing(ms: f64) -> String {
+    if ms < 1000.0 {
+        format!("{ms:.0} ms")
+    } else {
+        format!("{:.1} s", ms / 1000.0)
+    }
+}
+
+/// A layout shift: `0.08`.
+fn shift(cls: f64) -> String {
+    format!("{cls:.2}")
 }
 
 /// What the page calls a passkey reached over `transport`, `synced` or not.
@@ -256,6 +307,7 @@ async fn usage_cards<'a>(
                 </table>
             }
         </section>
+        browser_cards(report: report)
         <section class="card" aria-labelledby="storage-heading">
             <header><h2 id="storage-heading">(format!("Storage: {}", size(stored)))</h2></header>
             if report.tables.is_empty() {
@@ -275,6 +327,67 @@ async fn usage_cards<'a>(
                     }
                 </tbody>
             </table>
+            }
+        </section>
+    })
+}
+
+/// The cards of what browsers report of auth's pages: how fast each loads,
+/// slowest first, and the errors their scripts didn't catch.
+#[component]
+async fn browser_cards<'a>(
+    /// What the analytics database counted.
+    report: &'a AnalyticsReport,
+) -> Result<impl View> {
+    Ok(view! {
+        <section class="card" aria-labelledby="page-speed-heading">
+            <header><h2 id="page-speed-heading">"Page speed, 24 hours"</h2></header>
+            if report.pages.is_empty() {
+                <p class="empty">"No page view reported yet."</p>
+            } else {
+                <table>
+                    <thead>
+                        <tr>
+                            <th scope="col">"Page"</th>
+                            <th scope="col">"Views"</th>
+                            <th scope="col"><abbr title="Largest contentful paint, which 3 in 4 views beat">"LCP"</abbr></th>
+                            <th scope="col"><abbr title="The longest interaction, which 3 in 4 views beat">"INP"</abbr></th>
+                            <th scope="col"><abbr title="Cumulative layout shift, which 3 in 4 views beat">"CLS"</abbr></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        for page in &report.pages {
+                            <tr>
+                                <td><code>(page.route.as_str())</code></td>
+                                <td class="number">(compact(f64::from(page.views)))</td>
+                                <td class="number">(measured(page.lcp_ms, timing))</td>
+                                <td class="number">(measured(page.inp_ms, timing))</td>
+                                <td class="number">(measured(page.cls, shift))</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </section>
+        <section class="card" aria-labelledby="browser-errors-heading">
+            <header><h2 id="browser-errors-heading">"Browser errors, 24 hours"</h2></header>
+            if report.browser_errors.is_empty() {
+                <p class="empty">"No script error reported."</p>
+            } else {
+                <table>
+                    <thead>
+                        <tr><th scope="col">"Error"</th><th scope="col">"Script"</th><th scope="col">"Count"</th></tr>
+                    </thead>
+                    <tbody>
+                        for error in &report.browser_errors {
+                            <tr>
+                                <td><code>(error.name.as_str())</code></td>
+                                <td><code>(error.script.as_str())</code></td>
+                                <td class="number">(compact(f64::from(error.count)))</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
             }
         </section>
     })

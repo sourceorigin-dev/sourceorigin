@@ -104,6 +104,12 @@ impl Asset {
         }
     }
 
+    /// Its public name before the hash, such as `passkey`.
+    #[must_use]
+    pub const fn stem(&self) -> &'static str {
+        self.stem
+    }
+
     /// Its content.
     #[must_use]
     pub const fn bytes(&self) -> &'static [u8] {

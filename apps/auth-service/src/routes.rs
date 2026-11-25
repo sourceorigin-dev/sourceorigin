@@ -192,6 +192,13 @@ pub(crate) mod oidc {
     pub(crate) const LOGOUT: &str = "/oidc/logout";
 }
 
+/// What auth's own pages report about themselves.
+pub(crate) mod telemetry {
+    /// How fast a page loaded and the script errors it hit, which the vitals
+    /// script posts once as the page is hidden.
+    pub(crate) const PAGE: &str = "/telemetry/page";
+}
+
 /// The admin dashboard, on its own origin, which the admin listener serves. Its
 /// pages declare their own paths, under these prefixes.
 pub(crate) mod dashboard {
@@ -346,6 +353,27 @@ pub(crate) mod page {
         UNSUBSCRIBE,
         SIGN_OUT,
     ];
+
+    /// The route of [`ALL`] that `path` is a page of, if any: a `{param}`
+    /// segment matches any one segment but an empty one, and the others only
+    /// themselves. [`super::oidc::LOGOUT`] is [`LOGOUT`]'s page too, though it
+    /// keeps the security class of the protocol route it is.
+    pub(crate) fn template_of(path: &str) -> Option<&'static str> {
+        if path == super::oidc::LOGOUT {
+            return Some(LOGOUT);
+        }
+        ALL.into_iter().find(|template| {
+            let mut segments = path.split('/');
+            template.split('/').all(|expected| {
+                segments.next().is_some_and(|segment| {
+                    segment == expected
+                        || (expected.starts_with('{')
+                            && expected.ends_with('}')
+                            && !segment.is_empty())
+                })
+            }) && segments.next().is_none()
+        })
+    }
 }
 
 /// Prefix shared by the account JSON APIs.

@@ -135,6 +135,7 @@ impl SecurityFixture {
             "/oauth/revoke",
             "/oidc/userinfo",
             "/oidc/logout",
+            crate::routes::telemetry::PAGE,
         ] {
             router = router.route(path, any(|| async { StatusCode::ACCEPTED }));
         }
