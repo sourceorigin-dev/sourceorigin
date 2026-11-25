@@ -11,6 +11,8 @@ mod account;
 mod admin;
 /// Listing alerts and posting updates on them.
 mod alerts;
+/// Reading the analytics database back.
+mod analytics;
 /// Drafting and sending announcements to accounts.
 mod announcement;
 /// The audit history.
@@ -53,6 +55,7 @@ use crate::{
 use account::AccountCommand;
 use admin::AdminCommand;
 use alerts::AlertsCommand;
+use analytics::AnalyticsCommand;
 use announcement::AnnouncementCommand;
 use audit::AuditCommand;
 use clap::{Parser, Subcommand};
@@ -150,6 +153,11 @@ enum Administration {
     /// on them.
     #[command(subcommand)]
     Alerts(AlertsCommand),
+    /// Read the analytics database, as the dashboard's reader, which may only
+    /// read: what the Analytics page charts, a trace, or a query of your own.
+    /// Needs `ANALYTICS_READER_URL` and `ANALYTICS_READER_PASSWORD`.
+    #[command(subcommand)]
+    Analytics(AnalyticsCommand),
     /// Read or change one account's settings on its owner's behalf, or send it a
     /// message.
     Account(AccountCommand),
@@ -315,6 +323,7 @@ impl Administration {
                 AlertsCommand::List { .. } => Op::ListAlerts,
                 AlertsCommand::Update { .. } => Op::UpdateAlert,
             },
+            Self::Analytics(command) => command.operation(),
         })
     }
 
@@ -337,6 +346,7 @@ impl Administration {
             Self::Deliveries(command) => command.run(console).await,
             Self::Announcement(command) => command.run(console).await,
             Self::Alerts(command) => command.run(console).await,
+            Self::Analytics(command) => command.run(console).await,
             Self::Account(command) => command.run(console).await,
         }
     }

@@ -5,12 +5,12 @@
 use super::{AdminError, AdminService, Operator};
 use crate::charted::{DAY, HOUR, Period, StepCount, period};
 use chrono::Utc;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sourceorigin_common::admin::{AuthorizationStepKind, PasskeyTransport};
 use sourceorigin_telemetry::analytics::Store;
 
 /// Requests in one hour, of every service.
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, clickhouse::Row)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, clickhouse::Row)]
 pub(crate) struct HourOfRequests {
     /// The hour's start, in seconds since the epoch.
     pub(crate) hour: i64,
@@ -23,7 +23,7 @@ pub(crate) struct HourOfRequests {
 period!(HourOfRequests, hour, HOUR, 24);
 
 /// Sign-ins in one day.
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, clickhouse::Row)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, clickhouse::Row)]
 pub(crate) struct DayOfSignIns {
     /// The day's start, in seconds since the epoch.
     pub(crate) day: i64,
@@ -36,7 +36,7 @@ pub(crate) struct DayOfSignIns {
 period!(DayOfSignIns, day, DAY, 30);
 
 /// How long one route of one service takes.
-#[derive(Clone, Debug, Deserialize, PartialEq, clickhouse::Row)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, clickhouse::Row)]
 pub(crate) struct RouteTiming {
     /// The service that answered, such as `auth-service`.
     pub(crate) service: String,
@@ -57,7 +57,7 @@ pub(crate) struct RouteTiming {
 /// How fast one of auth's pages loads, as browsers timed it: the 75th
 /// percentile of each timing, which three in four views do better than. A
 /// timing no view measured is none.
-#[derive(Clone, Debug, Deserialize, PartialEq, clickhouse::Row)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, clickhouse::Row)]
 pub(crate) struct PageSpeed {
     /// The page's route template.
     pub(crate) route: String,
@@ -73,7 +73,7 @@ pub(crate) struct PageSpeed {
 
 /// How often one kind of error was thrown by one of auth's scripts. Both are
 /// read as written, so a kind or script another release wrote shows as itself.
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq, clickhouse::Row)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize, clickhouse::Row)]
 pub(crate) struct BrowserError {
     /// The error's constructor, such as `TypeError`, or `other`.
     pub(crate) name: String,
@@ -84,7 +84,7 @@ pub(crate) struct BrowserError {
 }
 
 /// How often one kind of passkey was used.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, clickhouse::Row)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize, clickhouse::Row)]
 pub(crate) struct PasskeyKind {
     /// Whether it is synced between devices.
     pub(crate) synced: bool,
@@ -114,7 +114,7 @@ impl PasskeyKind {
 }
 
 /// What one table stores.
-#[derive(Clone, Debug, Deserialize, PartialEq, clickhouse::Row)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, clickhouse::Row)]
 pub(crate) struct TableSize {
     /// Its name.
     pub(crate) table: String,
@@ -125,7 +125,7 @@ pub(crate) struct TableSize {
 }
 
 /// What the Analytics page shows.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub(crate) struct Analytics {
     /// Requests per hour, every one of the last 24, oldest first.
     pub(crate) requests: Vec<HourOfRequests>,
@@ -248,6 +248,23 @@ impl AdminService {
             passkeys: PasskeyKind::merged(passkeys),
             tables,
         })
+    }
+
+    /// The rows of `statement`, a read-only SQL query on the analytics
+    /// database, run through `reader`, which ClickHouse allows only to read,
+    /// within limits on each query.
+    ///
+    /// # Errors
+    /// Fails when the operator may not read, or ClickHouse refuses or doesn't
+    /// answer the query.
+    pub(crate) async fn query_analytics(
+        &self,
+        operator: &Operator,
+        reader: &Store,
+        statement: &str,
+    ) -> Result<Vec<serde_json::Value>, AdminError> {
+        operator.authorize_read(&self.database).await?;
+        Ok(reader.rows(statement).await?)
     }
 }
 

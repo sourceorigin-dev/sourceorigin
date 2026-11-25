@@ -148,8 +148,8 @@ struct Refused {
 
 /// `migrate` creates a signal's table, again without error, a writer that may
 /// insert rows but read none, and a reader that may read them, bound to its
-/// parameters, spans included, but insert none; a recorded row reaches the
-/// table once flushed.
+/// parameters, spans included, or by a query of an operator's own, but insert
+/// none; a recorded row reaches the table once flushed.
 #[tokio::test]
 #[ignore = "needs TEST_ANALYTICS_URL, a scratch ClickHouse: run `just analytics test`"]
 async fn migrate_provisions_a_writer_that_only_inserts_and_a_reader_that_only_reads() {
@@ -205,5 +205,29 @@ async fn migrate_provisions_a_writer_that_only_inserts_and_a_reader_that_only_re
     assert!(
         reader.select("SELECT count() FROM spans").await.is_ok(),
         "the reader reads what one request did, for the trace page"
+    );
+    let rows = reader
+        .rows("SELECT category, refused FROM throttled;")
+        .await
+        .expect("rows");
+    assert_eq!(
+        rows,
+        [serde_json::json!({"category": "login", "refused": 3})]
+    );
+    assert!(
+        reader
+            .rows("INSERT INTO throttled (category, refused) VALUES ('login', 1)")
+            .await
+            .is_err(),
+        "the reader's own query may not write"
+    );
+    let waits = reader
+        .rows("SELECT getSetting('http_wait_end_of_query') AS waits;\r\n")
+        .await
+        .expect("the reader's settings");
+    assert_eq!(
+        waits,
+        [serde_json::json!({"waits": true})],
+        "the reader waits for a query's end, so a limit is an error, not part of the rows"
     );
 }

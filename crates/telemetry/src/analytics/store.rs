@@ -62,11 +62,13 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 /// change, 5 seconds, 512 MiB, and 10,000 rows back; and 16 queries at once,
 /// so however many pages read, they can't take ClickHouse over. Its rows'
 /// 64-bit integers are JSON numbers, never quoted, whatever the server's
-/// default.
+/// default. ClickHouse answers once a query ends, so a limit hit mid-query is
+/// its error, never a 200 holding part of the rows.
 const READER_LIMITS: &str = "readonly = 1, max_execution_time = 5, \
                              max_memory_usage = 536870912, max_result_rows = 10000, \
                              max_concurrent_queries_for_user = 16, \
-                             output_format_json_quote_64bit_integers = 0";
+                             output_format_json_quote_64bit_integers = 0, \
+                             http_wait_end_of_query = 1";
 /// What the reader may read of ClickHouse's own tables: how much each table
 /// stores, for the dashboard's storage card.
 const READER_SYSTEM: &str = "SELECT(database, table, active, rows, bytes_on_disk) ON system.parts";
@@ -122,13 +124,23 @@ pub enum StoreError {
         /// What ClickHouse answered, or which column did not match.
         source: clickhouse::error::Error,
     },
-    /// ClickHouse refused a statement of `migrate`.
+    /// ClickHouse refused a statement, of `migrate` or an operator's own query.
     #[error("ClickHouse refused `{statement}`")]
     Statement {
         /// The statement, without any password it set.
         statement: String,
         /// What ClickHouse answered.
         source: clickhouse::error::Error,
+    },
+    /// A row ClickHouse answered an operator's own query with does not parse.
+    #[error("a row of `{statement}`'s answer does not parse: {row}")]
+    Row {
+        /// The statement.
+        statement: String,
+        /// The row, as ClickHouse wrote it.
+        row: String,
+        /// Why it does not parse.
+        source: serde_json::Error,
     },
 }
 
@@ -280,17 +292,46 @@ impl Store {
     /// Returns what ClickHouse refused the query with.
     #[cfg(any(test, feature = "test-util"))]
     pub async fn select(&self, query: &str) -> Result<String, StoreError> {
+        Ok(self.answer(query, "TSV").await?.trim_end().to_owned())
+    }
+
+    /// The rows of `statement`, an operator's own query, each as a JSON
+    /// object: what `auth-service analytics query` prints. Only the reader
+    /// should run one, as ClickHouse then refuses anything but reading, within
+    /// the reader's limits. The statement names no `FORMAT`: rows come back as
+    /// `JSONEachRow`.
+    ///
+    /// # Errors
+    /// Returns what ClickHouse refused the statement with, or the row of its
+    /// answer that did not parse.
+    pub async fn rows(&self, statement: &str) -> Result<Vec<serde_json::Value>, StoreError> {
+        let statement = statement.trim_end().trim_end_matches(';');
+        self.answer(statement, "JSONEachRow")
+            .await?
+            .lines()
+            .map(|row| {
+                serde_json::from_str(row).map_err(|source| StoreError::Row {
+                    statement: statement.to_owned(),
+                    row: row.to_owned(),
+                    source,
+                })
+            })
+            .collect()
+    }
+
+    /// What ClickHouse answers `statement`, sent as it is, with, in `format`.
+    async fn answer(&self, statement: &str, format: &str) -> Result<String, StoreError> {
         let refused = |source| StoreError::Statement {
-            statement: query.to_owned(),
+            statement: statement.to_owned(),
             source,
         };
         let mut cursor = self
             .client
-            .query_raw(query)
-            .fetch_bytes("TSV")
+            .query_raw(statement)
+            .fetch_bytes(format)
             .map_err(refused)?;
         let text = Self::within(cursor.collect()).await?.map_err(refused)?;
-        Ok(String::from_utf8_lossy(&text).trim_end().to_owned())
+        Ok(String::from_utf8_lossy(&text).into_owned())
     }
 
     /// The result of `request`, unless ClickHouse takes longer than

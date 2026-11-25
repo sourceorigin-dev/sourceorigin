@@ -56,6 +56,11 @@ pub(super) enum CliError {
         "who runs this command is unknown: pass --operator NAME, or set AUTH_OPERATOR, as piquelctl app exec sets no $USER"
     )]
     UnknownOperator,
+    /// An analytics command ran where no reader is configured.
+    #[error(
+        "analytics are off here: set ANALYTICS_READER_URL and ANALYTICS_READER_PASSWORD, as auth's own environment does"
+    )]
+    AnalyticsOff,
     /// A change that needs confirmation ran without a terminal or `--yes`.
     #[error("this command needs confirmation: run it on a terminal, or pass --yes")]
     Unconfirmed,
