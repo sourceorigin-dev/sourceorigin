@@ -23,19 +23,13 @@ const RESOURCE_POLICY_PRIVATE: &str = "same-origin";
 /// Which powerful features a page, and what it embeds, may use.
 const PERMISSIONS_POLICY_HEADER: &str = "permissions-policy";
 
-/// `Permissions-Policy`: the pages may use passkeys and write to the clipboard,
-/// for their copy buttons, and no other powerful feature, nor may anything they
-/// embed. A feature it leaves out keeps its default, often `self`, so every
-/// feature that reaches a device, the user's data or another site is listed,
-/// including ones only some browsers know yet, which Chromium logs as
-/// unrecognized or as needing an origin trial. It is checked against Chromium's
-/// registry of features (`permissions_policy_features.json5`, release 153): all
-/// are listed but the defaults that reach nothing beyond the page (client hints,
-/// `sync-xhr`, `unload`, `aria-notify`, `cross-origin-isolated`, `vertical-scroll`,
-/// `focus-without-user-activation` and the `execution-while-*` pair),
-/// `frobulate`, Chromium's sample feature, and `autofill` and `manual-text`,
-/// test-only features whose effect is undocumented, so that turning one off can't
-/// stop the browser filling in the sign-in forms.
+/// `Permissions-Policy`: the pages may use passkeys and write to the clipboard, for their
+/// copy buttons, and no other powerful feature, nor may anything they embed. A feature it
+/// leaves out keeps its default, so every feature that reaches a device, the user's data or
+/// another site is listed, even those only some browsers know yet. Checked against Chromium's
+/// registry (`permissions_policy_features.json5`, release 153): all are listed but the
+/// defaults that reach nothing beyond the page, `frobulate` and the test-only `autofill` and
+/// `manual-text`.
 pub const PERMISSIONS_POLICY: &str = "publickey-credentials-get=(self), publickey-credentials-create=(self), \
     clipboard-write=(self), accelerometer=(), all-screens-capture=(), \
     ambient-light-sensor=(), autoplay=(), bluetooth=(), browsing-topics=(), \
