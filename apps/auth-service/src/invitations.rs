@@ -11,7 +11,10 @@
 //! starts with that address, verified, since opening the mailed link proves the
 //! same thing a verification email does.
 
-use crate::{config::LinkKeys, routes};
+use crate::{
+    config::{LinkKeys, TokenLink},
+    routes,
+};
 use sourceorigin_common::{TokenId, config::Origin};
 use sourceorigin_crypto::Secret;
 use url::Url;
@@ -40,28 +43,26 @@ impl InvitationLinks {
         self.keys.token(id.as_uuid().as_bytes())
     }
 
-    /// Invitation `id`'s link, as [`Self::url`] builds it, under the key whose
-    /// token has the stored SHA-256 `digest`. `None` once no configured key
-    /// derives it, which fails its delivery.
-    pub(crate) fn link(&self, id: TokenId, digest: &[u8]) -> Option<Url> {
-        let token = self.keys.rebuild(id.as_uuid().as_bytes(), digest)?;
-        Some(self.url(&token))
-    }
-
-    /// The link holding `token`: the registration page, with the token in its
-    /// query, so the page can show the address it invites.
-    pub(crate) fn url(&self, token: &Secret) -> Url {
-        let mut link = self.origin.url(routes::page::REGISTER);
-        link.query_pairs_mut()
-            .append_pair("invitation", &token.encoded());
-        link
-    }
-
     /// The SHA-256 digest of an invitation token a browser `presented`, which
     /// finds its invitation, or `None` if it is not a token at all.
     pub(crate) fn digest(presented: &str) -> Option<Vec<u8>> {
         Secret::parse(presented)
             .ok()
             .map(|secret| secret.digest().as_bytes().to_vec())
+    }
+}
+
+impl TokenLink for InvitationLinks {
+    fn keys(&self) -> &LinkKeys {
+        &self.keys
+    }
+
+    /// The link holding `token`: the registration page, with the token in its
+    /// query, so the page can show the address it invites.
+    fn url(&self, token: &Secret) -> Url {
+        let mut link = self.origin.url(routes::page::REGISTER);
+        link.query_pairs_mut()
+            .append_pair("invitation", &token.encoded());
+        link
     }
 }

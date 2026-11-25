@@ -3,7 +3,7 @@
 use super::*;
 use crate::{
     account::AccountService,
-    config::{LinkKeys, TokenDigestKey, TokenDigestKeys},
+    config::{LinkKeys, TokenDigestKey, TokenDigestKeys, TokenLink},
     recovery::{LINK_LIFETIME, PROBATION, RecoveryLinks},
     security::RequestContext,
     tests::{AUTH_ORIGIN, Browser, Replicas, verified_address},

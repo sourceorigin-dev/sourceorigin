@@ -17,6 +17,7 @@ use sourceorigin_common::{
 };
 use sourceorigin_crypto::{CryptoError, Digest, KeyEncryptionKey, NoteKey, NoteVerifier, Secret};
 use std::sync::Arc;
+use url::Url;
 
 /// Separates opaque token digests from every other use of a token digest key.
 const TOKEN_DIGEST_CONTEXT: &[u8] = b"sourceorigin-refresh-token-digest-v1";
@@ -336,6 +337,23 @@ impl TokenDigestKeys {
         } else {
             "unknown"
         }
+    }
+}
+
+/// A kind of emailed link: the keys its token derives with, and the page it opens
+/// with the token. [`Self::link`] rebuilds a queued link for every kind.
+pub(crate) trait TokenLink {
+    /// The keys that derive this kind's tokens.
+    fn keys(&self) -> &LinkKeys;
+
+    /// The link holding `token`.
+    fn url(&self, token: &Secret) -> Url;
+
+    /// The link of the ID whose bytes are `id`, under the key whose token has the stored SHA-256
+    /// `digest`. `None` once no configured key derives it, which fails its delivery.
+    fn link(&self, id: &[u8; 16], digest: &[u8]) -> Option<Url> {
+        let token = self.keys().rebuild(id, digest)?;
+        Some(self.url(&token))
     }
 }
 
