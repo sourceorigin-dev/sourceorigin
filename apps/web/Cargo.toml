@@ -9,7 +9,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-sourceorigin-common = { workspace = true, features = ["config"] }
+sourceorigin-common = { workspace = true, features = ["config", "server"] }
 sourceorigin-telemetry.workspace = true
 sourceorigin-ui.workspace = true
 

@@ -8,7 +8,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-sourceorigin-common = { workspace = true, features = ["admin", "config", "email", "events", "similarity"] }
+sourceorigin-common = { workspace = true, features = ["admin", "config", "email", "events", "server", "similarity"] }
 sourceorigin-crypto.workspace = true
 sourceorigin-repository.workspace = true
 sourceorigin-telemetry.workspace = true

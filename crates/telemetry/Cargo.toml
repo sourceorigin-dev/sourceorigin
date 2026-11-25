@@ -12,7 +12,7 @@ publish = false
 test-util = ["opentelemetry_sdk/testing"]
 
 [dependencies]
-sourceorigin-common = { workspace = true, features = ["client-spans", "config"] }
+sourceorigin-common = { workspace = true, features = ["client-spans", "config", "server"] }
 
 async-trait.workspace = true
 axum.workspace = true

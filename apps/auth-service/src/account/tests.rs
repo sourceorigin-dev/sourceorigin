@@ -23,9 +23,9 @@ use axum::{
     routing::{delete, post},
 };
 use chrono::{Duration, Utc};
-use sourceorigin_common::clients::{ClientId, ClientKind, ClientOwner};
 use sourceorigin_common::{
-    AuthenticationMethod, EmailId, Provider, TokenId, UserId,
+    AuthenticationMethod, ClientId, EmailId, Provider, TokenId, UserId,
+    clients::{ClientKind, ClientOwner},
     events::{Actor, DomainEvent, RevocationReason},
     protocol::step_up::StepUpRequirement,
 };

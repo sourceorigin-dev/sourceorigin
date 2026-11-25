@@ -5,18 +5,21 @@ Keep implementations simple. Follow neighbouring modules and share repeated logi
 ## Crates
 
 - `sourceorigin-common` (`crates/common`): the one home for shared types, depending on
-  no other workspace crate. IDs, handles, account status, authentication methods,
-  providers, `Personal<T>`, error-chain formatting, `str_enum!`, the client
-  registration types (`clients`), and under `protocol` the wire types shared with
-  the SDKs: token claims, metadata, JWK sets, OAuth/OIDC vocabulary and errors,
-  bearer challenges, step-up requirements, SDK error codes and the constants both
-  SDKs apply, the bodies of auth's settings API, the same-origin rule for browser
-  requests, the `return_to` rule for paths a sign-in goes back to, and the
-  security, isolation and `Cache-Control` headers every response of auth and
-  sourceorigin.dev carries (`headers`, `isolation`). Beside them sit the public
-  IP ranges, the only ones auth delivers to (`net`), and what auth's forms post
-  that doesn't decode as itself, such as a checkbox (`form`). The rest are
-  features: `admin` (the views of administration, which the admin dashboard
+  no other workspace crate. With no features it holds what the SDKs read: the IDs
+  tokens carry (`UserId`, `SessionId`, `TokenId`, `DeliveryId`, `ClientId`),
+  error-chain formatting, and under `protocol` the wire types shared with the
+  SDKs: token claims, metadata, JWK sets, OAuth/OIDC vocabulary and errors, bearer
+  challenges, step-up requirements, SDK error codes and the constants both SDKs
+  apply, the same-origin rule for browser requests and the `return_to` rule for
+  paths a sign-in goes back to. The `server` feature adds what auth and
+  sourceorigin.dev share beyond them: the other IDs, handles, account status,
+  authentication methods, providers, `Personal<T>`, `str_enum!` and
+  `open_str_enum!`, the client registration types (`clients`), the public IP
+  ranges, the only ones auth delivers to (`net`), and under `protocol` the bodies
+  of auth's settings API (`api`) and the security, isolation and `Cache-Control`
+  headers every response of auth and sourceorigin.dev carries (`headers`,
+  `isolation`). The rest are features, `admin`, `events` and `similarity`
+  enabling `server`: `admin` (the views of administration, which the admin dashboard
   shows, the CLI prints as JSON and the database crate decodes into),
   `client-spans` (`SendTraced`, client spans around `reqwest` requests, for auth
   and the SDK), `config` (environment variables, validated origins, secret
@@ -72,7 +75,7 @@ Keep implementations simple. Follow neighbouring modules and share repeated logi
   stylesheet, `STYLESHEET`, under a path naming its content, and the `FONTS` it
   links, under paths naming their version, which the admin dashboard serves
   with its own, and the document sourceorigin.dev's pages share. It depends only on
-  `sourceorigin-common` (with `admin` and `events`), `chrono`, `serde`, `serde_json`,
+  `sourceorigin-common` (with `admin`, `events` and `server`), `chrono`, `serde`, `serde_json`,
   `serde_urlencoded`, `url` and Topcoat's `view`, so it compiles beside the
   database crate.
 

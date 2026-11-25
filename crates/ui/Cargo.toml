@@ -9,7 +9,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-sourceorigin-common = { workspace = true, features = ["admin", "events"] }
+sourceorigin-common = { workspace = true, features = ["admin", "events", "server"] }
 chrono.workspace = true
 serde.workspace = true
 serde_json.workspace = true

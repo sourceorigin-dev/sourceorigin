@@ -10,7 +10,7 @@ use std::collections::BTreeMap;
 
 crate::str_enum! {
     /// `amr` values (RFC 8176): how the user authenticated. This is the wire view,
-    /// separate from [`crate::AuthenticationMethod`], which auth stores on sessions.
+    /// separate from `AuthenticationMethod`, which auth stores on sessions.
     pub enum Amr {
         /// Proof of possession of a key, such as a passkey.
         Pop = "pop",
