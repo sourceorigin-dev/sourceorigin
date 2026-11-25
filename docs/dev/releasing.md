@@ -133,7 +133,10 @@ toolchain of `rust-toolchain.toml`, Node and pnpm.
    It checks that you are on the latest `main` with a clean working tree, and
    that the version isn't released yet. It runs `cargo semver-checks` against
    the previous release: an API change that breaks it fails here, unless the
-   new version allows it, which before 1.0 only a minor release does. It then:
+   new version allows it, which before 1.0 only a minor release does. The check
+   doesn't follow one crate's re-exports of another's items, such as
+   `sourceorigin-auth`'s `protocol` module, so review a change to a re-export by
+   hand before you choose the version. It then:
 
    1. publishes the crates, which takes several minutes, then the npm package.
       npm may ask for a one-time password.
