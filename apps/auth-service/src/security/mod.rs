@@ -29,7 +29,7 @@ mod page;
 mod session;
 
 pub(crate) use content::{FormTarget, FormTargets};
-pub(crate) use context::RequestContext;
+pub(crate) use context::{Budget, RequestContext};
 pub(crate) use cookie::BrowserCookie;
 pub(crate) use http::{CacheClass, Cached, FETCH_SITE_HEADER, HttpSecurity, HttpSecurityError};
 pub(crate) use page::Explanation;

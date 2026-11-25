@@ -135,8 +135,9 @@ cached. Version 6 holds:
 - the profile, picture, handles, administrator rights, email addresses,
   consents and refresh grants;
 - passkeys, linked identities and sessions, ended ones included until cleanup
-  deletes them, each session with its IP addresses, the apps it signed in to and
-  the admin dashboard sessions resting on it;
+  deletes them, each session with its IP addresses, the apps it signed in to,
+  the app whose device it is when a code signed it in, and the admin dashboard
+  sessions resting on it;
 - the browsers the account knows ([known devices](sessions.md#known-devices));
 - the apps the account registered, deleted ones as their tombstones, with their
   related origins;

@@ -138,7 +138,7 @@ impl Grant {
                     user_id: self.user,
                     session_id: self.session,
                     client_id: client.to_string(),
-                    authorization_code_id: self.code,
+                    authorization_code_id: Some(self.code),
                     audience: "test".into(),
                     scopes: vec!["openid".into()],
                     authentication: authentication(),

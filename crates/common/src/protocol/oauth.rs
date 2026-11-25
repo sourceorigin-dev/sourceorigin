@@ -4,14 +4,18 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::{collections::BTreeSet, fmt, str::FromStr};
 use thiserror::Error;
+use url::Url;
 
 crate::str_enum! {
-    /// Token endpoint grants (RFC 6749 §4.1.3 and §6).
+    /// Token endpoint grants (RFC 6749 §4.1.3 and §6, RFC 8628 §3.4).
     pub enum GrantType {
         /// Exchange a single-use authorization code, bound to PKCE.
         AuthorizationCode = "authorization_code",
         /// Rotate a refresh token.
         RefreshToken = "refresh_token",
+        /// Poll for the tokens of a device authorization the user approves on
+        /// another device (RFC 8628).
+        DeviceCode = "urn:ietf:params:oauth:grant-type:device_code",
     }
 }
 
@@ -350,8 +354,17 @@ crate::open_str_enum! {
         /// A `request_uri` is not one this server pushed, or is expired, already
         /// used or another client's (RFC 9101 §6.2, RFC 9126 §4).
         InvalidRequestUri = "invalid_request_uri",
-        /// The user declined consent.
+        /// The user declined consent, or refused a device authorization.
         AccessDenied = "access_denied",
+        /// The user has not decided on a device authorization yet: poll again
+        /// after its interval (RFC 8628 §3.5).
+        AuthorizationPending = "authorization_pending",
+        /// A device authorization was polled before its interval passed, which
+        /// grows by five seconds from now on (RFC 8628 §3.5).
+        SlowDown = "slow_down",
+        /// A device authorization expired before the user decided: start a new
+        /// one (RFC 8628 §3.5).
+        ExpiredToken = "expired_token",
         /// An internal operation failed.
         ServerError = "server_error",
     }
@@ -484,6 +497,27 @@ pub struct PushedAuthorization {
     /// the browser at once, so they ignore it.
     #[serde(skip_deserializing, skip_serializing_if = "Option::is_none")]
     pub expires_in: Option<u32>,
+}
+
+/// The device authorization endpoint's success response (RFC 8628 §3.2). It
+/// holds the device code, a credential, so it has no `Debug`.
+#[derive(Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(optional_fields))]
+pub struct DeviceAuthorization {
+    /// What the device polls the token endpoint with. Only the device holds it.
+    pub device_code: String,
+    /// What the user types at [`Self::verification_uri`], such as `BDFG-HJKL`.
+    pub user_code: String,
+    /// The page where the user types the code, short enough to type by hand.
+    pub verification_uri: Url,
+    /// The same page with the code filled in, for a QR code or a link. The user
+    /// still confirms there that the code is the one their device shows.
+    pub verification_uri_complete: Url,
+    /// Seconds until both codes expire.
+    pub expires_in: u32,
+    /// Seconds the device waits between two polls. A device that polls sooner is
+    /// answered `slow_down`, and waits five seconds more from then on.
+    pub interval: u32,
 }
 
 #[cfg(test)]

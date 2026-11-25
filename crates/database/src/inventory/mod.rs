@@ -42,6 +42,8 @@ sourceorigin_common::str_enum! {
         DashboardSessions = "dashboard_sessions",
         /// The outbound delivery queue.
         Deliveries = "deliveries",
+        /// Device authorizations in progress.
+        DeviceAuthorizations = "device_authorizations",
         /// Domain events, the audit chain's content.
         DomainEvents = "domain_events",
         /// Digests of address verification links.
@@ -160,6 +162,7 @@ impl Table {
             | Self::OidcClientSecrets => Holds::Withheld("digests of secrets"),
             Self::AuthorizationRequests
             | Self::AuthorizationCodes
+            | Self::DeviceAuthorizations
             | Self::WebauthnCeremonies
             | Self::FederationTransactions
             | Self::PendingFederation

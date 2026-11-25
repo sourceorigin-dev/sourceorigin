@@ -396,6 +396,11 @@ userinfo_endpoint: string,
  */
 pushed_authorization_request_endpoint?: string,
 /**
+ * Where devices start a device authorization (RFC 8628 §4). Absent from
+ * issuers that predate the device grant.
+ */
+device_authorization_endpoint?: string,
+/**
  * Whether every client must push its authorization requests (RFC 9126 §5).
  * Individual clients may still be required to.
  */
@@ -600,12 +605,12 @@ export const KEY_USES: readonly KeyUse[] = ["sig"];
 
 export type KeyOperation = "sign" | "verify" | "encrypt" | "decrypt" | "wrapKey" | "unwrapKey" | "deriveKey" | "deriveBits" | (string & Record<never, never>);
 
-export type GrantType = "authorization_code" | "refresh_token";
+export type GrantType = "authorization_code" | "refresh_token" | "urn:ietf:params:oauth:grant-type:device_code";
 
 /**
  * Every `GrantType` this version knows.
  */
-export const GRANT_TYPES: readonly GrantType[] = ["authorization_code", "refresh_token"];
+export const GRANT_TYPES: readonly GrantType[] = ["authorization_code", "refresh_token", "urn:ietf:params:oauth:grant-type:device_code"];
 
 export type ResponseType = "code";
 
@@ -656,7 +661,7 @@ export type Scope = "openid" | "profile" | "email" | "offline_access";
  */
 export const SCOPES: readonly Scope[] = ["openid", "profile", "email", "offline_access"];
 
-export type ErrorCode = "invalid_request" | "invalid_client" | "unauthorized_client" | "invalid_grant" | "invalid_scope" | "invalid_target" | "invalid_token" | "insufficient_scope" | "unsupported_response_type" | "unsupported_grant_type" | "login_required" | "consent_required" | "unmet_authentication_requirements" | "request_not_supported" | "invalid_request_uri" | "access_denied" | "server_error" | (string & Record<never, never>);
+export type ErrorCode = "invalid_request" | "invalid_client" | "unauthorized_client" | "invalid_grant" | "invalid_scope" | "invalid_target" | "invalid_token" | "insufficient_scope" | "unsupported_response_type" | "unsupported_grant_type" | "login_required" | "consent_required" | "unmet_authentication_requirements" | "request_not_supported" | "invalid_request_uri" | "access_denied" | "authorization_pending" | "slow_down" | "expired_token" | "server_error" | (string & Record<never, never>);
 
 /**
  * JSON error body of auth's OAuth endpoints (RFC 6749 §5.2).
@@ -716,6 +721,38 @@ request_uri: string,
  * the browser at once, so they ignore it.
  */
 expires_in?: number, };
+
+/**
+ * The device authorization endpoint's success response (RFC 8628 §3.2). It
+ * holds the device code, a credential, so it has no `Debug`.
+ */
+export type DeviceAuthorization = {
+/**
+ * What the device polls the token endpoint with. Only the device holds it.
+ */
+device_code: string,
+/**
+ * What the user types at `Self::verification_uri`, such as `BDFG-HJKL`.
+ */
+user_code: string,
+/**
+ * The page where the user types the code, short enough to type by hand.
+ */
+verification_uri: string,
+/**
+ * The same page with the code filled in, for a QR code or a link. The user
+ * still confirms there that the code is the one their device shows.
+ */
+verification_uri_complete: string,
+/**
+ * Seconds until both codes expire.
+ */
+expires_in: number,
+/**
+ * Seconds the device waits between two polls. A device that polls sooner is
+ * answered `slow_down`, and waits five seconds more from then on.
+ */
+interval: number, };
 
 /**
  * The answer to a lookup: the accounts, among those asked for, that can be

@@ -23,9 +23,9 @@ use super::{
     metadata,
     metadata::ServerMetadata,
     oauth::{
-        ClientAuthMethod, CodeChallengeMethod, ErrorCode, ErrorDescription, ErrorResponse,
-        GrantType, Prompt, PushedAuthorization, ResponseMode, ResponseType, Scope, Scopes,
-        SubjectType, TokenResponse,
+        ClientAuthMethod, CodeChallengeMethod, DeviceAuthorization, ErrorCode, ErrorDescription,
+        ErrorResponse, GrantType, Prompt, PushedAuthorization, ResponseMode, ResponseType, Scope,
+        Scopes, SubjectType, TokenResponse,
     },
     sdk::{ErrorCategory, ErrorReason, SdkError},
     step_up::StepUpRequirement,
@@ -375,6 +375,7 @@ fn generate() -> String {
         .add::<ErrorResponse>()
         .add::<TokenResponse>()
         .add::<PushedAuthorization>()
+        .add::<DeviceAuthorization>()
         .add::<AccountLookup>()
         .add::<PublicAccount>()
         .constants(directory::typescript())

@@ -18,6 +18,8 @@ pub enum Title {
     Link,
     /// OAuth consent.
     Consent,
+    /// Approving a device's sign-in by the code it shows.
+    DeviceCode,
     /// Confirming an application's logout request.
     Logout,
     /// Confirming an email address.
@@ -55,6 +57,7 @@ impl Title {
             Self::SignUp => "Create your account",
             Self::Link => "Link social sign-in",
             Self::Consent => "Authorize application",
+            Self::DeviceCode => "Sign in on a device",
             Self::Logout => "Sign out",
             Self::VerifyEmail => "Confirm your email address",
             Self::Developers => "Developers",

@@ -56,6 +56,7 @@ fn confirmation_age_is_fixed_from_its_timestamp() {
             passkey_confirmed_at: age.map(|age| now - Duration::seconds(age)),
             user_agent_family: None,
             last_seen_ip: None,
+            client_id: None,
         }
     };
     Confirmed::<CONFIRMATION_MAX_AGE>::check(&session(Some(290))).expect("should be accepted");

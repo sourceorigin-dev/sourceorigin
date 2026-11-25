@@ -59,6 +59,9 @@ pub struct SessionRecord {
     pub expires_at: DateTime<Utc>,
     /// When it was signed out; `None` unless it was.
     pub revoked_at: Option<DateTime<Utc>>,
+    /// The app whose device it is, when a device signed in to that app with a
+    /// code; `None` for a browser's session.
+    pub device_of: Option<ClientId>,
     /// The apps it signed in to, first one first.
     pub clients: Vec<ClientId>,
 }
@@ -160,6 +163,7 @@ impl ExportRepository<'_> {
                     s.created_ip AS "created_ip: IpAddr", s.last_seen_at,
                     s.last_seen_ip AS "last_seen_ip: IpAddr", s.passkey_confirmed_at,
                     s.passkey_id AS "passkey_id: PasskeyId", s.expires_at, s.revoked_at,
+                    s.client_id AS "device_of: ClientId",
                     (
                         SELECT COALESCE(jsonb_agg(c.client_id ORDER BY c.first_issued_at), '[]')
                         FROM oidc_session_clients c

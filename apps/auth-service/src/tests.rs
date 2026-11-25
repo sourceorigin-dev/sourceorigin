@@ -775,7 +775,7 @@ pub(crate) async fn refresh_grant(
                 user_id,
                 client_id: client.to_string(),
                 session_id,
-                authorization_code_id: code,
+                authorization_code_id: Some(code),
                 audience: client.to_string(),
                 scopes: vec!["openid".into()],
                 authentication,

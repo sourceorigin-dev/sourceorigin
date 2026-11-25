@@ -173,6 +173,13 @@ async fn purge_leaves_nothing_that_references_or_identifies_the_account() {
         VALUES ('{session}', '{user}', '[\"passkey\"]', now(), now() + interval '1 day', now());
         INSERT INTO browser_session_secrets (session_id, secret_digest)
         VALUES ('{session}', uuid_send('{session}'));
+        INSERT INTO device_authorizations (
+            id, secret_digest, user_code_digest, digest_key, client_id, scopes, audience, status,
+            user_id, session_id, poll_interval, expires_at
+        ) VALUES (
+            uuidv7(), uuid_send('{user}'), uuid_send('{session}'), 'test', '{client}', '[]',
+            'test', 'approved', '{user}', '{session}', 5, now() + interval '5 minutes'
+        );
         INSERT INTO known_devices (user_id, device_digest, user_agent_family)
         VALUES ('{user}', sha256(uuid_send('{user}')), 'firefox/linux');
         INSERT INTO federation_transactions (

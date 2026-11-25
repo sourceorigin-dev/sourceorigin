@@ -22,9 +22,9 @@ pub struct InsertRefreshFamily {
     pub client_id: String,
     /// Session the grant came from; revoking it revokes the family.
     pub session_id: SessionId,
-    /// Authorization code the grant was redeemed from; replaying the code
-    /// revokes the family.
-    pub authorization_code_id: TokenId,
+    /// Authorization code the grant was redeemed from, whose replay revokes the
+    /// family; `None` for a grant a device authorization issued.
+    pub authorization_code_id: Option<TokenId>,
     /// Granted token audience.
     pub audience: String,
     /// Granted scopes.
@@ -208,7 +208,7 @@ impl TokenRepository<'_> {
                 family.user_id.as_uuid(),
                 family.client_id,
                 family.session_id.as_uuid(),
-                family.authorization_code_id.as_uuid(),
+                family.authorization_code_id.map(TokenId::as_uuid),
                 family.audience,
                 Json(&family.scopes) as _,
                 Json(&family.authentication) as _,

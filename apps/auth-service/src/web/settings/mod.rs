@@ -151,6 +151,7 @@ impl<'a> From<&'a SessionItem> for DeviceRow<'a> {
         Self {
             id: session.id,
             current: session.current,
+            app: session.app.as_ref().map(|app| app.name.as_str()),
             device: session.device,
             ip: session.ip,
             methods: &session.methods,

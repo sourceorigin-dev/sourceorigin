@@ -101,6 +101,7 @@ fn serializes_every_section_in_its_documented_shape() {
                 passkey_id: Some(passkey),
                 expires_at: at,
                 revoked_at: None,
+                device_of: None,
                 clients: vec![client.clone()],
             },
             current: true,
@@ -252,6 +253,7 @@ fn serializes_every_section_in_its_documented_shape() {
                 "passkey_id": passkey,
                 "expires_at": time,
                 "revoked_at": null,
+                "device_of": null,
                 "clients": ["notes"],
                 "current": true,
                 "dashboard": [{

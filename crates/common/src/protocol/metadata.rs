@@ -48,6 +48,10 @@ pub struct ServerMetadata {
     /// that predate pushed authorization requests.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pushed_authorization_request_endpoint: Option<Url>,
+    /// Where devices start a device authorization (RFC 8628 §4). Absent from
+    /// issuers that predate the device grant.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_authorization_endpoint: Option<Url>,
     /// Whether every client must push its authorization requests (RFC 9126 §5).
     /// Individual clients may still be required to.
     #[serde(default)]

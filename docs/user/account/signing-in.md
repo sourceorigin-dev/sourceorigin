@@ -1,8 +1,9 @@
 # Signing in
 
 Sign in to your Origin Account with a passkey, or with a GitHub or Google
-account you linked. This page also explains passkey confirmations, which
-sensitive changes ask for even while you are signed in.
+account you linked, and sign a device without a browser in with a code. This
+page also explains passkey confirmations, which sensitive changes ask for even
+while you are signed in.
 
 ## Before you start
 
@@ -39,6 +40,27 @@ under **or continue with**, and sign in there.
 
 An app can ask for a passkey sign-in. Its sign-in page then says **This app
 asks you to sign in with a passkey.** and offers no provider.
+
+## Sign in on a device with a code
+
+Some apps run where there is no browser to sign in with, such as a command-line
+tool or a TV. They show you a code instead, and you approve it from a browser
+where you can sign in.
+
+1. On your phone or computer, open the address the device shows,
+   `auth.sourceorigin.dev/device`, and sign in if you aren't.
+2. Type the code the device shows, such as `BDFG-HJKL`, and select
+   **Continue**. A link or QR code from the device fills the code in for you.
+3. Check the app's name and the code against your device, then select
+   **Continue**. The page says **Your device is signed in**, and the device
+   carries on within a few seconds.
+
+Only approve a code that your own device shows you. If someone sends you a code
+or a link to this page, select **Cancel**: approving it would sign them in to
+your account.
+
+The device stays signed in for 30 days at most. It appears in your
+[devices](devices.md), named after its app, where you can sign it out.
 
 ## Sign out
 

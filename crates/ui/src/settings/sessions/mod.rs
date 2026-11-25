@@ -32,13 +32,16 @@ pub enum DeviceChange {
     SignOutOthers,
 }
 
-/// One browser signed in to the account.
+/// One browser signed in to the account, or one device signed in to an app.
 #[derive(Clone, Copy, Debug)]
 pub struct DeviceRow<'a> {
     /// Its session, to sign it out.
     pub id: SessionId,
     /// Whether it is the browser looking at the page.
     pub current: bool,
+    /// The name of the app a device signed in to with a code; `None` for a
+    /// browser.
+    pub app: Option<&'a str>,
     /// The browser and platform it signed in with, if recorded.
     pub device: Option<UserAgentFamily>,
     /// The IP address of its last recorded activity, if recorded.
@@ -54,8 +57,12 @@ pub struct DeviceRow<'a> {
 }
 
 impl DeviceRow<'_> {
-    /// Its name, or that none was recorded.
+    /// Its name: the app a device signed in to, a browser's family, or that none
+    /// was recorded.
     pub(crate) fn name(&self) -> String {
+        if let Some(app) = self.app {
+            return format!("{app} on a device");
+        }
         self.device.as_ref().map_or_else(
             || "An unrecorded device".to_owned(),
             |device| device_name(*device),

@@ -412,10 +412,12 @@ pub(super) struct CreateClient {
     /// The client runs on a server and authenticates with a secret.
     #[arg(long)]
     confidential: bool,
-    /// A grant the client may use at the token endpoint; repeat for several.
-    /// `refresh_token` lets it receive refresh tokens when it requests
-    /// `offline_access`. Defaults to `authorization_code`, and `refresh_token` for
-    /// a confidential client.
+    /// A grant the client may use at the token endpoint; repeat for several:
+    /// `authorization_code`, `refresh_token`, which lets it receive refresh tokens
+    /// when it requests `offline_access`, and
+    /// `urn:ietf:params:oauth:grant-type:device_code`, which signs devices
+    /// without a browser in. Defaults to `authorization_code`, and `refresh_token`
+    /// for a confidential client.
     #[arg(long = "grant-type")]
     grant_types: Vec<GrantType>,
     /// The client skips the consent screen. Only for first-party clients.

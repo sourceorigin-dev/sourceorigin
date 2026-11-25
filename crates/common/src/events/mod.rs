@@ -206,6 +206,16 @@ pub enum DomainEvent {
         /// The approved scopes, drawn from the client's registered allowlist.
         scopes: Vec<String>,
     },
+    /// The user approved a device authorization on auth's device page (RFC 8628):
+    /// the device that showed them its code is signed in, in a session of its own.
+    /// The consent it saves is recorded as [`Self::ConsentGranted`].
+    #[serde(rename = "device_authorized")]
+    DeviceAuthorized {
+        /// The client whose device asked.
+        client_id: ClientId,
+        /// The session created for the device.
+        session_id: SessionId,
+    },
     /// A client's access to the account was withdrawn: its consent, refresh grants
     /// and unused codes. An untrusted client asks for consent again at its next
     /// sign-in; a trusted one is let back in. Undoing a recovery withdraws every
@@ -654,6 +664,7 @@ impl DomainEvent {
     pub fn client_id(&self) -> Option<&ClientId> {
         match self {
             Self::ConsentGranted { client_id, .. }
+            | Self::DeviceAuthorized { client_id, .. }
             | Self::ConsentRevoked { client_id }
             | Self::GrantIssued { client_id, .. }
             | Self::GrantRevoked { client_id, .. }
@@ -739,6 +750,7 @@ impl DomainEvent {
             Self::SignedIn { session_id, .. }
             | Self::SessionRevoked { session_id, .. }
             | Self::PasskeyConfirmed { session_id }
+            | Self::DeviceAuthorized { session_id, .. }
             | Self::DashboardSignedIn { session_id }
             | Self::DashboardSignedOut { session_id } => Some(*session_id),
             Self::AccountCreated { .. }

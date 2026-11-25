@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT d.id AS \"id: TokenId\", d.client_id AS \"client_id: ClientId\",\n            c.display_name AS client_display_name,\n            c.owner_id AS \"client_owner_id: UserId\",\n            d.scopes AS \"scopes: JsonArray<String>\", d.audience, d.created_at, d.expires_at FROM device_authorizations d\n            JOIN oidc_clients c ON c.id = d.client_id\n            WHERE d.user_code_digest = ANY($1)\n            AND d.status = 'pending'\n            AND d.expires_at > now()\n            AND c.enabled FOR UPDATE OF d",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id: TokenId",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "client_id: ClientId",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "client_display_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "client_owner_id: UserId",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 4,
+        "name": "scopes: JsonArray<String>",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 5,
+        "name": "audience",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 7,
+        "name": "expires_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "ByteaArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "02e153e08049a663e3acc2e5eb39b38a5c636347cddb9c4b37578c897d05d304"
+}

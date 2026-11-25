@@ -16,7 +16,7 @@ impl DomainEvent {
     /// left out, since the history shows only a refresh replay's, and every
     /// session's revocation is counted, its expiry included, though the history
     /// hides that one.
-    pub const HISTORY_KINDS: [&'static str; 34] = [
+    pub const HISTORY_KINDS: [&'static str; 35] = [
         "account_created",
         "signed_in",
         "session_revoked",
@@ -30,6 +30,7 @@ impl DomainEvent {
         "primary_email_changed",
         "email_removed",
         "consent_granted",
+        "device_authorized",
         "consent_revoked",
         "code_replayed",
         "account_disabled",
@@ -133,6 +134,7 @@ impl DomainEvent {
             Self::ConsentGranted { scopes, .. } => HistoryEntry::ConsentGranted {
                 scopes: scopes.clone(),
             },
+            Self::DeviceAuthorized { .. } => HistoryEntry::DeviceAuthorized,
             Self::ConsentRevoked { .. } => HistoryEntry::ConsentRevoked,
             Self::GrantRevoked { reason, .. } => match reason {
                 GrantRevocation::RefreshReplay => HistoryEntry::TokenReused,
@@ -306,6 +308,10 @@ pub enum HistoryEntry {
         /// The approved scopes.
         scopes: Vec<String>,
     },
+    /// The user signed a device in to an application, by approving the code it
+    /// showed.
+    #[serde(rename = "device.authorized")]
+    DeviceAuthorized,
     /// An application's access was withdrawn.
     #[serde(rename = "consent.revoked")]
     ConsentRevoked,
@@ -415,6 +421,7 @@ impl HistoryEntry {
             | Self::PrimaryEmailChanged { .. }
             | Self::EmailRemoved { .. }
             | Self::ConsentGranted { .. }
+            | Self::DeviceAuthorized
             | Self::TokenReused
             | Self::AccountDisabled
             | Self::AccountEnabled
@@ -462,6 +469,7 @@ impl HistoryEntry {
             | Self::PrimaryEmailChanged { .. }
             | Self::EmailRemoved { .. }
             | Self::ConsentGranted { .. }
+            | Self::DeviceAuthorized
             | Self::ConsentRevoked
             | Self::TokenReused
             | Self::AccountDisabled

@@ -855,6 +855,12 @@ pub(crate) struct LogoutClient {
 /// Client registrations, secrets and the origins of public clients.
 mod clients;
 pub use clients::{OwnedClientCounts, StoredClientSecret, StoredOidcClient};
+/// Device authorizations and their polls.
+mod device;
+pub use device::{
+    DeviceAuthorizationState, InsertDeviceAuthorization, PendingDeviceAuthorization,
+    PolledDeviceAuthorization,
+};
 /// Database-backed client registration and migration scenarios.
 #[cfg(test)]
 mod tests;

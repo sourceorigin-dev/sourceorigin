@@ -308,6 +308,7 @@ impl Vectors {
             revocation_endpoint: url("/oauth/revoke"),
             userinfo_endpoint: url("/oidc/userinfo"),
             pushed_authorization_request_endpoint: Some(url("/oauth/par")),
+            device_authorization_endpoint: Some(url("/oauth/device_authorization")),
             require_pushed_authorization_requests: false,
             end_session_endpoint: url("/oidc/logout"),
             jwks_uri: url("/.well-known/jwks.json"),

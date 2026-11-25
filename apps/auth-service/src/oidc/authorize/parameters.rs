@@ -83,7 +83,7 @@ impl AuthorizationParameters {
         Self::grant(client)?;
         let pkce_challenge = self.pkce(client)?;
         self.state()?;
-        let scopes = self.scopes(client)?;
+        let scopes = Scopes::requested(&self.scope, client)?;
         let audience = self.audience(client)?;
         self.nonce()?;
         self.max_age()?;
@@ -232,17 +232,6 @@ impl AuthorizationParameters {
                 .reject("code_challenge must be a base64url SHA-256 digest, 43 characters long"));
         }
         Ok(Some(challenge.clone()))
-    }
-
-    /// Parses the scopes, which `client` must be allowed to request.
-    fn scopes(&self, client: &StoredOidcClient) -> Result<Scopes, OAuthError> {
-        let scopes = Scopes::parse(&self.scope)?;
-        if !scopes.allowed_by(&client.allowed_scopes) {
-            return Err(
-                OAuthCode::InvalidScope.reject("scope includes values this client may not request")
-            );
-        }
-        Ok(scopes)
     }
 
     /// The resource the access token is for: the one asked for, or `client`'s

@@ -11,6 +11,7 @@ fn devices_of_one_name_are_signed_out_by_different_names() {
     let firefox = DeviceRow {
         id: SessionId::new(),
         current: false,
+        app: None,
         device: Some(UserAgentFamily {
             browser: Browser::Firefox,
             platform: Platform::Linux,

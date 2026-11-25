@@ -58,9 +58,10 @@ pub use repositories::{
     maintenance::{DigestUsage, DigestedSecret},
     notifications::{Notified, StoredNotification},
     oidc::{
-        CodeRedemptionError, ConsumedAuthorizationCode, InsertAuthorizationCode,
-        InsertAuthorizationRequest, OidcRedirectKind, OwnedClientCounts, StoredApp,
-        StoredAuthorizationRequest, StoredClientSecret, StoredOidcClient,
+        CodeRedemptionError, ConsumedAuthorizationCode, DeviceAuthorizationState,
+        InsertAuthorizationCode, InsertAuthorizationRequest, InsertDeviceAuthorization,
+        OidcRedirectKind, OwnedClientCounts, PendingDeviceAuthorization, PolledDeviceAuthorization,
+        StoredApp, StoredAuthorizationRequest, StoredClientSecret, StoredOidcClient,
     },
     passkeys::{CeremonyKind, ConsumedCeremony, InsertCeremony, InsertPasskey, StoredPasskey},
     pictures::StoredPicture,

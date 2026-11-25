@@ -3,6 +3,9 @@
 
 /// Authorization, login continuation and consent.
 mod authorize;
+/// The device authorization grant: its endpoint, the user's decision and the
+/// device's polls.
+mod device;
 /// Protocol errors and their HTTP responses.
 mod error;
 /// The `id_token_hint` authorization and logout read alike.
@@ -23,6 +26,7 @@ use crate::security::{CacheClass, Cached};
 pub(crate) use authorize::{
     AuthorizationDecision, AuthorizationView, RecoveryQuestion, TransactionQuery,
 };
+pub(crate) use device::{DeviceDecision, DeviceLookup, DeviceRequest, UserCode};
 use error::Challenge;
 pub(crate) use error::OidcConfigError;
 pub(crate) use error::{OAuthCode, OAuthError, Reject};
@@ -105,6 +109,8 @@ sourceorigin_common::str_enum! {
         AuthorizationCode = "pac_v1",
         /// Rotating refresh token.
         RefreshToken = "prt_v1",
+        /// Device code, which a device polls the token endpoint with.
+        DeviceCode = "pdc_v1",
     }
 }
 
@@ -115,6 +121,7 @@ impl TokenPrefix {
             Self::AuthorizationRequest => "transaction",
             Self::AuthorizationCode => "code",
             Self::RefreshToken => "refresh_token",
+            Self::DeviceCode => "device_code",
         }
     }
 }
@@ -200,6 +207,18 @@ impl Scopes {
                 .reject(format!("scope may list at most {MAX_SCOPES} values")));
         }
         Ok(Self(scopes))
+    }
+
+    /// Parses the scopes a request asks for, which `client` must be allowed to
+    /// request.
+    fn requested(value: &str, client: &StoredOidcClient) -> Result<Self, OAuthError> {
+        let scopes = Self::parse(value)?;
+        if !scopes.allowed_by(&client.allowed_scopes) {
+            return Err(
+                OAuthCode::InvalidScope.reject("scope includes values this client may not request")
+            );
+        }
+        Ok(scopes)
     }
 
     /// Rebuilds a scope set read from the database.
@@ -377,6 +396,7 @@ impl OidcApplication {
             revocation_endpoint: origin.url(routes::oidc::REVOKE),
             userinfo_endpoint: origin.url(routes::oidc::USERINFO),
             pushed_authorization_request_endpoint: Some(origin.url(routes::oidc::PAR)),
+            device_authorization_endpoint: Some(origin.url(routes::oidc::DEVICE_AUTHORIZATION)),
             require_pushed_authorization_requests: false,
             end_session_endpoint: origin.url(routes::oidc::LOGOUT),
             jwks_uri: origin.url(routes::oidc::JWKS),
@@ -417,6 +437,10 @@ impl OidcApplication {
             )
             .route(routes::oidc::PAR, post(Self::push_authorization))
             .route(routes::oidc::AUTHORIZE_RESUME, get(Self::resume))
+            .route(
+                routes::oidc::DEVICE_AUTHORIZATION,
+                post(Self::authorize_device),
+            )
             .route(routes::oidc::TOKEN, post(Self::token))
             .route(routes::oidc::REVOKE, post(Self::revoke))
             .route(
@@ -439,8 +463,8 @@ impl OidcApplication {
         }))
     }
 
-    /// Authenticates the client at the token, revocation and pushed authorization
-    /// endpoints: public clients by ID alone, confidential clients with HTTP Basic.
+    /// Authenticates the client at the token, revocation, pushed authorization
+    /// and device authorization endpoints: public clients by ID alone, confidential clients with HTTP Basic.
     /// A `client_id` form field, when sent, must name the same client. A client
     /// that sent an `Authorization` header is refused with a Basic challenge, at
     /// 401; one that sent none, at 400 (RFC 6749 §5.2).

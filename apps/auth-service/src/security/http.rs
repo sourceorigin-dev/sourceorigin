@@ -2,9 +2,10 @@
 //! in-flight-limit policy, and the cache, isolation and CORS headers of every response.
 
 use super::content::ContentPolicy;
+use super::context::RATE_WINDOW;
 use super::endpoint::Endpoint;
 use super::page::ErrorPages;
-use super::{ApiError, BrowserCookie, CSRF_HEADER, RequestContext};
+use super::{ApiError, BrowserCookie, Budget, CSRF_HEADER, RequestContext};
 use axum::{
     extract::{ConnectInfo, MatchedPath, Request, State},
     http::{
@@ -23,7 +24,6 @@ use sourceorigin_common::{
         same_origin::BrowserRequest,
     },
 };
-use sourceorigin_crypto::Digest;
 use sourceorigin_repository::{Database, DatabaseError};
 use sourceorigin_telemetry::{Counter, HttpTelemetry, Label};
 use std::{
@@ -45,8 +45,6 @@ static THROTTLED: Counter<[Label; 1]> = Counter::new(
     "{request}",
     "Requests refused by rate limits, by rate category, or as overloaded.",
 );
-/// The fixed window request budgets count in.
-const RATE_WINDOW: StdDuration = StdDuration::from_mins(1);
 /// Deadline includes origin checks, rate-limit persistence and the handler.
 const REQUEST_TIMEOUT: StdDuration = StdDuration::from_secs(30);
 /// Requests each listener runs at once. More are refused at once instead of
@@ -515,13 +513,11 @@ impl HttpSecurity {
             && let Some(category) = endpoint.rate_category()
         {
             let client_ip = self.client_ip(&request)?;
-            let bucket = Digest::sha256(format!("{category}:{client_ip}").as_bytes());
-            if !self
-                .database
-                .security()
-                .allow_request(bucket.as_bytes(), self.requests_per_minute, RATE_WINDOW)
-                .await?
-            {
+            let budget = Budget {
+                name: category.as_str(),
+                per_minute: self.requests_per_minute,
+            };
+            if !budget.spend(&self.database, client_ip).await? {
                 THROTTLED.add(1, &[("category", category.as_str())]);
                 return Err(HttpSecurityError::RateLimited);
             }

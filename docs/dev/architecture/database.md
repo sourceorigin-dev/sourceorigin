@@ -155,8 +155,8 @@ Important invariants:
   their domain: only its ID, settings that identify nobody and lifecycle dates stay.
   Its name becomes empty, which the history reads as no name. Operational copies
   of its URLs go with their own retention: pending authorization requests within
-  minutes, codes about a day later, and logout deliveries after 7 days, or 30 if
-  they failed.
+  minutes, device authorizations within the hour after they expire, codes about
+  a day later, and logout deliveries after 7 days, or 30 if they failed.
 - An account has at most one profile picture. Setting or removing it bumps the
   account's `profile_version` in the same statement, and its URL's ID changes with
   every upload. Only an active account's current picture is served. The row

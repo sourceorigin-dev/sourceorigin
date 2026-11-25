@@ -486,7 +486,7 @@ Options:
 - `--post-logout-uri <POST_LOGOUT_URIS>`: A page the browser may return to after logout; repeat for several.
 - `--scope <SCOPES>`: A scope the client may request; repeat for several. Defaults to `openid`, `profile` and `email`, and `offline_access` for a confidential client.
 - `--confidential`: The client runs on a server and authenticates with a secret.
-- `--grant-type <GRANT_TYPES>`: A grant the client may use at the token endpoint; repeat for several. `refresh_token` lets it receive refresh tokens when it requests `offline_access`. Defaults to `authorization_code`, and `refresh_token` for a confidential client.
+- `--grant-type <GRANT_TYPES>`: A grant the client may use at the token endpoint; repeat for several: `authorization_code`, `refresh_token`, which lets it receive refresh tokens when it requests `offline_access`, and `urn:ietf:params:oauth:grant-type:device_code`, which signs devices without a browser in. Defaults to `authorization_code`, and `refresh_token` for a confidential client.
 - `--trusted`: The client skips the consent screen. Only for first-party clients.
 - `--require-par`: The client must push its authorization requests (RFC 9126), so none of their parameters travel through the browser.
 - `--backchannel-logout-uri <BACKCHANNEL_LOGOUT_URI>`: Where auth posts a logout token when a session the client holds tokens from ends (OIDC Back-Channel Logout); HTTPS with a public address.
@@ -513,7 +513,7 @@ Options:
 - `--post-logout-uri <POST_LOGOUT_URIS>`: A page the browser may return to after logout; repeat for several.
 - `--scope <SCOPES>`: A scope the client may request; repeat for several. Defaults to `openid`, `profile` and `email`, and `offline_access` for a confidential client.
 - `--confidential`: The client runs on a server and authenticates with a secret.
-- `--grant-type <GRANT_TYPES>`: A grant the client may use at the token endpoint; repeat for several. `refresh_token` lets it receive refresh tokens when it requests `offline_access`. Defaults to `authorization_code`, and `refresh_token` for a confidential client.
+- `--grant-type <GRANT_TYPES>`: A grant the client may use at the token endpoint; repeat for several: `authorization_code`, `refresh_token`, which lets it receive refresh tokens when it requests `offline_access`, and `urn:ietf:params:oauth:grant-type:device_code`, which signs devices without a browser in. Defaults to `authorization_code`, and `refresh_token` for a confidential client.
 - `--trusted`: The client skips the consent screen. Only for first-party clients.
 - `--require-par`: The client must push its authorization requests (RFC 9126), so none of their parameters travel through the browser.
 - `--backchannel-logout-uri <BACKCHANNEL_LOGOUT_URI>`: Where auth posts a logout token when a session the client holds tokens from ends (OIDC Back-Channel Logout); HTTPS with a public address.

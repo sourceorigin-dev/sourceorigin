@@ -356,6 +356,22 @@ textarea {
   resize: vertical;
   min-height: 5rem;
 }
+/* The code a device shows, typed or read back: set as the device sets it, so
+   the two compare at a glance. */
+.device-code {
+  font-family: var(--mono);
+  font-size: 1.5rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-align: center;
+  text-transform: uppercase;
+}
+input.device-code {
+  padding-block: 0.7rem;
+}
+input.device-code::placeholder {
+  letter-spacing: 0.18em;
+}
 label {
   display: grid;
   gap: 0.35rem;

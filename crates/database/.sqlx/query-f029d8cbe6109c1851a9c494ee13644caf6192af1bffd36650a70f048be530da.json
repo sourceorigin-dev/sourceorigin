@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT s.id AS \"id: SessionId\", s.user_id AS \"user_id: UserId\",\n            s.authentication_methods AS \"authentication_methods: JsonArray<AuthenticationMethod>\",\n            s.authenticated_at, s.expires_at, s.last_seen_at, s.revoked_at,\n            s.passkey_confirmed_at, s.user_agent_family AS \"user_agent_family: UserAgentFamily\",\n            s.last_seen_ip AS \"last_seen_ip: IpAddr\" FROM browser_session_secrets b JOIN sessions s ON s.id = b.session_id JOIN users u ON u.id = s.user_id WHERE (b.secret_digest = $1) AND s.revoked_at IS NULL AND s.expires_at > now() AND u.status = 'active' ",
+  "query": "UPDATE sessions s\n                SET expires_at = $2, last_seen_at = now(), created_ip = $3, last_seen_ip = $3,\n                    user_agent_family = $4\n                FROM users u\n                WHERE s.id = $1\n                AND s.client_id IS NOT NULL\n                AND s.revoked_at IS NULL\n                AND s.expires_at > now()\n                AND u.id = s.user_id\n                AND u.status = 'active'\n                RETURNING s.id AS \"id: SessionId\", s.user_id AS \"user_id: UserId\",\n            s.authentication_methods AS \"authentication_methods: JsonArray<AuthenticationMethod>\",\n            s.authenticated_at, s.expires_at, s.last_seen_at, s.revoked_at,\n            s.passkey_confirmed_at, s.user_agent_family AS \"user_agent_family: UserAgentFamily\",\n            s.last_seen_ip AS \"last_seen_ip: IpAddr\", s.client_id AS \"client_id: ClientId\" ",
   "describe": {
     "columns": [
       {
@@ -52,11 +52,19 @@
         "ordinal": 9,
         "name": "last_seen_ip: IpAddr",
         "type_info": "Inet"
+      },
+      {
+        "ordinal": 10,
+        "name": "client_id: ClientId",
+        "type_info": "Text"
       }
     ],
     "parameters": {
       "Left": [
-        "Bytea"
+        "Uuid",
+        "Timestamptz",
+        "Inet",
+        "Text"
       ]
     },
     "nullable": [
@@ -69,8 +77,9 @@
       true,
       true,
       true,
+      true,
       true
     ]
   },
-  "hash": "58252bb8cf8afcc3fcb8fb61a3105fdd127630655707041131cb16a62d8616c5"
+  "hash": "f029d8cbe6109c1851a9c494ee13644caf6192af1bffd36650a70f048be530da"
 }

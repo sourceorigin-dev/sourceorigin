@@ -109,7 +109,10 @@ pub use login::{
     CallbackError, Invited, LinkKind, LoginChange, LoginQuery, PendingDestination, SignedIn, Step,
     sign_in,
 };
-pub use oidc::{LogoutNotice, Onward, consent, failure, logout, onward};
+pub use oidc::{
+    DeviceCodeDecision, DeviceCodeForm, DeviceCodeQuery, LogoutNotice, Onward, consent,
+    device_approval, device_code, device_decided, failure, logout, onward,
+};
 pub use recovery::{
     RecoverChange, RecoverStep, Recovery, RecoveryPasskey, RecoveryStage, UndoChange, UndoStep,
     recover, recovery_banner, recovery_prompt, undo_recovery,

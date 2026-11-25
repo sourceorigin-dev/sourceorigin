@@ -25,8 +25,8 @@ const shownHosts: [string, string][] = [
 /**
  * Saves `page` as `docs/images/<name>.png`: the element `area`, or the window,
  * 1280 by 800 pixels, in the dark theme the `docs` project asks for. It first replaces, in the page's text, every handle from
- * `handle` with its name, the deployment's hosts with production's, IDs with fixed
- * ones, and every date with the same one, so the image changes only when the page
+ * `handle` with its name, the deployment's hosts with production's, IDs and device
+ * codes with fixed ones, and every date with the same one, so the image changes only when the page
  * does. Run with `--update-snapshots=changed`, an image is rewritten only then.
  */
 export async function shoot(page: Page, name: string, area?: Locator): Promise<void> {
@@ -56,6 +56,8 @@ export async function shoot(page: Page, name: string, area?: Locator): Promise<v
         [/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, id],
         // Client IDs, which auth generates for the apps accounts register.
         [/\bc_[a-z2-7]{20}\b/g, 'c_nq4dx3vlr2kmt7wzbyp5'],
+        // The code a device shows its user.
+        [/\b[BCDFGHJKLMNPQRSTVWXZ]{4}-[BCDFGHJKLMNPQRSTVWXZ]{4}\b/g, 'BDFG-HJKL'],
         [
           /\b(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday) \d{1,2} [A-Z][a-z]+ \d{4}\b/g,
           'Tuesday 12 May 2026'

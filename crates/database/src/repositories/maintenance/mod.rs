@@ -127,6 +127,7 @@ impl MaintenanceRepository<'_> {
         purge!("dashboard_sessions" where "expires_at < now()");
         purge!("authorization_requests" where "expires_at < now()
             OR consumed_at < now() - interval '1 day'");
+        purge!("device_authorizations" where "expires_at < now() - interval '1 hour'");
         purge!(
             "DELETE FROM authorization_codes c
             WHERE c.ctid IN (

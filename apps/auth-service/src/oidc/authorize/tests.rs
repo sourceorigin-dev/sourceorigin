@@ -37,6 +37,7 @@ fn max_age_bounds_the_session_authentication() {
         passkey_confirmed_at: Some(now - Duration::seconds(300)),
         user_agent_family: None,
         last_seen_ip: None,
+        client_id: None,
     };
     let satisfies = |max_age, started_at| {
         OidcApplication::session_satisfies(&session, false, Some(max_age), None, None, started_at)

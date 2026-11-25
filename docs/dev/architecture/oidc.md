@@ -13,9 +13,10 @@ revocation, userinfo and logout work. Read it before changing anything under
 | `oidc/authorize/` | Authorization requests, pushed requests, the sign-in requirements and the consent decision |
 | `oidc/inline.rs` | Completing a pushed request from a passkey sign-in on an app's own page |
 | `oidc/policy.rs` | `ClientPolicy`, the check of the client's current registration |
+| `oidc/device.rs` | The device authorization grant: its endpoint, the user's decision and the device's polls |
 | `oidc/token.rs` | The token, revocation and userinfo endpoints |
 | `oidc/logout.rs` | RP-initiated logout, validated when its page asks to confirm it and again when the user confirms |
-| `web/auth/` | The sign-in, consent and logout pages the flow sends the browser to |
+| `web/auth/` | The sign-in, consent, device and logout pages the flow sends the browser to |
 
 ```text
 app ──/oauth/par──▶ pending request (60 s) ──request_uri──┐
@@ -29,10 +30,10 @@ app ──/oauth/token──▶ access + ID token (5 min), refresh family
 
 ## Opaque tokens
 
-Pending requests, codes and refresh tokens are opaque tokens, written
-`<prefix>_<id>.<secret>` (`OpaqueToken`). The prefix, `par_v1`, `pac_v1` or
-`prt_v1`, binds a token to one purpose, so a code never passes as a refresh
-token. The ID names the row. Only an HMAC of the secret is stored, under the
+Pending requests, codes, refresh tokens and device codes are opaque tokens,
+written `<prefix>_<id>.<secret>` (`OpaqueToken`). The prefix, `par_v1`, `pac_v1`,
+`prt_v1` or `pdc_v1`, binds a token to one purpose, so a code never passes as a
+refresh token. The ID names the row. Only an HMAC of the secret is stored, under the
 current token digest key, with that key's fingerprint; a lookup accepts the
 digest under every configured key, so a change of key breaks nothing
 ([token digest keys](keys.md#token-digest-keys)).
@@ -180,7 +181,8 @@ them once the transaction commits.
 A refresh token is issued only when the client's grant types include
 `refresh_token` and the scopes include `offline_access`. The exchange creates a refresh family
 (`refresh_token_families`): one grant, tied to its session, to the code it came
-from and to the code's authentication. Its tokens expire with the session.
+from and to the code's authentication. A device authorization's family has no
+code, and is tied to the device's own session. Its tokens expire with the session.
 
 `redeem_refresh` (`crates/database/src/repositories/tokens`) locks the token's
 account, session, family and client, in that order, and keeps the locks until
@@ -224,6 +226,65 @@ A family ends with its session: revoking a session revokes its families in the
 same transaction ([sessions](sessions.md#expiry-and-revocation)), and removing an
 app's access, deleting a client or disabling an account revokes theirs.
 
+## Device authorization
+
+The device grant (RFC 8628, `oidc/device.rs`) signs a device in without a
+browser on it. It keeps one row of `device_authorizations` per request, with
+two codes.
+
+```text
+device ──/oauth/device_authorization──▶ pending (10 min): device code, user code
+user ───/device, types the user code──▶ approval screen ──▶ approved: device session
+device ──/oauth/token, device code────▶ pending… slow_down… ──▶ tokens, redeemed
+```
+
+`/oauth/device_authorization` (`authorize_device`) authenticates the client as
+the token endpoint does. The client must have the device grant type
+(`unauthorized_client` otherwise), and the scopes must be the client's. It
+answers a device code, an opaque token, and a user code (`UserCode`): eight
+letters of RFC 8628 §6.1's alphabet, drawn without bias, about 34.5 bits. Only
+digests are stored, both under the token digest key: the user code is first
+derived into a secret of an opaque token's length, under a context of its own.
+
+### The decision
+
+The device page (`web/auth/device.rs`) asks a signed-in browser for the code,
+then shows what the device asks (`device_request`), then takes the decision
+(`decide_device`). A code in the page's link only fills the field in: the
+approval screen always shows, for a trusted client and a remembered consent
+too, since the code may be an attacker's (RFC 8628 §5.4). Each lookup by user
+code spends the browser's `device` budget, per IP address and per session,
+whatever it finds ([rate limit](request-lifecycle.md#rate-limit)).
+
+`decide_device` locks the account and the session, as consent does, then the
+authorization by its user code, and share-locks the client to check its policy
+again (`ClientPolicy::allows_device`). An approval saves the consent, records
+`ConsentGranted` and `DeviceAuthorized`, and creates the device's own session
+([sessions](sessions.md#signing-in)). A refusal marks the row denied.
+
+### Polls
+
+The device polls `/oauth/token` with its device code (`redeem_device`). Each
+poll locks the row and records itself: one that comes sooner than the row's
+interval after the last, while the user hasn't decided, adds five seconds to
+that interval and answers `slow_down`. The other answers are
+`authorization_pending`, `access_denied`, `expired_token`, and `invalid_grant`
+for an unknown code, another client's, or one already redeemed. A poll that
+fails commits all the same, so the next one is judged against it.
+
+A poll reads who approved before it locks anything, and locks that account
+first, as a code exchange does. An approval that lands between that read and
+the row's lock reads as still pending, so no poll ever waits for an account
+while it holds the row that account's decision waits for.
+
+Once approved, the poll issues the tokens as a code exchange does: the account
+and the device's session must be active, the client must still allow the grant,
+and an untrusted client must still have the consent. It marks the row redeemed,
+starts the device session's 30 days, records the client among the session's
+(`oidc_session_clients`) and `GrantIssued`, and creates a refresh family when
+the client and scopes allow one. The tokens report the authentication the
+device's session copied from the approving one.
+
 ## Revocation and userinfo
 
 `/oauth/revoke` (RFC 7009) authenticates the client, revokes the family of the
@@ -257,8 +318,9 @@ RP-initiated logout takes two requests:
    with a `warned` field. Otherwise it signs the browser out (`end_session`),
    recording `RelyingPartyLogout` with the client that asked, or `Logout` when
    none is named. It also revokes the session the hint's `sid` names, if it is
-   the hinted account's sign-in on that app's own page (`is_inline_for`): such a
-   session has no cookie, so no browser could end it. A session with a cookie
+   the hinted account's sign-in on that app's own page, or a device the app
+   signed in with a code (`is_inline_for`): such a session has no cookie, so no
+   browser could end it. A session with a cookie
    ends only through its own browser: an ID token alone ends only the sign-in on
    the app's page it was issued for. The browser goes on to the redirect URI
    with `state`, or to sign-in.

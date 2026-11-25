@@ -11,8 +11,41 @@ use sourceorigin_common::{
     AuthenticationMethod, ClientId, UserId,
     events::{Actor, DomainEvent, EventContext, RequestOrigin, SignInFailure, UserAgentFamily},
 };
+use sourceorigin_crypto::Digest;
 use sourceorigin_repository::{Database, DatabaseError, StoredSession};
-use std::net::IpAddr;
+use std::{fmt, net::IpAddr, time::Duration};
+
+/// The fixed window request budgets count in.
+pub(super) const RATE_WINDOW: Duration = Duration::from_mins(1);
+
+/// A request budget: `per_minute` requests in each [`RATE_WINDOW`], for each
+/// client it counts, under a stable `name` that keeps it apart from the others.
+/// The security layer spends each route's own; a handler spends another beside
+/// it for what must be rarer, such as guesses at a short code.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Budget {
+    /// The budget's stable name.
+    pub name: &'static str,
+    /// Requests each client may make in a window.
+    pub per_minute: i32,
+}
+
+impl Budget {
+    /// Counts one request of `who`, such as an IP address or a session, and
+    /// returns whether their budget still allowed it. Every replica shares the
+    /// count.
+    pub(crate) async fn spend(
+        self,
+        database: &Database,
+        who: impl fmt::Display,
+    ) -> Result<bool, DatabaseError> {
+        let bucket = Digest::sha256(format!("{}:{who}", self.name).as_bytes());
+        database
+            .security()
+            .allow_request(bucket.as_bytes(), self.per_minute, RATE_WINDOW)
+            .await
+    }
+}
 
 /// Where a request came from, attached by
 /// [`HttpSecurity::protect`](super::HttpSecurity::protect) to every rate-limited

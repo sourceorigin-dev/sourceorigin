@@ -55,7 +55,7 @@ session secret and the browser's device secret (see
 [known devices](#known-devices)). The caller sets both cookies with
 `SignedIn::set_on`, only after its transaction commits.
 
-Four sign-ins differ:
+Five sign-ins differ:
 
 - **Signing up** and a **recovery link** sign in with `Session::sign_in_anew`,
   which always revokes the browser's session and creates a new one, so an
@@ -69,6 +69,17 @@ Four sign-ins differ:
   passkey itself.
 - **Undoing a recovery** signs in with `Session::sign_in_quietly`, which alerts
   nobody of a new device: the undo's own notification tells the owner.
+- **A device signed in with a code** ([device authorization](oidc.md#device-authorization))
+  gets a session of its own when its user approves the code
+  (`SessionRepository::insert_for_device`). It names its client in
+  `sessions.client_id`, has no browser secret, so no cookie, and copies how and
+  when the approving session authenticated, so its tokens report that
+  truthfully. It lasts no longer than the device code until the device collects
+  its tokens (`start_device`), which starts its 30 days and records the
+  device's address, so an approval nobody collects leaves no session behind.
+  It is listed with its app's name and signed out like any other, apart from
+  the browser that approved it. Its approval is recorded as `DeviceAuthorized`,
+  not `SignedIn`.
 
 ## Known devices
 
@@ -167,8 +178,9 @@ can skip the event. Its callers:
   (`src/federation/identities.rs`) and reporting a history entry as not the
   owner's (`src/history`). Undoing a recovery (`src/recovery`) whose link was
   used ends every session; undoing one still unused only cancels its link.
-- RP-initiated logout, which also ends the inline session of the app's own
-  passkey sign-in that its `id_token_hint` names (`src/oidc/logout.rs`).
+- RP-initiated logout, which also ends the session its `id_token_hint` names
+  when it has no cookie and is the app's: its own passkey sign-in, or a device
+  it signed in with a code (`src/oidc/logout.rs`).
 - `Session::end_all`, for an account disabled, scheduled for deletion, purged or
   recovered, and for the sign-out link of a notification's email
   (`src/notifications`): every session, with every refresh grant of the account.

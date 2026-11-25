@@ -154,6 +154,11 @@ with `Retry-After: 60` and counts `sourceorigin.auth.throttled{category}`. Disco
 health probes spend nothing, and an unmatched path has no route, so it spends
 nothing either.
 
+A handler spends a budget of its own beside its route's for what must be rarer
+(`Budget` in `src/security/context.rs`). The device page's lookups by user code
+spend `device`: ten a minute per client IP, and ten per session, since a user
+code is short enough to guess.
+
 The client IP is the TCP peer's, unless the peer is in `AUTH_TRUSTED_PROXIES`, or
 by default piqueld's `PIQUELD_INGRESS_PROXIES`: then it must have sent exactly one
 `X-Forwarded-For` header holding one IP address, which the gateway overwrites.

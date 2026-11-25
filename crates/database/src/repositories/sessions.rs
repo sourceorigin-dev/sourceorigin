@@ -70,6 +70,9 @@ pub struct StoredSession {
     /// IP address of its last recorded activity; `None` for sessions created before
     /// it was recorded.
     pub last_seen_ip: Option<IpAddr>,
+    /// The client a device's session belongs to, whose device authorization
+    /// created it; `None` for a browser's session.
+    pub client_id: Option<ClientId>,
 }
 
 /// A [`query_record!`] returning [`StoredSession`]s, read as `s`. With `active`
@@ -95,7 +98,7 @@ macro_rules! sessions {
             s.authentication_methods AS "authentication_methods: JsonArray<AuthenticationMethod>",
             s.authenticated_at, s.expires_at, s.last_seen_at, s.revoked_at,
             s.passkey_confirmed_at, s.user_agent_family AS "user_agent_family: UserAgentFamily",
-            s.last_seen_ip AS "last_seen_ip: IpAddr""#,
+            s.last_seen_ip AS "last_seen_ip: IpAddr", s.client_id AS "client_id: ClientId""#,
             $($query)*
         )
     };
@@ -133,6 +136,7 @@ impl From<StoredSession> for Session {
             passkey_confirmed_at: session.passkey_confirmed_at,
             last_seen_at: session.last_seen_at,
             expires_at: session.expires_at,
+            client_id: session.client_id,
             dashboard: Vec::new(),
         }
     }
@@ -235,6 +239,92 @@ impl SessionRepository<'_> {
         )
     }
 
+    /// Creates the session of a device that `client`'s device authorization
+    /// signs in, which the active session `approving` approves. It copies how and
+    /// when `approving` authenticated, so its tokens report that truthfully, has
+    /// no browser secret, so no cookie ever names it, and ends at `expires_at`
+    /// unless [`Self::start_device`] extends it. `None` if `approving` is not an
+    /// active session of an active account.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DatabaseError`] if the query fails or the row is invalid.
+    pub async fn insert_for_device(
+        &mut self,
+        id: SessionId,
+        approving: SessionId,
+        client: &ClientId,
+        expires_at: DateTime<Utc>,
+    ) -> Result<Option<StoredSession>, DatabaseError> {
+        run!(
+            self,
+            fetch_optional,
+            sessions!(
+                "WITH approving AS (
+                    SELECT a.user_id, a.authentication_methods, a.authenticated_at,
+                        a.passkey_confirmed_at, a.passkey_id
+                    FROM sessions a
+                    JOIN users u ON u.id = a.user_id
+                    WHERE a.id = $2
+                    AND a.revoked_at IS NULL
+                    AND a.expires_at > now()
+                    AND u.status = 'active'
+                )
+                INSERT INTO sessions AS s (
+                    id, user_id, authentication_methods, authenticated_at, expires_at,
+                    last_seen_at, passkey_confirmed_at, passkey_id, client_id
+                )
+                SELECT $1, user_id, authentication_methods, authenticated_at, $4,
+                    now(), passkey_confirmed_at, passkey_id, $3
+                FROM approving
+                RETURNING",
+                "",
+                id.as_uuid(),
+                approving.as_uuid(),
+                client.as_str(),
+                expires_at,
+            )
+        )
+    }
+
+    /// Starts the active device session `id`, once its device collected its
+    /// tokens from `ip` with the user agent `family`: it now ends at `expires_at`,
+    /// and shows where the device is. `None` if it is no active device session.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DatabaseError`] if the query fails or the row is invalid.
+    pub async fn start_device(
+        &mut self,
+        id: SessionId,
+        expires_at: DateTime<Utc>,
+        ip: IpAddr,
+        family: UserAgentFamily,
+    ) -> Result<Option<StoredSession>, DatabaseError> {
+        run!(
+            self,
+            fetch_optional,
+            sessions!(
+                "UPDATE sessions s
+                SET expires_at = $2, last_seen_at = now(), created_ip = $3, last_seen_ip = $3,
+                    user_agent_family = $4
+                FROM users u
+                WHERE s.id = $1
+                AND s.client_id IS NOT NULL
+                AND s.revoked_at IS NULL
+                AND s.expires_at > now()
+                AND u.id = s.user_id
+                AND u.status = 'active'
+                RETURNING",
+                "",
+                id.as_uuid(),
+                expires_at,
+                ip as _,
+                family.to_string(),
+            )
+        )
+    }
+
     /// Finds a session in any state.
     ///
     /// # Errors
@@ -256,8 +346,9 @@ impl SessionRepository<'_> {
         )
     }
 
-    /// Whether `session` is a sign-in on `client`'s own page, with no browser
-    /// cookie, whose tokens `client` received.
+    /// Whether `session` has no browser cookie and `client` received its tokens:
+    /// a sign-in on `client`'s own page, or a device `client` signed in with a
+    /// code.
     ///
     /// # Errors
     ///

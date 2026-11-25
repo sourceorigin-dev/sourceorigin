@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE device_authorizations SET expires_at = clock_timestamp()\n                WHERE client_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "826197dcadaca5297f7eba4fa0e4c6a30f4624b22344b5d289a4431b99797d86"
+}
