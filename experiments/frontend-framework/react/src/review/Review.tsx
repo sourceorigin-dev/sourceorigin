@@ -38,6 +38,7 @@ import {
   treeOptions,
   workerPool,
 } from '@experiment/shared/review';
+import { serverMarkup } from '@experiment/shared/markup';
 import type { FirstScreen } from '@experiment/shared/server';
 
 import { ServerFiles } from '../pierre/ServerFiles';
@@ -78,6 +79,9 @@ export function Review({ data }: { data: FirstScreen }) {
   // Whether CodeView has rendered and the server's files can go.
   const [live, setLive] = useState(false);
   const [pool] = useState(() => (typeof window === 'undefined' ? undefined : workerPool()));
+  // What Pierre rendered on the server. In the browser there is none, and the
+  // markup already in the page stays as the parser left it.
+  const markup = serverMarkup(change);
 
   /** A file's annotations as they stand now. */
   const annotations = (id: string) =>
@@ -320,7 +324,7 @@ export function Review({ data }: { data: FirstScreen }) {
         <aside className="review-tree" aria-label="Files">
           <Files
             files={change.files}
-            tree={data.tree}
+            tree={{ id: data.treeId, shadowHtml: markup?.tree ?? '' }}
             onSelect={(file) => {
               if (viewer.current?.getItem(file) != null) {
                 viewer.current.scrollTo({ type: 'item', id: file, align: 'start' });
@@ -357,7 +361,10 @@ export function Review({ data }: { data: FirstScreen }) {
           </WorkerPoolContext>
           {!live && (
             <ServerFiles
-              files={data.serverFiles}
+              files={initialItems.map((item) => ({
+                path: item.id,
+                html: markup?.files.find((file) => file.path === item.id)?.html ?? '',
+              }))}
               threads={threads.current}
               renderThread={(thread) => <ThreadView thread={thread} />}
             />
@@ -387,7 +394,7 @@ export function Review({ data }: { data: FirstScreen }) {
 
 interface FilesProps {
   files: FileSummary[];
-  tree: FirstScreen['tree'];
+  tree: { id: string; shadowHtml: string };
   onSelect(path: string): void;
 }
 

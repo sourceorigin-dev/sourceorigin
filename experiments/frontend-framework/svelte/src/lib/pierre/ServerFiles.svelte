@@ -11,7 +11,7 @@
   import { browser } from '$app/env';
   import type { Thread } from '@experiment/shared/api';
   import { annotationsFor, type ReviewAnnotation } from '@experiment/shared/review';
-  import type { ServerFile } from '@experiment/shared/server';
+  import type { ServerFile } from '@experiment/shared/markup';
 
   interface Props {
     files: ServerFile[];

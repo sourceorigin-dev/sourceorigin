@@ -39,6 +39,7 @@
     treeOptions,
     workerPool,
   } from '@experiment/shared/review';
+  import { serverMarkup } from '@experiment/shared/markup';
   import type { FirstScreen } from '@experiment/shared/server';
 
   import CodeView from '../pierre/CodeView.svelte';
@@ -100,6 +101,13 @@
   }
 
   const initialItems = splitPatch(data.firstPatch).flatMap((text) => toItem(text) ?? []);
+  // What Pierre rendered on the server. In the browser there is none, and the
+  // markup already in the page stays as the parser left it.
+  const markup = serverMarkup(change);
+  const serverFiles = initialItems.map((item) => ({
+    path: item.id,
+    html: markup?.files.find((file) => file.path === item.id)?.html ?? '',
+  }));
 
   /** Adds a thread unless it is already there, as its own echo over the stream is. */
   function addThread(thread: Thread): boolean {
@@ -283,7 +291,7 @@
   <div class="review-body">
     <aside class="review-tree" aria-label="Files">
       <FileTree
-        preloaded={data.tree}
+        preloaded={{ id: data.treeId, shadowHtml: markup?.tree ?? '' }}
         options={{
           ...treeOptions(change.files),
           onSelectionChange(paths) {
@@ -332,7 +340,7 @@
         </CodeView>
       {/if}
       {#if !live}
-        <ServerFiles files={data.serverFiles} {threads}>
+        <ServerFiles files={serverFiles} {threads}>
           {#snippet thread(value)}
             <ThreadView thread={value} />
           {/snippet}

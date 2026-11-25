@@ -89,7 +89,9 @@
     (file: HTMLElement, slot: string): Attachment<HTMLElement> =>
     (node) => {
       node.slot = slot;
-      file.append(node);
+      // Pierre publishes a snapshot on every scroll step, which runs this
+      // again: a node already in its file stays where it is.
+      if (node.parentNode !== file) file.append(node);
     };
 </script>
 

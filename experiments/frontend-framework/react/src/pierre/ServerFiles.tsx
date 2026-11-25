@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 
 import type { Thread } from '@experiment/shared/api';
 import { annotationsFor, type ReviewAnnotation } from '@experiment/shared/review';
-import type { ServerFile } from '@experiment/shared/server';
+import type { ServerFile } from '@experiment/shared/markup';
 
 interface ServerFilesProps {
   files: ServerFile[];

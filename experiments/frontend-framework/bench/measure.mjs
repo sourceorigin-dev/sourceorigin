@@ -28,11 +28,12 @@ const spread = (values) => ({ median: round(median(values)), min: round(Math.min
 const browser = await chromium.launch();
 
 /** One cold load of a page, with the times of what appeared and what was fetched. */
-async function load(base, path, { cpu = 1, waitFor = [] } = {}) {
+async function load(base, path, { cpu: slowdown = 1, waitFor = [] } = {}) {
   const context = await browser.newContext({ viewport: VIEWPORT });
   const page = await context.newPage();
   const session = await context.newCDPSession(page);
-  if (cpu > 1) await session.send('Emulation.setCPUThrottlingRate', { rate: cpu });
+  await session.send('Performance.enable', { timeDomain: 'threadTicks' });
+  if (slowdown > 1) await session.send('Emulation.setCPUThrottlingRate', { rate: slowdown });
   const responses = [];
   page.on('response', (response) => responses.push(response));
   await page.addInitScript(() => {
@@ -65,6 +66,7 @@ async function load(base, path, { cpu = 1, waitFor = [] } = {}) {
     await page.waitForFunction((label) => performance.getEntriesByName(label).length > 0, mark, { timeout: 60000 });
   }
   await page.waitForTimeout(1500);
+  const used = await cpu(session);
   const times = await page.evaluate(() => {
     const navigation = performance.getEntriesByType('navigation')[0];
     const mark = (label) => performance.getEntriesByName(label)[0]?.startTime;
@@ -94,7 +96,15 @@ async function load(base, path, { cpu = 1, waitFor = [] } = {}) {
     bytes[kind][1] += gzipSync(body, { level: 9 }).length;
     bytes[kind][2] += brotliCompressSync(body).length;
   }
+  times.cpu = used.TaskDuration * 1000;
+  times.scriptCpu = used.ScriptDuration * 1000;
   return { page, session, context, times, bytes, files };
+}
+
+/** The page's main-thread counters, in CPU time, not time on the clock. */
+async function cpu(session) {
+  const { metrics } = await session.send('Performance.getMetrics');
+  return Object.fromEntries(metrics.map((metric) => [metric.name, metric.value]));
 }
 
 /**
@@ -134,6 +144,7 @@ async function scroll(page, session, { distance, speed }) {
     };
     requestAnimationFrame(tick);
   });
+  const before = await cpu(session);
   const started = performance.now();
   await session.send('Input.synthesizeScrollGesture', {
     x: box.x + box.width / 2,
@@ -143,6 +154,7 @@ async function scroll(page, session, { distance, speed }) {
     gestureSourceType: 'mouse',
   });
   const elapsed = performance.now() - started;
+  const after = await cpu(session);
   const result = await page.evaluate(() => {
     window.__scroll.running = false;
     const root = document.querySelector('.review-diff');
@@ -161,6 +173,10 @@ async function scroll(page, session, { distance, speed }) {
     blankFrames: round((result.blanks.reduce((a, b) => a + b, 0) / result.blanks.length) * 100),
     longTasks: result.long.length,
     longTaskMs: Math.round(result.long.reduce((a, b) => a + b, 0)),
+    // CPU time the main thread used, which other programs on the machine do not stretch.
+    cpuMs: Math.round((after.TaskDuration - before.TaskDuration) * 1000),
+    scriptCpuMs: Math.round((after.ScriptDuration - before.ScriptDuration) * 1000),
+    layoutCpuMs: Math.round((after.LayoutDuration + after.RecalcStyleDuration - before.LayoutDuration - before.RecalcStyleDuration) * 1000),
   };
 }
 
@@ -185,7 +201,11 @@ for (let run = 0; run < 20; run++) {
 }
 for (const name of names) output[name].serverRenderMs = spread(server[name]);
 
-for (const cpu of [1, 4]) {
+// QUICK=1 measures the review page at full speed only, for a fast comparison.
+const quick = process.env.QUICK === '1';
+const speeds = quick ? [1] : [1, 4];
+
+for (const cpu of speeds) {
   const collected = Object.fromEntries(names.map((name) => [name, { samples: [], scrolls: [], jumps: [] }]));
   for (let run = 0; run < runs; run++) {
     await each(async (name, base) => {
@@ -210,7 +230,7 @@ for (const cpu of [1, 4]) {
     const pick = (key) => spread(samples.map((sample) => sample[key]));
     const scrolled = (read) => spread(scrolls.map(read));
     output[name][`review, cpu x${cpu}`] = {
-      load: Object.fromEntries(['ttfb', 'fcp', 'lcp', 'domContentLoaded', 'allFiles', 'codeview', 'blocking'].map((key) => [key, pick(key)])),
+      load: Object.fromEntries(['ttfb', 'fcp', 'lcp', 'domContentLoaded', 'allFiles', 'codeview', 'blocking', 'cpu', 'scriptCpu'].map((key) => [key, pick(key)])),
       scroll: {
         fps: scrolled((s) => s.fps),
         meanFrameMs: scrolled((s) => s.frameMs.mean),
@@ -222,6 +242,9 @@ for (const cpu of [1, 4]) {
         blankFrames: scrolled((s) => s.blankFrames),
         longTasks: scrolled((s) => s.longTasks),
         longTaskMs: scrolled((s) => s.longTaskMs),
+        cpuMs: scrolled((s) => s.cpuMs),
+        scriptCpuMs: scrolled((s) => s.scriptCpuMs),
+        layoutCpuMs: scrolled((s) => s.layoutCpuMs),
       },
       jumpToContentMs: spread(jumps),
       ...(cpu === 1 ? { bytes, jsFiles: files.js } : {}),
@@ -229,7 +252,8 @@ for (const cpu of [1, 4]) {
   }
 }
 
-for (const path of ['/settings', '/']) {
+const pages = quick ? [] : ['/settings', '/'];
+for (const path of pages) {
   const collected = Object.fromEntries(names.map((name) => [name, { samples: [] }]));
   for (let run = 0; run < runs; run++) {
     await each(async (name, base) => {
@@ -243,14 +267,14 @@ for (const path of ['/settings', '/']) {
   for (const name of names) {
     const { samples, bytes, files } = collected[name];
     const pick = (key) => spread(samples.map((sample) => sample[key]));
-    output[name][path] = { load: { ttfb: pick('ttfb'), fcp: pick('fcp'), domContentLoaded: pick('domContentLoaded'), blocking: pick('blocking') }, bytes, jsFiles: files.js };
+    output[name][path] = { load: { ttfb: pick('ttfb'), fcp: pick('fcp'), domContentLoaded: pick('domContentLoaded'), cpu: pick('cpu'), scriptCpu: pick('scriptCpu') }, bytes, jsFiles: files.js };
   }
 }
 
 await browser.close();
 machine.loadAverageAtEnd = loadavg().map(round);
 mkdirSync(new URL('./results/', import.meta.url), { recursive: true });
-writeFileSync(new URL('./results/measure.json', import.meta.url), `${JSON.stringify({ machine, ...output }, null, 2)}\n`);
+writeFileSync(new URL(`./results/${process.env.OUT ?? 'measure'}.json`, import.meta.url), `${JSON.stringify({ machine, ...output }, null, 2)}\n`);
 
 // The table: median, then the range, for React and for Svelte.
 const show = (value) => (value == null ? '-' : `${value.median} (${value.min} to ${value.max})`);
@@ -258,18 +282,18 @@ const line = (label, read) => console.log(`${label.padEnd(30)} ${show(read(outpu
 console.log(`load average ${machine.loadAverageAtStart.join(' ')} at start, ${machine.loadAverageAtEnd.join(' ')} at end; ${runs} runs each`);
 console.log(`${''.padEnd(30)} ${'React'.padEnd(30)} Svelte`);
 line('server render ms', (o) => o.serverRenderMs);
-for (const cpu of [1, 4]) {
+for (const cpu of speeds) {
   const key = `review, cpu x${cpu}`;
   console.log(`-- ${key}`);
   for (const metric of Object.keys(output.react[key].load)) line(`load ${metric} ms`, (o) => o[key].load[metric]);
   for (const metric of Object.keys(output.react[key].scroll)) line(`scroll ${metric}`, (o) => o[key].scroll[metric]);
   line('jump to content ms', (o) => o[key].jumpToContentMs);
 }
-for (const path of ['/settings', '/']) {
+for (const path of pages) {
   console.log(`-- ${path}`);
   for (const metric of Object.keys(output.react[path].load)) line(`load ${metric} ms`, (o) => o[path].load[metric]);
 }
-for (const path of ['review, cpu x1', '/settings', '/']) {
+for (const path of ['review, cpu x1', ...pages]) {
   console.log(`-- bytes ${path} (raw, gzip, brotli)`);
   for (const kind of ['html', 'js', 'css', 'font']) {
     console.log(`${kind.padEnd(30)} ${output.react[path].bytes[kind].join(', ').padEnd(30)} ${output.svelte[path].bytes[kind].join(', ')}`);

@@ -7,7 +7,8 @@
     "./review": "./src/review.ts",
     "./server": "./src/server.ts",
     "./csp": "./src/csp.ts",
-    "./style.css": "./src/style.css"
+    "./style.css": "./src/style.css",
+    "./markup": "./src/markup.ts"
   },
   "scripts": {
     "generate": "openapi-ts"
