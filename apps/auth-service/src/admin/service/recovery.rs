@@ -19,24 +19,15 @@ use sourceorigin_repository::{DatabaseTransaction, InsertRecovery};
 use url::Url;
 
 impl AdminService {
-    /// Starts recovering the active account `user_id`, whose owner lost every
-    /// passkey, for `reason`, in one transaction. It ends the account's sessions
-    /// and refresh grants, removes its unverified addresses, so no verification
-    /// link sent before can change it, and cancels an unused older link. Its
-    /// current primary verified address is sent a link that enrolls one passkey,
-    /// once, within a day. An operator at the terminal is also given the link,
-    /// which also reaches an owner without an address. An administrator never
-    /// sees it, so they may only start a recovery that mails it, which needs email
-    /// enabled.
+    /// Starts recovering the active account `user_id`, whose owner lost every passkey, for
+    /// `reason`, in one transaction: it ends the account's sessions and refresh grants, removes
+    /// its unverified addresses, cancels an unused older link, and sends the primary verified
+    /// address a link that enrolls one passkey, once, within a day. An operator at the terminal
+    /// is also given the link; an administrator never sees it, so they need email enabled.
     ///
-    /// With `revoke`, for an account that was in someone else's hands, it first
-    /// takes back every way in but the passkeys the owner vouched for: every
-    /// other passkey, the last included, every identity and every consent. Its
-    /// link is then only printed, and every verified address is told at once.
-    ///
-    /// Refused for an administrator, whose rights must be revoked first, and while
-    /// a recovery of the account is in probation, which support undoes first
-    /// ([`Self::undo_recovery`]) once it knows who used it.
+    /// With `revoke`, for an account that was in someone else's hands, it first takes back every
+    /// way in but the passkeys the owner vouched for, and tells every verified address at once.
+    /// Refused for an administrator, and while a recovery is in probation ([`Self::undo_recovery`]).
     pub(crate) async fn recover_account(
         &self,
         operator: &Operator,

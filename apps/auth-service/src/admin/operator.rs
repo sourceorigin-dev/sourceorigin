@@ -266,19 +266,11 @@ impl Operator {
         Ok(user)
     }
 
-    /// Requires an administrator to still hold their rights, their session and a
-    /// passkey confirmation recent enough for a mutation. The rights stay
-    /// share-locked until `tx` ends, so revoking them waits for the operation, or
-    /// wins before it; only revocations, which serialize on their own table lock,
-    /// ever lock that row, so this lock joins no cycle.
-    ///
-    /// Mutations call it after their last write, just before committing (see
-    /// `AdminService::finish`), so the times are compared with the clock when
-    /// nothing is left to wait for. The session is read then, not locked: a
-    /// session lock taken last could still meet a transaction that holds it and
-    /// waits for one of this one's, such as the caller's own sign-in or social
-    /// linking. A sign-out or account disablement that commits between this read
-    /// and the commit does not stop the operation.
+    /// Requires an administrator to still hold their rights, their session and a passkey
+    /// confirmation recent enough for a mutation. The rights stay share-locked until `tx` ends,
+    /// so revoking them waits for the operation, or wins before it. Mutations call it after their
+    /// last write, just before committing (see `AdminService::finish`); the session is read then,
+    /// not locked, so a sign-out that commits in between does not stop the operation.
     pub(crate) async fn authorize(
         &self,
         tx: &mut DatabaseTransaction<'_>,

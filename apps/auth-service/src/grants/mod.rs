@@ -60,19 +60,12 @@ impl AccountService {
             .collect())
     }
 
-    /// Removes `client`'s access to `subject`'s account in one transaction,
-    /// under the account lock: revokes its refresh grants, withdraws the
-    /// consent, so it asks again before its next sign-in, and expires its
-    /// outstanding codes. Recorded as one `ConsentRevoked`, with the reason of
-    /// an administrator or operator who removes it. Access tokens it already
-    /// holds expire within minutes.
-    ///
-    /// The owner needs no passkey confirmation, since it only takes access
-    /// away; an administrator's own recent passkey is checked as for every
-    /// admin change. The owner's sessions stay signed in, since other apps
-    /// share them. A code exchange locks the account first too, so it either
-    /// finishes before this, and its refresh grant is revoked here, or finds its
-    /// code expired.
+    /// Removes `client`'s access to `subject`'s account in one transaction, under the account
+    /// lock: revokes its refresh grants, withdraws the consent, so it asks again before its next
+    /// sign-in, and expires its outstanding codes. Recorded as one `ConsentRevoked`, with the
+    /// reason of an administrator or operator who removes it. The owner needs no passkey
+    /// confirmation, since it only takes access away; access tokens already issued expire within
+    /// minutes.
     pub(crate) async fn remove_app(
         &self,
         subject: &Subject,

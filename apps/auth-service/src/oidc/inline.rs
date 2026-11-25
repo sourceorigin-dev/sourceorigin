@@ -62,17 +62,12 @@ impl OidcApplication {
         })
     }
 
-    /// Consumes `client_id`'s claimed request inside `tx` and issues its code to
-    /// `session`, which the inline passkey sign-in on the page at `origin` just
-    /// created, if it meets the request's requirements as the redirect flow's would.
-    /// A new session meets any `prompt=login` and `max_age`, and the sign-in accepted
-    /// only the hinted account's passkeys. A recovered passkey during its probation
-    /// does not confirm the session, so it meets no `acr_values=phr`: the page then
-    /// sends the browser to auth, whose answer the client understands. While the
-    /// account has a recovery that can still be undone, it sends the browser to auth
-    /// too, whose sign-in asks whether it was the owner's. The client is
-    /// share-locked and must still allow the request, be trusted and have `origin`
-    /// approved, so a change made during the ceremony applies to it.
+    /// Consumes `client_id`'s claimed request inside `tx` and issues its code to `session`, which
+    /// the inline passkey sign-in on the page at `origin` just created, if it meets the request's
+    /// requirements as the redirect flow's would. A recovered passkey during its probation, or an
+    /// account with a recovery that can still be undone, sends the browser to auth instead. The
+    /// client is share-locked and must still allow the request, be trusted and have `origin`
+    /// approved.
     pub(crate) async fn complete_inline(
         &self,
         tx: &mut DatabaseTransaction<'_>,

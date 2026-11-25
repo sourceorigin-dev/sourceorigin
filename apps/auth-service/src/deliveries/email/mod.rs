@@ -1,19 +1,10 @@
 //! Sends the `email`, `announcement` and `invitation` channels over SMTP.
 //!
-//! A link's delivery names the account and the address's ID, and a recovery link's
-//! the recovery's too: the sender reads the address when it sends, so an address
-//! verified or removed, or a recovery used or undone, in the meantime receives
-//! nothing, and derives the link's token again from the ID, under the key that
-//! made its stored digest, so it is stored nowhere and survives a change of token
-//! digest key. A notification's email carries the address it goes to and the
-//! notification, and says what the inbox says. A security notification's email
-//! also carries a link that signs the account out everywhere, derived from the
-//! notification's ID like an unsubscribe link from the account's.
-//!
-//! Every attempt sends the same content, with the delivery's ID as `Message-ID`.
-//! SMTP is at least once like the queue: if the connection breaks after the relay
-//! accepted the message, the delivery is sent again, and mail clients that
-//! deduplicate on `Message-ID` hide the copy.
+//! A link's delivery names the account and the address's ID: the sender reads the address
+//! when it sends, so an address verified or removed meanwhile receives nothing, and derives
+//! the link's token again from the ID, so it is stored nowhere. Every attempt sends the same
+//! content, with the delivery's ID as `Message-ID`; SMTP is at least once like the queue, and
+//! mail clients that deduplicate on it hide a copy.
 
 use super::{DeliveryError, Failure, Sender};
 use crate::{

@@ -396,18 +396,14 @@ impl AuditChain {
         })
     }
 
-    /// Checks that the chain may be pruned through `through`: a checkpoint was
-    /// signed there, the anchor is before it, and the chain verifies against `keys`
-    /// through it. Pruning itself runs as the schema owner, since auth's role may
-    /// not delete events.
+    /// Checks that the chain may be pruned through `through`: a checkpoint was signed there, the
+    /// anchor is before it, and the chain verifies against `keys` through it.
     ///
     /// # Errors
-    /// Returns [`AuditError::NotOwner`] when the connection's role may not delete
-    /// events, before verifying anything, [`AuditError::NoCheckpoint`] unless a
-    /// checkpoint was signed at
-    /// `through`, [`AuditError::AlreadyPruned`] if the anchor is at or after it,
-    /// [`AuditError::Broken`] if the chain breaks at or before it, or another
-    /// [`AuditError`] if the database fails.
+    /// Returns [`AuditError::NotOwner`] when the connection's role may not delete events,
+    /// [`AuditError::NoCheckpoint`] unless a checkpoint was signed at `through`,
+    /// [`AuditError::AlreadyPruned`] if the anchor is at or after it, [`AuditError::Broken`] if
+    /// the chain breaks at or before it, or another [`AuditError`] if the database fails.
     pub(crate) async fn check_prunable(
         &self,
         keys: &AuditKeys,

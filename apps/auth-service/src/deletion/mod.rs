@@ -1,16 +1,9 @@
-//! Deleting an account, restoring it, and downloading its data, as GDPR Art. 17
-//! and 20 require.
+//! Deleting an account, restoring it, and downloading its data, as GDPR Art. 17 and 20 require.
 //!
-//! Deleting an account first schedules it: the account can no longer sign in, and
-//! its sessions and grants end. For [`GRACE_PERIOD_DAYS`], a passkey sign-in
-//! offers to restore it instead of signing in. The purge job then deletes it with
-//! everything that identifies its person and the clients it manages. Its handles
-//! stay without an owner, so nobody claims them until an operator releases them.
-//!
-//! The owner exports, deletes and restores through [`AccountService`]. Exporting
-//! and deleting take an [`Owner`] whose session a passkey confirmed recently,
-//! checked under the account lock: no administrator can run them, and neither can
-//! a session that never confirms, such as a recovery's probation sign-in.
+//! Deleting schedules the account: it can no longer sign in, and its sessions and grants end.
+//! For [`GRACE_PERIOD_DAYS`] a passkey sign-in offers to restore it; the purge job then deletes
+//! it with everything that identifies its person. The owner exports, deletes and restores
+//! through [`AccountService`], with an [`Owner`] whose session a passkey confirmed recently.
 //! `AdminService`, the CLI and the purge job share the steps of [`Deletions`].
 
 /// Deletion failures and their response mapping.

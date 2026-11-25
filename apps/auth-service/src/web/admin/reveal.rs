@@ -1,15 +1,9 @@
-//! What a change makes and its page shows once, such as a client's new secret or
-//! an invitation's link, without the page answering a `POST`: the dashboard loads
-//! no script that could put the page's address back, and reloading a `POST`'s
-//! answer would make the change again.
-//!
-//! The change's answer instead seals what it made into a cookie, for a minute,
-//! and redirects to the page that shows it, which a `GET` then shows once:
-//! [`answers`](super::answers) deletes the cookie with every `GET`'s answer.
-//! Reloading gets the page without it. The value is never in a URL, the
-//! history or a cache, since every answer is `no-store`, and the browser only
-//! ever holds it sealed under the key-encryption key, which every replica has,
-//! bound to the administrator's auth session and to the page that shows it.
+//! What a change makes and its page shows once, such as a client's new secret or an
+//! invitation's link, without the page answering a `POST`, whose reload would make the change
+//! again. The change's answer seals what it made into a cookie, for a minute, and redirects to
+//! the page that shows it; [`answers`](super::answers) deletes the cookie with every `GET`'s
+//! answer. The value is never in a URL, the history or a cache, and is sealed under the
+//! key-encryption key, bound to the administrator's auth session and to the page.
 
 use super::AdminApplication;
 use crate::{admin::SignedInAdmin, security::BrowserCookie};

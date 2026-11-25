@@ -118,30 +118,16 @@ impl Sealer {
         Ok(sealed.len())
     }
 
-    /// Signs and stores a checkpoint of the head, if it moved since the newest
-    /// checkpoint and that one is at least [`Self::checkpoint_every`] old.
-    ///
-    /// It builds on the newest checkpoint the environment's keys verify. Newer
-    /// ones that do not verify, which someone with auth's database role but not
-    /// the audit key could add, are logged, counted and passed over, so they
-    /// cannot stop signing: the next checkpoint follows them once a new event is
-    /// sealed. While one holds the head's position, nothing is recomputed.
-    /// `audit verify` still reports them.
-    ///
-    /// The head is recomputed from the checkpoint built on rather than read back,
-    /// so a checkpoint never signs events that no longer match their stored hashes,
-    /// or a chain with recent events missing. It cannot tell an edit whose hashes
-    /// were recomputed too: events are signed only once a checkpoint covers them.
-    ///
-    /// After a failure, nothing is tried until [`Self::checkpoint_every`] has
-    /// passed.
-    ///
-    /// Refusing raises the [`Alert::CheckpointRefused`] alert, and the next
-    /// recomputation that matches clears it.
+    /// Signs and stores a checkpoint of the head, if it moved since the newest checkpoint and
+    /// that one is at least [`Self::checkpoint_every`] old. It builds on the newest checkpoint the
+    /// environment's keys verify; newer ones that do not are logged, counted and passed over.
+    /// The head is recomputed from that checkpoint rather than read back, so a checkpoint never
+    /// signs events that no longer match their stored hashes. After a failure, nothing is tried
+    /// until [`Self::checkpoint_every`] has passed; refusing raises [`Alert::CheckpointRefused`].
     ///
     /// # Errors
-    /// Returns [`AuditError::Broken`], signing nothing, if the events sealed since
-    /// that checkpoint no longer match their hashes.
+    /// Returns [`AuditError::Broken`], signing nothing, if the events sealed since that
+    /// checkpoint no longer match their hashes.
     pub(super) async fn checkpoint(
         &self,
         connection: &mut ExclusiveConnection,

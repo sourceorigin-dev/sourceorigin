@@ -56,16 +56,12 @@ pub(super) enum UserCommand {
     },
     /// Recover an account whose owner lost every passkey.
     ///
-    /// First lists the account's recoveries that started, ended or were used
-    /// within a probation's length. Refuses while one is in probation: find out
-    /// who used it, and undo it with `user undo-recovery` first. An unused link
-    /// is replaced. Refuses an administrator's account: revoke its rights first.
-    /// Ends the account's sessions, removes its unverified addresses, and sends
-    /// its primary verified address a link that enrolls one passkey, within a
-    /// day; prints the link too, for when there is none. Through the probation
-    /// that follows, that passkey signs in but confirms no change, and any older
-    /// passkey can undo the recovery. Needs `AUTH_PUBLIC_BASE_URL` and the token
-    /// digest key, which derives the link.
+    /// Lists the account's recent recoveries first, and refuses while one is in probation (undo
+    /// it with `user undo-recovery`) or for an administrator's account. Ends the account's
+    /// sessions, removes its unverified addresses, and sends its primary verified address a link
+    /// that enrolls one passkey, within a day; prints the link too. Through the probation that
+    /// follows, that passkey signs in but confirms no change. Needs `AUTH_PUBLIC_BASE_URL` and
+    /// the token digest key.
     Recover {
         /// The account: its handle, ID or verified email.
         user: UserRef,
