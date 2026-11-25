@@ -61,11 +61,8 @@ impl OidcApplication {
         let authentication = SessionAuthentication::from(session);
         let fresh = started_at.is_some_and(|started_at| authentication.auth_time >= started_at);
         let (force_login, max_age) = match max_age {
-            // Requests reject negative ages, so one stored anyway is never met.
             Some(age) if age < 0 => return false,
-            // `max_age=0` asks for a sign-in after the request, as `prompt=login` does.
             Some(0) => (true, None),
-            // An age past `u32` excludes no sign-in.
             age => (
                 force_login,
                 age.map(|age| u32::try_from(age).unwrap_or(u32::MAX)),

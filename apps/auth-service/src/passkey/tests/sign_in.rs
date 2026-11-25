@@ -148,8 +148,6 @@ async fn passkey_sign_in_confirms_the_browsers_session() {
         "signed in by it"
     );
 
-    // With two passkeys, the asserting one is recorded: signing in with the
-    // newer one, and confirming with it a session the older one signed in.
     let newer = fixture.switch_passkey("Newer key").await;
     let signed_in = fixture.login().await;
     let signed_in = fixture.session(&signed_in).await.expect("new session").id;
@@ -293,7 +291,6 @@ async fn signing_in_to_an_account_scheduled_for_deletion_offers_to_restore_it() 
         "an offer restores once"
     );
 
-    // Disabled after the ceremony started, which still names the passkey.
     let (started, browser) = fixture
         .start("/webauthn/authenticate/start", "", username)
         .await;

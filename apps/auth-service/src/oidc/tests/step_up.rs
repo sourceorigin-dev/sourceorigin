@@ -174,7 +174,6 @@ async fn a_probation_sign_in_short_of_the_target_answers_the_client() {
         parameter(&flow.client_redirect(&response), "error"),
         OAuthCode::UnmetAuthenticationRequirements.as_str()
     );
-    // Signing in again for a request without a target is enough.
     let response = flow.authorize(Scope::OpenId.as_str(), Some("login")).await;
     let transaction = parameter(&location(&response), "transaction");
     let resume = format!(

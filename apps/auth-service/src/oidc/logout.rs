@@ -126,8 +126,6 @@ impl OidcApplication {
                 .reject("client_id does not match the id_token_hint audience"));
         }
         let (destination, client) = match &q.post_logout_redirect_uri {
-            // The application asked to come back, but auth can't tell it sent the
-            // request: the browser stays on auth.
             Some(_) if unverified => (self.signed_out_page()?, None),
             Some(uri) => {
                 let named = q

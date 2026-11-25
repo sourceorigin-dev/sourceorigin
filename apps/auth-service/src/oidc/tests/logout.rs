@@ -68,7 +68,6 @@ async fn logout_posts_a_logout_token_to_the_clients_of_the_session() {
                 Ok::<_, crate::ClientRegistryError>(told.clone())
             })
             .await?;
-        // A client without tokens from the session.
         registry.create(ClientOwner::Operator, &untold, None).await
     })
     .await
@@ -83,7 +82,6 @@ async fn logout_posts_a_logout_token_to_the_clients_of_the_session() {
     let response = flow.log_out(&[("client_id", told.id.as_str())]).await;
     assert_eq!(response.status(), StatusCode::SEE_OTHER);
 
-    // Other scenarios share the database: send only this session's deliveries.
     let mut sent = Vec::new();
     while let Some(delivery) = flow
         .app

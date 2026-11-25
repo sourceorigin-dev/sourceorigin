@@ -163,7 +163,6 @@ impl OidcApplication {
             .await?;
         let redirect = q.redirect_uri(&client)?;
         q.state()?;
-        // The redirect URI is now verified, so rejections go back to the client.
         let client_redirect = self.client_redirect(&redirect, q.state.as_deref());
         let back = |error: OAuthError| error.redirected(&client_redirect);
         if client.require_pushed_authorization_requests {
@@ -273,9 +272,6 @@ impl OidcApplication {
         let back =
             |code: OAuthCode, description| code.reject(description).redirected(&client_redirect);
         let session = Session::resolve(&self.database, context, headers).await?;
-        // A passkey just signed in for this request without confirming the
-        // session, as a recovered passkey does during its probation: signing in
-        // again would not help, so the client hears it instead of looping.
         if session
             .as_ref()
             .is_some_and(|session| Self::falls_short_after_signing_in(&request, session))
@@ -293,8 +289,6 @@ impl OidcApplication {
             }
             return self.sign_in_page(transaction, request.target_acr);
         };
-        // A silent request shows no page, and only another tab's sign-in in the
-        // instant since it started could have signed in for it.
         if !silent && Self::signed_in_for(&request, &session) {
             let mut tx = self.database.begin().await?;
             let undoable = Self::undoable_recovery(&mut tx, session.user_id).await?;

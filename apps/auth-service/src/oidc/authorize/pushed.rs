@@ -37,8 +37,6 @@ impl OidcApplication {
     ) -> Result<(StatusCode, Json<PushedAuthorization>), OAuthError> {
         let Form(q) =
             form.map_err(|error| OAuthError::malformed("pushed authorization request", error))?;
-        // RFC 9126 §2.1: the pushed parameters are an authorization request's,
-        // which always name the client (RFC 6749 §4.1.1), Basic credentials or not.
         let Some(client_id) = q.client_id.as_deref() else {
             return Err(OAuthCode::InvalidRequest.reject("client_id is required"));
         };
@@ -90,9 +88,6 @@ impl OidcApplication {
         request_uri: &str,
     ) -> Result<(OpaqueToken, StoredAuthorizationRequest), OAuthError> {
         let unknown = || OAuthCode::InvalidRequestUri.reject(UNKNOWN_REQUEST_URI);
-        // RFC 9126 §5: a pushed `request_uri` works whatever
-        // `request_uri_parameter_supported` says, so the parameter is supported and
-        // a client-hosted one is invalid rather than `request_uri_not_supported`.
         let token = request_uri
             .strip_prefix(REQUEST_URI_PREFIX)
             .ok_or_else(|| {

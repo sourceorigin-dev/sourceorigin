@@ -234,7 +234,6 @@ impl Scopes {
                     released.email = claims.email.take();
                     released.email_verified = claims.email_verified.take();
                 }
-                // These scopes release no claims.
                 Scope::OpenId | Scope::OfflineAccess => {}
             }
         }
@@ -378,7 +377,6 @@ impl OidcApplication {
             revocation_endpoint: origin.url(routes::oidc::REVOKE),
             userinfo_endpoint: origin.url(routes::oidc::USERINFO),
             pushed_authorization_request_endpoint: Some(origin.url(routes::oidc::PAR)),
-            // Individual clients may be required to push.
             require_pushed_authorization_requests: false,
             end_session_endpoint: origin.url(routes::oidc::LOGOUT),
             jwks_uri: origin.url(routes::oidc::JWKS),
@@ -391,8 +389,6 @@ impl OidcApplication {
             response_types_supported: ResponseType::ALL.into(),
             response_modes_supported: ResponseMode::ALL.into(),
             grant_types_supported: GrantType::ALL.into(),
-            // The token, revocation and pushed authorization endpoints all
-            // authenticate clients with `authenticate_client`.
             token_endpoint_auth_methods_supported: ClientAuthMethod::ALL.into(),
             revocation_endpoint_auth_methods_supported: ClientAuthMethod::ALL.into(),
             code_challenge_methods_supported: CodeChallengeMethod::ALL.into(),
@@ -404,7 +400,6 @@ impl OidcApplication {
             request_parameter_supported: false,
             request_uri_parameter_supported: false,
             authorization_response_iss_parameter_supported: true,
-            // Every logout token names the ended session with `sid`.
             backchannel_logout_supported: true,
             backchannel_logout_session_supported: true,
         })
@@ -487,8 +482,6 @@ impl OidcApplication {
             Some(_) => ClientAuthMethod::ClientSecretBasic,
             None => ClientAuthMethod::None,
         };
-        // Exhaustive over the methods the metadata advertises, so a new one cannot be
-        // advertised without being checked here.
         match method {
             ClientAuthMethod::None if client.kind == ClientKind::Confidential => {
                 Err(OAuthCode::InvalidClient
@@ -496,14 +489,10 @@ impl OidcApplication {
             }
             ClientAuthMethod::None => Ok(client),
             ClientAuthMethod::ClientSecretBasic => {
-                // `basic` is always present here, so only a public client fails.
                 let (ClientKind::Confidential, Some((_, secret))) = (client.kind, &basic) else {
-                    // Public clients have no secret and must not send one.
                     return Err(OAuthCode::InvalidClient
                         .reject("this public client must not send HTTP Basic credentials"));
                 };
-                // During a rotation's grace period, the previous secrets match too.
-                // Every digest is compared, so timing does not reveal which one matched.
                 let presented = ClientSecret::digest_presented(secret);
                 let matched = self
                     .database
@@ -578,8 +567,6 @@ impl OidcApplication {
                 AuthScheme::Basic
             ))
         })?;
-        // RFC 6749 §2.3.1 form-encodes the ID and secret before base64. Decoding a
-        // single `v=<value>` pair always yields that pair.
         let decode = |value: &str| {
             url::form_urlencoded::parse(format!("v={value}").as_bytes())
                 .next()

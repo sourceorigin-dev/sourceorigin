@@ -177,8 +177,6 @@ impl From<PasskeyError> for ApiError {
                 ),
             error @ PasskeyError::SessionChanged => error
                 .rejected("Your session changed during this passkey request. Please start again."),
-            // WebAuthn's reasons stay in the logs: some fail before possession is proven,
-            // so showing them would reveal which credentials an account has.
             error @ (PasskeyError::Webauthn(_)
             | PasskeyError::SignedForAnotherOrigin
             | PasskeyError::ClientData(_)) => {

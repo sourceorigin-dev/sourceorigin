@@ -56,7 +56,6 @@ async fn signup_applies_the_handle_rules() {
         started["public_key"]["publicKey"]["user"]["name"],
         "new-user"
     );
-    // Only an admitted signup learns whether a handle is held.
     let invite_only = PasskeyApplication::new(
         fixture.app.database.clone(),
         &PasskeyConfig {
@@ -282,7 +281,6 @@ async fn enrollment_refuses_a_101st_passkey() {
     let (started, browser) = fixture
         .start("/account/passkeys/enroll/start", &signed_in, json!({}))
         .await;
-    // The fixture's passkey is the first of 100.
     for _ in 1..100 {
         fixture
             .database()

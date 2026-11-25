@@ -95,7 +95,6 @@ impl PasskeyApplication {
             .await?;
         let (challenge, state) = app.discoverable()?;
         let sign_in = if let Some(user_id) = claim.hinted_user_id {
-            // Read inside `tx`: a second connection per start could exhaust the pool.
             if tx.passkeys().list_active(user_id).await?.is_empty() {
                 return Err(ApiError::interaction_required(
                     "The account this application asked for signs in without a passkey.",
@@ -131,9 +130,6 @@ impl PasskeyApplication {
             claim,
             sign_in,
         } = app.consume_related(input.ceremony_id).await?;
-        // The origin may have been removed, or given to another client, since. This
-        // refuses it before the passkey is checked; completing the sign-in checks
-        // again under the client's lock.
         if origin != started
             || app
                 .database
@@ -145,7 +141,6 @@ impl PasskeyApplication {
         {
             return Err(PasskeyError::OriginNotApproved.into());
         }
-        // The verifier also accepts auth's own origin, so the page's is checked here.
         if let Err(error) = Self::signed_for(&input.credential, origin.url()) {
             return Err(app
                 .reject(context, Actor::Anonymous, None, error)
@@ -160,7 +155,6 @@ impl PasskeyApplication {
         let (mut tx, signed_in) = app
             .accept_credential(context, Actor::Anonymous, user_id, verified)
             .await?;
-        // Only auth's sign-in page offers to restore an account being deleted.
         let SignIn::Session(credential) = signed_in else {
             return Err(ApiError::interaction_required(
                 "This account is scheduled for deletion. Sign in on Origin Auth's pages to restore it.",

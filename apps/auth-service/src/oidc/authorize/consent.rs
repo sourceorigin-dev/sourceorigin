@@ -119,17 +119,9 @@ impl OidcApplication {
         let opaque = OpaqueToken::parse(TokenPrefix::AuthorizationRequest, &input.transaction)?;
         let digests = self.accepted_digests(&opaque);
         let mut transaction = self.database.begin().await?;
-        // An approval locks the account first: before writing consent, whose row's
-        // foreign key would otherwise take a key-share lock that deadlocks with a
-        // concurrent login, and before the client, which an owner changing it locks
-        // after their account. The session is read again under the lock, so a
-        // consent that waited while its session ended, signed out or revoked, is not
-        // saved after it.
         if input.decision == ConsentDecision::Approve {
             Session::lock(&mut transaction, &session).await?;
         }
-        // Checked again under the client's lock, so no change to the client commits
-        // between this check and the code.
         let policy = ClientPolicy::share(&mut transaction, &pending.client_id).await?;
         let request = transaction
             .oidc()

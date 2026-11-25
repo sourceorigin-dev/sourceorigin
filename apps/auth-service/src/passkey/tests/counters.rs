@@ -93,7 +93,6 @@ async fn overlapping_assertions_reject_old_counter_after_new_counter_commits() {
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn lagging_counter_copy_is_rejected_and_recorded() {
     let mut fixture = Fixture::new().await;
-    // Simulate the original authenticator having signed far ahead of this copy.
     let mut passkeys = fixture.app.database.passkeys();
     let mut key = passkeys
         .list_active(fixture.user_id)

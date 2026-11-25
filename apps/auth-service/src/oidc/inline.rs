@@ -95,7 +95,6 @@ impl OidcApplication {
                 "This sign-in does not meet what the application asked for.",
             ));
         }
-        // The question needs auth's pages, which the redirect flow shows.
         if Self::undoable_recovery(tx, session.user_id)
             .await?
             .is_some()

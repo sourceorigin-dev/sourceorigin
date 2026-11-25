@@ -88,10 +88,7 @@ impl TokenForm {
                     },
                 )
             }
-            // A confidential client sent no challenge, so it sends no verifier.
             (None, None) => Ok(()),
-            // RFC 9700 §2.1.1: a verifier for a code issued without a challenge
-            // may be an attacker's downgrade of a request that had one.
             (None, Some(_)) => Err((
                 CodeRedemptionFailure::InvalidVerifier,
                 OAuthCode::InvalidGrant.reject(
@@ -270,16 +267,9 @@ impl OidcApplication {
             GrantType::RefreshToken => app.refresh(form, &client, &context).await,
         }?;
         Self::count_issued(grant, &tokens);
-        // After the grant committed, outside its transaction: concurrent refreshes
-        // of one client each hold their family and share-lock the client, so the
-        // hourly write, which needs the client exclusively, would deadlock them if
-        // two made it inside. The tokens are issued, so a failure here only leaves
-        // the time older, and is logged rather than answered.
         if let Err(error) = app.database.oidc().touch_client(&client.id).await {
             ApiError::log_error(&error);
         }
-        // RFC 6749 §5.1: `Cache-Control: no-store`, which every response gets, and
-        // `Pragma: no-cache` for HTTP/1.0 caches.
         Ok(([(header::PRAGMA, "no-cache")], Json(tokens)))
     }
 
@@ -303,20 +293,9 @@ impl OidcApplication {
         )?;
         let digests = self.accepted_digests(&opaque);
         let mut tx = self.database.begin().await?;
-        // Lock the account before the code, as a refresh and removing an app
-        // do: a removal then either commits first and expires the code, or waits
-        // for this exchange and revokes the refresh family it creates. The lock
-        // is taken whatever the account's status, and refuses nothing: a disabled
-        // account's code goes through the checks below like any other, so its
-        // replay is recorded, and a client it wasn't issued to isn't told that the
-        // account is disabled.
         if let Some(user) = tx.oidc().code_user(opaque.id, &digests).await? {
             tx.users().find_by_id_for_update(user).await?;
         }
-        // Checked with the code locked, before it is consumed: a failed redemption
-        // still uses the code up, and is recorded, so a code is tried once. It
-        // expires rather than being consumed, so its client is not taken to hold
-        // tokens from the session.
         if let Some(code) = tx.oidc().lock_code(opaque.id, &digests).await?
             && let Err((reason, error)) = form.redeems(&code, client_id)
         {
@@ -336,23 +315,17 @@ impl OidcApplication {
             .find_active_by_id_for_update(code.user_id)
             .await?
             .ok_or_else(|| OAuthCode::InvalidGrant.reject(ACCOUNT_DISABLED))?;
-        // Revalidate under the session's lock: logout takes no account lock, so it may
-        // have revoked the session since the code was issued.
         let session = tx
             .sessions()
             .find_active_by_id_for_update(code.session_id)
             .await?
             .filter(|session| session.user_id == user.id)
             .ok_or_else(|| OAuthCode::InvalidGrant.reject(SESSION_ENDED))?;
-        // Share-locked until the grant commits, so no change to the client, such as
-        // a suspension, commits between this check and the tokens.
         let policy = ClientPolicy::share(&mut tx, client_id).await?;
         policy
             .allows_code(&code)
             .map_err(|refusal| refusal.reject(OAuthCode::InvalidGrant))?;
         let client = policy.client();
-        // Reread under the account lock: authorization checks remembered consent
-        // before taking it, so it may issue a code just as the consent is withdrawn.
         if !client.trusted
             && !tx
                 .oidc()
@@ -576,7 +549,6 @@ impl OidcApplication {
         let client = app
             .authenticate_client(&headers, form.client_id.as_deref())
             .await?;
-        // RFC 7009 requires success even for malformed or unknown tokens.
         if let Ok(opaque) = OpaqueToken::parse(TokenPrefix::RefreshToken, &form.token) {
             let digests = app.accepted_digests(&opaque);
             let mut tx = app.database.begin().await?;
@@ -684,7 +656,6 @@ impl OidcApplication {
                 return error.into();
             }
         };
-        // Logged first so the signal survives a database failure.
         if reason == GrantRevocation::RefreshReplay {
             tracing::warn!(
                 event = REFRESH_REPLAY_EVENT,
@@ -720,7 +691,6 @@ impl OidcApplication {
         else {
             return error.into();
         };
-        // Logged first so the signal survives a database failure.
         tracing::warn!(
             event = CODE_REPLAY_EVENT,
             %user_id,
