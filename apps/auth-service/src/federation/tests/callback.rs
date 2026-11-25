@@ -49,7 +49,6 @@ async fn provider_mock_callback_requires_browser_state_and_stays_pending() {
         ))
         .await
         .expect("unbound callback");
-    // Another browser's callback names no continuation it may go on to.
     assert_eq!(TestApp::refused(&response, "social_expired"), None);
     let forged = router
         .clone()

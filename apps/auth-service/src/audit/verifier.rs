@@ -82,9 +82,6 @@ impl Verifier {
         &self,
         connection: &mut ExclusiveConnection,
     ) -> Result<Option<AuditVerification>, AuditError> {
-        // One with keys given with `--key` says nothing of this environment's
-        // checkpoints, as for its alert, so it neither postpones this one nor
-        // sets the gauge.
         let newest = connection
             .events()
             .newest_audit_verification(Verifications::OwnKeys)
@@ -92,8 +89,6 @@ impl Verifier {
         if let Some(newest) = newest
             && Utc::now() - newest.occurred_at < Self::VERIFY_EVERY
         {
-            // A verification a newer release recorded reads as unknown, and
-            // leaves the gauge as it was.
             if let RecordedEvent::Known(DomainEvent::AuditChainVerified(verification)) =
                 newest.event
             {

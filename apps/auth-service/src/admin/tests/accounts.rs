@@ -156,7 +156,6 @@ async fn every_change_to_an_account_shows_its_reason_to_the_owner() {
         .await
         .expect("revoke rights");
 
-    // The owner reads them in their own history, signed in again.
     let browser = Browser::sign_in(&harness.database, id).await;
     let routes = crate::account::AccountApplication::new(harness.database.clone()).routes();
     let (status, page) = browser

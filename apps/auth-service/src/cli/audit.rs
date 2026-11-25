@@ -111,8 +111,6 @@ impl AuditCommand {
     }
 }
 
-// A verification, one fact per line: whether the chain holds, then what was
-// checked.
 report!(AuditVerification, self, out, {
     let point = |point: &Option<ChainPoint>| point.as_ref().map(Cell::new).into();
     let chain = match &self.broken {
@@ -213,8 +211,6 @@ impl ListEvents {
     }
 }
 
-// One event per line, with who caused it and why, and how to list the next page.
-// `--json` adds where its request came from.
 report!(EventPage, self, out, {
     out.table(
         ["ID", "OCCURRED", "ACTOR", "SUBJECT", "KIND", "REASON"],

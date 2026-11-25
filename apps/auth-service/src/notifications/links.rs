@@ -89,7 +89,6 @@ impl<T: LinkTarget> Links<T> {
 
     /// The link naming `id`.
     pub(crate) fn link(&self, id: T) -> String {
-        // An ID and an unpadded base64url token need no escaping.
         let token = self.keys.token(&id.bytes()).encoded();
         format!("{}?id={id}&token={token}", self.origin.join(T::PAGE))
     }

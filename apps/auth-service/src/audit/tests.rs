@@ -47,8 +47,6 @@ struct Fixture {
 impl Fixture {
     /// Creates the database and a fresh audit key.
     async fn new() -> Self {
-        // Two connections: a test holds at most a transaction and a read at once,
-        // and every fixture's pool is one more on the server the suite shares.
         let database = Database::isolated(Database::test_config(2))
             .await
             .expect("isolated database");
@@ -252,8 +250,6 @@ impl Fixture {
 async fn events_are_sealed_in_safe_order_and_checkpointed() {
     let mut fixture = Fixture::new().await;
     let database = fixture.database.clone();
-    // The open transaction holds back sealing in every database of the cluster,
-    // so other tests' fixtures wait for it as they seal.
     let mut lock = fixture.lock().await;
     let mut open = database.begin().await.expect("transaction");
     fixture.record_in(&mut open).await;
@@ -366,8 +362,6 @@ async fn verification_finds_the_first_tampered_position() {
         assert_eq!(fixture.broken().await, expected, "after {tamper:?}");
     }
 
-    // Truncated after 3: a forged checkpoint at 9 does not hide the valid one at
-    // 6, which pruning through 6 would otherwise accept.
     let mut fixture = Fixture::sealed_six().await;
     fixture.record(3).await;
     fixture.seal().await;
@@ -436,7 +430,6 @@ async fn checkpoints_never_sign_a_chain_that_does_not_match() {
     tx.commit().await.expect("commit");
     assert_eq!(alert, Some(Alert::CheckpointRefused(at.clone())));
 
-    // Once the events match again, the next checkpoint clears it.
     let intact = Fixture::sealed_six().await;
     let mut tx = intact.database.begin().await.expect("transaction");
     let context = EventContext::system(JobName::AuditSealer);
@@ -512,8 +505,6 @@ async fn pruning_refuses_broken_chains_and_leaves_a_working_anchor() {
         Err(AdminError::Audit(AuditError::AlreadyPruned { anchor: 3 }))
     ));
 
-    // Pruning every sealed event leaves the anchor as the head the next event
-    // extends: here, the two prunes' own events, then a new one.
     assert_eq!(prune(&fixture.keys, 6).await.expect("prune"), 3);
     fixture.record(1).await;
     fixture.seal().await;
@@ -642,7 +633,6 @@ async fn the_audit_page_shows_the_newest_recorded_verification() {
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn the_verifier_verifies_when_no_verification_is_recent() {
     let fixture = Fixture::sealed_six().await;
-    // The server's own keys: what it records with them holds off its next pass.
     let keys = AuditKeys::for_server(&Fixture::origin(), fixture.audit.verifier()).expect("keys");
     let verifier = Verifier::new(keys);
     let mut lock = fixture
@@ -895,8 +885,6 @@ async fn forged_checkpoints_are_passed_over_and_not_served() {
     fixture.record(1).await;
     let mut lock = fixture.lock().await;
     fixture.seal_with(&mut lock).await;
-    // Dated ahead, so a sealer that counted its interval from the newest stored
-    // checkpoint would wait for it.
     fixture.forge_checkpoint(7, TimeDelta::seconds(30)).await;
     let response = fixture
         .router()
@@ -931,8 +919,6 @@ async fn forged_checkpoints_are_passed_over_and_not_served() {
     fixture.seal().await;
     let newest = fixture.database.audit().newest_checkpoints(None, 1).await;
     let newest = newest.expect("checkpoints").remove(0);
-    // Past the event just recorded, and the first signing key's generation and
-    // activation, which the router's start recorded as the rotation job's.
     assert_eq!(newest.position, 10);
     fixture.keys.verifiers.open(&newest.note).expect("signed");
     assert_eq!(
@@ -978,8 +964,6 @@ async fn the_latest_checkpoint_is_verified_once_per_checkpoint() {
         (note, text)
     };
     assert!(latest(&router).await.1.contains("\nposition 6\n"));
-    // A forged checkpoint holds the top position while a genuine one below it is
-    // still being signed; once that one is stored, it is served.
     fixture.record(2).await;
     let mut lock = fixture.lock().await;
     fixture.seal_with(&mut lock).await;
@@ -990,8 +974,6 @@ async fn the_latest_checkpoint_is_verified_once_per_checkpoint() {
     fixture.store_checkpoint(&key, 7, TimeDelta::zero()).await;
     let (verified, text) = latest(&router).await;
     assert!(text.contains("\nposition 7\n"), "{text}");
-    // No checkpoint was stored since, so the replica does not read it again, and
-    // a fresh one finds the one before.
     fixture
         .tamper(Tamper::EditCheckpointNote(7, "forged".into()))
         .await;
@@ -1060,8 +1042,6 @@ async fn sealing_goes_on_when_a_checkpoint_fails() {
     fixture
         .tamper(Tamper::EditPayload(7, serde_json::json!({})))
         .await;
-    // The first refusal raises its alert, an event of its own; later ones only
-    // see it again. Raise and seal it before counting.
     let refused = fixture.sealer.pass(&mut lock, None).await;
     assert!(matches!(refused, Err(AuditError::Broken(_))), "{refused:?}");
     fixture.seal_with(&mut lock).await;
@@ -1123,7 +1103,6 @@ async fn a_failed_checkpoint_is_retried_after_the_interval() {
     fixture.record(7).await;
     let mut lock = fixture.lock().await;
     fixture.seal_with(&mut lock).await;
-    // The sealer's own checkpoint at 6, signed an interval ago, so the next is due.
     fixture
         .store_checkpoint(&fixture.audit.key, 6, -every)
         .await;
@@ -1133,7 +1112,6 @@ async fn a_failed_checkpoint_is_retried_after_the_interval() {
     let broken = |result: &Result<(), AuditError>| matches!(result, Err(AuditError::Broken(_)));
     assert!(broken(&fixture.sealer.checkpoint(&mut lock).await));
     assert!(fixture.sealer.checkpoint(&mut lock).await.is_ok(), "waits");
-    // Paused only for the jump, so the queries keep their real timeouts.
     tokio::time::pause();
     tokio::time::advance(every.to_std().expect("interval")).await;
     tokio::time::resume();
@@ -1152,7 +1130,6 @@ async fn a_failed_checkpoint_is_retried_after_the_interval() {
 async fn checkpoints_keep_their_interval_while_batches_stay_full() {
     let mut fixture = Fixture::new().await;
     fixture.sealer = fixture.sealer.sealing(2);
-    // One transaction, so all five become ready to seal at once.
     let database = fixture.database.clone();
     let mut tx = database.begin().await.expect("transaction");
     for _ in 0..5 {

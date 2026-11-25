@@ -217,7 +217,6 @@ impl CheckpointText {
             head: ChainLink { position, hash },
             time,
         };
-        // Rendering again rejects extra lines and any other spelling of the values.
         (lines.next().is_none() && parsed.render() == text).then_some(parsed)
     }
 }

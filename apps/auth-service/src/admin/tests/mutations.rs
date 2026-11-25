@@ -20,8 +20,6 @@ async fn mutations_recheck_the_confirmation_after_waiting() {
     user.sign_out(&mut logout).await;
     let service = harness.service();
     let reason = reason("Spam");
-    // The confirmation ends two seconds from now, and the logout ends just after
-    // it, so the mutation waits about two seconds, well within the lock wait limit.
     let window = Duration::seconds(CONFIRMATION_MAX_AGE.into());
     let auth_time = Utc::now() - window + Duration::seconds(2);
     let operator = operator(admin, auth_time);
@@ -76,7 +74,6 @@ async fn waiting_mutations_hold_no_caller_locks() {
         service.disable_user(&operator, user.user_id, reason),
         async {
             switch.until_blocked(1).await;
-            // The switch revokes the caller's session without a deadlock.
             admin.sign_out(&mut switch).await;
             switch.commit().await.expect("commit");
         }

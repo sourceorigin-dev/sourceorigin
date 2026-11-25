@@ -69,7 +69,6 @@ impl<'t, 'c> Alerts<'t, 'c> {
     /// Clears `current`, whose condition no longer holds as it says.
     async fn cleared(&mut self, current: StoredAlert) -> Result<(), DatabaseError> {
         self.tx.alerts().clear(current.id).await?;
-        // A release that cannot read an alert cannot record it either.
         let Some(alert) = current.alert else {
             return Ok(());
         };

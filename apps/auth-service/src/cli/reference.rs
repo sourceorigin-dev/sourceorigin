@@ -30,7 +30,6 @@ impl Reference {
     /// Renders the page from the whole command tree.
     fn render() -> Result<String, fmt::Error> {
         let mut command = Cli::command().bin_name("auth-service");
-        // Building fills in each subcommand's full name and its usage.
         command.build();
         let mut reference = Self {
             page: format!(
@@ -77,7 +76,6 @@ impl Reference {
 
         let subcommands: Vec<&Command> = command
             .get_subcommands()
-            // clap's own `help` command is the `--help` the introduction covers.
             .filter(|subcommand| !subcommand.is_hide_set() && subcommand.get_name() != "help")
             .collect();
         if !subcommands.is_empty() {

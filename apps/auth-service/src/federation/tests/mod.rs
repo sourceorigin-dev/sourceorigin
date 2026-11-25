@@ -203,7 +203,6 @@ impl TestApp {
     }
     /// Adds passkey-presence evidence; ceremony cryptography is covered by passkey tests.
     async fn key(&self, tx: &mut DatabaseTransaction<'_>, user_id: UserId) {
-        // Federation only checks key presence; cryptographic ceremony coverage lives in passkey tests.
         tx.passkeys()
             .insert(&unusable_passkey(user_id))
             .await

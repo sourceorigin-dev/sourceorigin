@@ -177,7 +177,6 @@ async fn administrators_change_another_account_on_its_behalf() {
         DomainEvent::IdentityUnlinked {
             provider: Provider::GitHub,
         },
-        // An administrator has none of the owner's sessions to keep.
         DomainEvent::SessionRevoked {
             session_id: target.session_id,
             reason: RevocationReason::CredentialRemoved,
@@ -203,8 +202,6 @@ async fn administrators_change_another_account_on_its_behalf() {
         .expect("the rename");
     assert_eq!(entry["actor"], "admin");
     assert_eq!(entry["reason"], REASON);
-    // The administrator's own address and browser stay with the admin views; the
-    // owner's own entries keep theirs.
     assert!(
         entry["ip"].is_null() && entry["device"].is_null(),
         "{entry}"
@@ -332,7 +329,6 @@ impl AccountOperation {
             Self::ViewHistory => service.history(viewer, None).await.map(drop),
             Self::ViewPicture => service.picture(viewer).await.map(drop),
             Self::ListNotifications => service.notifications(viewer, None).await.map(drop),
-            // Checked before it looks the notification up, so any ID will do.
             Self::ViewNotification => service
                 .notification(viewer, NotificationId::new())
                 .await
@@ -489,7 +485,6 @@ async fn changes_check_the_administrator_again_after_waiting() {
     let (target, passkeys) = fixture.target(1).await;
     let user = target.user_id;
 
-    // The acting administrator's rights are revoked while the change waits.
     let revoked = fixture.harness.admin().await;
     let mut revocation = database.begin().await.expect("transaction");
     revocation
@@ -517,7 +512,6 @@ async fn changes_check_the_administrator_again_after_waiting() {
         "{result:?}"
     );
 
-    // The target becomes an administrator while the change waits.
     let mut grant = database.begin().await.expect("transaction");
     grant
         .users()
@@ -595,8 +589,6 @@ async fn owners_confirm_the_changes_that_need_it() {
     let item = |template: &str, id: &str| template.replace("{id}", id);
     let id = EmailId::new().to_string();
     let identity = |provider| federation::IDENTITY.replace("{provider}", provider);
-    // Before anything else: malformed IDs and unknown providers too, so the
-    // browser confirms first.
     for (method, path) in [
         (Method::DELETE, item(passkey::ITEM, &id)),
         (Method::DELETE, item(passkey::ITEM, "not-an-id")),

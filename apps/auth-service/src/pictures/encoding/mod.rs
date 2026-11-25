@@ -175,8 +175,6 @@ impl Jpeg {
         reader.limits(limits);
         let mut decoder = reader.into_decoder().map_err(PictureError::decoding)?;
         let (width, height) = decoder.dimensions();
-        // `from_decoder` allocates the decoded image without charging the limits.
-        // An image with a side of no pixels has no square to keep.
         if width == 0
             || height == 0
             || u64::from(width) * u64::from(height) > MAX_PIXELS
@@ -187,11 +185,7 @@ impl Jpeg {
         let orientation = decoder.orientation().map_err(PictureError::decoding)?;
         let square = {
             let mut image = DynamicImage::from_decoder(decoder).map_err(PictureError::decoding)?;
-            // Photos are often stored sideways, with a tag saying how to turn them,
-            // which re-encoding drops.
             image.apply_orientation(orientation);
-            // Cropped before it is scaled: scaling a long strip to fill the square
-            // first would allocate an image as many times wider.
             let (width, height) = (image.width(), image.height());
             let Crop { x, y, size } = crop.map_or_else(
                 || Crop::centred(width, height),
@@ -214,7 +208,6 @@ impl Jpeg {
             let [red, green, blue, alpha] = rgba.get_pixel(x, y).0;
             let over_white = |channel: u8| {
                 let (channel, alpha) = (u16::from(channel), u16::from(alpha));
-                // At most 255, so it fits a byte.
                 u8::try_from((channel * alpha + 255 * (255 - alpha)) / 255).unwrap_or(u8::MAX)
             };
             image::Rgb([over_white(red), over_white(green), over_white(blue)])

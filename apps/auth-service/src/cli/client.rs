@@ -149,8 +149,6 @@ impl OriginCommand {
         } = console;
         match self {
             Self::Add { id, origin, why } => {
-                // Tells hosts within auth's own domain, which browsers accept without the
-                // list, from public suffixes.
                 let auth: Origin = PUBLIC_BASE_URL.parse()?;
                 service
                     .approve_related_origin(operator, &id, &origin, auth.host(), why.reason)
@@ -309,7 +307,6 @@ impl ClientCommand {
     }
 }
 
-// One client per line.
 report!([Client], self, out, {
     out.table(
         [
@@ -331,7 +328,6 @@ report!([Client], self, out, {
     )
 });
 
-// A client's registration, then its secrets, never their values.
 report!(ClientDetail, self, out, {
     let client = &self.client;
     out.title(format_args!("{} ({})", client.display_name, client.id))?;
@@ -379,7 +375,6 @@ report!(ClientDetail, self, out, {
     )
 });
 
-// One approved origin per line, with its client.
 report!([ApprovedOrigin], self, out, {
     out.table(
         ["ORIGIN", "CLIENT", "APPROVED"],

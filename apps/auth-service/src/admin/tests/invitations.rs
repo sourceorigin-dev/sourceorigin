@@ -15,7 +15,6 @@ use sourceorigin_repository::{Channel, Invitation, InvitationKey};
 async fn mailed_invitations_need_email_and_queue_their_link() {
     let harness = Harness::new().await;
     let links = invitation_links();
-    // Unique, since other scenarios share the database.
     let jane = format!("jane-{}@example.com", TokenId::new());
     let address = || Some(NormalizedEmail::parse(&jane).expect("address"));
     let listed = async |service: &AdminService| {
@@ -54,7 +53,6 @@ async fn mailed_invitations_need_email_and_queue_their_link() {
     assert!(matches!(link.sent, InvitationSent::Link(_)), "{link:?}");
 
     let service = harness.service();
-    // A valid address the sender can't send to would never get its link.
     let unsendable = NormalizedEmail::parse("a:b@example.com").expect("valid address");
     let refused = service
         .create_invitation(
@@ -117,7 +115,6 @@ async fn a_disabled_accounts_address_cannot_be_invited() {
     let harness = Harness::new().await;
     let service = harness.service();
     let links = invitation_links();
-    // Unique, since other scenarios share the database.
     let jane = format!("jane-{}@example.com", TokenId::new());
     let address = || Some(NormalizedEmail::parse(&jane).expect("address"));
     let invite = async || {
@@ -242,7 +239,6 @@ async fn invitation_revocation_waits_for_signup() {
         service.revoke_invitation(&operator, invitation.id, reason("Asked by email")),
         async {
             signup.until_blocked(1).await;
-            // The signup revokes the browser's session without a deadlock.
             admin.sign_out(&mut signup).await;
             signup.commit().await.expect("signup");
         }

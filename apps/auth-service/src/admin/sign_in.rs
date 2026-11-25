@@ -179,10 +179,6 @@ impl DashboardSignIn {
         let return_to = Self::path(&handoff.return_to)?;
         let code = Secret::generate()?;
         let mut tx = self.database.begin().await?;
-        // The rights first, share-locked: the handoff written here then commits
-        // before a revocation of them, which deletes it, or not at all. A
-        // revocation takes them before the handoffs and sessions it deletes, so
-        // neither waits for the other in a cycle.
         Operator::hold_rights_of(&mut tx, session.user_id).await?;
         tx.dashboard()
             .insert_handoff(&InsertHandoff {
@@ -227,15 +223,12 @@ impl DashboardSignIn {
             .handoff_user(code.digest().as_bytes())
             .await?)
             .ok_or(AdminError::InvalidHandoff)?;
-        // The rights first, as for the handoff: the session written here commits
-        // before a revocation of them, which ends it, or not at all.
         Operator::hold_rights_of(&mut tx, user_id).await?;
         let handoff = tx
             .dashboard()
             .redeem_handoff(code.digest().as_bytes(), state.digest().as_bytes())
             .await?
             .ok_or(AdminError::InvalidHandoff)?;
-        // The new session replaces it, in the same browser: no sign-out to record.
         if let Some(previous) = BrowserCookie::Dashboard.read(headers) {
             tx.dashboard()
                 .delete_session(previous.digest().as_bytes())

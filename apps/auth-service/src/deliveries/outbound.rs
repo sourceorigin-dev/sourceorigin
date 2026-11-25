@@ -74,7 +74,6 @@ impl OutboundClient {
         let client = builder
             .https_only(true)
             .redirect(redirect::Policy::none())
-            // A proxy would resolve the name itself, after our check.
             .no_proxy()
             .dns_resolver(Arc::new(GuardedResolver(reachable)))
             .connect_timeout(CONNECT_TIMEOUT)
@@ -101,8 +100,6 @@ impl OutboundClient {
         destination: &str,
         request: impl FnOnce(RequestBuilder) -> RequestBuilder,
     ) -> Result<(), DeliveryError> {
-        // A delivery's worker logs only the failure, so the cause is a warning
-        // beside it.
         self.request(method, destination, request, Level::WARN)
             .await
             .map(drop)
@@ -122,7 +119,6 @@ impl OutboundClient {
         accept: &str,
         limit: usize,
     ) -> Result<Vec<u8>, DeliveryError> {
-        // The caller warns of the failure, so the cause is only for debugging.
         let cause = Level::DEBUG;
         let mut response = self
             .request(
@@ -190,7 +186,6 @@ impl OutboundClient {
     /// classification alone becomes the delivery's `last_error`.
     fn transport_error(error: reqwest::Error, level: Level) -> DeliveryError {
         let failure = Self::classify(&error);
-        // The URL can name a person, as a provider's picture URL does.
         let error = error.without_url();
         let error = ErrorChain(&error);
         if level == Level::WARN {

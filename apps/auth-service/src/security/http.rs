@@ -107,7 +107,6 @@ impl CacheClass {
         match self {
             Self::NoStore => HeaderValue::from_static(headers::CACHE_NO_STORE),
             Self::Immutable => HeaderValue::from_static(headers::CACHE_IMMUTABLE),
-            // Digits and fixed text always form a valid header value.
             Self::Public { max_age } => HeaderValue::try_from(headers::cache_public(max_age))
                 .unwrap_or(HeaderValue::from_static(headers::CACHE_NO_STORE)),
         }
@@ -300,7 +299,6 @@ impl HttpSecurity {
         database: Database,
         dashboard: &Origin,
     ) -> Result<Self, InvalidHeaderValue> {
-        // What browsers send: the host, and the port unless it is the scheme's own.
         let host = match dashboard.as_url().port() {
             Some(port) => format!("{}:{port}", dashboard.host()),
             None => dashboard.host().to_owned(),
@@ -453,20 +451,14 @@ impl HttpSecurity {
         request: Request,
         next: Next,
     ) -> Response {
-        // Reuse the original header for CORS so decoration cannot fail during re-parsing.
         let origin = request.headers().get(header::ORIGIN).cloned();
         let endpoint = match policy.listener {
             Listener::Public => Endpoint::of(&request),
             Listener::Admin(_) => Endpoint::dashboard(&request),
         };
-        // The theme of a navigation's error page.
         let navigation = ErrorPages::navigation(request.headers(), request.method(), endpoint)
             .then(|| BrowserCookie::read_preferences(request.headers()));
         let slot = policy.admit(endpoint);
-        // Set by the origin check, which runs under the deadline; an error response
-        // still carries CORS headers once the origin is known to be allowed. A
-        // refusal for overload skips the check, which may query the database, and
-        // any origin may read it: it says only when to try again.
         let mut allowed = slot.is_err();
         let mut response = tokio::time::timeout(policy.request_timeout, async {
             let _slot = slot?;
@@ -517,7 +509,6 @@ impl HttpSecurity {
         }
         let mutation = !matches!(*request.method(), Method::GET | Method::HEAD);
         Self::check_browser(endpoint, request.headers(), allowed, mutation, &self.origin)?;
-        // Unknown paths have no `MatchedPath`: they never consume a budget or need peer metadata.
         if request.extensions().get::<MatchedPath>().is_some()
             && let Some(category) = endpoint.rate_category()
         {
@@ -593,14 +584,11 @@ impl HttpSecurity {
         let grant = match class {
             CacheClass::NoStore => grant,
             CacheClass::Public { .. } => Some(CorsGrant::Public),
-            // Pictures are public; the build assets need no grant.
             CacheClass::Immutable => grant.filter(|grant| matches!(grant, CorsGrant::Public)),
         };
         let public = matches!(grant, Some(CorsGrant::Public));
         let headers = response.headers_mut();
-        // Replaces any handler value: only the class decides.
         headers.insert(header::CACHE_CONTROL, class.cache_control());
-        // Navigation must not leak authentication URLs.
         for (name, value) in headers::security(public, ReferrerPolicy::None) {
             headers.insert(
                 HeaderName::from_static(name),
@@ -634,8 +622,6 @@ impl HttpSecurity {
         ] {
             headers.insert(name, HeaderValue::from_static(value));
         }
-        // Lets cross-origin callers, such as public clients, read the trace ID of a
-        // failed request, and when a refused one may try again.
         headers.insert(
             header::ACCESS_CONTROL_EXPOSE_HEADERS,
             HttpTelemetry::TRACE_ID_HEADER.into(),

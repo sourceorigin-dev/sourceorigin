@@ -459,7 +459,6 @@ impl Notifications {
     }
 }
 
-// The profile picture, or that there is none.
 report!(Option<PictureView>, self, out, {
     match self {
         Some(picture) => out.fields(&[
@@ -471,7 +470,6 @@ report!(Option<PictureView>, self, out, {
     }
 });
 
-// One passkey per line, as `user show` lists them too.
 report!([Passkey], self, out, {
     out.table(
         ["ID", "NAME"],
@@ -481,7 +479,6 @@ report!([Passkey], self, out, {
     )
 });
 
-// One linked provider per line, as `user show` lists them too.
 report!([Identity], self, out, {
     out.table(
         ["PROVIDER", "EMAIL"],
@@ -495,7 +492,6 @@ report!([Identity], self, out, {
     )
 });
 
-// One address per line.
 report!([EmailView], self, out, {
     out.table(
         ["ID", "ADDRESS", "VERIFIED", "PRIMARY"],
@@ -511,8 +507,6 @@ report!([EmailView], self, out, {
     )
 });
 
-// One session per line, then one per dashboard session resting on it, indented,
-// with when it signed in, was last used and ends.
 report!([SessionItem], self, out, {
     out.table(
         [
@@ -551,7 +545,6 @@ report!([SessionItem], self, out, {
     )
 });
 
-// One known browser per line, as `user show` lists them too.
 report!([KnownDevice], self, out, {
     out.table(
         ["DEVICE", "FIRST SEEN", "LAST SEEN"],
@@ -566,8 +559,6 @@ report!([KnownDevice], self, out, {
     )
 });
 
-// One app per line. `OFFLINE` says whether it holds a refresh grant, to act
-// while the owner is away.
 report!([ConnectedApp], self, out, {
     out.table(
         ["CLIENT ID", "NAME", "FIRST PARTY", "OFFLINE", "SCOPES"],
@@ -584,7 +575,6 @@ report!([ConnectedApp], self, out, {
     )
 });
 
-// One entry per line, by its `kind`, and how to list what follows.
 report!(HistoryPage, self, out, {
     out.table(
         ["ID", "TIME", "KIND", "BY", "REASON"],
@@ -602,8 +592,6 @@ report!(HistoryPage, self, out, {
     out.more(self.next)
 });
 
-// Each category and whether it is emailed. Everything about the account itself
-// always is.
 report!([NotificationPreference], self, out, {
     let category = |category, email| [Cell::new(category), Cell::new(email)];
     out.table(
@@ -618,7 +606,6 @@ report!([NotificationPreference], self, out, {
     )
 });
 
-// One notification per line, and how to list what follows.
 report!(NotificationPage, self, out, {
     out.table(
         ["ID", "TIME", "READ", "SUBJECT"],
@@ -635,8 +622,6 @@ report!(NotificationPage, self, out, {
     out.more(self.next)
 });
 
-// A notification: its subject, when, whether it was read, what it offers its
-// owner to do, what it says, and its history entry while the history keeps it.
 report!(NotificationView, self, out, {
     let NotificationItem {
         subject,
@@ -653,7 +638,6 @@ report!(NotificationView, self, out, {
         fields.push(("Offers", Cell::new(action.label())));
     }
     if let Some(entry) = &self.history {
-        // An actor a newer release recorded is not named.
         let by = (entry.actor).map_or_else(String::new, |actor| format!(" (by {actor})"));
         fields.push(("History entry", Cell::new(format_args!("{}{by}", entry.id))));
     }

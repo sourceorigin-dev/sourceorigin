@@ -114,7 +114,6 @@ async fn signup_imports_the_provider_address_verified_only_where_the_provider_is
             })
             .await;
         let user = test.user(None, true).await;
-        // A client IP of its own, so no other test shares its verification limit.
         let ip = std::net::IpAddr::V6(std::net::Ipv6Addr::from(user.as_uuid().as_u128()));
         let mut tx = test.app.database.begin().await.expect("tx");
         test.attach(&mut tx, ip, pending.id, &headers, user)

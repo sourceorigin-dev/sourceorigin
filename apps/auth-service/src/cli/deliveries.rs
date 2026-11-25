@@ -73,7 +73,6 @@ impl DeliveriesCommand {
     }
 }
 
-// One delivery per line, newest first.
 report!([DeliverySummary], self, out, {
     out.table(
         [

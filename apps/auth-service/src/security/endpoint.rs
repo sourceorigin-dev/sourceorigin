@@ -99,7 +99,6 @@ impl Endpoint {
             oidc::AUTHORIZE => Self::Authorize,
             oidc::LOGOUT => Self::Logout,
             page::UNSUBSCRIBE => Self::Unsubscribe,
-            // The root and a page's path ending in a slash redirect to a page.
             page::ROOT => Self::Page,
             _ if page::ALL.contains(&path.strip_suffix('/').unwrap_or(path)) => Self::Page,
             _ if path.starts_with(ACCOUNT_PREFIX) => Self::Account,

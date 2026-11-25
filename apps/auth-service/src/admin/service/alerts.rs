@@ -37,15 +37,9 @@ impl AdminService {
         status: AlertStatus,
         note: Reason,
     ) -> Result<(), AdminError> {
-        // The note is the event's reason, so it is deleted with the event's
-        // personal data.
         let context = operator.context(&note);
         let mut tx = self.database.begin().await?;
-        // Holding the operator's rights before the event's personal data locks
-        // their account: a purge of them, which takes the rights first, waits
-        // rather than deadlocks. `finish` checks them again before committing.
         operator.authorize(&mut tx).await?;
-        // A kind this release cannot read, it cannot record either.
         let Some(StoredAlert {
             alert: Some(alert), ..
         }) = tx.alerts().acknowledge(id).await?

@@ -228,8 +228,6 @@ impl UserCommand {
         let links = AuthConfig::recovery_links_from_environment()?;
         let recent = service.recent_recoveries(operator, id).await?;
         Self::show_recent(console, &recent)?;
-        // Refused before asking, rather than after the confirmation;
-        // the service refuses too.
         let probation = recent
             .iter()
             .any(|recovery| matches!(recovery.state, RecoveryState::Probation { .. }));
@@ -304,8 +302,6 @@ impl UserCommand {
     }
 }
 
-// An account's recent recoveries, newest first, with where each stands and the
-// passkey it enrolled, shown before another is started or one is undone.
 report!([Recovery], self, out, {
     out.table(
         ["RECOVERY", "STARTED", "STATE", "PASSKEY", "NAME", "ACTIVE"],
@@ -339,7 +335,6 @@ report!([Recovery], self, out, {
     out.blank()
 });
 
-// One account per line, and how to list the next page.
 report!(UserPage, self, out, {
     out.table(
         ["ID", "HANDLE", "STATUS", "CREATED", "NAME"],
@@ -357,7 +352,6 @@ report!(UserPage, self, out, {
     out.paging(self.paging, "accounts")
 });
 
-// An account's facts, then one section per kind of record.
 report!(UserDetail, self, out, {
     let user = &self.user;
     out.title(format_args!("{} ({})", user.handle, user.id))?;

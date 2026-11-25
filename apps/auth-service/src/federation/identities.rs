@@ -67,7 +67,6 @@ impl FederationApplication {
         {
             return Err(FederationError::EmailAlreadyOwned);
         }
-        // Claim identity before email, matching link confirmation's lock order to avoid deadlocks.
         tx.federation()
             .insert_identity(&Self::identity(&pending, user_id))
             .await?;
@@ -76,7 +75,6 @@ impl FederationApplication {
         Emails::new(tx, context, user_id)
             .import(email, client_ip, &pending)
             .await?;
-        // Checked again, as stored evidence is read back.
         Ok(pending
             .picture_url
             .as_deref()

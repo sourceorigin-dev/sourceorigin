@@ -67,7 +67,6 @@ pub(crate) struct Shutdown(watch::Receiver<bool>);
 impl Shutdown {
     /// Resolves once shutdown has been requested.
     pub(crate) async fn requested(&self) {
-        // An error means the runner is gone, which is a shutdown too.
         self.0.clone().wait_for(|&requested| requested).await.ok();
     }
 
@@ -207,15 +206,12 @@ impl Jobs {
                 if shutdown.unless(interval.tick()).await.is_none() {
                     return;
                 }
-                // Dropping a half-opened connection on shutdown releases its lock.
                 let Some(connection) = shutdown.unless(database.try_exclusive(J::LOCK)).await
                 else {
                     return;
                 };
                 match connection {
                     Ok(Some(connection)) => {
-                        // Each run is a trace of its own: its queries, the events it
-                        // records, and how it ended.
                         let span = tracing::info_span!(
                             parent: None,
                             "job",
@@ -265,11 +261,9 @@ impl Jobs {
                     tracing::error!(error = %ErrorChain(&error), job = J::NAME, "could not release job lock");
                 }
             }
-            // Unwinding dropped the connection, which releases the lock.
             Some(Err(error)) => {
                 tracing::error!(error = %ErrorChain(&error), job = J::NAME, "background job panicked");
             }
-            // The set holds exactly one task.
             None => {}
         }
     }
@@ -390,8 +384,6 @@ impl Cleanup {
                 return Err(error);
             }
         };
-        // The pass counts before anything that may fail: its alerts change in a
-        // transaction that may not commit, and the streaks must still see it.
         self.failures.reset();
         let due = if behind {
             self.overruns.extend()

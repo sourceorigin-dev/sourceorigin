@@ -131,7 +131,6 @@ impl<'a, 't> Deletions<'a, 't> {
             .await?;
         let purge_after = Utc::now() + Duration::days(GRACE_PERIOD_DAYS);
         self.tx.deletions().schedule(user.id, purge_after).await?;
-        // As disabling does: a recovery link not used yet does not outlive it.
         self.tx.recoveries().cancel_open(user.id).await?;
         let scheduled = DomainEvent::AccountDeletionScheduled { purge_after };
         self.tx
@@ -184,9 +183,6 @@ impl<'a, 't> Deletions<'a, 't> {
             RevocationReason::AccountDeletion,
         )
         .await?;
-        // Each becomes a tombstone without an owner, so its ID is never reused.
-        // Their families are locked together first, in the one order every
-        // statement locks families in.
         let owned: Vec<ClientId> = (self.tx.oidc().list_owned_clients(user.id).await?)
             .into_iter()
             .map(|client| client.id)
@@ -199,8 +195,6 @@ impl<'a, 't> Deletions<'a, 't> {
         if !self.tx.deletions().purge(user.id).await? {
             return Err(DeletionError::NotFound);
         }
-        // Recorded once the account is gone, so the personal data of the request
-        // that purged it is not stored.
         self.tx
             .record(&self.context, Some(user.id), DomainEvent::AccountPurged {})
             .await?;
@@ -337,8 +331,6 @@ impl AccountService {
             .find_by_id_for_update(offer.user_id)
             .await?
             .ok_or(DeletionError::RestoreExpired)?;
-        // Checked again under the account lock, which restoring takes too, so the
-        // offer restores at most once.
         if tx
             .deletions()
             .find_by_restore_token(digest.as_bytes())
@@ -349,8 +341,6 @@ impl AccountService {
         }
         let actor = context.user_without_session(user.id);
         Deletions::new(&mut tx, actor).restore(&user).await?;
-        // As the passkey's sign-in would have. A recovery's passkey in probation
-        // gets no offer, so this passkey may confirm.
         let credential = PasskeyApplication::credential(&mut tx, offer.passkey_id).await?;
         let session = Session::sign_in(&mut tx, context, headers, user.id, credential).await?;
         tx.commit().await?;

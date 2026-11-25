@@ -81,8 +81,6 @@ impl AccountService {
         let mut tx = self.database.begin().await?;
         subject.lock(&mut tx).await?;
         let user = subject.user();
-        // Refresh grants before the consent, in the order a client's deletion
-        // locks them, so neither waits for what the other holds.
         let revoked = tx.tokens().revoke_for_user(user, Some(client)).await?;
         let withdrawn = tx.oidc().revoke_consents(user, Some(client)).await?;
         tx.oidc().expire_codes(user, client).await?;

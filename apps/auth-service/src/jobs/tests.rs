@@ -165,7 +165,6 @@ async fn runners_never_overlap_and_a_dropped_holder_hands_over() {
         jobs.exclusive(Held { runner, log }, database.clone());
         Some(jobs)
     });
-    // A few runs in, cancel whichever runner is mid-run.
     let holder = log
         .wait_for(|events| match Log::runs_of(events).as_slice() {
             runs @ [.., Event::Started(holder)] if runs.len() > 6 => Some(*holder),
@@ -213,7 +212,6 @@ async fn failing_purges_raise_their_alert_until_none_fail() {
     let harness = crate::admin::tests::Harness::isolated().await;
     let database = &harness.database;
     let user_id = harness.account().await.user_id;
-    // Failing, and waiting a day for its next attempt, so the run purges nothing.
     let mut deletions = database.deletions();
     deletions
         .schedule(user_id, Utc::now() - chrono::Duration::days(1))
@@ -250,7 +248,6 @@ async fn cleanup_that_keeps_falling_behind_raises_its_alert() {
     let database = crate::admin::tests::Harness::isolated().await.database;
     let mut lock = database.exclusive(LockKey::Cleanup).await.expect("lock");
     let shutdown = Shutdown(watch::Sender::new(false).subscribe());
-    // Out of time as soon as it deletes anything.
     let cleanup = Cleanup {
         budget: Duration::ZERO,
         overruns: Streak::new(Cleanup::BEHIND_AFTER),
@@ -268,7 +265,6 @@ async fn cleanup_that_keeps_falling_behind_raises_its_alert() {
     };
     let mut raised = None;
     for pass in 1..=Cleanup::BEHIND_AFTER + 1 {
-        // An expired invitation, for the pass to delete.
         let digest = UserId::new().as_uuid().as_u128().to_be_bytes().repeat(2);
         let expired = Utc::now() - chrono::Duration::days(1);
         database

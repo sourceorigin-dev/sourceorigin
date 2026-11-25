@@ -143,7 +143,6 @@ struct Reserved {
     built_in: &'static [&'static str],
 }
 
-// One account per line whose handle the rules refuse, with why.
 report!([HandleProblem], self, out, {
     out.table(
         ["HANDLE", "ACCOUNT", "PROBLEM"],
@@ -158,7 +157,6 @@ report!([HandleProblem], self, out, {
     )
 });
 
-// One released handle per line, with the account that held it.
 report!([ReleasedHandle], self, out, {
     out.table(
         ["HANDLE", "ACCOUNT", "RELEASED"],
@@ -175,7 +173,6 @@ report!([ReleasedHandle], self, out, {
     )
 });
 
-// One reserved handle per line, those administrators reserved first.
 report!(Reserved, self, out, {
     let reserved = self.reserved.iter().map(|reserved| {
         [

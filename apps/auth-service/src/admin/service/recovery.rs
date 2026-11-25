@@ -70,8 +70,6 @@ impl AdminService {
             return Err(AdminError::RecoveryNeedsEmail);
         }
         let context = operator.context(&reason);
-        // Cancelled before any revocation, which the database refuses while a
-        // recovery's link works.
         tx.recoveries().cancel_open(user_id).await?;
         let revoke = match revoke {
             Some(revoke) => Some(Self::take_back(&mut tx, &context, user_id, revoke).await?),
@@ -134,7 +132,6 @@ impl AdminService {
         }
         for identity in tx.federation().list_active(user_id).await? {
             let provider = identity.provider;
-            // The recovery's own notification tells the owner.
             if tx.federation().unlink(user_id, provider).await? {
                 tx.record_quietly(
                     context,

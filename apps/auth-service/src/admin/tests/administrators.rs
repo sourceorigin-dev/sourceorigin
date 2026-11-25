@@ -34,8 +34,6 @@ async fn administrators_are_protected_until_revoked() {
         .revoke_administrator(&by_admin, admin.user_id, reason("Asked by email"))
         .await;
     assert!(matches!(refused, Err(AdminError::OwnRights)), "{refused:?}");
-    // Refused before any lock, so a grant queued behind the caller's own
-    // revocation cannot restore their rights.
     let refused = service
         .grant_administrator(&by_admin, admin.user_id, reason("Asked by email"))
         .await;

@@ -415,7 +415,6 @@ impl AccountExport {
         current: SessionId,
         permit: SemaphorePermit<'static>,
     ) -> Result<Self, DatabaseError> {
-        // The snapshot waits on the browser's download between batches.
         snapshot.allow_idle(DEADLINE).await?;
         let tx = &mut snapshot;
         let user = tx
@@ -430,8 +429,6 @@ impl AccountExport {
             }
             None => None,
         };
-        // Events name every app, so every client is read once for both. A
-        // deleted client keeps its owner, so the account's tombstones are in it.
         let every = tx.oidc().list_clients().await?;
         let names = HistoryItem::names(&every);
         let origins = tx.oidc().related_origins().await?;
@@ -514,7 +511,6 @@ impl AccountExport {
                     Err(_) => ExportError::Deadline,
                 };
                 tracing::error!(error = %ErrorChain(&error), "account export failed");
-                // The browser may already be gone.
                 sender.send(Err(error)).await.ok();
             }
             .in_current_span(),
@@ -540,7 +536,6 @@ impl AccountExport {
             (sender.send(Ok(chunk.into())).await).map_err(|_| ExportError::Closed)
         };
         let mut head = serde_json::to_vec_pretty(&records)?;
-        // A struct with fields pretty-prints as `{…\n}`: reopen it for the events.
         head.truncate(head.len() - b"\n}".len());
         head.extend_from_slice(b",\n  \"events\": [");
         send(head).await?;

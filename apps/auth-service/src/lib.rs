@@ -176,7 +176,6 @@ impl AuthConfig {
                 policy,
                 security::HttpSecurity::protect,
             ));
-        // Outside the security layer, so throttled and rejected requests are traced too.
         Ok(HttpTelemetry::default()
             .quiet(&[routes::service::LIVE, routes::service::READY])
             .wrap(protected))

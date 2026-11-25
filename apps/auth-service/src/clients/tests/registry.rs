@@ -142,7 +142,6 @@ async fn rotated_secrets_overlap_until_their_grace_period_ends() {
     let replicas = Replicas::new().await;
     let database = Replicas::database().await;
     let client = registration(ClientKind::Confidential, "https://api.example");
-    // Revocation answers 200 for any token once the client authenticates.
     let revokes = async |secret: &ClientSecret| {
         send(
             &replicas.a,
@@ -390,8 +389,6 @@ async fn the_quota_holds_under_concurrent_registrations() {
         u64::from(MAX_OWNED_CLIENTS)
     );
 
-    // Deleting frees a place, but deleted clients still count against the
-    // daily limit, so an account cannot pile up tombstones.
     for registration_number in MAX_OWNED_CLIENTS..=MAX_DAILY_REGISTRATIONS {
         let freed = registered.pop().expect("a client to delete");
         change(&database, async |registry| registry.delete(&freed).await)

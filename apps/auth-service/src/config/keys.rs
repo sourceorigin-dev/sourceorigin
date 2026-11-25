@@ -131,7 +131,6 @@ impl KeyEncryptionKeys {
         sealed: &[u8],
         aad: &[u8],
     ) -> Result<Zeroizing<Vec<u8>>, CryptoError> {
-        // Opening fails only as `Unsealable`, so the attempts lose no detail.
         [Some(&self.current), self.accepted.as_ref()]
             .into_iter()
             .flatten()

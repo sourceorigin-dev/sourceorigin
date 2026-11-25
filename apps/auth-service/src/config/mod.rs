@@ -297,7 +297,6 @@ impl AuthConfig {
             .map(str::trim)
             .filter(|proxy| !proxy.is_empty())
             .map(|proxy| {
-                // Choose the syntax before parsing so malformed CIDRs retain their own diagnostic.
                 if proxy.contains('/') {
                     proxy
                         .parse::<IpNet>()

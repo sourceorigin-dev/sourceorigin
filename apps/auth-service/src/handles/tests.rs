@@ -34,7 +34,6 @@ async fn the_first_rename_is_free_and_later_ones_wait_out_the_cooldown() {
     let original = user().await;
     let renamed = format!("renamed-{}", &browser.user_id.to_string()[24..]);
 
-    // Social sign-in never confirms a session.
     let social =
         Browser::sign_in_with(&database, browser.user_id, AuthenticationMethod::Federation)
             .await
@@ -44,7 +43,6 @@ async fn the_first_rename_is_free_and_later_ones_wait_out_the_cooldown() {
         account.rename_handle(&social, &renamed).await,
         Err(AccountError::Owner(SessionError::StepUpRequired { .. }))
     ));
-    // A new account corrects the handle chosen at signup without waiting.
     assert_eq!(original.handle_changed_at, None);
     let handle = account
         .rename_handle(&owner, &format!(" {renamed} "))
@@ -77,7 +75,6 @@ async fn the_first_rename_is_free_and_later_ones_wait_out_the_cooldown() {
         changed.handle_changed_at.map(|at| at + COOLDOWN)
     );
 
-    // Taking back the old handle restarts the cooldown too.
     wait_out_cooldown().await;
     account
         .rename_handle(&owner, original.handle.as_str())

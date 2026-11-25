@@ -217,7 +217,6 @@ impl<'a, 't> ClientRegistry<'a, 't> {
     /// locked until the transaction ends, so concurrent registrations count one
     /// another rather than each seeing a free place.
     async fn reserve(&mut self, owner: UserId) -> Result<(), ClientRegistryError> {
-        // Only the lock matters: an account in any status keeps its clients.
         self.tx.users().find_by_id_for_update(owner).await?;
         let counts = self
             .tx
@@ -391,7 +390,6 @@ impl<'a, 't> ClientRegistry<'a, 't> {
         id: &ClientId,
         grace: GracePeriod,
     ) -> Result<ClientSecret, ClientRegistryError> {
-        // Locked, so a concurrent rotation cannot insert a secret this cap misses.
         let client = self.locked(id).await?;
         if client.kind == ClientKind::Public {
             return Err(ClientRegistryError::Public(client.id));
@@ -411,7 +409,6 @@ impl<'a, 't> ClientRegistry<'a, 't> {
     /// Fails if the client does not exist or was already deleted, or the database
     /// fails.
     pub(crate) async fn delete(&mut self, id: &ClientId) -> Result<(), ClientRegistryError> {
-        // Families before the client, in the order a refresh locks them.
         self.tx
             .tokens()
             .lock_client_families(std::slice::from_ref(id))
@@ -532,8 +529,6 @@ impl<'a, 't> ClientRegistry<'a, 't> {
         id: &ClientId,
         origin: &RelatedOrigin,
     ) -> Result<(), ClientRegistryError> {
-        // Locked as every change to a client is, so an inline sign-in completing
-        // under the client's share lock sees the origin approved or gone.
         self.locked(id).await?;
         if !self.tx.oidc().remove_related_origin(id, origin).await? {
             return Err(ClientRegistryError::OriginNotApproved {

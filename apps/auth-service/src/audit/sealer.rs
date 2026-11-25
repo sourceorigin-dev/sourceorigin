@@ -166,7 +166,6 @@ impl Sealer {
     /// [`Self::checkpoint`].
     async fn sign(&self, connection: &mut ExclusiveConnection) -> Result<(), AuditError> {
         let mut tx = connection.begin().await?;
-        // The note's time has whole seconds, and so does the stored copy.
         let time = Utc::now().trunc_subsecs(0);
         let TrustedCheckpoint { trusted, untrusted } =
             self.keys.newest_trusted(&mut tx.audit()).await?;
@@ -178,24 +177,18 @@ impl Sealer {
                 "audit checkpoints do not verify against the audit keys; signing from the newest that does"
             );
         }
-        // Only a trusted checkpoint counts for the interval, so newer untrusted
-        // ones cannot postpone signing.
         if trusted
             .as_ref()
             .is_some_and(|trusted| time - trusted.created_at < self.checkpoint_every)
         {
             return Ok(());
         }
-        // Recompute from the trusted checkpoint, or the anchor if it is newer, as
-        // when the key that signed it was removed: only pruning moves the anchor.
         let anchor = tx.audit().anchor().await?;
         let start = [trusted.as_ref(), anchor.as_ref()]
             .into_iter()
             .flatten()
             .max_by_key(|checkpoint| checkpoint.position)
             .map_or(ChainLink::GENESIS, ChainLink::signed);
-        // Nothing new to sign, or an untrusted checkpoint holds the head's position
-        // until the next event is sealed: return before recomputing anything.
         let newest = untrusted
             .first()
             .map_or(start.position, |newest| newest.position);

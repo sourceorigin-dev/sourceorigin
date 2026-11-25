@@ -168,7 +168,6 @@ impl Replicas {
             .federation
             .providers
             .insert(Provider::GitHub, ProviderConfig::test(&secret));
-        // The replicas read the secret as they start.
         let replicas = Self::of(&config).await;
         std::fs::remove_file(&secret).expect("provider secret removed");
         replicas
@@ -445,7 +444,6 @@ impl Browser {
 /// enough detail to store.
 pub(crate) fn detailed_png() -> Vec<u8> {
     let noise = image::RgbImage::from_fn(384, 288, |x, y| {
-        // MurmurHash3's finalizer, which no PNG filter predicts.
         let mut hash = u64::from(y << 9 | x);
         for multiplier in [0xff51_afd7_ed55_8ccd, 0xc4ce_b9fe_1a85_ec53] {
             hash ^= hash >> 33;

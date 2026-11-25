@@ -139,8 +139,6 @@ impl AuditApplication {
         {
             return Ok(found.note.clone());
         }
-        // One snapshot, so a checkpoint stored during the search is counted only
-        // if the search saw it.
         let mut tx = self.database.begin().await?;
         tx.audit().read_snapshot().await?;
         let search = self

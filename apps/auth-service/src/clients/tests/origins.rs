@@ -47,7 +47,6 @@ fn related_origins_count_registrable_domain_labels() {
 async fn origin_approval_needs_trust_a_redirect_origin_and_few_domains() {
     let database = Replicas::database().await;
     let unique = UserId::new();
-    // Six registrable domains, then a second origin on the first one.
     let mut origins: Vec<RelatedOrigin> = (0..6)
         .map(|domain| format!("https://d{domain}-{unique}.example"))
         .chain([format!("https://www.d0-{unique}.example")])
@@ -119,9 +118,6 @@ async fn origin_approval_needs_trust_a_redirect_origin_and_few_domains() {
         panic!("a sixth domain is refused, not {error}");
     };
     assert_eq!(domains.len(), MAX_RELATED_ORIGIN_DOMAINS + 1);
-    // Other tests' origins within auth's domain count as `sourceorigin`, and a database
-    // other runs left full refuses the first domain. Otherwise another origin on an
-    // approved domain still fits.
     if !approved.is_empty() {
         approve(&origins[6])
             .await
@@ -137,8 +133,6 @@ async fn origin_approval_needs_trust_a_redirect_origin_and_few_domains() {
         Err(ClientRegistryError::OriginNotApproved { .. })
     ));
 
-    // Clients are tombstoned, so a trigger, not the query, removes the origins of a
-    // deleted one, whichever release deleted it.
     approve(&inside).await.expect("approved again");
     change(&database, async |registry| {
         registry.delete(&client.id).await

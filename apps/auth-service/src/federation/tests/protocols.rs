@@ -177,7 +177,6 @@ async fn google_signed_tokens_are_verified() {
     protocol.keys = KeyCache::fixed(
         KeySet::parse(&serde_json::to_vec(&rsa.jwks()).expect("JWKS")).expect("key set"),
     );
-    // Long past, so a check reading the system clock would refuse every token.
     let now = DateTime::from_timestamp(1_767_225_600, 0).expect("time");
     let at = |seconds: i64| now.timestamp() + seconds;
     let valid = serde_json::json!({"iss":"https://accounts.google.com","aud":"client","sub":"subject","iat":at(0),"exp":at(300),"nonce":"nonce"});
@@ -185,7 +184,6 @@ async fn google_signed_tokens_are_verified() {
         let token = rsa.sign(TokenType::Id, claims).expect("signed token");
         GoogleClaims::verify(&token, &protocol, "client", "nonce", now).await
     };
-    // The shared check's error, behind Google's.
     let rejection = async |claims: &serde_json::Value| {
         let error = verify(claims).await.err()?;
         std::error::Error::source(&error)?
@@ -215,13 +213,11 @@ async fn google_signed_tokens_are_verified() {
             serde_json::json!(at(31)),
             ClaimsError::IssuedInFuture(time(31)),
         ),
-        // Google may send `nbf`, which gets the same leeway as `iat`.
         (
             "nbf",
             serde_json::json!(at(31)),
             ClaimsError::NotYetValid(time(31)),
         ),
-        // Expiry has no leeway: a token that expired a second ago is refused.
         (
             "exp",
             serde_json::json!(at(-1)),
@@ -247,7 +243,6 @@ async fn google_signed_tokens_are_verified() {
             serde_json::json!({}),
         ] {
             claims[field] = value;
-            // Numeric expiry is valid only while it lies in the future; 123 is expired.
             assert!(verify(&claims).await.is_err(), "invalid {field}");
         }
     }
@@ -382,7 +377,6 @@ fn provider_pictures_stay_on_the_provider_s_host() {
     }
     let long = format!("https://avatars.githubusercontent.com/{}", "a".repeat(2048));
     assert_eq!(parsed(Provider::GitHub, &long), None);
-    // Within the limit as reported, past it once it asks for the size.
     let host = "https://avatars.githubusercontent.com/";
     let near = format!("{host}{}", "a".repeat(2048 - host.len()));
     assert_eq!(parsed(Provider::GitHub, &near), None);

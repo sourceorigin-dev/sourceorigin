@@ -84,7 +84,6 @@ impl AdminService {
             .update_draft(&Self::drafted(id, draft, accounts.as_deref()))
             .await?
         else {
-            // Its connection goes back to the pool before the lookup takes one.
             tx.rollback().await?;
             return Err(self.unchangeable(id).await);
         };
@@ -122,7 +121,6 @@ impl AdminService {
     ) -> Result<u64, AdminError> {
         let mut tx = self.database.begin().await?;
         let Some(sent) = tx.announcements().send(id, revision).await? else {
-            // Its connection goes back to the pool before the lookup takes one.
             tx.rollback().await?;
             return Err(self.unchangeable(id).await);
         };
@@ -131,7 +129,6 @@ impl AdminService {
             recipients: sent.recipients,
             essential: sent.essential,
         };
-        // Its text says why it was sent, so nobody writes a reason for it.
         Self::finish(tx, operator, &Reason::see_message(), None, vec![event]).await?;
         Ok(sent.recipients)
     }

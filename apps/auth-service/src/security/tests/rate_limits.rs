@@ -36,8 +36,6 @@ async fn rate_limit_deadline_includes_a_blocked_database_query() {
     .expect("whole request is bounded");
     assert_eq!(response.status(), StatusCode::GATEWAY_TIMEOUT);
     transaction.rollback().await.expect("release lock");
-    // Once the lock is free, the fixture's own deadline applies: a request on a
-    // busy machine may take longer than the second the blocked one had.
     fixture.router = token_route(fixture.policy.clone());
     assert_eq!(
         fixture
@@ -132,7 +130,6 @@ async fn budgets_are_separate_and_unknown_paths_do_not_consume_them() {
         .await;
     assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
     assert_eq!(response.headers()[header::RETRY_AFTER], "60");
-    // UserInfo calls never block code exchanges.
     assert_eq!(
         fixture
             .request(Method::POST, "/oauth/token", None, false)
@@ -275,7 +272,6 @@ fn routes_doing_real_work_have_budgets() {
     ] {
         assert_eq!(Endpoint::classify(path).rate_category(), budget, "{path}");
     }
-    // The root and a page's path ending in a slash only redirect to a page.
     let redirects = page::ALL.map(|path| format!("{path}/"));
     for path in page::ALL
         .into_iter()
@@ -321,7 +317,6 @@ fn the_dashboard_search_has_its_own_budget() {
 /// matched is classified by its path.
 #[tokio::test]
 async fn requests_are_classified_by_their_route() {
-    // Answers whether the request is a page's.
     let classified = || {
         any(|request: Request| async move {
             if Endpoint::of(&request).rate_category() == Some(RateCategory::Page) {
