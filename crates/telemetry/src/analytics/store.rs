@@ -121,7 +121,7 @@ impl Store {
     }
 
     /// Connects to `value`, the URL `variable` holds, with `password`.
-    fn new(
+    pub(crate) fn new(
         variable: Variable,
         value: &str,
         password: SecretString,
@@ -152,28 +152,6 @@ impl Store {
             password,
             database,
         })
-    }
-
-    /// The database `TEST_ANALYTICS_URL` names, as its owner, with the
-    /// `TEST_ANALYTICS_PASSWORD` password; `just analytics scratch` sets both.
-    ///
-    /// # Panics
-    /// Panics when either is unset or malformed.
-    #[cfg(any(test, feature = "test-util"))]
-    #[must_use]
-    #[expect(
-        clippy::expect_used,
-        reason = "a test helper, which panics as documented"
-    )]
-    pub fn test() -> Self {
-        let url = Variable::new("TEST_ANALYTICS_URL");
-        let value = url
-            .required()
-            .expect("TEST_ANALYTICS_URL names a scratch ClickHouse");
-        let password = Variable::new("TEST_ANALYTICS_PASSWORD")
-            .required()
-            .expect("TEST_ANALYTICS_PASSWORD is its owner's password");
-        Self::new(url, &value, SecretString::from(password)).expect("a valid TEST_ANALYTICS_URL")
     }
 
     /// The same server as another user, e.g. the writer `migrate` provisions.

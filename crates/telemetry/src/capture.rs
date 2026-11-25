@@ -1,15 +1,18 @@
-//! What a test would export, captured in memory through the production layers.
+//! What a test would export, captured in memory through the production layers,
+//! and the scratch ClickHouse an analytics test writes to.
 #![expect(
     clippy::expect_used,
     reason = "test-only helpers, which panic on failure as the `# Panics` sections document"
 )]
 
-use crate::Telemetry;
+use crate::{Telemetry, analytics::Store};
 use opentelemetry::KeyValue;
 use opentelemetry_sdk::{
     logs::{InMemoryLogExporter, SdkLogRecord, SdkLoggerProvider},
     trace::{InMemorySpanExporter, SdkTracerProvider, SpanData},
 };
+use secrecy::SecretString;
+use sourceorigin_common::config::Variable;
 use tracing::subscriber::DefaultGuard;
 use tracing_subscriber::util::SubscriberInitExt;
 
@@ -112,5 +115,24 @@ impl Capture {
         attributes
             .iter()
             .map(|attribute| format!("{}={}", attribute.key, attribute.value))
+    }
+}
+
+impl Store {
+    /// The database `TEST_ANALYTICS_URL` names, as its owner, with the
+    /// `TEST_ANALYTICS_PASSWORD` password; `just analytics scratch` sets both.
+    ///
+    /// # Panics
+    /// Panics when either is unset or malformed.
+    #[must_use]
+    pub fn test() -> Self {
+        let url = Variable::new("TEST_ANALYTICS_URL");
+        let value = url
+            .required()
+            .expect("TEST_ANALYTICS_URL names a scratch ClickHouse");
+        let password = Variable::new("TEST_ANALYTICS_PASSWORD")
+            .required()
+            .expect("TEST_ANALYTICS_PASSWORD is its owner's password");
+        Self::new(url, &value, SecretString::from(password)).expect("a valid TEST_ANALYTICS_URL")
     }
 }
