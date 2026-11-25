@@ -43,13 +43,8 @@ approvers = ["PiquelChips"]
 # the standard; `cargo xtask standard --fix` drops each file once it complies.
 [deviations]
 
-# Four of the findings are `// wall-clock:` comments, which
-# docs/dev/testing.md requires above a test's poll or sleep:
-# apps/auth-service/src/admin/tests/mutations.rs,
-# apps/auth-service/src/audit/tests.rs, crates/database/src/connection/mod.rs
-# and crates/database/src/fixtures.rs. sourceorigin-standard 0.1.1 allows them.
 [deviations.rust-comments]
-reason = "852 findings, fixed in a follow-up, and 4 `// wall-clock:` comments, which wait for sourceorigin-standard 0.1.1 to allow them"
+reason = "852 findings, fixed in a follow-up"
 paths = [
     "apps/auth-service/src/account/tests.rs",
     "apps/auth-service/src/admin/error.rs",
@@ -255,7 +250,6 @@ paths = [
     "crates/database/src/error/mod.rs",
     "crates/database/src/error/tests.rs",
     "crates/database/src/exclusive/tests.rs",
-    "crates/database/src/fixtures.rs",
     "crates/database/src/inventory/mod.rs",
     "crates/database/src/inventory/tests.rs",
     "crates/database/src/lib.rs",
