@@ -54,6 +54,5 @@ reason = "4 findings, fixed in a follow-up"
 paths = [
     "apps/auth-service/src/recovery/mod.rs",
     "crates/auth-sdk/src/axum/login/extract.rs",
-    "crates/telemetry/src/metrics.rs",
     "crates/ui/src/form.rs",
 ]
