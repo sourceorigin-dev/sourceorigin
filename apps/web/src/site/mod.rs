@@ -154,8 +154,6 @@ impl Site {
     /// redirects and errors.
     fn secure(mut response: Response) -> Response {
         let headers = response.headers_mut();
-        // No other site may embed what it serves, and links to apps carry no path
-        // of sourceorigin.dev.
         for (name, value) in headers::security(false, ReferrerPolicy::Origin) {
             headers.insert(
                 HeaderName::from_static(name),

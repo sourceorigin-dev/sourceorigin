@@ -16,7 +16,6 @@
 //!
 //! Everything a span, log line or label holds may be exported. Never record a
 //! secret, a request path or query string, or a request header.
-// A library leaves printing to its caller: it returns errors and logs through tracing.
 #![warn(clippy::print_stdout, clippy::print_stderr)]
 
 /// OTLP export through the workspace's `reqwest`.
@@ -194,11 +193,6 @@ impl Telemetry {
     /// longer than `within`.
     pub async fn shutdown(self, within: Duration) -> Result<(), TelemetryError> {
         let (flushed, result) = tokio::sync::oneshot::channel();
-        // Exporters send on this runtime while the flush blocks its own thread. A
-        // detached thread, unlike `spawn_blocking`, is never waited for when the
-        // runtime drops, so a flush that times out does not delay the exit. Blocking
-        // work the exporters started on the runtime, such as a DNS lookup, still
-        // holds a runtime's drop: a bounded exit also needs `shutdown_background`.
         std::thread::spawn(move || {
             let tracer = self.tracer.shutdown();
             let meter = self.meter.map_or(Ok(()), |meter| meter.shutdown());

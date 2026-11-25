@@ -113,7 +113,6 @@ impl Publish<'_> {
                 ]),
                 "E404",
             )?;
-            // npm prints nothing for a missing version of a package it has.
             if found.is_some_and(|version| !version.is_empty()) {
                 println!("{} {} is already on npm", package.name, package.version);
                 return Ok(());
