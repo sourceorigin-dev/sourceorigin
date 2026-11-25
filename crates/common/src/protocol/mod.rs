@@ -101,6 +101,9 @@ fn known<'de, D: Deserializer<'de>, T: FromStr>(deserializer: D) -> Result<Vec<T
 
 /// Reads one optional value, as none when it does not parse: a vocabulary value this
 /// version does not know, or a field a link or form may get wrong. A `deserialize_with`.
+///
+/// # Errors
+/// Returns the deserializer's error when the field is not text.
 pub fn known_one<'de, D: Deserializer<'de>, T: FromStr>(
     deserializer: D,
 ) -> Result<Option<T>, D::Error> {
