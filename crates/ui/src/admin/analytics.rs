@@ -170,16 +170,32 @@ pub async fn admin_analytics(
         page_head(title: "Analytics", lead: lead.to_owned())
         match page {
             AnalyticsPage::Off => {
-                <p class="notice">
-                    "Analytics are off: the dashboard has no reader for the analytics database. Set ANALYTICS_READER_URL and ANALYTICS_READER_PASSWORD."
-                </p>
+                missing_analytics(unavailable: false)
             }
             AnalyticsPage::Unavailable => {
-                <p class="notice error">"The analytics database didn't answer. Auth logs why, as “the analytics page could not be read”."</p>
+                missing_analytics(unavailable: true)
             }
             AnalyticsPage::Shown(report) => {
                 report_view(report: *report)
             }
+        }
+    })
+}
+
+/// What a dashboard page of analytics says when it shows none: that the
+/// database didn't answer, when `unavailable`, else that analytics are off.
+#[component]
+pub(crate) async fn missing_analytics(
+    /// Whether the database didn't answer, rather than analytics being off.
+    unavailable: bool,
+) -> Result<impl View> {
+    Ok(view! {
+        if unavailable {
+            <p class="notice error">"The analytics database didn't answer. Auth logs why, as “analytics could not be read”."</p>
+        } else {
+            <p class="notice">
+                "Analytics are off: the dashboard has no reader for the analytics database. Set ANALYTICS_READER_URL and ANALYTICS_READER_PASSWORD."
+            </p>
         }
     })
 }

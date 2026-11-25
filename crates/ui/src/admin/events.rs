@@ -29,6 +29,8 @@ pub struct EventRow<'a> {
     pub account: Option<String>,
     /// The page of the account that caused it.
     pub actor: Option<String>,
+    /// The page of the trace it was recorded in.
+    pub trace: Option<String>,
 }
 
 /// An event in words: what happened, and the facts worth a glance.
@@ -655,12 +657,15 @@ pub async fn event_rows<'a>(
                                 for (name, value) in described.facts.iter().chain(&request) {
                                     " · " (*name) " " <span class="fact">(value.as_str())</span>
                                 }
+                                if let Some(trace) = &row.trace {
+                                    " · " <a href=(trace.as_str())>"its trace"</a>
+                                }
                             </small>
                             <details class="raw">
                                 <summary>
                                     <code>(row.kind())</code>
                                     if let Some(trace_id) = row.event.trace_id {
-                                        " · trace " <span title="Look this trace ID up in the spans and logs tables">(trace_id.to_string())</span>
+                                        " · trace " (trace_id.to_string())
                                     }
                                 </summary>
                                 <pre><code>(row.raw())</code></pre>

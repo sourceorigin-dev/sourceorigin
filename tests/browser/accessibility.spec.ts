@@ -103,6 +103,11 @@ test("the dashboard's pages", async ({ browser }) => {
     await openDashboard(admin, path);
     await expectAccessible(admin, path);
   }
+  // A trace, its spans and log lines, through the Events page's link: the
+  // administrator's own sign-in has one.
+  await openDashboard(admin, '/events');
+  await admin.getByRole('link', { name: 'its trace' }).first().click();
+  await expectAccessible(admin, 'a trace');
   // An account, and its settings as an administrator changes them, each headed
   // by the account: one that administers nothing, whose settings they may open.
   const user = `axe-user-${Date.now().toString(36)}`;

@@ -43,6 +43,8 @@ mod search;
 mod settings;
 #[cfg(test)]
 mod tests;
+/// One trace's spans and log lines.
+mod traces;
 /// Account search, one account, and the changes made to it.
 mod users;
 
@@ -67,8 +69,8 @@ use sourceorigin_crypto::NoteVerifier;
 use sourceorigin_repository::Database;
 use sourceorigin_telemetry::{HttpTelemetry, analytics::Store};
 use sourceorigin_ui::{
-    Change, Crumb, Dashboard, DashboardConfirmation, DashboardTab, Health, PreferenceChange,
-    SearchAction, SearchPage, Shortcut, ShortcutKind, Target, Who,
+    Change, Charted, Crumb, Dashboard, DashboardConfirmation, DashboardTab, Health,
+    PreferenceChange, SearchAction, SearchPage, Shortcut, ShortcutKind, Target, Who,
 };
 use std::{
     future::Future,
@@ -217,7 +219,8 @@ impl AttentionCache {
 pub(crate) struct AdminApplication {
     /// Every administrative operation.
     service: AdminService,
-    /// Reads the analytics database for the Analytics page, if configured.
+    /// Reads the analytics database for the Analytics and trace pages, if
+    /// configured.
     analytics: Option<Store>,
     /// The settings administrators share with owners.
     account: AccountService,
@@ -355,6 +358,7 @@ impl AdminApplication {
             .layer(answers)
             .route(overview::overview)
             .route(analytics::analytics)
+            .route(traces::trace)
             .route(preferences)
             .route(sign_in)
             .route(start_confirmation)
@@ -561,6 +565,28 @@ impl AdminApplication {
     /// The dashboard's application context.
     fn of(cx: &Cx) -> &Self {
         app_context::<Self>(cx)
+    }
+
+    /// What a page of analytics shows: what `read` reads through the
+    /// dashboard's reader, or why it can't. A database that refuses or doesn't
+    /// answer is said on the page, `page`, and logged; any other failure, such
+    /// as the administrator's, is the page's.
+    async fn charted<T>(
+        &self,
+        page: &'static str,
+        read: impl AsyncFnOnce(&Store) -> Result<T, AdminError>,
+    ) -> Result<Charted<T>> {
+        let Some(reader) = &self.analytics else {
+            return Ok(Charted::Off);
+        };
+        match read(reader).await {
+            Ok(read) => Ok(Charted::Shown(read)),
+            Err(AdminError::Analytics(error)) => {
+                tracing::warn!(error = %ErrorChain(&error), page, "analytics could not be read");
+                Ok(Charted::Unavailable)
+            }
+            Err(error) => Err(error.into()),
+        }
     }
 
     /// The administrator signed in to the dashboard. A browser without a session

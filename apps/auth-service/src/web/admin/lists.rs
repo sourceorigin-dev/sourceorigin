@@ -95,6 +95,9 @@ impl App {
                     event,
                     account: event.subject.map(|subject| App::account(cx, subject)),
                     actor,
+                    trace: event.trace_id.map(|id| {
+                        href!(super::traces::trace, super::traces::Trace(id)).resolve(cx)
+                    }),
                 }
             })
             .collect()

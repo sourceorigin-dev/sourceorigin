@@ -2,14 +2,8 @@
 //! counts, as charts with their tables.
 
 use super::AdminApplication as App;
-use crate::{
-    admin::{AdminError, Analytics},
-    charted::Period,
-};
-use sourceorigin_common::ErrorChain;
-use sourceorigin_ui::{
-    AnalyticsPage, AnalyticsReport, BrowserError, Point, SlowPage, SlowRoute, StoredTable,
-};
+use crate::{admin::Analytics, charted::Period};
+use sourceorigin_ui::{AnalyticsReport, BrowserError, Point, SlowPage, SlowRoute, StoredTable};
 use topcoat::{
     Result,
     context::Cx,
@@ -23,17 +17,12 @@ use topcoat::{
 pub(super) async fn analytics(cx: &Cx) -> Result<Response> {
     let admin = App::admin(cx).await?;
     let app = App::of(cx);
-    let page = match &app.analytics {
-        None => AnalyticsPage::Off,
-        Some(reader) => match app.service.analytics(&admin.operator, reader).await {
-            Ok(analytics) => AnalyticsPage::Shown(Box::new(report(analytics))),
-            Err(AdminError::Analytics(error)) => {
-                tracing::warn!(error = %ErrorChain(&error), "the analytics page could not be read");
-                AnalyticsPage::Unavailable
-            }
-            Err(error) => return Err(error.into()),
-        },
-    };
+    let page = app
+        .charted("analytics", async |reader| {
+            app.service.analytics(&admin.operator, reader).await
+        })
+        .await?
+        .map(|analytics| Box::new(report(analytics)));
     let view = view! { cx => sourceorigin_ui::admin_analytics(page: page) };
     Box::pin(App::render(cx, StatusCode::OK, "Analytics", view)).await
 }
