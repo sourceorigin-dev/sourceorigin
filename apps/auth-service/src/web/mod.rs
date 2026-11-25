@@ -39,6 +39,7 @@ use crate::{
     account::AccountService,
     admin::DashboardSignIn,
     assets::EmbeddedAssets,
+    clients::Noise,
     config::{EmailConfig, PolicyLinks},
     federation::FederationApplication,
     federation::ReturnTo,
@@ -52,7 +53,7 @@ use auth::SignInPage;
 use serde::de::DeserializeOwned;
 use sourceorigin_common::config::Origin;
 use sourceorigin_repository::Database;
-use sourceorigin_telemetry::HttpTelemetry;
+use sourceorigin_telemetry::{HttpTelemetry, analytics::Store};
 use sourceorigin_ui::{Onward, PreferenceChange, QueryError, Title};
 use std::fmt;
 use topcoat::{
@@ -95,6 +96,11 @@ pub(crate) struct WebApplication {
     issuer: Origin,
     /// SourceOrigin's policies on sourceorigin.dev, which every page's footer links.
     policies: PolicyLinks,
+    /// Reads the analytics database back, for each app's Insights, if
+    /// configured.
+    analytics: Option<Store>,
+    /// Moves the counts each app's Insights show.
+    noise: Noise,
 }
 
 /// What a page answers when it cannot show itself.
@@ -181,11 +187,13 @@ impl WebApplication {
             email: config.email.clone(),
             issuer: origin.clone(),
             policies: config.oidc.policies.clone(),
+            analytics: config.analytics.clone(),
+            noise: config.oidc.digest_keys.insights_noise(),
         }
     }
 
     /// Each page's route, the handler showing it and the one submitting its form.
-    fn pages() -> [(&'static str, RouteHandlerFn, RouteHandlerFn); 27] {
+    fn pages() -> [(&'static str, RouteHandlerFn, RouteHandlerFn); 28] {
         use routes::page::{
             ADMIN, CONSENT, LOGIN, LOGOUT, PREFERENCES, RECOVER, RECOVER_UNDO, REGISTER, SIGN_OUT,
             UNSUBSCRIBE, settings::VERIFY,
@@ -252,6 +260,7 @@ impl WebApplication {
             Self::entry::<developers::Apps>(),
             Self::entry::<developers::NewApp>(),
             Self::entry::<developers::Overview>(),
+            Self::entry::<developers::Insights>(),
             Self::entry::<developers::AppSettings>(),
             Self::entry::<developers::AppSecrets>(),
             page!(

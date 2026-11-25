@@ -31,7 +31,7 @@ const BATCH: usize = QUEUE;
 const INTERVAL: Duration = Duration::from_secs(1);
 /// How often a product table's rows are sent: an insert's own time, which
 /// ClickHouse logs, then counts an hour's people, unless the hour had only one.
-const PRODUCT_INTERVAL: Duration = Duration::from_hours(1);
+pub const PRODUCT_INTERVAL: Duration = Duration::from_hours(1);
 
 /// The installed writer's queue, until the process exits. [`QUEUED`] bounds it.
 static QUEUE_SENDER: OnceLock<mpsc::UnboundedSender<Message>> = OnceLock::new();

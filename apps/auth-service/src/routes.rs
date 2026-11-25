@@ -301,6 +301,8 @@ pub(crate) mod page {
         pub(crate) const NEW: &str = "/developers/new";
         /// An app's overview: what its `OpenID` Connect library needs.
         pub(crate) const APP: &str = "/developers/clients/{id}";
+        /// How an app is used: how far its sign-ins get, and its tokens.
+        pub(crate) const APP_INSIGHTS: &str = "/developers/clients/{id}/insights";
         /// An app's settings, disabling and deleting it.
         pub(crate) const APP_SETTINGS: &str = "/developers/clients/{id}/settings";
         /// A confidential app's secrets.
@@ -315,7 +317,7 @@ pub(crate) mod page {
 
     /// Every server-rendered page's route, which the security layer classifies as
     /// pages.
-    pub(crate) const ALL: [&str; 26] = [
+    pub(crate) const ALL: [&str; 27] = [
         LOGIN,
         REGISTER,
         CONSENT,
@@ -336,6 +338,7 @@ pub(crate) mod page {
         developers::HOME,
         developers::NEW,
         developers::APP,
+        developers::APP_INSIGHTS,
         developers::APP_SETTINGS,
         developers::APP_SECRETS,
         RECOVER,

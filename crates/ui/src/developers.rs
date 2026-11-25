@@ -1,5 +1,6 @@
 //! The developer console: the apps an account registers as `OpenID` Connect
-//! clients, registering one, and each app's overview, settings and secrets.
+//! clients, registering one, and each app's overview, insights, settings and
+//! secrets.
 //!
 //! A secret shows only in the response to the change that made it, a registration
 //! or a rotation: the change's query holds it in a field no link or form
@@ -7,9 +8,10 @@
 //! page's own address, so reloading gets the page without it.
 
 use crate::{
+    charts::{Bar, Charted, Series, bar_chart, compact, line_chart},
     clients::{
         ClientDraft, ClientRow, Connection, FieldError, Grace, Revealed, SecretRow, client_facts,
-        client_form, client_status, copy, secret_panel, secrets_list,
+        client_form, client_status, copy, secret_panel, secrets_list, step_name,
     },
     form::{Checkbox, Precision, Query, change_form, open, time},
     icons::Icon,
@@ -18,6 +20,7 @@ use crate::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sourceorigin_common::{
+    admin::AuthorizationStepKind,
     clients::{ClientKind, ClientStatus},
     protocol::oauth::Scope,
 };
@@ -153,6 +156,8 @@ pub struct AppLink<'a> {
     pub client: ClientRow<'a>,
     /// Its overview page.
     pub page: String,
+    /// Its insights page.
+    pub insights: String,
     /// Its settings page.
     pub settings: String,
     /// Its secrets page, for a confidential app.
@@ -165,6 +170,8 @@ pub struct AppLink<'a> {
 pub enum AppTab {
     /// What its `OpenID` Connect library needs.
     Overview,
+    /// How it is used: how far its sign-ins get, and its tokens.
+    Insights,
     /// Its settings, disabling and deleting it.
     Settings,
     /// A confidential app's secrets.
@@ -177,6 +184,7 @@ impl AppTab {
     pub const fn label(self) -> &'static str {
         match self {
             Self::Overview => "Overview",
+            Self::Insights => "Insights",
             Self::Settings => "Settings",
             Self::Secrets => "Secrets",
         }
@@ -192,7 +200,7 @@ impl Label for AppTab {
 
 impl AppLink<'_> {
     /// What search finds of it: its overview, by its name or ID, then its
-    /// settings and, for a confidential app, its secrets.
+    /// insights, its settings and, for a confidential app, its secrets.
     pub(crate) fn destinations(&self) -> impl Iterator<Item = Destination<'_>> {
         let name = self.client.name;
         let app = Destination {
@@ -204,12 +212,17 @@ impl AppLink<'_> {
             href: self.page.as_str().into(),
             confirms: false,
         };
+        let insights = Spot::setting(
+            AppTab::Insights.label(),
+            "analytics statistics sign-ins funnel conversion tokens usage",
+        );
         let settings = Spot::setting(
             AppTab::Settings.label(),
             "redirect uris callback scopes logout refresh disable enable delete rename",
         );
         let secrets = Spot::setting(AppTab::Secrets.label(), "client secret rotate credentials");
         let tabs = [
+            Some((&self.insights, insights)),
             Some((&self.settings, settings)),
             self.secrets.as_ref().map(|page| (page, secrets)),
         ];
@@ -505,6 +518,104 @@ pub async fn overview<'a>(
                 "Before an action that needs a fresh passkey, such as deleting data, your app can ask users to sign in again with one. "
                 <a href=(STEP_UP_GUIDE)>"The step-up guide"</a> " explains how."
             </p>
+        </section>
+    })
+}
+
+/// What an app's Insights tab can show.
+pub type InsightsPage = Charted<InsightsReport>;
+
+/// An app's insights over its last 30 whole days, in plain rows.
+#[derive(Clone, Debug, PartialEq)]
+pub struct InsightsReport {
+    /// About how often each step of signing in to it was reached, in order: a
+    /// sum of days each rounded to a multiple of the floor, or none when every
+    /// day rounded down to none.
+    pub steps: Vec<(AuthorizationStepKind, Option<f64>)>,
+    /// The days, labelled `Nov 24`.
+    pub days: Vec<String>,
+    /// Tokens issued exchanging a sign-in's code, per day.
+    pub exchanged: Vec<f64>,
+    /// Tokens issued refreshing a sign-in, per day.
+    pub refreshed: Vec<f64>,
+}
+
+/// An app's Insights: how far sign-ins to it got, and the tokens it was issued,
+/// over its last 30 whole days. Each day's counts of steps round to a multiple
+/// of `floor`.
+#[component]
+pub async fn app_insights(
+    /// What the tab shows: its charts, or why there are none.
+    page: InsightsPage,
+    /// What counts of steps round to multiples of.
+    floor: u32,
+) -> Result<impl View> {
+    Ok(view! {
+        match page {
+            Charted::Off => {
+                <p class="notice">"Insights aren't available on this server."</p>
+            }
+            Charted::Unavailable => {
+                <p class="notice error">"Insights couldn't be read just now. Try again in a minute."</p>
+            }
+            Charted::Shown(report) => {
+                insights_report(report: report, floor: floor)
+            }
+        }
+    })
+}
+
+/// The charts of `report`.
+#[component]
+async fn insights_report(
+    /// The app's insights.
+    report: InsightsReport,
+    /// What counts of steps round to multiples of.
+    floor: u32,
+) -> Result<impl View> {
+    let steps: Vec<Bar> = report
+        .steps
+        .iter()
+        .map(|(step, count)| Bar {
+            label: step_name(*step).to_owned(),
+            value: count.unwrap_or(0.0),
+            shown: count.map_or_else(
+                || "Too few to show".to_owned(),
+                |count| format!("About {}", compact(count)),
+            ),
+        })
+        .collect();
+    let none = report.steps.iter().all(|(_, count)| count.is_none());
+    Ok(view! {
+        <p class="help">"Your app's last 30 whole days, in UTC. A day's counts show by 02:00 UTC the next day."</p>
+        <section class="card" aria-labelledby="funnel-heading">
+            <header><h2 id="funnel-heading">"How far sign-ins get"</h2></header>
+            <div class="body">
+                <p class="help">
+                    "Each time your app sent someone to sign in, the sign-in or consent page showed, and the sign-in ended. "
+                    (format!("Counts are of steps, not people, and approximate: each day's is moved by a small secret amount, then rounded down to a multiple of {floor}, so a day's few sign-ins don't show exactly. "))
+                    "Sign-ins by people who left usage statistics, or whose browser sends Global Privacy Control, aren't counted."
+                </p>
+                if none {
+                    <p class="empty">(format!("Nothing to show yet: counts appear from about {floor}."))</p>
+                }
+                bar_chart(caption: "Sign-ins to this app, by step", points: &steps)
+            </div>
+        </section>
+        <section class="card" aria-labelledby="tokens-heading">
+            <header><h2 id="tokens-heading">"Tokens issued"</h2></header>
+            <div class="body">
+                <p class="help">"Each token response your app received, exactly, as your app receives them itself: exchanging a sign-in's code, or refreshing one."</p>
+                line_chart(
+                    caption: "Tokens issued per day",
+                    labels: &report.days,
+                    series: vec![
+                        Series { name: "Code exchanges", values: report.exchanged.clone() },
+                        Series { name: "Refreshes", values: report.refreshed.clone() },
+                    ],
+                    every: 7,
+                )
+            </div>
         </section>
     })
 }

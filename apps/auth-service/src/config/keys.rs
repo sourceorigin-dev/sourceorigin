@@ -4,6 +4,7 @@
 use super::SecretVariable;
 use crate::{
     AuditKeys,
+    clients::Noise,
     emails::VerificationKeys,
     invitations::InvitationLinks,
     notifications::{SignOutLinks, UnsubscribeLinks},
@@ -39,6 +40,9 @@ const SIGN_OUT_LINK_CONTEXT: &[u8] = b"sourceorigin-email-sign-out-link-v1";
 /// Separates the invitation link key from every other use of a token digest key,
 /// as [`EMAIL_VERIFICATION_CONTEXT`] does the verification key.
 const INVITATION_LINK_CONTEXT: &[u8] = b"sourceorigin-signup-invitation-link-v1";
+/// Separates the key of the noise each app's Insights add to their counts
+/// ([`Noise`]) from every other use of a token digest key.
+const INSIGHTS_NOISE_CONTEXT: &[u8] = b"sourceorigin-insights-noise-v1";
 /// Fewest bytes a token digest key may have.
 const MIN_TOKEN_DIGEST_KEY_BYTES: usize = 32;
 /// Bytes of a token digest key's digest kept as its fingerprint.
@@ -162,11 +166,15 @@ pub(crate) struct TokenDigestKey {
     sign_out: Secret,
     /// The invitation link key, derived and used like [`Self::verification`].
     invitation: Secret,
+    /// The key of each app's Insights' noise, derived from the same bytes, so
+    /// every replica adds the same.
+    insights: Secret,
 }
 
 impl TokenDigestKey {
     /// Derives the HMAC, refresh successor, verification, recovery,
-    /// unsubscribe, sign-out and invitation link keys from configured bytes.
+    /// unsubscribe, sign-out and invitation link keys, and the Insights' noise
+    /// key, from configured bytes.
     pub(crate) fn derive(bytes: &[u8]) -> Self {
         let key = Secret::derive(bytes, TOKEN_DIGEST_CONTEXT);
         let fingerprint = URL_SAFE_NO_PAD
@@ -180,6 +188,7 @@ impl TokenDigestKey {
             unsubscribe: Secret::derive(bytes, UNSUBSCRIBE_LINK_CONTEXT),
             sign_out: Secret::derive(bytes, SIGN_OUT_LINK_CONTEXT),
             invitation: Secret::derive(bytes, INVITATION_LINK_CONTEXT),
+            insights: Secret::derive(bytes, INSIGHTS_NOISE_CONTEXT),
         }
     }
 
@@ -237,6 +246,12 @@ impl TokenDigestKeys {
     /// under the accepted one's for addresses added before a change.
     pub(crate) fn verification_keys(&self) -> VerificationKeys {
         VerificationKeys::new(self.link_keys(|key| &key.verification))
+    }
+
+    /// The noise of each app's Insights, under the current key: a change of key
+    /// draws every day still shown again.
+    pub(crate) fn insights_noise(&self) -> Noise {
+        Noise::new(self.current.insights.clone())
     }
 
     /// The link keys `key` picks from the current key, then the accepted one.

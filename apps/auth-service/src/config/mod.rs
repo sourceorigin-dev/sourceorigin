@@ -159,8 +159,6 @@ pub(crate) struct DashboardConfig {
     pub listener: SocketAddr,
     /// The dashboard's origin, which auth's handoff page sends administrators to.
     pub origin: Origin,
-    /// Reads the analytics database for the Analytics page, if configured.
-    pub analytics: Option<Store>,
 }
 
 impl DashboardConfig {
@@ -172,7 +170,6 @@ impl DashboardConfig {
             (Some(_), Some(_)) => Ok(Some(Self {
                 listener: ADMIN_LISTENER.parse()?,
                 origin: ADMIN_ORIGIN.parse()?,
-                analytics: Store::reader_from_environment()?,
             })),
             (Some(_), None) => Err(ADMIN_ORIGIN.invalid(
                 "must be set with AUTH_ADMIN_LISTENER: the dashboard's origin, e.g. https://admin.sourceorigin.dev",
@@ -190,6 +187,9 @@ pub(crate) struct AuthConfig {
     pub public_listener: SocketAddr,
     /// The admin dashboard, if auth serves it.
     pub dashboard: Option<DashboardConfig>,
+    /// Reads the analytics database back, for the dashboard's Analytics page
+    /// and each app's Insights in the developer console, if configured.
+    pub analytics: Option<Store>,
     /// Passkey policy and origin.
     pub(crate) passkey: PasskeyConfig,
     /// External identity provider policy.
@@ -232,6 +232,7 @@ impl AuthConfig {
         Ok(Self {
             public_listener: PUBLIC_LISTENER.parse_or(DEFAULT_PUBLIC_LISTENER)?,
             dashboard: DashboardConfig::from_environment()?,
+            analytics: Store::reader_from_environment()?,
             passkey: PasskeyConfig::from_environment(&origin)?,
             federation: FederationConfig::from_environment(&origin)?,
             email: EmailConfig::from_environment(&origin, &digest_keys)?,

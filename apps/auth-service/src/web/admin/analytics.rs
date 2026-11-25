@@ -2,8 +2,10 @@
 //! counts, as charts with their tables.
 
 use super::AdminApplication as App;
-use crate::admin::{AdminError, Analytics};
-use chrono::DateTime;
+use crate::{
+    admin::{AdminError, Analytics},
+    charted::Period,
+};
 use sourceorigin_common::ErrorChain;
 use sourceorigin_ui::{AnalyticsPage, AnalyticsReport, Point, SlowRoute, StoredTable};
 use topcoat::{
@@ -36,15 +38,12 @@ pub(super) async fn analytics(cx: &Cx) -> Result<Response> {
 
 /// The page's rows of `read`.
 fn report(read: Analytics) -> AnalyticsReport {
-    let label = |at: i64, format: &str| {
-        DateTime::from_timestamp(at, 0).map_or_else(String::new, |at| at.format(format).to_string())
-    };
     AnalyticsReport {
         requests: read
             .requests
             .iter()
             .map(|hour| Point {
-                label: label(hour.hour, "%H:00"),
+                label: hour.label("%H:00"),
                 value: f64::from(hour.requests),
             })
             .collect(),
@@ -69,7 +68,7 @@ fn report(read: Analytics) -> AnalyticsReport {
         days: read
             .sign_ins
             .iter()
-            .map(|day| label(day.day, "%b %-d"))
+            .map(|day| day.label("%b %-d"))
             .collect(),
         signed_in: read
             .sign_ins
@@ -84,7 +83,7 @@ fn report(read: Analytics) -> AnalyticsReport {
         steps: read
             .steps
             .iter()
-            .map(|counted| (counted.step, f64::from(counted.count)))
+            .map(|(step, count)| (*step, f64::from(*count)))
             .collect(),
         passkeys: read
             .passkeys

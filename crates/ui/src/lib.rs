@@ -89,14 +89,14 @@ pub use admin::{
     user_search,
 };
 pub use asset::{Asset, FONTS, STYLESHEET};
-pub use charts::{Point, Series, compact};
+pub use charts::{Bar, Charted, Point, Series, compact};
 pub use clients::{
     ClientDraft, ClientRow, Connection, FieldError, Grace, Revealed, ScopeChoice, SecretRow,
 };
 pub use developers::{
-    AppChange, AppLink, AppSettingsState, AppTab, MISSING, NewAppChange, NewAppState, Registered,
-    SecretsChange, SecretsState, app_header, app_secrets, app_settings, apps, back_to_apps,
-    new_app, overview,
+    AppChange, AppLink, AppSettingsState, AppTab, InsightsPage, InsightsReport, MISSING,
+    NewAppChange, NewAppState, Registered, SecretsChange, SecretsState, app_header, app_insights,
+    app_secrets, app_settings, apps, back_to_apps, new_app, overview,
 };
 pub use email::{Block, EmailContent, Inline, Mail, email_preview};
 pub use form::{

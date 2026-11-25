@@ -218,6 +218,49 @@ breaks the page.
 To chart a new signal, add its query there, and its chart to
 `crates/ui/src/admin/analytics.rs`, with `crates/ui/src/charts`.
 
+Each app's **Insights** tab, in the developer console, reads the same way,
+through `OwnedClient::insights` (`apps/auth-service/src/clients/insights`).
+Only `AccountService::owned_client` makes an `OwnedClient`, once it has found
+the owner's own app, and the queries take the client ID from it, as a bound
+parameter, so an owner reads only their app's rows. The owner already knows
+who signed in, from their own callbacks, so the counts of what people did on
+auth's pages, `authorization_steps`, are coarsened against differencing:
+
+- they cover whole UTC days, up to `AppInsights::until`: a day shows once
+  twice the writer's `PRODUCT_INTERVAL` has passed since it ended, so its
+  last rows are in, and then every sign-in of the day at once;
+- each day's counts are moved by `Noise::offset`: a secret amount under
+  `FLOOR`, 5, keyed by the app and the day counted, the same for every step
+  of the day, and derived from the token digest key, so every replica and
+  every reload draws the same one, once for good. Each count is then rounded
+  down to a multiple of 5, and the days added up (`Noise::floored`), shown as
+  "About 25"; a total of none is `Few`. Rounding a moved count is unbiased,
+  so the total is about right, and on any one day, a step reached less often
+  never shows more than one reached more often;
+- a step another release wrote shows only once it is no longer `Few`.
+
+They count steps, not people, approximately. What remains:
+
+- a lone sign-in on a day, all of its steps at once, shows one time in five.
+  An owner who pads a day's steps with requests of their own, using a step
+  that sign-in didn't reach as a reference, learns of it up to about three
+  times in five, once;
+- tokens are exact and count everyone, and someone who left usage statistics
+  counts in no step. So an owner who compares the counts with their own
+  callbacks can estimate, within about 5 a day, how many people left. One
+  person's choice is one fact behind every step of every sign-in: an app
+  whose only user signs in five times a day shows "About 5" or more at once
+  if they're counted, and nothing if not;
+- a change of token digest key draws every day still shown again, so an
+  owner who noted each day's rounding gets a second one of up to 30 days;
+- an app with few users still learns about how far its users get, as any
+  analytics would.
+
+`charted` (`apps/auth-service/src/charted.rs`)
+holds what both pages read: `Period`, its `period!` macro, and `StepCount`.
+The reader runs at most 16 queries at once, so pages that read can't take
+ClickHouse over.
+
 ## Testing
 
 `AnalyticsCapture::start()` captures the rows a test records on its thread,
