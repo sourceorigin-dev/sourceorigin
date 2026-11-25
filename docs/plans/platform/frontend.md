@@ -23,8 +23,36 @@ From piquel's [notes](notes.md) and the discussion:
 
 **Decided.** Topcoat is dropped from every page that moves to the new
 frontend, which is SvelteKit. Sign-in, consent and recovery stay in Origin
-Auth, rendered in Rust. Whether those few pages stay on Topcoat or move to a
-small Rust templater is not decided.
+Auth, rendered in Rust.
+
+**Proposed,** not answered yet: those pages and the emails move from Topcoat
+to maud, so the dependency goes away entirely.
+
+- What stays in Rust once the other pages have moved is about 2,000 lines of
+  views (sign-in, recovery, consent and the emails), plus part of the layout
+  and form helpers. About 10,000 lines of settings, admin and developer
+  console views leave.
+- Topcoat is twelve crates of its own, three of them macros, still
+  experimental and breaking with every release. maud is one small crate that
+  has been stable for years, and it is the same idea: HTML written in Rust
+  and checked when it compiles. The port is close to mechanical, and the
+  routes go to axum, which already serves them.
+- It is done last, after the other pages have moved. Porting now would port
+  10,000 lines that are about to be deleted.
+
+**Proposed** with it, for one consistent look across both kinds of page:
+
+- **One stylesheet is the source of the look.** The CSS in
+  `crates/ui/assets/style` moves to a shared package that the SvelteKit apps
+  and Origin Auth's Rust pages both load: the same files, tokens and class
+  names.
+- **Svelte components emit those classes.** A button is the same class in
+  both, not a second set of styles scoped to a component.
+- **A browser test compares them.** It checks that the shared parts, such as
+  a button, a field and a card, render the same on a sign-in page and on a
+  SvelteKit page.
+- The page frame is the one thing written twice. The sign-in pages keep a
+  minimal frame, so the copy is small.
 
 - Topcoat is early and experimental, and its own README says to expect
   breaking changes. piquel would rather have something with more established
