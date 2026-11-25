@@ -186,8 +186,11 @@ impl Recommendation<'_> {
 /// is `confirmed`.
 #[component]
 async fn recommendation_hint<'a>(
+    /// What it recommends.
     recommendation: Recommendation<'a>,
+    /// The pages its action leads to or posts to.
     links: OverviewLinks<'a>,
+    /// Whether the session was confirmed with a passkey recently.
     confirmed: bool,
 ) -> Result<impl View> {
     let key = recommendation.key();
