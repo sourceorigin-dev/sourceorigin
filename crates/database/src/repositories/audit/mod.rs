@@ -16,18 +16,14 @@ use uuid::Uuid;
 /// Longest each statement of [`DatabaseTransaction::prune_audit_chain`] may run.
 const PRUNE_STATEMENT_TIMEOUT: Duration = Duration::from_mins(30);
 
-/// What the chain covers of one `domain_events` row: everything but its storage
-/// order (`txid`, `sequence`) and its chain position and hash. Personal data lives
-/// in `event_personal_data`, so it is not covered, and erasing it never breaks the
-/// chain.
+/// What the chain covers of one `domain_events` row: everything but its storage order
+/// (`txid`, `sequence`) and its chain position and hash. Personal data lives in
+/// `event_personal_data`, so erasing it never breaks the chain.
 ///
-/// Its serialization, with the event's position added, is the canonical event the
-/// chain hashes. Changing a field's name or format breaks every existing chain, so
-/// a new field comes with a new `format`, which events sealed before it keep.
-/// Values stay as stored, with plain UUIDs, rather than decoded into typed IDs, so
-/// a tampered row reads back and fails verification instead of failing to decode.
-/// RFC 8785 writes every JSON number as a double, so a payload integer beyond
-/// 2^53 would be covered only approximately; no event holds one.
+/// Its serialization, with the event's position added, is the canonical event the chain
+/// hashes: a new field comes with a new `format`, which events sealed before it keep. Values
+/// stay as stored, with plain UUIDs, so a tampered row fails verification instead of
+/// decoding. RFC 8785 writes numbers as doubles, so no event holds an integer beyond 2^53.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct EventContent {
     /// The event's ID.
@@ -479,21 +475,16 @@ impl AuditRepository<'_> {
 }
 
 impl DatabaseTransaction<'_> {
-    /// Deletes every sealed event up to and including `through`, which must be a
-    /// checkpoint's position, and makes that checkpoint the anchor the remaining
-    /// chain extends. Their personal data goes with them. Returns how many events
-    /// were deleted. The caller verifies the chain through `through` first.
-    ///
-    /// The guard triggers let only this transaction delete sealed events and move
-    /// the anchor, and only until this returns. The anchor only moves forward, so
-    /// of two concurrent prunes, the one that would move it back fails. Deleting
-    /// years of history may take a while, so its statements may each run for
-    /// 30 minutes (`PRUNE_STATEMENT_TIMEOUT`), until the transaction ends.
+    /// Deletes every sealed event up to and including `through`, which must be a checkpoint's
+    /// position, and makes that checkpoint the anchor the remaining chain extends. Their personal
+    /// data goes with them. Returns how many events were deleted. The caller verifies the chain
+    /// through `through` first. The anchor only moves forward, so of two concurrent prunes the one
+    /// that would move it back fails; statements may each run for 30 minutes
+    /// (`PRUNE_STATEMENT_TIMEOUT`).
     ///
     /// # Errors
     ///
-    /// Returns [`DatabaseError`] if a query fails, e.g. when `through` is not a
-    /// checkpoint's position.
+    /// Returns [`DatabaseError`] if a query fails, e.g. when `through` is not a checkpoint's position.
     pub async fn prune_audit_chain(&mut self, through: u64) -> Result<u64, DatabaseError> {
         let through = Unsigned::bind(through)?;
         let mut audit = self.audit();

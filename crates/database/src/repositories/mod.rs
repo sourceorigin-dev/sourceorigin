@@ -226,13 +226,10 @@ impl KindProbe {
 /// [`DatabaseError`](crate::DatabaseError), e.g.
 /// `run!(self, fetch_optional, sqlx::query_as!(StoredUser, "...", id.as_uuid()))`.
 ///
-/// `$method` is the `sqlx` executor method: `execute`, `fetch_one` (a missing row
-/// becomes [`DatabaseError::NotFound`](crate::DatabaseError::NotFound)), `fetch_optional` or `fetch_all`. Two
-/// more `execute` a statement and report what it changed: `changed_one` returns
-/// whether it changed exactly one row, and `required` returns `()`, or
-/// [`DatabaseError::NotFound`](crate::DatabaseError::NotFound) if it changed none. A macro
-/// rather than a method because `&PgPool` and `&mut PgConnection` are different
-/// executor types. `run!(@on executor, ...)` runs on a [`RepositoryExecutor`] itself.
+/// `$method` is the `sqlx` executor method: `execute`, `fetch_one` (a missing row is
+/// [`NotFound`](crate::DatabaseError::NotFound)), `fetch_optional` or `fetch_all`; `changed_one`
+/// returns whether exactly one row changed, and `required` fails with `NotFound` if none did.
+/// `run!(@on executor, ...)` runs on a [`RepositoryExecutor`] itself.
 macro_rules! run {
     (@on $executor:expr, $method:ident, $query:expr) => {{
         let query = $query;
@@ -284,18 +281,14 @@ macro_rules! query_record {
     };
 }
 
-/// A checked `sqlx::query_as!` over `domain_events e` in the safe order, the rule
-/// every reader that follows the stream, such as the audit sealer, keeps to:
-/// `$query` selects and filters, the macro adds the rule, and `$tail` follows it
-/// (`LIMIT`, row locks), e.g.
+/// A checked `sqlx::query_as!` over `domain_events e` in the safe order every reader that
+/// follows the stream, such as the audit sealer, keeps to: `$query` selects and filters, and
+/// `$tail` follows the order (`LIMIT`, row locks), e.g.
 /// `in_safe_order!(Row, "SELECT e.id FROM domain_events e WHERE true", "LIMIT $1", 10)`.
 ///
-/// Sequence order alone is not safe: a transaction can take sequence 10 and commit
-/// after another took 11, so a reader that saw 11 would skip 10. Events are read in
-/// `(txid, sequence)` order instead, and only from transactions older than every
-/// transaction still running. Those have all finished, so no event can later appear
-/// before one already read. The cost is that a long-running transaction holds back
-/// every reader until it ends.
+/// Events are read in `(txid, sequence)` order, and only from transactions older than every
+/// transaction still running, so no event can later appear before one already read. A
+/// long-running transaction holds back every reader until it ends.
 macro_rules! in_safe_order {
     ($record:ty, $query:literal, $tail:literal $(, $arg:expr)* $(,)?) => {
         sqlx::query_as!(

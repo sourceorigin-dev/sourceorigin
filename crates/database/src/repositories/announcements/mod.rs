@@ -184,17 +184,11 @@ impl AnnouncementRepository<'_> {
         )
     }
 
-    /// Marks the draft `id` sent, if it is still at `revision`, the one its
-    /// sender checked; makes every account a recipient of one to everyone; and
-    /// returns how many accounts it goes to and whether it is essential, or
-    /// `None` if no draft has this ID
-    /// and revision. Its row stays locked until the transaction ends, so an edit,
-    /// a discard or another send waits, then finds it sent. Run it in the
-    /// transaction that records the sending, whose event queues the emails.
-    ///
-    /// Its recipients stay key-share locked until then, so an account's purge
-    /// waits for the sending, then deletes the account's rows and emails with
-    /// it; an account a purge already deleted is left out once that commits.
+    /// Marks the draft `id` sent, if it is still at `revision`, the one its sender checked;
+    /// makes every account a recipient of one to everyone; and returns how many accounts it
+    /// goes to and whether it is essential, or `None` if no draft has this ID and revision.
+    /// Run it in the transaction that records the sending, whose event queues the emails: the
+    /// row stays locked until it ends, and recipients are key-share locked, so a purge waits.
     ///
     /// # Errors
     ///

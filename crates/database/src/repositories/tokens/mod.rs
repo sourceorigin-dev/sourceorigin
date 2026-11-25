@@ -356,27 +356,18 @@ impl TokenRepository<'_> {
         )
     }
 
-    /// Redeems a refresh token, consuming it if `redemption` rotates it, and
-    /// returns its grant. A consumed token revokes its family as a replay, unless
-    /// it rotates, was consumed less than [`REFRESH_REUSE_SECONDS`] ago, and its
-    /// successor is still unused: that refresh is answered with that successor
-    /// ([`RefreshOutcome::Retried`]).
-    ///
-    /// Concurrent redemptions of one token are serialized by its family's lock:
-    /// the second one waits for the first to commit its successor, then finds
-    /// it, so both answer with the same token and never revoke the family.
-    ///
-    /// Must run in a transaction kept open through token issuance, insertion of
-    /// a rotated token's replacement, and commit: the redemption locks the
-    /// token's account, session, family and client until then.
+    /// Redeems a refresh token, consuming it if `redemption` rotates it, and returns its grant.
+    /// A consumed token revokes its family as a replay, unless it rotates, was consumed less than
+    /// [`REFRESH_REUSE_SECONDS`] ago, and its successor is still unused: that refresh is answered
+    /// with that successor ([`RefreshOutcome::Retried`]). Must run in a transaction kept open
+    /// through token issuance and commit, which locks the token's account, session, family and client.
     ///
     /// # Errors
     ///
-    /// Returns [`RefreshRedemptionError::Replay`] or
-    /// [`RefreshRedemptionError::Policy`] after revoking the family,
-    /// [`RefreshRedemptionError::Invalid`] if the token is not usable, or
-    /// [`RefreshRedemptionError::Database`] if a query fails or this repository
-    /// is not bound to a transaction.
+    /// Returns [`RefreshRedemptionError::Replay`] or [`RefreshRedemptionError::Policy`] after
+    /// revoking the family, [`RefreshRedemptionError::Invalid`] if the token is not usable, or
+    /// [`RefreshRedemptionError::Database`] if a query fails or this repository is not bound to
+    /// a transaction.
     pub async fn redeem_refresh(
         &mut self,
         id: TokenId,
@@ -584,16 +575,10 @@ impl TokenRepository<'_> {
         Ok(())
     }
 
-    /// Locks the live families of `clients` until the transaction ends, in ID
-    /// order. A refresh locks its family before its client, so a change that
-    /// locks the client and then writes its families, such as a deletion, takes
-    /// these first; otherwise each could hold the lock the other waits for.
-    ///
-    /// Every statement that locks several families locks them in ID order, as
-    /// this one does, so two of them never wait for each other's families: a
-    /// deletion's for a client and a logout's for a session can share some. A
-    /// change to several clients, such as a purge deleting an account's clients,
-    /// locks all their families in this one statement.
+    /// Locks the live families of `clients` until the transaction ends, in ID order. A refresh
+    /// locks its family before its client, so a change that locks the client and then writes its
+    /// families, such as a deletion, takes these first. Every statement that locks several
+    /// families locks them in ID order, so two never wait for each other's families.
     ///
     /// # Errors
     ///

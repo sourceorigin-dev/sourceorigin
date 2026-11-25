@@ -54,19 +54,15 @@ impl<'a> DatabaseTransaction<'a> {
         Ok(())
     }
 
-    /// Records `event`, caused as `context` says and concerning the `subject`
-    /// account, in this transaction, with the notification it gives the subject
-    /// ([`DomainEvent::notification`]) and the outbound deliveries it causes: they
-    /// all commit or roll back with the change they describe. An operation that
-    /// changes nothing, such as a failed sign-in, records its event in a
-    /// transaction of its own. Once the transaction commits, each event is logged
-    /// and counted in telemetry, with the current trace ID it is also stored with.
-    /// Returns the event's ID, for a row that refers to it.
+    /// Records `event`, caused as `context` says and concerning the `subject` account, in this
+    /// transaction, with the notification it gives the subject ([`DomainEvent::notification`])
+    /// and the outbound deliveries it causes: they all commit or roll back with the change they
+    /// describe. An operation that changes nothing, such as a failed sign-in, records its event in
+    /// a transaction of its own. Returns the event's ID.
     ///
     /// # Errors
     ///
-    /// Returns [`DatabaseError`] if the event or a delivery cannot be serialized or
-    /// written.
+    /// Returns [`DatabaseError`] if the event or a delivery cannot be serialized or written.
     pub async fn record(
         &mut self,
         context: &EventContext,

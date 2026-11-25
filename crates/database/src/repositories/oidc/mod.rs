@@ -441,22 +441,18 @@ impl OidcRepository<'_> {
         )
     }
 
-    /// Consumes an unexpired code once, while its session and account are still
-    /// active. Whether its client still allows it is the caller's to check, with
-    /// the client share-locked, before the transaction commits.
+    /// Consumes an unexpired code once, while its session and account are still active. Whether
+    /// its client still allows it is the caller's to check, with the client share-locked.
     ///
-    /// Redeeming an already consumed code with its secret, as the authenticated
-    /// `client_id` it was issued to, is a replay (RFC 6749 section 4.1.2): the
-    /// refresh families issued from the code are revoked in this transaction, which
-    /// the caller commits even though the exchange fails. The caller checks the
-    /// code's client under [`Self::lock_code`] first, so `client_id` only scopes
-    /// replay detection.
+    /// Redeeming a consumed code as the authenticated `client_id` it was issued to is a replay
+    /// (RFC 6749 section 4.1.2): the refresh families issued from it are revoked in this
+    /// transaction, which the caller commits even though the exchange fails.
     ///
     /// # Errors
     ///
-    /// Returns [`CodeRedemptionError::Replay`] after revoking the code's refresh
-    /// families, [`CodeRedemptionError::Invalid`] if the code is otherwise not
-    /// usable, or [`CodeRedemptionError::Database`] if a query fails.
+    /// Returns [`CodeRedemptionError::Replay`] after revoking the code's refresh families,
+    /// [`CodeRedemptionError::Invalid`] if the code is otherwise not usable, or
+    /// [`CodeRedemptionError::Database`] if a query fails.
     pub async fn consume_code(
         &mut self,
         id: TokenId,

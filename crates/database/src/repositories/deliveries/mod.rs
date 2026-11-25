@@ -240,22 +240,16 @@ impl DeliveryRepository<'_> {
         )
     }
 
-    /// Claims the longest-due delivery of channel `C` for `lease`, or returns
-    /// `None` when none is due. A delivery stops being attempted `max_age` after it
-    /// was created, or after an operator last retried it. Concurrent workers never
-    /// claim the same delivery while its lease lasts. Run it outside a transaction,
-    /// so the claim commits before the send starts.
-    ///
-    /// A delivery whose recipient or payload does not decode into `C`'s types, as a
-    /// newer release's may not during a deploy, is left for a release that can
-    /// decode it: it is released without spending an attempt, due again 30
-    /// seconds later, and the claim moves on to the next due delivery.
+    /// Claims the longest-due delivery of channel `C` for `lease`, or returns `None` when none
+    /// is due. A delivery stops being attempted `max_age` after it was created, or after an
+    /// operator last retried it. Run it outside a transaction, so the claim commits before the
+    /// send starts. A delivery that does not decode into `C`'s types, as a newer release's may
+    /// not, is released without spending an attempt, due again 30 seconds later.
     ///
     /// # Errors
     ///
-    /// Returns [`DatabaseError::InvalidStoredData`] for a delivery that does not
-    /// decode once past `max_age`; it is marked failed, since no release sent it in
-    /// time. Returns another [`DatabaseError`] if a query fails.
+    /// Returns [`DatabaseError::InvalidStoredData`] for a delivery that does not decode once past
+    /// `max_age`, which is marked failed, or another [`DatabaseError`] if a query fails.
     pub async fn claim<C: Channel>(
         &mut self,
         lease: Duration,

@@ -347,19 +347,11 @@ impl SessionRepository<'_> {
         Ok(())
     }
 
-    /// Revokes the active `scope` sessions of `user_id`, with the refresh token
-    /// families issued from every `scope` session, and returns the IDs of the
-    /// sessions it revoked. Sessions and families of other accounts are never
-    /// touched, whatever the scope names. Expired sessions are already over and
-    /// stay as they are, but their families are revoked too: none of them
-    /// refreshes, yet each then reads as ended in the export and is cleaned up
-    /// with the other revoked ones. Only [`DatabaseTransaction::revoke_sessions`]
-    /// calls it outside tests, so every revocation is recorded.
-    ///
-    /// The families are revoked by a second statement: a code exchange that held a
-    /// session's lock may have committed a family while the first one waited, and
-    /// only a new statement's snapshot sees it. They are locked in ID order, like
-    /// every statement that locks several families.
+    /// Revokes the active `scope` sessions of `user_id`, with the refresh token families issued
+    /// from every `scope` session, and returns the IDs of the sessions it revoked. Sessions and
+    /// families of other accounts are never touched. Expired sessions stay as they are, but their
+    /// families are revoked too. Only [`DatabaseTransaction::revoke_sessions`] calls it outside
+    /// tests, so every revocation is recorded.
     ///
     /// # Errors
     ///
