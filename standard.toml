@@ -93,7 +93,6 @@ paths = [
     "crates/database/src/repositories/sessions.rs",
     "crates/database/src/repositories/tokens/mod.rs",
     "crates/database/src/transaction.rs",
-    "crates/ui/src/form.rs",
 ]
 
 [deviations.duplicate-items]
