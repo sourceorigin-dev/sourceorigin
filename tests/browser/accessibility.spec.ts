@@ -1,6 +1,6 @@
 /**
- * An axe pass over auth's pages, signed out and in, the developer console, an
- * error page, and the admin dashboard's pages, an account's settings included:
+ * An axe pass over auth's pages, signed out and in, the developer console and
+ * an app's pages, an error page, and the admin dashboard's pages, an account's settings included:
  * each meets WCAG 2.2 AA as far as axe checks, in the light and the dark theme.
  * The dashboard's pages are skipped without `E2E_ADMIN_URL` and
  * `E2E_GRANT_ADMIN`.
@@ -51,6 +51,19 @@ test("auth's pages, signed in", async ({ browser }) => {
   ]) {
     await page.goto(path);
     await expectAccessible(page, path);
+  }
+  // A new app's pages: its overview, insights and settings.
+  await page.goto('/developers/new');
+  await page.getByLabel('App name', { exact: true }).fill('Axe E2E');
+  await page
+    .getByRole('textbox', { name: 'Redirect URIs', exact: true })
+    .fill('https://axe-e2e.test/callback');
+  await page.getByRole('button', { name: 'Register app', exact: true }).click();
+  await page.getByRole('link', { name: 'I saved it', exact: true }).click();
+  const app = new URL(page.url()).pathname;
+  for (const tab of ['', '/insights', '/settings']) {
+    await page.goto(`${app}${tab}`);
+    await expectAccessible(page, `an app's page${tab}`);
   }
   // The sidebar collapsed, which hides its words.
   await page.goto('/settings');

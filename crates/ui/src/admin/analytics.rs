@@ -2,7 +2,8 @@
 //! charts with their tables.
 
 use crate::{
-    charts::{Point, Series, bar_chart, compact, line_chart},
+    charts::{Bar, Charted, Series, bar_chart, compact, line_chart},
+    clients::step_name,
     layout::page_head,
 };
 use sourceorigin_common::admin::{AuthorizationStepKind, PasskeyTransport};
@@ -58,8 +59,8 @@ pub struct AnalyticsReport {
     pub signed_in: Vec<f64>,
     /// Failed sign-ins per day.
     pub failed: Vec<f64>,
-    /// How often each step of signing in to an app was reached; a step that
-    /// wasn't may be left out.
+    /// How often each step of signing in to an app was reached, in the order
+    /// a sign-in passes them.
     pub steps: Vec<(AuthorizationStepKind, f64)>,
     /// How often each kind of passkey was used, whether synced, most used
     /// first.
@@ -69,15 +70,7 @@ pub struct AnalyticsReport {
 }
 
 /// What the page can show.
-#[derive(Clone, Debug, PartialEq)]
-pub enum AnalyticsPage {
-    /// The dashboard has no reader for the analytics database.
-    Off,
-    /// The analytics database didn't answer.
-    Unavailable,
-    /// What it counted.
-    Shown(Box<AnalyticsReport>),
-}
+pub type AnalyticsPage = Charted<Box<AnalyticsReport>>;
 
 /// `bytes` as a size: `12.4 MiB`.
 fn size(bytes: f64) -> String {
@@ -93,18 +86,6 @@ fn size(bytes: f64) -> String {
         value /= 1024.0;
     }
     format!("{value:.1} GiB")
-}
-
-/// What the page calls `step`.
-const fn step_name(step: AuthorizationStepKind) -> &'static str {
-    match step {
-        AuthorizationStepKind::Requested => "Requested",
-        AuthorizationStepKind::SignIn => "Sign-in page",
-        AuthorizationStepKind::Consent => "Consent page",
-        AuthorizationStepKind::Authorized => "Authorized",
-        AuthorizationStepKind::Denied => "Denied",
-        AuthorizationStepKind::Other => "Other",
-    }
 }
 
 /// What the page calls a passkey reached over `transport`, `synced` or not.
@@ -219,29 +200,15 @@ async fn usage_cards<'a>(
     report: &'a AnalyticsReport,
 ) -> Result<impl View> {
     let stored: f64 = report.tables.iter().map(|table| table.bytes).sum();
-    let counted = |step: AuthorizationStepKind| -> f64 {
-        report
-            .steps
-            .iter()
-            .filter(|(counted, _)| *counted == step)
-            .map(|(_, count)| count)
-            .sum()
-    };
-    let steps: Vec<Point> = AuthorizationStepKind::ALL
-        .into_iter()
-        .filter(|step| *step != AuthorizationStepKind::Other || counted(*step) > 0.0)
-        .map(|step| Point {
-            label: step_name(step).to_owned(),
-            value: counted(step),
-        })
+    let steps: Vec<Bar> = report
+        .steps
+        .iter()
+        .map(|(step, count)| Bar::of(step_name(*step), *count))
         .collect();
-    let passkeys: Vec<Point> = report
+    let passkeys: Vec<Bar> = report
         .passkeys
         .iter()
-        .map(|(synced, transport, count)| Point {
-            label: passkey_name(*synced, *transport),
-            value: *count,
-        })
+        .map(|(synced, transport, count)| Bar::of(passkey_name(*synced, *transport), *count))
         .collect();
     Ok(view! {
         <div class="two">

@@ -12,6 +12,8 @@ mod alerts;
 mod assets;
 /// The tamper-evident audit chain: sealing, checkpoints, verification and pruning.
 mod audit;
+/// What the charts of analytics read back: periods and sign-in steps.
+mod charted;
 /// The command line: serving, migrations and break-glass administration.
 mod cli;
 /// Creating, changing, rotating the secrets of and deleting OIDC clients, and the

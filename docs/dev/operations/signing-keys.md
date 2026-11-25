@@ -206,6 +206,11 @@ deployment, and after a rollback, every release accepts what the other issues:
 In the manifest, each key is a generated secret mounted as a file, as
 `token-digest-key` is (see [secrets](secrets.md#generated-secrets)).
 
+Each app's Insights round their counts with noise derived from the current
+key, so step 2 draws it again for every day they show: owners see their
+counts move by up to a few tens, and flip between the two while the
+deployment rolls. Change the key no more often than it needs to change.
+
 For a key that leaked, replace it at once instead: see
 [a leaked token digest key](incidents.md#a-leaked-token-digest-key).
 

@@ -27,6 +27,7 @@
 
 - [How sign-in works](user/apps/how-sign-in-works.md)
 - [Registering an app](user/apps/register-an-app.md)
+  - [Seeing how your app is used](user/apps/insights.md)
   - [Changing an app's settings](user/apps/app-settings.md)
   - [Rotating a client secret](user/apps/rotate-secrets.md)
 - [Signing in with Rust](user/apps/sign-in-rust.md)

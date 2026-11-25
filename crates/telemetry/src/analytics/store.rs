@@ -25,17 +25,19 @@ sourceorigin_common::variables! {
 }
 
 sourceorigin_common::variables! {
-    /// The variables of the service that reads analytics back, auth's admin
-    /// dashboard, in the configuration reference's order.
+    /// The variables of the service that reads analytics back, auth, for its
+    /// admin dashboard and each app's Insights, in the configuration
+    /// reference's order.
     pub const READER_VARIABLES;
 
-    /// The ClickHouse user the admin dashboard reads analytics as, in the same
-    /// format as `ANALYTICS_URL`, such as
+    /// The ClickHouse user auth reads analytics back as, for the admin
+    /// dashboard's Analytics page and each app's Insights, in the same format as
+    /// `ANALYTICS_URL`, such as
     /// `http://sourceorigin_reader@clickhouse:8123/sourceorigin`. With
     /// `ANALYTICS_OWNER_URL`, `migrate` creates or resets it, allowed only to
     /// read the signals' tables, and every table's name and size, within limits
-    /// on each query, so it must be a user of its own. Unset, the dashboard's Analytics page says analytics are
-    /// off.
+    /// on each query, so it must be a user of its own. Unset, the Analytics page
+    /// says analytics are off, and Insights that they aren't available.
     const READER_URL = "ANALYTICS_READER_URL";
     /// Where to read that user's password, as for `ANALYTICS_PASSWORD`.
     const READER_PASSWORD = "ANALYTICS_READER_PASSWORD";
@@ -57,10 +59,13 @@ sourceorigin_common::variables! {
 /// How long one request to ClickHouse may take.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 /// What each of the reader's queries may use, which ClickHouse enforces: no
-/// change, 5 seconds, 512 MiB, and 10,000 rows back. Its rows' 64-bit
-/// integers are JSON numbers, never quoted, whatever the server's default.
+/// change, 5 seconds, 512 MiB, and 10,000 rows back; and 16 queries at once,
+/// so however many pages read, they can't take ClickHouse over. Its rows'
+/// 64-bit integers are JSON numbers, never quoted, whatever the server's
+/// default.
 const READER_LIMITS: &str = "readonly = 1, max_execution_time = 5, \
                              max_memory_usage = 536870912, max_result_rows = 10000, \
+                             max_concurrent_queries_for_user = 16, \
                              output_format_json_quote_64bit_integers = 0";
 /// What the reader may read of ClickHouse's own tables: how much each table
 /// stores, for the dashboard's storage card. `system.parts` lists only the
@@ -177,7 +182,8 @@ impl Store {
     }
 
     /// The connection `ANALYTICS_READER_URL` and `ANALYTICS_READER_PASSWORD`
-    /// configure, if any: the admin dashboard's.
+    /// configure, if any: auth's, for the admin dashboard and each app's
+    /// Insights.
     ///
     /// # Errors
     /// Fails when either is malformed, or the password cannot be read.

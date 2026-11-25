@@ -12,7 +12,7 @@ mod app;
 #[cfg(test)]
 mod tests;
 
-pub(super) use app::{AppSecrets, AppSettings, Overview};
+pub(super) use app::{AppSecrets, AppSettings, Insights, Overview};
 
 use super::{
     Failure, WebApplication,
@@ -22,7 +22,7 @@ use crate::{
     GracePeriod, MAX_OWNED_CLIENTS,
     account::{AccountError, Owner},
     clients::{ClientSettings, NewClient, OwnedClient, OwnedClientView},
-    routes::page::developers::{self, APP, APP_SECRETS, APP_SETTINGS, HOME, NEW},
+    routes::page::developers::{self, APP, APP_INSIGHTS, APP_SECRETS, APP_SETTINGS, HOME, NEW},
 };
 use sourceorigin_common::clients::{ClientKind, ClientStatus};
 use sourceorigin_ui::{
@@ -38,8 +38,9 @@ use topcoat::{
 path_param!(id);
 
 /// Each app tab and the route of the page it links.
-const APP_TABS: [(AppTab, &str); 3] = [
+const APP_TABS: [(AppTab, &str); 4] = [
     (AppTab::Overview, APP),
+    (AppTab::Insights, APP_INSIGHTS),
     (AppTab::Settings, APP_SETTINGS),
     (AppTab::Secrets, APP_SECRETS),
 ];
@@ -152,6 +153,7 @@ impl<'a> From<&'a OwnedClientView> for AppLink<'a> {
         Self {
             client: ClientRow::from(client),
             page: developers::of(APP, &client.id),
+            insights: developers::of(APP_INSIGHTS, &client.id),
             settings: developers::of(APP_SETTINGS, &client.id),
             secrets: (client.kind == ClientKind::Confidential)
                 .then(|| developers::of(APP_SECRETS, &client.id)),
@@ -266,7 +268,7 @@ impl WebApplication {
         let overview = developers::of(APP, &client.id);
         let (trail, title) = match tab {
             AppTab::Overview => (vec![], app),
-            AppTab::Settings | AppTab::Secrets => {
+            AppTab::Insights | AppTab::Settings | AppTab::Secrets => {
                 (vec![(app, overview.as_str())], Crumb::Label(tab.label()))
             }
         };

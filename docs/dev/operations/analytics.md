@@ -42,6 +42,16 @@ answer, and auth logs `the analytics page could not be read` with the query and
 the reason. ClickHouse's own pages, below, can say more. Every other page of
 the dashboard works either way.
 
+Each app's owner reads the same reader's counts of their own app on its
+**Insights** tab in the developer console; see
+[seeing how your app is used](../../user/apps/insights.md). The reader runs at
+most 16 queries at once, so the developer console can't take ClickHouse over.
+The dashboard and the console share them: when they're all taken, the page
+that asked says it couldn't read, so an "unavailable" Analytics page can come
+from busy Insights, and clears once their requests end. When ClickHouse
+doesn't answer, the tab says so, and auth logs `an app's insights could not be
+read`.
+
 ## Sign in to ClickHouse
 
 ClickHouse serves its own pages on a private route, reachable from the
@@ -160,7 +170,7 @@ caps its memory at three quarters of the container's 1 GiB.
 | --- | --- | --- | --- |
 | `sourceorigin` | `analytics-password` | the `migrate` job, and you on its pages | everything, and managing users |
 | `sourceorigin_writer` | `analytics-writer-password` | `auth`, `web` | insert rows, into any table |
-| `sourceorigin_reader` | `analytics-reader-password` | the admin dashboard, in `auth` | read the signals' tables, not `spans` or `logs`, and every table's size: 5 seconds, 512 MiB and 10,000 rows a query |
+| `sourceorigin_reader` | `analytics-reader-password` | `auth`: the dashboard's Analytics page and each app's Insights | read the signals' tables, not `spans` or `logs`, and every table's size: 5 seconds, 512 MiB and 10,000 rows a query, 16 queries at once |
 
 The image configures `sourceorigin` from the password it mounts each time
 ClickHouse starts, so regenerating `analytics-password` takes effect on the

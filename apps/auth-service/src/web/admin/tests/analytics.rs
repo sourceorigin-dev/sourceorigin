@@ -22,10 +22,8 @@ async fn the_analytics_page_says_when_analytics_are_off() {
 #[ignore = "requires TEST_DATABASE_URL and TEST_ANALYTICS_URL: run `just db test`"]
 async fn the_analytics_page_says_when_clickhouse_refuses() {
     let stranger = Store::test().as_user("nobody_provisioned", "no-password");
-    let config = Harness::reading(
-        AuthConfig::test(&AUTH_ORIGIN.parse().expect("auth origin")),
-        Some(stranger),
-    );
+    let mut config = AuthConfig::test(&AUTH_ORIGIN.parse().expect("auth origin"));
+    config.analytics = Some(stranger);
     let harness = Harness::of(config).await;
     let admin = harness.admin().await;
     let dashboard = harness.sign_in(&admin, "/analytics").await;
@@ -96,10 +94,8 @@ async fn the_dashboard_charts_what_clickhouse_counts() {
         serde_json::json!({"synced": true, "syncable": true, "transport": "internal"}),
     )
     .await;
-    let config = Harness::reading(
-        AuthConfig::test(&AUTH_ORIGIN.parse().expect("auth origin")),
-        Some(reader),
-    );
+    let mut config = AuthConfig::test(&AUTH_ORIGIN.parse().expect("auth origin"));
+    config.analytics = Some(reader);
     let harness = Harness::of(config).await;
     let admin = harness.admin().await;
     let dashboard = harness.sign_in(&admin, "/analytics").await;

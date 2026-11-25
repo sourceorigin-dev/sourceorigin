@@ -10,7 +10,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sourceorigin_common::{
     ClientId,
-    admin::{ClientDetail, SecretLifetime},
+    admin::{AuthorizationStepKind, ClientDetail, SecretLifetime},
     clients::{ClientField, ClientKind, ClientStatus},
     protocol::oauth::Scope,
 };
@@ -852,4 +852,16 @@ pub(crate) async fn secret_panel<'a>(
             </div>
         </section>
     })
+}
+
+/// What the dashboard and the console call `step` of signing in to an app.
+pub(crate) const fn step_name(step: AuthorizationStepKind) -> &'static str {
+    match step {
+        AuthorizationStepKind::Requested => "Requested",
+        AuthorizationStepKind::SignIn => "Sign-in page",
+        AuthorizationStepKind::Consent => "Consent page",
+        AuthorizationStepKind::Authorized => "Authorized",
+        AuthorizationStepKind::Denied => "Denied",
+        AuthorizationStepKind::Other => "Other",
+    }
 }

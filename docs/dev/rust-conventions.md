@@ -69,10 +69,12 @@ Keep implementations simple. Follow neighbouring modules and share repeated logi
   stylesheet, so they work without scripts; on phones, a checkbox the stylesheet
   reads opens the sidebar as a drawer. `form` holds what every form shares,
   including the `Checkbox` and `Lines` types for values a form sends as text;
-  `clients` the client views the console shares with the dashboard; `settings`,
+  `clients` the client views the console shares with the dashboard, and the
+  names of the steps of signing in to one; `settings`,
   `developers` and `admin` each area's pages, an overview first, with the forms
   they render, such as the dashboard's `DraftAnnouncement`; `charts` the
-  charts it draws as SVG, each with a table of its numbers; `icons` the
+  charts it draws as SVG, each with a table of its numbers, and `Charted`, what
+  a page of them shows: the dashboard's Analytics page and each app's Insights; `icons` the
   inline glyphs; `asset` the files pages link, embedded in the executable: the
   stylesheet, `STYLESHEET`, under a path naming its content, and the `FONTS` it
   links, under paths naming their version, which the admin dashboard serves

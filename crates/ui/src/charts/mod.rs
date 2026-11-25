@@ -23,6 +23,41 @@ pub struct Point {
     pub value: f64,
 }
 
+/// What a page of charts shows: why it has none, or its charts' rows.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Charted<T> {
+    /// Auth reads no analytics back.
+    Off,
+    /// The analytics database didn't answer.
+    Unavailable,
+    /// What it counted.
+    Shown(T),
+}
+
+/// One bar of a bar chart: its label, its length, and what it says, at its tip,
+/// in its tooltip and in the table, such as `1,284` or `25+`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Bar {
+    /// Such as `Sign-in page`.
+    pub label: String,
+    /// Its length, zero for none.
+    pub value: f64,
+    /// What it says.
+    pub shown: String,
+}
+
+impl Bar {
+    /// A bar of `value`, saying it.
+    #[must_use]
+    pub fn of(label: impl Into<String>, value: f64) -> Self {
+        Self {
+            label: label.into(),
+            value,
+            shown: compact(value),
+        }
+    }
+}
+
 /// One series of a line chart: its name and its points, one per label.
 #[derive(Clone, Debug)]
 pub struct Series<'a> {
@@ -225,19 +260,19 @@ pub async fn line_chart<'a>(
                     }
                 </svg>
             </div>
-            chart_table(caption: caption, labels: labels.iter().map(String::as_str).collect(), series: series)
+            chart_table(caption: caption, labels: labels.iter().map(String::as_str).collect(), columns: series.iter().map(|series| (series.name, series.values.iter().map(|value| compact(*value)).collect())).collect())
         </figure>
     })
 }
 
-/// A horizontal bar per point, longest for the largest, with its value at its
-/// tip: for counts of a few named things.
+/// A horizontal bar per point, longest for the largest, with what it says at
+/// its tip: for counts of a few named things.
 #[component]
 pub async fn bar_chart<'a>(
     /// What the chart shows, for screen readers and the table.
     caption: &'a str,
     /// A bar each, in order.
-    points: &'a [Point],
+    points: &'a [Bar],
 ) -> Result<impl View> {
     const WIDTH: f64 = 440.0;
     const ROW: f64 = 30.0;
@@ -250,7 +285,7 @@ pub async fn bar_chart<'a>(
         .map(|point| point.value)
         .fold(0.0, f64::max)
         .max(1.0);
-    let bars: Vec<(f64, String, String, &Point)> = points
+    let bars: Vec<(f64, String, String, &Bar)> = points
         .iter()
         .enumerate()
         .map(|(i, point)| {
@@ -276,13 +311,18 @@ pub async fn bar_chart<'a>(
                 <svg class="bars" viewBox=(format!("0 0 {WIDTH} {height}")) role="img" aria-label=(caption)>
                     for (middle, path, tip_x, point) in &bars {
                         let y = format!("{middle:.1}");
-                        <text class="label" x="0" y=(y.clone()) dominant-baseline="middle">(point.label.as_str())</text>
-                        <path class="mark s1" d=(path.as_str())><title>(format!("{}: {}", point.label, compact(point.value)))</title></path>
-                        <text class="value" x=(tip_x.as_str()) y=(y) dominant-baseline="middle">(compact(point.value))</text>
+                        <g>
+                            <title>(format!("{}: {}", point.label, point.shown))</title>
+                            <text class="label" x="0" y=(y.clone()) dominant-baseline="middle">(point.label.as_str())</text>
+                            if point.value > 0.0 {
+                                <path class="mark s1" d=(path.as_str())></path>
+                            }
+                            <text class="value" x=(tip_x.as_str()) y=(y) dominant-baseline="middle">(point.shown.as_str())</text>
+                        </g>
                     }
                 </svg>
             </div>
-            chart_table(caption: caption, labels: points.iter().map(|point| point.label.as_str()).collect(), series: vec![Series { name: caption, values: points.iter().map(|point| point.value).collect() }])
+            chart_table(caption: caption, labels: points.iter().map(|point| point.label.as_str()).collect(), columns: vec![(caption, points.iter().map(|point| point.shown.clone()).collect())])
         </figure>
     })
 }
@@ -294,8 +334,8 @@ async fn chart_table<'a>(
     caption: &'a str,
     /// Each row's label.
     labels: Vec<&'a str>,
-    /// A column each, with a value per row.
-    series: Vec<Series<'a>>,
+    /// Each column's name, and a cell per row.
+    columns: Vec<(&'a str, Vec<String>)>,
 ) -> Result<impl View> {
     Ok(view! {
         <details class="chart-table">
@@ -305,8 +345,8 @@ async fn chart_table<'a>(
                 <thead>
                     <tr>
                         <td></td>
-                        for series in &series {
-                            <th scope="col">(series.name)</th>
+                        for (name, _) in &columns {
+                            <th scope="col">(*name)</th>
                         }
                     </tr>
                 </thead>
@@ -314,8 +354,8 @@ async fn chart_table<'a>(
                     for (i, label) in labels.iter().enumerate() {
                         <tr>
                             <th scope="row">(*label)</th>
-                            for series in &series {
-                                <td>(compact(series.values.get(i).copied().unwrap_or(0.0)))</td>
+                            for (_, cells) in &columns {
+                                <td>(cells.get(i).map_or("", String::as_str))</td>
                             }
                         </tr>
                     }
