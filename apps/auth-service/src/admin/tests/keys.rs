@@ -9,8 +9,6 @@ use crate::security::CONFIRMATION_MAX_AGE;
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn signing_key_changes_check_their_administrator() {
-    // Generating the key holds the signing key lock, which the replicas of other
-    // tests on the shared database wait for as they start.
     let harness = Harness::isolated().await;
     let service = harness.service();
     let keys = crate::KeyStore::new(

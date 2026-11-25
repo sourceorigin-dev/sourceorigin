@@ -246,7 +246,6 @@ impl Fixture {
                 .await
                 .expect("administrator")
         );
-        // A dashboard session on a session that ended, both still stored.
         tx.dashboard()
             .insert_session(
                 user_id.as_uuid().as_bytes(),
@@ -426,15 +425,12 @@ async fn exports_hold_every_category_and_no_secret() {
     let digest = fixture.seed(&browser).await;
     let owner = browser.owner(&fixture.database).await;
     let export = fixture.account.export(&owner).await.expect("export");
-    // The streams are taken while their exports wait to download. Their count is
-    // the process's, which nextest gives each test alone.
     let second = fixture.account.export(&owner).await.expect("second export");
     assert!(matches!(
         fixture.account.export(&owner).await.map(drop),
         Err(AccountError::Deletion(DeletionError::ExportsBusy))
     ));
     drop(second);
-    // Its file name and the sections' shapes are checked in the export's own tests.
     let text = download(export).await;
     let export: serde_json::Value = serde_json::from_str(&text).expect("JSON");
     assert_eq!(
@@ -476,7 +472,6 @@ async fn exports_hold_every_category_and_no_secret() {
                 .is_some_and(|ds| !ds.is_empty())),
         "an ended session keeps its dashboard session: {sessions:?}"
     );
-    // Other tests' announcements to everyone may reach the account too.
     let announcements = export["announcements"].as_array().expect("announcements");
     assert!(
         (announcements.iter()).any(|announcement| announcement["subject"] == "Maintenance"),
@@ -520,7 +515,6 @@ async fn actors_a_newer_release_wrote_are_read() {
             platform: Platform::Linux,
         }),
     };
-    // Personal data is only recorded in its event's transaction.
     let mut tx = fixture.database.begin().await.expect("transaction");
     for actor in &actors {
         tx.events()

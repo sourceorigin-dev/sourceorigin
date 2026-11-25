@@ -89,8 +89,6 @@ async fn a_link_enrolls_one_passkey_that_signs_in_without_confirming() {
     let session = scenario.session(&cookie).await.expect("session");
     assert_eq!(session.passkey_confirmed_at, None, "still not confirmed");
 
-    // The probation lasts 15 days: a minute before, still refused; after, it
-    // settled.
     let recovery = scenario.latest().await.id;
     let database = scenario.database().clone();
     let almost = Duration::days(15) - Duration::minutes(1);

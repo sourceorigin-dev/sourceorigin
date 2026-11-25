@@ -41,7 +41,6 @@ fn near(pixel: Rgb<u8>, expected: [u8; 3]) -> bool {
 /// kept and its transparency white.
 #[test]
 fn a_transparent_png_becomes_a_white_backed_square() {
-    // Transparent, with an opaque red block in the middle third.
     let image = RgbaImage::from_fn(1200, 600, |x, _| {
         if (400..800).contains(&x) {
             Rgba([255, 0, 0, 255])
@@ -60,8 +59,6 @@ fn a_transparent_png_becomes_a_white_backed_square() {
 /// and the stored picture carries no EXIF.
 #[test]
 fn a_rotated_photo_comes_out_upright_without_metadata() {
-    // Left half red, right half blue, as stored; turned a quarter clockwise, red is
-    // on top.
     let image = RgbImage::from_fn(400, 200, |x, _| {
         if x < 200 {
             Rgb([255, 0, 0])
@@ -69,7 +66,6 @@ fn a_rotated_photo_comes_out_upright_without_metadata() {
             Rgb([0, 0, 255])
         }
     });
-    // A big-endian TIFF block with one entry: orientation (0x0112), a SHORT, 6.
     let exif = [
         b'M', b'M', 0, 42, 0, 0, 0, 8, 0, 1, 0x01, 0x12, 0, 3, 0, 0, 0, 1, 0, 6, 0, 0, 0, 0, 0, 0,
     ];
@@ -94,7 +90,6 @@ fn a_rotated_photo_comes_out_upright_without_metadata() {
 /// moved and shrunk until it fits.
 #[test]
 fn a_chosen_square_is_kept_and_fitted_into_the_image() {
-    // Red, green, blue and white quarters, from the top left.
     let image = RgbImage::from_fn(400, 400, |x, y| match (x < 200, y < 200) {
         (true, true) => Rgb([255, 0, 0]),
         (false, true) => Rgb([0, 255, 0]),
@@ -153,7 +148,6 @@ fn what_is_not_a_raster_image_is_refused() {
 #[test]
 fn an_out_of_bounds_image_is_refused_before_decoding() {
     let png = |image: DynamicImage| encoded(&image, ImageFormat::Png);
-    // A GIF whose screen is 0 by 1 pixels, holding one 1 by 1 frame.
     let empty_gif = [
         &b"GIF89a"[..],
         &[0, 0, 1, 0, 0, 0, 0],

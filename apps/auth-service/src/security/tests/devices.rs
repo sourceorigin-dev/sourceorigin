@@ -88,7 +88,6 @@ async fn only_an_unknown_browser_signs_in_as_a_new_device() {
     sign_in(&database, user_id, Some(&device(&first)), false).await;
     let enrolled = sign_in(&database, user_id, None, true).await;
     sign_in(&database, user_id, Some(&device(&enrolled)), false).await;
-    // A cookie another account's browser holds is new to this one.
     let other = Browser::new_account(&database).await.user_id;
     let elsewhere = sign_in(&database, other, None, true).await;
     sign_in(&database, user_id, Some(&device(&elsewhere)), false).await;

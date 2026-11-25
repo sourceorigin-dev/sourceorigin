@@ -195,7 +195,6 @@ async fn retries_resend_the_same_message_to_the_current_address() {
         )
     );
 
-    // A removed address gets no verification link, but still gets its notices.
     database
         .emails()
         .remove(user_id, email_id)
@@ -223,7 +222,6 @@ async fn a_verification_link_survives_a_change_of_key() {
         Secret::generate().expect("key"),
         Secret::generate().expect("key"),
     );
-    // Email settings under `current`, accepting `accepted` too.
     let settings = |current: &Secret, accepted: Option<&Secret>| {
         let derive = |key: &Secret| TokenDigestKey::derive(key.as_bytes());
         let mut config = EmailConfig::test(&AUTH_ORIGIN.parse().expect("auth origin"), true);
@@ -231,12 +229,7 @@ async fn a_verification_link_survives_a_change_of_key() {
             TokenDigestKeys::new(derive(current), accepted.map(derive)).verification_keys();
         config
     };
-    // The change's first deploy accepts the new key, and its second makes it
-    // current.
     let (before, after) = (settings(&old, Some(&new)), settings(&new, Some(&old)));
-    // Adds an address to a new account under `config`, from a client IP of its
-    // own so no other test shares its limit, and returns the account and the
-    // message its delivery queued.
     let queue = async |config: &EmailConfig| {
         let browser = Browser::new_account(&database).await;
         let ip = IpAddr::V6(Ipv6Addr::from(browser.user_id.as_uuid().as_u128()));
@@ -256,8 +249,6 @@ async fn a_verification_link_survives_a_change_of_key() {
         let message: EmailMessage = serde_json::from_value(payload).expect("message");
         (browser.user_id, message)
     };
-    // Sends `message` to `user_id` under `config`, and returns the outcome and
-    // the relay.
     let send = async |config: &EmailConfig, user_id, message: &EmailMessage| {
         let outbox = Arc::new(Outbox::default());
         let sender = EmailSender::with_mailer(database.clone(), Some(Arc::clone(&outbox)), config);
@@ -304,8 +295,6 @@ async fn a_recovery_link_is_sent_while_it_works() {
     let user_id = database.users().insert_named("mail").await;
     let address = format!("{user_id}@example.com");
     let email_id = verified_address(&database, user_id, &address, true).await;
-    // Started under a key that a change of token digest key made the accepted
-    // one before the link was sent.
     let origin: Origin = "https://auth.sourceorigin.dev".parse().expect("origin");
     let started = Secret::generate().expect("recovery key");
     let current = Secret::generate().expect("recovery key");
@@ -347,7 +336,6 @@ async fn a_recovery_link_is_sent_while_it_works() {
         "no link under a key no longer configured"
     );
 
-    // A disabled account's link is not sent, nor a replaced recovery's.
     let disable = async |status| {
         let changed = database.users().set_status(user_id, status).await;
         assert!(changed.expect("status"));
@@ -372,7 +360,6 @@ async fn a_recovery_link_is_sent_while_it_works() {
     );
     assert!(outbox.headers().is_empty(), "no link that stopped working");
 
-    // A recovery started under the current key is sent under it.
     let (current_id, token) = recover(&database, user_id, &config.recovery_links).await;
     let link = EmailMessage::RecoveryLink {
         recovery_id: current_id,
@@ -388,7 +375,6 @@ async fn a_recovery_link_is_sent_while_it_works() {
     };
     assert_eq!(url, config.recovery_links.url(&token).as_str());
 
-    // A used link is not sent.
     let mut recoveries = database.recoveries();
     let used = recoveries
         .complete(user_id, current_id, PasskeyId::new(), PROBATION)
@@ -460,7 +446,6 @@ async fn recovery_notices_link_to_the_undo_page() {
         notification: Notification::Recovered,
         recovery_id: Some(recovery_id),
     };
-    // The channel names the recovery only while a kept passkey can undo it.
     let revoked = |kept: bool| EmailMessage::Notification {
         address: address.clone(),
         notification_id: NotificationId::new(),
@@ -525,7 +510,6 @@ async fn notifications_are_emailed_to_the_addresses_their_kind_names() {
             .expect("record");
         tx.commit().await.expect("commit");
     };
-    // The kinds of the notifications emailed to `email`, oldest first.
     let emailed = async |email: EmailId| -> Vec<(String, bool)> {
         let destination = format!("account {user_id}, address {email}");
         let payloads = database.deliveries().payloads(&destination).await;

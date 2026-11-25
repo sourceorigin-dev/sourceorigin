@@ -189,7 +189,6 @@ impl ProviderPicture {
                 if host != Self::GITHUB_HOST {
                     return None;
                 }
-                // GitHub scales an avatar to its `s` parameter.
                 let kept: Vec<(String, String)> = url
                     .query_pairs()
                     .filter(|(name, _)| name != "s")
@@ -204,7 +203,6 @@ impl ProviderPicture {
                 if !host.ends_with(Self::GOOGLE_DOMAIN) {
                     return None;
                 }
-                // Google scales a picture to the `=s96-c` its path ends with.
                 let resized = url.path().rsplit_once("=s").and_then(|(base, size)| {
                     let digits = size.split('-').next()?;
                     (!digits.is_empty() && digits.bytes().all(|byte| byte.is_ascii_digit()))
@@ -215,7 +213,6 @@ impl ProviderPicture {
                 }
             }
         }
-        // Asking for the size may have made it longer.
         (url.as_str().len() <= Self::MAX_LENGTH).then_some(Self(url))
     }
 
@@ -265,7 +262,6 @@ impl VerifiedIdentity {
         if subject.len() > MAX_SUBJECT_BYTES {
             return Err(ProviderError::SubjectTooLong(subject.len()));
         }
-        // An invalid optional email is dropped; email never proves account ownership.
         let email = email.and_then(|email| {
             NormalizedEmail::parse(&email)
                 .inspect_err(|error| tracing::debug!(%error, "ignored provider email"))
@@ -332,8 +328,6 @@ impl FederationApplication {
         if !status.is_success() {
             return Err(ProviderError::Status {
                 status,
-                // Best effort: many failure bodies are not OAuth errors, and the status
-                // alone still explains the failure.
                 rejection: serde_json::from_slice(&body).ok(),
             });
         }

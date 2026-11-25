@@ -58,8 +58,6 @@ async fn router_enforces_exact_browser_origins_csrf_and_public_client_cors_bound
         .await;
     assert_eq!(response.status(), StatusCode::ACCEPTED);
 
-    // Any page may read the public metadata, keys and audit checkpoints, without
-    // credentials.
     for path in [
         "/.well-known/openid-configuration",
         "/.well-known/oauth-authorization-server",
@@ -84,8 +82,6 @@ async fn router_enforces_exact_browser_origins_csrf_and_public_client_cors_bound
             );
         }
     }
-    // OIDC endpoints authenticate their own tokens/client credentials. Browser
-    // clients can call protocol APIs, never settings.
     for (method, path) in [
         (Method::POST, "/oauth/token"),
         (Method::POST, "/oauth/revoke"),
@@ -98,7 +94,6 @@ async fn router_enforces_exact_browser_origins_csrf_and_public_client_cors_bound
         assert_eq!(response.status(), StatusCode::ACCEPTED, "{path}");
         SecurityFixture::exact_cors(&response, "https://external.example");
     }
-    // A browser form navigation from an RP does not use the settings CSRF header.
     let response = fixture
         .request(
             Method::POST,
@@ -130,7 +125,6 @@ async fn router_enforces_exact_browser_origins_csrf_and_public_client_cors_bound
         .await;
     assert_eq!(response.status(), StatusCode::NO_CONTENT);
     SecurityFixture::exact_cors(&response, own);
-    // A public client sends its codes and tokens, never cookies or Origin Auth's CSRF header.
     let response = fixture
         .request(
             Method::OPTIONS,
@@ -160,8 +154,6 @@ async fn router_enforces_exact_browser_origins_csrf_and_public_client_cors_bound
             .await;
         SecurityFixture::denied(&response);
     }
-    // External RP-initiated logout reaches its own validating handler. This
-    // dummy handler only proves delegation and cannot log out a real session.
     let response = fixture
         .request(
             Method::GET,
@@ -205,11 +197,9 @@ fn endpoint_policy_requires_browser_proof_outside_protocol_endpoints() {
             header::ORIGIN,
             HeaderValue::from_static("https://evil.example"),
         );
-        // Unapproved mutations and cross-origin reads only reach protocol handlers.
         assert_eq!(check(endpoint, &anonymous, false, true), protocol);
         assert_eq!(check(endpoint, &browser, false, false), protocol);
         assert!(check(endpoint, &anonymous, false, false));
-        // Approved mutations still need CSRF proof.
         assert_eq!(check(endpoint, &browser, true, true), protocol);
         browser.insert(CSRF_HEADER, HeaderValue::from_static("1"));
         assert!(check(endpoint, &browser, true, true));

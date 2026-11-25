@@ -125,8 +125,6 @@ impl ContentPolicy {
                     text.push(' ');
                     text.push_str(target);
                 }
-                // A target holds only an origin, which a header always takes; the
-                // listener's own policy stays should one ever not.
                 HeaderValue::try_from(text).ok()
             }
             Some(_) | None => None,

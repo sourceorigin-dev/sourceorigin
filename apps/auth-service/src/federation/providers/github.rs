@@ -90,7 +90,6 @@ impl FederationApplication {
             .bearer_auth(&token)
             .send_traced()
             .await?;
-        // GitHub can withhold email access without invalidating its authenticated subject.
         let emails: Vec<GitHubEmail> = if response.status() == StatusCode::FORBIDDEN {
             Vec::new()
         } else {
@@ -100,8 +99,6 @@ impl FederationApplication {
             .into_iter()
             .find(|email| email.verified && email.primary)
             .map(|email| email.email);
-        // GitHub hosts no mailbox, so the address may have changed owners since it
-        // verified it.
         VerifiedIdentity::new(
             Provider::GitHub,
             user.id.to_string(),

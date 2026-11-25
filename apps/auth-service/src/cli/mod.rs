@@ -157,9 +157,6 @@ impl Command {
     /// Executes this command, an administrative one as `operator` when given,
     /// printing to `out`, and returns the original startup or operation failure.
     async fn run(self, operator: Option<OperatorName>, out: Output) -> Result<(), CliError> {
-        // `migrate` connects as the schema owner when one is configured, then
-        // provisions the role every other command connects as. Pruning connects
-        // as the owner too, since that role may not delete events.
         let (config, runtime_role) = match self {
             Self::Migrate => AuthConfig::migration_from_environment()?,
             Self::Administration(Administration::Audit(AuditCommand::Prune { .. })) => {
@@ -336,7 +333,6 @@ impl Cli {
                 Ok(()) => Ok(()),
                 Err(error) => out.warning(ErrorChain(&error)),
             };
-            // The command's own failure wins over one to print the warning.
             result.and(flushed)
         };
         match result.await {

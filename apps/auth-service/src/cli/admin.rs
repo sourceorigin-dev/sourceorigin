@@ -74,7 +74,6 @@ impl AdminCommand {
     }
 }
 
-// One administrator per line, oldest grant first.
 report!([Administrator], self, out, {
     out.table(
         ["HANDLE", "ID", "GRANTED"],

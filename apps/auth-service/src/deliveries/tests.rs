@@ -236,8 +236,6 @@ async fn responses_are_classified_by_status_alone() {
     assert_eq!(long, Ok(64 * 1024));
 }
 
-// Worker tests' channels. Each delivery's recipient says how the recorder
-// answers it.
 sourceorigin_repository::test_channels! {
     /// Retryable and permanent failures.
     Failing = "test_worker": Behavior => ();

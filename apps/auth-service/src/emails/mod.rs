@@ -529,7 +529,6 @@ impl AccountService {
         signed_in: Option<&Owner>,
         request: RequestContext,
     ) -> Result<Verified, AccountError> {
-        // A token that does not parse cannot match: answer as for an unknown one.
         #[expect(
             clippy::map_err_ignore,
             reason = "Secret::parse names a byte of the token, a secret; the answer is the one for an unknown token"
@@ -559,7 +558,6 @@ impl AccountService {
         {
             Ok(primary) => primary,
             Err(DatabaseError::NotFound) => return Err(EmailError::InvalidToken.into()),
-            // The ownership trigger: another account, of any status, verified it first.
             Err(DatabaseError::Conflict(_)) => return Err(EmailError::OwnedElsewhere.into()),
             Err(error) => return Err(error.into()),
         };

@@ -65,7 +65,6 @@ async fn a_probation_passkey_signs_in_anew_and_never_confirms() {
     let session = scenario.session(&confirmed).await.expect("session");
     assert!(session.passkey_confirmed_at.is_some(), "not downgraded");
 
-    // A link used in a browser an older passkey confirmed still signs in anew.
     let token = {
         scenario.swap();
         let undoable = scenario.latest().await.id;

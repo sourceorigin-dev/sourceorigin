@@ -361,9 +361,6 @@ impl From<AdminError> for ApiError {
             | AdminError::SigningKey(KeyError::Mismatched(_) | KeyError::NoActiveKey) => {
                 Self::conflict(message)
             }
-            // A stored key that cannot sign is refused, and the form says which.
-            // Why it cannot, such as a key-encryption key no longer accepted, is
-            // only for the log.
             error @ AdminError::SigningKey(KeyError::Stored { .. }) => {
                 Self::log_error(&error);
                 Self::conflict(message)

@@ -50,7 +50,6 @@ async fn linking_requires_target_confirmation_and_unlink_releases_subject_withou
         ),
         "another account's confirmation cannot link: {refused:?}"
     );
-    // Confirmation comes first, before the browser's pending cookie is read.
     for pending in [&pending_headers, &HeaderMap::new()] {
         let refused = test.link_pending(&target_cookie, pending).await;
         assert!(

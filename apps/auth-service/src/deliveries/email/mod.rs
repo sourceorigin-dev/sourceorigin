@@ -63,9 +63,6 @@ impl Mailer for AsyncSmtpTransport<Tokio1Executor> {
         let Err(error) = AsyncTransport::send(self, message).await else {
             return Ok(());
         };
-        // The relay's reply text can quote the recipient, so only its status code
-        // or failure category is kept, as the delivery's error, which the worker
-        // logs. The error itself is never logged, at any level.
         let code = error.status().map(u16::from);
         let failure = match code {
             Some(code) => Failure::Smtp(code),
@@ -338,7 +335,6 @@ impl<M: Mailer> EmailSender<M> {
                     },
                 }
             }
-            // Administrators' own words, which read as their announcements do.
             EmailMessage::Notification {
                 address,
                 notification: Notification::Message { title, text },
@@ -471,8 +467,6 @@ impl AnnouncementSender<AsyncSmtpTransport<Tokio1Executor>> {
     /// `announcement`'s email, linking the inbox on `auth`, auth's origin, which
     /// the dashboard shows before it is sent.
     pub(crate) fn preview(announcement: &admin::Announcement, auth: &Origin) -> Mail {
-        // The unsubscribe link names the recipient, so the preview shows the
-        // page it opens.
         let unsubscribe = (!announcement.essential).then(|| auth.join(page::UNSUBSCRIBE));
         let content = Content::announcement(
             String::new(),

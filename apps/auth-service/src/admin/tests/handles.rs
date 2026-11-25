@@ -63,8 +63,6 @@ async fn operators_rename_and_release_handles() {
             new: Personal::Value(handle("renamed")),
         })
     );
-    // The old handle stays the second account's: the first cannot take it, but
-    // an operator can give it back at once, as operators skip the cooldown.
     assert!(matches!(
         refused(rename(first, handle("second"), false).await),
         HandlesError::Retired
@@ -91,7 +89,6 @@ async fn operators_rename_and_release_handles() {
     rename(first, handle("renamed"), false)
         .await
         .expect("a released handle is free");
-    // A reserved handle is listed while an account holds it.
     let reserved = Handle::parse("sourceorigin").expect("handle");
     let listed = || async {
         service

@@ -530,7 +530,6 @@ async fn a_next_key_that_cannot_sign_is_never_promoted() {
             !kids(&keys).contains(&next.to_string()),
             "{next} is left out"
         );
-        // The refusal leaves the rest of rotation going: the first key retires.
         let states = advance(&store, &mut tx, due).await;
         assert!(
             states.contains(&(next.clone(), SigningKeyState::Next)),
@@ -657,7 +656,6 @@ async fn a_replica_that_cannot_reload_turns_unready() {
             .status()
     };
     assert_eq!(ready().await, StatusCode::NO_CONTENT);
-    // Its key-encryption key opens none of the stored keys.
     let failing = KeyStore::new(
         database.clone(),
         Arc::new(KeyEncryptionKeys::new(

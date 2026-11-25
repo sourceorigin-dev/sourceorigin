@@ -77,7 +77,6 @@ impl Command {
             }
         };
         let jobs = async {
-            // Fails only once `stop` is dropped, which also means stopping.
             stop.subscribe().wait_for(|stopped| *stopped).await.ok();
             jobs.shutdown().await
         };
@@ -134,10 +133,8 @@ impl Command {
         let mut connections = JoinSet::new();
         let mut stopped = stop.subscribe();
         loop {
-            // Accepting retries by itself after failures, such as too many open files.
             let (stream, peer) = tokio::select! {
                 accepted = Listener::accept(&mut listener) => accepted,
-                // Fails only once `stop` is dropped, which also means stopping.
                 _ = stopped.wait_for(|stopped| *stopped) => break,
             };
             let service = router
@@ -156,7 +153,6 @@ impl Command {
                     tracing::debug!(error = %ErrorChain(&error), "connection closed on an error");
                 }
             });
-            // Forget the connections that ended.
             while connections.try_join_next().is_some() {}
         }
         drop(listener);
@@ -169,7 +165,6 @@ impl Command {
                 "closing connections still open after the grace period"
             );
         }
-        // Dropping `connections` cancels the requests still running.
     }
 }
 

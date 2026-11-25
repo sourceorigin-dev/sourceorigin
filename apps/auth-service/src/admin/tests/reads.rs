@@ -77,8 +77,6 @@ impl AdminOperation {
             ],
             Self::ListAnnouncements => vec![service.list_announcements(operator).await.map(drop)],
             Self::ViewAnnouncement => vec![service.view_announcement(operator, id).await.map(drop)],
-            // A draft is the administrators' own, so writing, changing and
-            // discarding one need what a read needs, checked first.
             Self::DraftAnnouncement => vec![
                 service
                     .draft_announcement(operator, &everyone)
@@ -104,7 +102,6 @@ impl AdminOperation {
                     .await
                     .map(drop),
             ],
-            // Pruning checks its operator before anything else too.
             Self::PruneAuditChain => vec![
                 service
                     .prune_audit_chain(operator, &committed_keys(), 1, reason("Asked by email"))
@@ -166,7 +163,6 @@ impl Harness {
         let mut tx = self.database.begin().await.expect("transaction");
         ended.sign_out(&mut tx).await;
         tx.commit().await.expect("commit");
-        // Any passkey sign-in, however old, as every read requires.
         let passkey = StepUpRequirement {
             acr: Some(Acr::PhishingResistant),
             max_age: None,

@@ -60,8 +60,6 @@ async fn every_change_needs_a_confirmation() {
         display_name: Some("Renamed".into()),
         ..ClientPatch::default()
     };
-    // `every_confirmed_operation_checks_the_owner_itself` covers changing the
-    // redirect URIs, rotating a secret and deleting.
     for refused in [
         service.update_client(&client, rename()).await.map(drop),
         service.set_client_enabled(&client, false).await,

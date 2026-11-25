@@ -250,8 +250,6 @@ impl AccountService {
         let Some(user) = tx.notifications().owner(id).await? else {
             return Ok(false);
         };
-        // The account first, as every change to its sessions locks it, then the
-        // link, which a concurrent use already used, or a purge deleted.
         if tx.users().find_by_id_for_update(user).await?.is_none() {
             return Ok(false);
         }
@@ -265,8 +263,6 @@ impl AccountService {
             return Ok(false);
         }
         let context = request.user_without_session(user);
-        // Recorded even when no session was left, so the owner's history shows
-        // every use of the link, from where it was used.
         tx.record(
             &context,
             Some(user),

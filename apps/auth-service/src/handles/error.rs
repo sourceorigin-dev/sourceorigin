@@ -56,7 +56,6 @@ impl From<HandlesError> for ApiError {
                 format!("This handle looks too much like @{handle}. Choose another one.")
             }
             HandlesError::Current => "This is already the account's handle.".to_owned(),
-            // Day-first in UTC, as the profile page writes the same date.
             HandlesError::Cooldown { retry_after } => format!(
                 "Your handle changed less than {} days ago. You can change it again on {} UTC.",
                 super::COOLDOWN.num_days(),

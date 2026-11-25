@@ -514,7 +514,6 @@ async fn every_use_of_the_sign_out_link_is_in_the_history() {
             .await
             .expect("first")
     );
-    // Every session already ended: its use still shows.
     let second = latest().await;
     assert!(
         service

@@ -184,7 +184,6 @@ impl AnnouncementCommand {
     }
 }
 
-// Announcements, newest first: drafts, and when the others were sent.
 report!([Announcement], self, out, {
     out.table(
         ["ID", "STATUS", "RECIPIENTS", "SUBJECT"],
@@ -209,9 +208,6 @@ report!([Announcement], self, out, {
     )
 });
 
-// An announcement: one fact per line, the accounts it was chosen for, then its
-// text. Whom a year-old announcement went to was deleted, so its counts are
-// left out.
 report!(AnnouncementDetail, self, out, {
     let announcement = &self.announcement;
     let to = if announcement.everyone {

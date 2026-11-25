@@ -85,8 +85,6 @@ impl From<EmailError> for ApiError {
             EmailError::TooMany { max } => Self::conflict(format!(
                 "Your account can have at most {max} addresses. Remove one first."
             )),
-            // One message for every limit, so a refusal does not say whose limit
-            // it was: the address's would tell that others recently added it.
             EmailError::RateLimited { .. } => Self::too_many_requests(
                 "Too many verification emails were sent recently. Please try again later.",
                 VERIFICATION_WINDOW,

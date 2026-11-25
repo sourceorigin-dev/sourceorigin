@@ -357,7 +357,6 @@ impl Scenario {
         let payloads = payloads.expect("payloads").into_iter();
         payloads
             .map(|payload| {
-                // A notification's email is named by the notification's kind.
                 let message = match payload.get("notification") {
                     Some(notification) => notification,
                     None => &payload,

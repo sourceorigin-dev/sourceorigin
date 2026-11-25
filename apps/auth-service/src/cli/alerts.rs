@@ -66,7 +66,6 @@ impl AlertsCommand {
     }
 }
 
-// One alert per line: where it and its handling stand, and what it says.
 report!([AlertDetail], self, out, {
     out.table(
         [

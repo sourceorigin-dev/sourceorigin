@@ -207,7 +207,6 @@ impl AuditChain {
             newest: tx.audit().head().await?.as_ref().map(Chain::point),
             unsealed: tx.audit().unsealed_count().await?,
         };
-        // A verification a newer release recorded reads as unknown, so as none.
         let verified = tx
             .events()
             .newest_audit_verification(Verifications::Any)
@@ -223,7 +222,6 @@ impl AuditChain {
             });
         let after =
             after.unwrap_or_else(|| chain.anchor.as_ref().map_or(0, |anchor| anchor.position));
-        // One more than a page tells whether another follows.
         let mut stored = tx.audit().checkpoints(after, Self::PAGE + 1).await?;
         tx.commit().await?;
         let more = stored.len() > Self::PAGE as usize;
@@ -258,8 +256,6 @@ impl AuditChain {
         let checkpoints = Self::checkpoints(tx, keys).await?;
         let anchor = tx.audit().anchor().await?.as_ref().map(ChainLink::signed);
         let start = anchor.unwrap_or(ChainLink::GENESIS);
-        // Pruning deletes every event through the anchor, so one left there means
-        // the anchor was moved to hide it.
         let leftover = tx
             .audit()
             .chain(0, 1)
@@ -270,8 +266,6 @@ impl AuditChain {
                 position: event.sealed.link.position,
                 problem: ChainProblem::EventBeforeAnchor,
             });
-        // Checkpoints at or before the anchor signed pruned events: only their
-        // signatures and notes can still be checked.
         let pruned = Self::first_problem(&checkpoints, ..=start.position);
         let (head, broken) = match [leftover, pruned]
             .into_iter()
@@ -294,8 +288,6 @@ impl AuditChain {
             }
         };
         let events_checked = head.position - start.position;
-        // A checkpoint past the last sealed event signed events that are gone. The
-        // earliest one is where the chain breaks, whatever is wrong with later ones.
         let broken = broken.or_else(|| {
             checkpoints
                 .range(head.position + 1..)

@@ -223,7 +223,6 @@ impl DeliveryError {
     /// A uniformly distributed fraction in `[0, 1)` to spread retries out. Not for
     /// secrets: each `RandomState` hashes with fresh keys, which is random enough.
     fn jitter() -> f64 {
-        // The top 53 bits fill an `f64` mantissa exactly.
         #[expect(
             clippy::cast_precision_loss,
             reason = "A 53-bit integer converts to f64 exactly."

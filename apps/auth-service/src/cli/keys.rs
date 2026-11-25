@@ -200,7 +200,6 @@ impl KeysCommand {
     }
 }
 
-// One signing key per line, oldest first.
 report!([SigningKey], self, out, {
     out.table(
         [
@@ -238,7 +237,6 @@ struct KeyUsage {
     key: &'static str,
 }
 
-// One kind of record per line, per digest key.
 report!([KeyUsage], self, out, {
     out.table(
         ["RECORD", "KEY", "FINGERPRINT", "STORED"],

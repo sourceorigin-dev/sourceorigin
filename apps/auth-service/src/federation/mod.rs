@@ -390,7 +390,6 @@ impl FederationApplication {
             .as_deref()
             .and_then(|value| Secret::parse(value).ok())
             .ok_or(FederationError::InvalidAttempt)?;
-        // Cancellation consumes state too; returning to the browser never leaves replayable evidence.
         match self
             .database
             .federation()
@@ -401,7 +400,6 @@ impl FederationApplication {
             )
             .await
         {
-            // Another browser's, a used one, or one that expired.
             Err(DatabaseError::NotFound) => Err(FederationError::InvalidAttempt),
             consumed => Ok(consumed?),
         }

@@ -73,7 +73,6 @@ async fn callback_email_collision_never_links_and_known_subject_never_bootstraps
     );
     let subject_owner = test.user(Some(&original), false).await;
     test.link(subject_owner).await;
-    // Known accounts cannot bootstrap from social login.
     let response = test.callback().await;
     TestApp::refused(&response, "account_unavailable");
     let mut tx = test.app.database.begin().await.expect("tx");
@@ -94,7 +93,6 @@ async fn callback_email_collision_never_links_and_known_subject_never_bootstraps
         session.passkey_confirmed_at.is_none(),
         "social sign-in never confirms a passkey"
     );
-    // Signing in moves neither account's verified address.
     for (address, owner) in [(&observed, email_owner), (&original, subject_owner)] {
         assert_eq!(
             test.app

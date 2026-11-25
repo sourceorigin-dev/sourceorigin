@@ -177,7 +177,6 @@ async fn links_verify_once_and_the_primary_address_moves() {
     assert_eq!(added["address"], "Ada@example.com");
     assert_eq!(added["verified"], false);
     let first: EmailId = added["id"].as_str().expect("id").parse().expect("ID");
-    // The delivery names the account and the address's ID, never the address.
     let queued = harness.deliveries(&account).await;
     assert_eq!(queued.len(), 1);
     assert_eq!(
@@ -404,7 +403,6 @@ async fn expired_links_replacements_and_limits() {
     let second = harness.added(&account, "again@example.com").await;
     assert_ne!(first, second);
     assert_eq!(harness.verify(first).await.0, StatusCode::BAD_REQUEST);
-    // Cleanup, which other tests run, may have deleted the expired address already.
     let addresses = harness.list(&account).await;
     assert!(
         addresses

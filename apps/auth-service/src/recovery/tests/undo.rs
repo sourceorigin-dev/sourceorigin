@@ -278,8 +278,6 @@ async fn undoing_an_unused_link_only_cancels_it() {
     );
     assert_eq!(scenario.consents().await.len(), 1, "consent kept");
 
-    // An undo started for a recovery that a newer one replaced before it
-    // finished undoes nothing: the proof names the recovery it was started for.
     scenario.recover().await;
     let replaced = scenario.latest().await.id;
     let (started, browser) = scenario.undo_start(replaced).await.expect("undo");
@@ -311,13 +309,11 @@ async fn the_owner_undoes_a_disabled_accounts_recovery() {
     let token = scenario.recover().await;
     scenario.enroll(&token).await;
     let recovery = scenario.latest().await.id;
-    // A sign-in started before the account is disabled.
     let body = json!({ "handle": scenario.keys.username });
     let login = scenario
         .keys
         .start("/webauthn/authenticate/start", "", body)
         .await;
-    // Written directly, as a code path that knows nothing of recoveries would.
     let disabled = scenario
         .database()
         .users()

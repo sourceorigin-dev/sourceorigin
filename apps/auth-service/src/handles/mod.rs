@@ -66,7 +66,6 @@ impl<'a> Handles<'a> {
             (true, None, _) => Err(HandlesError::Current),
             (true, Some(_), _) => Ok(()),
             (false, None, Some(_)) => Err(HandlesError::Taken),
-            // Released, or the current handle of a purged account.
             (false, _, _) => Err(HandlesError::Retired),
         }
     }
@@ -127,7 +126,6 @@ impl AccountService {
             .await?;
         let mut tx = self.database.begin().await?;
         owner.lock_confirmed(&mut tx).await?;
-        // Already locked, which the confirmation check does not return.
         let user = tx
             .users()
             .find_active_by_id_for_update(owner.user())

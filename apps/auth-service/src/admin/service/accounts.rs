@@ -44,7 +44,6 @@ impl AdminService {
                 .find_by_id(*id)
                 .await?
                 .map(|user| user.id),
-            // A name that is not a handle was never stored.
             UserRef::Handle(handle) => match Handle::parse(handle) {
                 Ok(handle) => self
                     .database
@@ -54,7 +53,6 @@ impl AdminService {
                     .map(|user| user.id),
                 Err(_) => None,
             },
-            // An address that cannot be normalized was never stored.
             UserRef::Email(address) => match NormalizedEmail::parse(address) {
                 Ok(address) => self
                     .database
@@ -267,7 +265,6 @@ impl AdminService {
     ) -> Result<(DatabaseTransaction<'_>, StoredUser), AdminError> {
         let mut tx = self.database.begin().await?;
         let user = Deletions::lock(&mut tx, user_id).await?;
-        // The administrator list is locked, so the answer holds until commit.
         if operator.administrator().is_some() && tx.administrators().contains(user_id).await? {
             return Err(AdminError::AdministratorTarget);
         }
@@ -289,13 +286,11 @@ impl AdminService {
         letter: Letter,
     ) -> Result<(), AdminError> {
         let mut tx = self.database.begin().await?;
-        // The account's lock, as every change takes it, so a purge waits or wins.
         tx.users()
             .find_by_id_for_update(user_id)
             .await?
             .ok_or(AdminError::UserNotFound)?;
         let Letter { subject, body } = letter;
-        // Its text says why it was sent, so nobody writes a reason for it.
         let reason = Reason::see_message();
         tx.record_message(&operator.context(&reason), user_id, subject, body)
             .await?;

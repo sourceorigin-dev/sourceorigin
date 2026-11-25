@@ -100,8 +100,6 @@ impl InviteCommand {
     }
 }
 
-// One invitation per line, newest first, with the address it was mailed to, if
-// any, and without its link.
 report!([Invitation], self, out, {
     out.table(
         ["ID", "EMAIL", "CREATED", "EXPIRES", "REDEEMED", "REVOKED"],

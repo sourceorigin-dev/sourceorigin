@@ -31,7 +31,6 @@ use tower::ServiceExt;
 async fn the_account_api_uploads_a_picture() {
     let replicas = Replicas::new().await;
     let owner = Browser::new_account(&Replicas::database().await).await;
-    // As an Origin Auth page sends it, with the browser's cookies.
     let upload = async |browser: &Browser, query: &str| {
         let mut request = Request::put(format!("{}{query}", pictures::OWN))
             .header(header::ORIGIN, AUTH_ORIGIN)
@@ -88,7 +87,6 @@ async fn an_upload_without_the_turn_is_refused_unread() {
             .headers_mut()
             .expect("headers")
             .extend(owner.headers());
-        // Reading any of it fails the test.
         let unread = Body::from_stream(tokio_stream::iter(std::iter::from_fn(
             || -> Option<Result<Bytes, std::io::Error>> { panic!("the upload's body was read") },
         )));
@@ -179,7 +177,6 @@ async fn a_provider_picture_is_imported_once() {
     assert_eq!(current().await, None);
 
     let held = DecodeTurn::take().expect("a free turn");
-    // A fetch would fail; this fails first.
     assert!(matches!(
         import("/missing").await,
         Err(AccountError::Picture(PictureError::Busy(_)))

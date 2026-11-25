@@ -143,11 +143,9 @@ async fn revoke_takes_back_every_way_in_but_the_kept_passkeys() {
     let stolen = scenario.keys.key_id;
     let primary = scenario.address("primary", true).await;
     let other = scenario.address("other", false).await;
-    // The owner's other passkey, which signs from now on.
     let kept = scenario.keys.switch_passkey("Kept").await;
     scenario.link(Provider::GitHub).await;
     scenario.consent("https://notes.example").await;
-    // A link already sent does not stand in the way.
     scenario.recover().await;
 
     let unknown = Revoke {

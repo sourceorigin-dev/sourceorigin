@@ -121,7 +121,6 @@ async fn pages_hold_only_the_callers_entries() {
     let renamed = || DomainEvent::PasskeyRenamed {
         passkey_id: PasskeyId::new(),
     };
-    // Hidden confirmations between the renames make the first page read past 50 rows.
     let events = (0..60)
         .flat_map(|_| {
             [
@@ -140,7 +139,6 @@ async fn pages_hold_only_the_callers_entries() {
                 user_id: bob.user_id,
                 session_id: bob.session_id,
             },
-            // The view is hidden; the change shows.
             vec![
                 DomainEvent::AccountViewed {},
                 DomainEvent::AccountEnabled {},
@@ -185,7 +183,6 @@ async fn pages_hold_only_the_callers_entries() {
     );
     assert_eq!(second["next"], Value::Null);
     let second = second["entries"].as_array().expect("entries");
-    // The 60 renames, the admin and CLI actions, and the sign-in.
     assert_eq!(second.len(), 63 - 50);
     assert_eq!(second.last().expect("sign-in")["kind"], "session.signed_in");
 

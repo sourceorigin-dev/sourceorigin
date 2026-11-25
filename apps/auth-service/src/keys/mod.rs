@@ -140,7 +140,6 @@ impl SigningKeys {
 
     /// The current key set, if it was loaded at most `limit` ago.
     fn loaded_within(&self, limit: Duration) -> Result<Arc<KeySet>, StaleKeys> {
-        // A writer only swaps the value, so a panic cannot leave it half-written.
         let loaded = self.0.read().unwrap_or_else(PoisonError::into_inner);
         let age = loaded.at.elapsed();
         if age > limit {
@@ -417,9 +416,7 @@ impl KeyStore {
         let thumbprint = PublicKey::from_jwk(key.public_jwk.clone())
             .map_err(invalid)?
             .thumbprint();
-        // The table keeps a private key for every key that is not retired.
         let sealed = key.sealed_private_key.as_deref().unwrap_or_default();
-        // Opening fails only as `Unsealable`, so the attempts lose no detail.
         let der = Binding::ALL
             .into_iter()
             .find_map(|binding| {
@@ -593,7 +590,6 @@ impl<'t, 'c> Change<'t, 'c> {
             (None, None) => {
                 self.generate(SigningKeyState::Active).await?;
             }
-            // Only a manual change leaves a published key with none signing.
             (None, Some(next)) => self.promote(&next.id, None).await.or_else(Self::refused)?,
             (Some(active), None) if older_than(active.activated_at, ROTATION_PERIOD) => {
                 self.generate(SigningKeyState::Next).await?;
@@ -681,9 +677,6 @@ impl<'t, 'c> Change<'t, 'c> {
         if key.state != SigningKeyState::Active {
             return Ok(None);
         }
-        // Whatever exposed the signing key may have exposed every private key still
-        // stored: `next`, which would sign within a day, and `retiring` ones, which
-        // still verify for up to an hour. Rotation publishes another `next`.
         for other in keys
             .iter()
             .filter(|key| matches!(key.state, SigningKeyState::Next | SigningKeyState::Retiring))
