@@ -5,7 +5,6 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { type FormEvent, useState } from 'react';
 
 import { getAccount, revokeOtherSessions, updateAccount } from '@experiment/shared/api';
-import '@experiment/shared/review';
 
 export const Route = createFileRoute('/settings')({
   // Runs on the server for the first request and in the browser after that:

@@ -17,10 +17,7 @@ import {
 } from '@pierre/diffs/worker';
 
 import type { FileSummary, Side, Thread } from './api';
-import { client } from './api/client.gen';
-import { API_URL } from './csp';
 
-client.setConfig({ baseUrl: API_URL });
 
 /** The only change the stub API holds. */
 export const CHANGE = '1';

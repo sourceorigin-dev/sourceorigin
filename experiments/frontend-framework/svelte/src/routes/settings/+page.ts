@@ -1,5 +1,4 @@
 import { getAccount } from '@experiment/shared/api';
-import '@experiment/shared/review';
 
 import type { PageLoad } from './$types';
 

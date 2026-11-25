@@ -80,10 +80,11 @@ for (const [name, app] of Object.entries(APPS)) {
     let kept;
     try {
       for (let edit = 0; edit < 6; edit++) {
-        // Scroll a little and mark the window, to see what the edit costs.
+        // Scroll a little, keeping the first thread in view, and mark the window,
+        // to see what the edit costs.
         await page.evaluate(() => {
           window.__alive = true;
-          document.querySelector('.review-diff:not(.server-files)').scrollTop = 900;
+          document.querySelector('.review-diff:not(.server-files)').scrollTop = 60;
         });
         await sleep(600);
         const text = edit % 2 === 0 ? after : before;

@@ -4,6 +4,14 @@ import { defineConfig } from 'vite';
 
 import { CSP_DIRECTIVES } from '../shared/src/csp.ts';
 
+// SvelteKit wants a policy's keywords without their quotes, and adds them.
+const directives = Object.fromEntries(
+  Object.entries(CSP_DIRECTIVES).map(([name, sources]) => [
+    name,
+    sources.map((source) => source.replace(/^'(.*)'$/, '$1')),
+  ])
+);
+
 export default defineConfig({
   // The design tokens are imported from crates/ui, outside this folder.
   server: { fs: { allow: ['../../..'] } },
@@ -20,11 +28,11 @@ export default defineConfig({
       csp: {
         mode: 'nonce',
         directives: {
-          ...CSP_DIRECTIVES,
+          ...directives,
           // SvelteKit's own root component writes its route announcer with a
           // style attribute, at src/runtime/components/root.svelte. This allows
           // that one attribute and no other; it must follow SvelteKit's text.
-          'style-src-attr': ["'unsafe-hashes'", "'sha256-S8qMpvofolR8Mpjy4kQvEm7m1q8clzU4dfDH0AmvZjo='"],
+          'style-src-attr': ['unsafe-hashes', 'sha256-S8qMpvofolR8Mpjy4kQvEm7m1q8clzU4dfDH0AmvZjo='],
         },
       },
     }),

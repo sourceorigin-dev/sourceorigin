@@ -274,7 +274,9 @@ for (const path of pages) {
 await browser.close();
 machine.loadAverageAtEnd = loadavg().map(round);
 mkdirSync(new URL('./results/', import.meta.url), { recursive: true });
-writeFileSync(new URL(`./results/${process.env.OUT ?? 'measure'}.json`, import.meta.url), `${JSON.stringify({ machine, ...output }, null, 2)}\n`);
+// A name of its own for every run, so one never replaces another.
+const out = process.env.OUT ?? `measure-${machine.started.replaceAll(':', '-')}`;
+writeFileSync(new URL(`./results/${out}.json`, import.meta.url), `${JSON.stringify({ machine, ...output }, null, 2)}\n`);
 
 // The table: median, then the range, for React and for Svelte.
 const show = (value) => (value == null ? '-' : `${value.median} (${value.min} to ${value.max})`);

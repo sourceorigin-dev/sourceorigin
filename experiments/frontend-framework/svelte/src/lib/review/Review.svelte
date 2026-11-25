@@ -63,10 +63,11 @@
   }
 
   let { data }: { data: FirstScreen } = $props();
-  // The change never changes under a mounted page, so it is read once.
+  // The page's data never changes under a mounted page, so it is read once.
   // svelte-ignore state_referenced_locally
-  const { change } = data;
+  const { change, firstPatch } = data;
   const path = { change: change.id };
+  // svelte-ignore state_referenced_locally
   const threads = threadsByPath(data.threads);
   let draft: DraftLine | undefined;
 
@@ -100,7 +101,7 @@
     return { ...item, annotations: annotations(item.id), collapsed: reviewed.has(item.id) };
   }
 
-  const initialItems = splitPatch(data.firstPatch).flatMap((text) => toItem(text) ?? []);
+  const initialItems = splitPatch(firstPatch).flatMap((text) => toItem(text) ?? []);
   // What Pierre rendered on the server. In the browser there is none, and the
   // markup already in the page stays as the parser left it.
   const markup = serverMarkup(change);

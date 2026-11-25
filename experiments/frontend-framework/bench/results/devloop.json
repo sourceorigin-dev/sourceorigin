@@ -1,0 +1,64 @@
+{
+  "react": {
+    "coldStart": {
+      "serverAnswersMs": 2001,
+      "pageUsableMs": 3535
+    },
+    "warmStart": {
+      "serverAnswersMs": 1823,
+      "pageUsableMs": 3202
+    },
+    "leafEdit": {
+      "firstMs": 45,
+      "medianOfRestMs": 43,
+      "after": {
+        "noReload": true,
+        "scrollTop": 60,
+        "scrollHeight": 1104443,
+        "serverFilesBack": 0
+      }
+    },
+    "screenEdit": {
+      "firstMs": 87,
+      "medianOfRestMs": 87,
+      "after": {
+        "noReload": true,
+        "scrollTop": 60,
+        "scrollHeight": 1104443,
+        "serverFilesBack": 0
+      }
+    },
+    "errorsAfterEdits": []
+  },
+  "svelte": {
+    "coldStart": {
+      "serverAnswersMs": 3591,
+      "pageUsableMs": 4759
+    },
+    "warmStart": {
+      "serverAnswersMs": 1953,
+      "pageUsableMs": 3130
+    },
+    "leafEdit": {
+      "firstMs": 22,
+      "medianOfRestMs": 22,
+      "after": {
+        "noReload": true,
+        "scrollTop": 60,
+        "scrollHeight": 1104443,
+        "serverFilesBack": 0
+      }
+    },
+    "screenEdit": {
+      "firstMs": 149,
+      "medianOfRestMs": 123,
+      "after": {
+        "noReload": true,
+        "scrollTop": 0,
+        "scrollHeight": 1104446,
+        "serverFilesBack": 0
+      }
+    },
+    "errorsAfterEdits": []
+  }
+}

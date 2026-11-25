@@ -1,0 +1,328 @@
+{
+  "machine": {
+    "runs": 9,
+    "started": "2026-11-25T18:33:59.564Z",
+    "loadAverageAtStart": [
+      3.4,
+      6,
+      7.4
+    ],
+    "loadAverageAtEnd": [
+      8.9,
+      7.9,
+      7.8
+    ]
+  },
+  "react": {
+    "serverRenderMs": {
+      "median": 28.7,
+      "min": 23.3,
+      "max": 39.3
+    },
+    "review, cpu x1": {
+      "load": {
+        "ttfb": {
+          "median": 30,
+          "min": 22.1,
+          "max": 50
+        },
+        "fcp": {
+          "median": 172,
+          "min": 156,
+          "max": 388
+        },
+        "lcp": {
+          "median": 592,
+          "min": 548,
+          "max": 1596
+        },
+        "domContentLoaded": {
+          "median": 210.7,
+          "min": 56.3,
+          "max": 493.8
+        },
+        "allFiles": {
+          "median": 496.8,
+          "min": 468.9,
+          "max": 1220.4
+        },
+        "codeview": {
+          "median": 582.8,
+          "min": 539.5,
+          "max": 1591.1
+        },
+        "blocking": {
+          "median": 66,
+          "min": 57,
+          "max": 562
+        },
+        "cpu": {
+          "median": 549.6,
+          "min": 522.9,
+          "max": 1114.5
+        },
+        "scriptCpu": {
+          "median": 143.7,
+          "min": 137.2,
+          "max": 270.5
+        }
+      },
+      "scroll": {
+        "fps": {
+          "median": 50.8,
+          "min": 28.2,
+          "max": 57.6
+        },
+        "meanFrameMs": {
+          "median": 19.7,
+          "min": 17.4,
+          "max": 35.6
+        },
+        "p95FrameMs": {
+          "median": 33.4,
+          "min": 16.8,
+          "max": 66.7
+        },
+        "p99FrameMs": {
+          "median": 50,
+          "min": 33.3,
+          "max": 100.1
+        },
+        "maxFrameMs": {
+          "median": 83.4,
+          "min": 50.1,
+          "max": 283.3
+        },
+        "over25ms": {
+          "median": 13.3,
+          "min": 2.4,
+          "max": 66.3
+        },
+        "over50ms": {
+          "median": 0.4,
+          "min": 0.2,
+          "max": 12.3
+        },
+        "blankFrames": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "longTasks": {
+          "median": 0,
+          "min": 0,
+          "max": 15
+        },
+        "longTaskMs": {
+          "median": 0,
+          "min": 0,
+          "max": 1093
+        },
+        "cpuMs": {
+          "median": 4164,
+          "min": 3587,
+          "max": 4540
+        },
+        "scriptCpuMs": {
+          "median": 704,
+          "min": 608,
+          "max": 783
+        },
+        "layoutCpuMs": {
+          "median": 1457,
+          "min": 1250,
+          "max": 1592
+        }
+      },
+      "jumpToContentMs": {
+        "median": 7.3,
+        "min": 0.7,
+        "max": 29.6
+      },
+      "bytes": {
+        "html": [
+          651193,
+          95473,
+          56311
+        ],
+        "js": [
+          3240571,
+          1221163,
+          1022546
+        ],
+        "css": [
+          25792,
+          6159,
+          5479
+        ],
+        "font": [
+          66740,
+          66708,
+          66748
+        ],
+        "other": [
+          0,
+          0,
+          0
+        ]
+      },
+      "jsFiles": 21
+    }
+  },
+  "svelte": {
+    "serverRenderMs": {
+      "median": 23.5,
+      "min": 19,
+      "max": 29.8
+    },
+    "review, cpu x1": {
+      "load": {
+        "ttfb": {
+          "median": 35.3,
+          "min": 22.4,
+          "max": 45.4
+        },
+        "fcp": {
+          "median": 200,
+          "min": 156,
+          "max": 484
+        },
+        "lcp": {
+          "median": 672,
+          "min": 556,
+          "max": 1356
+        },
+        "domContentLoaded": {
+          "median": 146.7,
+          "min": 59.2,
+          "max": 461.6
+        },
+        "allFiles": {
+          "median": 556.6,
+          "min": 465,
+          "max": 1124
+        },
+        "codeview": {
+          "median": 659.9,
+          "min": 546.2,
+          "max": 1342
+        },
+        "blocking": {
+          "median": 92,
+          "min": 66,
+          "max": 490
+        },
+        "cpu": {
+          "median": 556.7,
+          "min": 464.1,
+          "max": 923.8
+        },
+        "scriptCpu": {
+          "median": 98.9,
+          "min": 84.9,
+          "max": 170.1
+        }
+      },
+      "scroll": {
+        "fps": {
+          "median": 57.8,
+          "min": 51.9,
+          "max": 59.2
+        },
+        "meanFrameMs": {
+          "median": 17.3,
+          "min": 16.9,
+          "max": 19.3
+        },
+        "p95FrameMs": {
+          "median": 16.8,
+          "min": 16.8,
+          "max": 33.4
+        },
+        "p99FrameMs": {
+          "median": 33.4,
+          "min": 33.3,
+          "max": 66.6
+        },
+        "maxFrameMs": {
+          "median": 50,
+          "min": 33.4,
+          "max": 200
+        },
+        "over25ms": {
+          "median": 3.8,
+          "min": 1.2,
+          "max": 11.3
+        },
+        "over50ms": {
+          "median": 0,
+          "min": 0,
+          "max": 1.1
+        },
+        "blankFrames": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "longTasks": {
+          "median": 0,
+          "min": 0,
+          "max": 3
+        },
+        "longTaskMs": {
+          "median": 0,
+          "min": 0,
+          "max": 333
+        },
+        "cpuMs": {
+          "median": 4007,
+          "min": 3787,
+          "max": 4234
+        },
+        "scriptCpuMs": {
+          "median": 649,
+          "min": 625,
+          "max": 708
+        },
+        "layoutCpuMs": {
+          "median": 1414,
+          "min": 1319,
+          "max": 1509
+        }
+      },
+      "jumpToContentMs": {
+        "median": 4.7,
+        "min": 1.9,
+        "max": 15.5
+      },
+      "bytes": {
+        "html": [
+          644702,
+          91831,
+          54409
+        ],
+        "js": [
+          2999792,
+          1152991,
+          963444
+        ],
+        "css": [
+          25816,
+          6163,
+          5485
+        ],
+        "font": [
+          66740,
+          66708,
+          66748
+        ],
+        "other": [
+          0,
+          0,
+          0
+        ]
+      },
+      "jsFiles": 32
+    }
+  }
+}

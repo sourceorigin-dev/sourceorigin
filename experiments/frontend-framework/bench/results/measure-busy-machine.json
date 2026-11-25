@@ -1,0 +1,798 @@
+{
+  "machine": {
+    "runs": 9,
+    "started": "2026-11-25T18:11:30.946Z",
+    "loadAverageAtStart": [
+      7.3,
+      4.2,
+      5.3
+    ],
+    "loadAverageAtEnd": [
+      7.9,
+      9.6,
+      8.5
+    ]
+  },
+  "react": {
+    "serverRenderMs": {
+      "median": 33,
+      "min": 24.4,
+      "max": 52.8
+    },
+    "review, cpu x1": {
+      "load": {
+        "ttfb": {
+          "median": 37.4,
+          "min": 30.5,
+          "max": 99.4
+        },
+        "fcp": {
+          "median": 172,
+          "min": 156,
+          "max": 368
+        },
+        "lcp": {
+          "median": 616,
+          "min": 348,
+          "max": 1340
+        },
+        "domContentLoaded": {
+          "median": 219,
+          "min": 63.8,
+          "max": 485.2
+        },
+        "allFiles": {
+          "median": 531.3,
+          "min": 451,
+          "max": 1041.6
+        },
+        "codeview": {
+          "median": 633.9,
+          "min": 530.3,
+          "max": 1308.9
+        },
+        "blocking": {
+          "median": 83,
+          "min": 48,
+          "max": 417
+        },
+        "cpu": {
+          "median": 575.2,
+          "min": 503.4,
+          "max": 979.2
+        },
+        "scriptCpu": {
+          "median": 149.6,
+          "min": 132.2,
+          "max": 251.2
+        }
+      },
+      "scroll": {
+        "fps": {
+          "median": 52.1,
+          "min": 31.2,
+          "max": 58.1
+        },
+        "meanFrameMs": {
+          "median": 19.2,
+          "min": 17.2,
+          "max": 32.1
+        },
+        "p95FrameMs": {
+          "median": 33.4,
+          "min": 16.8,
+          "max": 133.3
+        },
+        "p99FrameMs": {
+          "median": 50,
+          "min": 33.3,
+          "max": 249.9
+        },
+        "maxFrameMs": {
+          "median": 66.7,
+          "min": 50,
+          "max": 300.1
+        },
+        "over25ms": {
+          "median": 13.9,
+          "min": 2.6,
+          "max": 21.3
+        },
+        "over50ms": {
+          "median": 0.2,
+          "min": 0,
+          "max": 10.3
+        },
+        "blankFrames": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "longTasks": {
+          "median": 1,
+          "min": 0,
+          "max": 6
+        },
+        "longTaskMs": {
+          "median": 51,
+          "min": 0,
+          "max": 861
+        },
+        "cpuMs": {
+          "median": 4125,
+          "min": 2445,
+          "max": 4562
+        },
+        "scriptCpuMs": {
+          "median": 699,
+          "min": 457,
+          "max": 777
+        },
+        "layoutCpuMs": {
+          "median": 1427,
+          "min": 942,
+          "max": 1585
+        }
+      },
+      "jumpToContentMs": {
+        "median": 6.1,
+        "min": 3.3,
+        "max": 16.3
+      },
+      "bytes": {
+        "html": [
+          651193,
+          95469,
+          56188
+        ],
+        "js": [
+          3240571,
+          1221163,
+          1022546
+        ],
+        "css": [
+          25792,
+          6159,
+          5479
+        ],
+        "font": [
+          66740,
+          66708,
+          66748
+        ],
+        "other": [
+          0,
+          0,
+          0
+        ]
+      },
+      "jsFiles": 21
+    },
+    "review, cpu x4": {
+      "load": {
+        "ttfb": {
+          "median": 35.1,
+          "min": 28.5,
+          "max": 84.8
+        },
+        "fcp": {
+          "median": 156,
+          "min": 140,
+          "max": 456
+        },
+        "lcp": {
+          "median": 576,
+          "min": 388,
+          "max": 2296
+        },
+        "domContentLoaded": {
+          "median": 713.6,
+          "min": 523.8,
+          "max": 1802.1
+        },
+        "allFiles": {
+          "median": 2000.6,
+          "min": 1452.7,
+          "max": 5038
+        },
+        "codeview": {
+          "median": 2279.7,
+          "min": 1684,
+          "max": 5619.6
+        },
+        "blocking": {
+          "median": 890,
+          "min": 711,
+          "max": 3118
+        },
+        "cpu": {
+          "median": 2457.1,
+          "min": 1906.8,
+          "max": 5136.4
+        },
+        "scriptCpu": {
+          "median": 663,
+          "min": 557.2,
+          "max": 1447.5
+        }
+      },
+      "scroll": {
+        "fps": {
+          "median": 19.5,
+          "min": 11.9,
+          "max": 25.7
+        },
+        "meanFrameMs": {
+          "median": 51.2,
+          "min": 39,
+          "max": 84.3
+        },
+        "p95FrameMs": {
+          "median": 100.1,
+          "min": 66.8,
+          "max": 266.6
+        },
+        "p99FrameMs": {
+          "median": 200.1,
+          "min": 116.7,
+          "max": 416.6
+        },
+        "maxFrameMs": {
+          "median": 316.7,
+          "min": 166.6,
+          "max": 549.9
+        },
+        "over25ms": {
+          "median": 75.8,
+          "min": 70,
+          "max": 83.7
+        },
+        "over50ms": {
+          "median": 32.3,
+          "min": 16.5,
+          "max": 60.2
+        },
+        "blankFrames": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "longTasks": {
+          "median": 46,
+          "min": 25,
+          "max": 69
+        },
+        "longTaskMs": {
+          "median": 4192,
+          "min": 1860,
+          "max": 7902
+        },
+        "cpuMs": {
+          "median": 7944,
+          "min": 7489,
+          "max": 9096
+        },
+        "scriptCpuMs": {
+          "median": 1589,
+          "min": 1441,
+          "max": 1789
+        },
+        "layoutCpuMs": {
+          "median": 3160,
+          "min": 2785,
+          "max": 4460
+        }
+      },
+      "jumpToContentMs": {
+        "median": 17.3,
+        "min": 3.5,
+        "max": 32.9
+      }
+    },
+    "/settings": {
+      "load": {
+        "ttfb": {
+          "median": 6,
+          "min": 4.6,
+          "max": 51.1
+        },
+        "fcp": {
+          "median": 40,
+          "min": 36,
+          "max": 180
+        },
+        "domContentLoaded": {
+          "median": 35.2,
+          "min": 14.4,
+          "max": 102.9
+        },
+        "cpu": {
+          "median": 63.8,
+          "min": 52.5,
+          "max": 113.8
+        },
+        "scriptCpu": {
+          "median": 41,
+          "min": 37.5,
+          "max": 72.1
+        }
+      },
+      "bytes": {
+        "html": [
+          4542,
+          1858,
+          1499
+        ],
+        "js": [
+          434973,
+          141241,
+          124794
+        ],
+        "css": [
+          25792,
+          6159,
+          5479
+        ],
+        "font": [
+          51752,
+          51697,
+          51760
+        ],
+        "other": [
+          0,
+          0,
+          0
+        ]
+      },
+      "jsFiles": 4
+    },
+    "/": {
+      "load": {
+        "ttfb": {
+          "median": 2.9,
+          "min": 2.8,
+          "max": 9.5
+        },
+        "fcp": {
+          "median": 40,
+          "min": 24,
+          "max": 72
+        },
+        "domContentLoaded": {
+          "median": 20.6,
+          "min": 12.3,
+          "max": 67.2
+        },
+        "cpu": {
+          "median": 45.4,
+          "min": 42.4,
+          "max": 73.4
+        },
+        "scriptCpu": {
+          "median": 30.3,
+          "min": 28.6,
+          "max": 47.3
+        }
+      },
+      "bytes": {
+        "html": [
+          3063,
+          1302,
+          1063
+        ],
+        "js": [
+          358588,
+          116140,
+          102091
+        ],
+        "css": [
+          25792,
+          6159,
+          5479
+        ],
+        "font": [
+          36932,
+          36854,
+          36936
+        ],
+        "other": [
+          0,
+          0,
+          0
+        ]
+      },
+      "jsFiles": 4
+    }
+  },
+  "svelte": {
+    "serverRenderMs": {
+      "median": 23.2,
+      "min": 18.7,
+      "max": 30
+    },
+    "review, cpu x1": {
+      "load": {
+        "ttfb": {
+          "median": 26.6,
+          "min": 19.5,
+          "max": 124.6
+        },
+        "fcp": {
+          "median": 180,
+          "min": 164,
+          "max": 372
+        },
+        "lcp": {
+          "median": 612,
+          "min": 568,
+          "max": 1704
+        },
+        "domContentLoaded": {
+          "median": 66.2,
+          "min": 55.1,
+          "max": 443.8
+        },
+        "allFiles": {
+          "median": 500.1,
+          "min": 479,
+          "max": 1495.7
+        },
+        "codeview": {
+          "median": 602,
+          "min": 559,
+          "max": 1566.9
+        },
+        "blocking": {
+          "median": 93,
+          "min": 68,
+          "max": 212
+        },
+        "cpu": {
+          "median": 507.4,
+          "min": 489.7,
+          "max": 615.7
+        },
+        "scriptCpu": {
+          "median": 99,
+          "min": 91.5,
+          "max": 115.3
+        }
+      },
+      "scroll": {
+        "fps": {
+          "median": 58,
+          "min": 33,
+          "max": 59
+        },
+        "meanFrameMs": {
+          "median": 17.2,
+          "min": 17,
+          "max": 30.3
+        },
+        "p95FrameMs": {
+          "median": 16.8,
+          "min": 16.8,
+          "max": 99.9
+        },
+        "p99FrameMs": {
+          "median": 33.4,
+          "min": 33.3,
+          "max": 233.3
+        },
+        "maxFrameMs": {
+          "median": 50.1,
+          "min": 33.4,
+          "max": 450.1
+        },
+        "over25ms": {
+          "median": 2.5,
+          "min": 1.7,
+          "max": 26.1
+        },
+        "over50ms": {
+          "median": 0.2,
+          "min": 0,
+          "max": 9.3
+        },
+        "blankFrames": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "longTasks": {
+          "median": 0,
+          "min": 0,
+          "max": 1
+        },
+        "longTaskMs": {
+          "median": 0,
+          "min": 0,
+          "max": 86
+        },
+        "cpuMs": {
+          "median": 3753,
+          "min": 2906,
+          "max": 4234
+        },
+        "scriptCpuMs": {
+          "median": 615,
+          "min": 510,
+          "max": 689
+        },
+        "layoutCpuMs": {
+          "median": 1333,
+          "min": 1120,
+          "max": 1491
+        }
+      },
+      "jumpToContentMs": {
+        "median": 5.6,
+        "min": 3,
+        "max": 14.8
+      },
+      "bytes": {
+        "html": [
+          644702,
+          91837,
+          54300
+        ],
+        "js": [
+          2999792,
+          1152991,
+          963444
+        ],
+        "css": [
+          25816,
+          6163,
+          5485
+        ],
+        "font": [
+          66740,
+          66708,
+          66748
+        ],
+        "other": [
+          0,
+          0,
+          0
+        ]
+      },
+      "jsFiles": 32
+    },
+    "review, cpu x4": {
+      "load": {
+        "ttfb": {
+          "median": 29.6,
+          "min": 23.8,
+          "max": 68.9
+        },
+        "fcp": {
+          "median": 160,
+          "min": 136,
+          "max": 260
+        },
+        "lcp": {
+          "median": 528,
+          "min": 428,
+          "max": 1108
+        },
+        "domContentLoaded": {
+          "median": 677.8,
+          "min": 580.9,
+          "max": 821
+        },
+        "allFiles": {
+          "median": 1898.4,
+          "min": 1657.7,
+          "max": 2416.8
+        },
+        "codeview": {
+          "median": 2197.6,
+          "min": 1897.2,
+          "max": 2678.9
+        },
+        "blocking": {
+          "median": 841,
+          "min": 699,
+          "max": 1098
+        },
+        "cpu": {
+          "median": 2132.8,
+          "min": 1830.2,
+          "max": 2387.8
+        },
+        "scriptCpu": {
+          "median": 450.4,
+          "min": 389.9,
+          "max": 502.2
+        }
+      },
+      "scroll": {
+        "fps": {
+          "median": 19,
+          "min": 4.5,
+          "max": 26.1
+        },
+        "meanFrameMs": {
+          "median": 52.6,
+          "min": 38.4,
+          "max": 221.5
+        },
+        "p95FrameMs": {
+          "median": 133.3,
+          "min": 66.7,
+          "max": 566.7
+        },
+        "p99FrameMs": {
+          "median": 266.6,
+          "min": 100.1,
+          "max": 750
+        },
+        "maxFrameMs": {
+          "median": 350,
+          "min": 183.3,
+          "max": 750
+        },
+        "over25ms": {
+          "median": 73.5,
+          "min": 70.1,
+          "max": 91.7
+        },
+        "over50ms": {
+          "median": 29.8,
+          "min": 13.6,
+          "max": 87.5
+        },
+        "blankFrames": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "longTasks": {
+          "median": 42,
+          "min": 24,
+          "max": 69
+        },
+        "longTaskMs": {
+          "median": 4689,
+          "min": 1800,
+          "max": 9827
+        },
+        "cpuMs": {
+          "median": 8232,
+          "min": 7345,
+          "max": 8698
+        },
+        "scriptCpuMs": {
+          "median": 1567,
+          "min": 1417,
+          "max": 1710
+        },
+        "layoutCpuMs": {
+          "median": 3376,
+          "min": 2682,
+          "max": 4881
+        }
+      },
+      "jumpToContentMs": {
+        "median": 19.7,
+        "min": 4,
+        "max": 119.9
+      }
+    },
+    "/settings": {
+      "load": {
+        "ttfb": {
+          "median": 3.5,
+          "min": 2.7,
+          "max": 18.9
+        },
+        "fcp": {
+          "median": 44,
+          "min": 36,
+          "max": 132
+        },
+        "domContentLoaded": {
+          "median": 37.2,
+          "min": 18.8,
+          "max": 109.6
+        },
+        "cpu": {
+          "median": 40.9,
+          "min": 34.1,
+          "max": 74.2
+        },
+        "scriptCpu": {
+          "median": 9.3,
+          "min": 7.8,
+          "max": 14.9
+        }
+      },
+      "bytes": {
+        "html": [
+          4051,
+          1540,
+          1219
+        ],
+        "js": [
+          180752,
+          65262,
+          58922
+        ],
+        "css": [
+          25816,
+          6163,
+          5485
+        ],
+        "font": [
+          51752,
+          51697,
+          51760
+        ],
+        "other": [
+          0,
+          0,
+          0
+        ]
+      },
+      "jsFiles": 13
+    },
+    "/": {
+      "load": {
+        "ttfb": {
+          "median": 1.8,
+          "min": 1.7,
+          "max": 4.1
+        },
+        "fcp": {
+          "median": 32,
+          "min": 24,
+          "max": 44
+        },
+        "domContentLoaded": {
+          "median": 23.2,
+          "min": 15.7,
+          "max": 37.3
+        },
+        "cpu": {
+          "median": 27,
+          "min": 24.7,
+          "max": 40
+        },
+        "scriptCpu": {
+          "median": 6.4,
+          "min": 5.7,
+          "max": 8.9
+        }
+      },
+      "bytes": {
+        "html": [
+          2056,
+          838,
+          643
+        ],
+        "js": [
+          115370,
+          44352,
+          40077
+        ],
+        "css": [
+          25816,
+          6163,
+          5485
+        ],
+        "font": [
+          36932,
+          36854,
+          36936
+        ],
+        "other": [
+          0,
+          0,
+          0
+        ]
+      },
+      "jsFiles": 11
+    }
+  }
+}
