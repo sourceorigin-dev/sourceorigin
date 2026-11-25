@@ -448,7 +448,7 @@ tailnet, PostgreSQL, DNS, the tunnel, Grafana and Resend (see
 
 ### Check that it's over
 
-- `piquelctl --timeout 10m env wait sourceorigin production --ready routes`
+- `piquelctl --wait-timeout 10m env wait sourceorigin production --ready routes`
   returns: the deployment runs healthy, and every route answers. It waits for
   the deployment that was newest when it started, so if that one failed and
   production rolled back, check

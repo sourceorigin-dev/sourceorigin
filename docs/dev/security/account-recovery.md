@@ -324,8 +324,8 @@ on a disabled account (U4a)
   and the account stays disabled. This is the one place a disabled account's
   passkey is accepted: the undo's own entry point gets `Accepted::Disabled`,
   which carries no credential to sign in with, while sign-in and confirmation
-  still refuse a disabled account. A disable written by a release older than
-  this one doesn't change that (`the_owner_undoes_a_disabled_accounts_recovery`,
+  still refuse a disabled account. A disable written by any release doesn't
+  change that (`the_owner_undoes_a_disabled_accounts_recovery`,
   `passkey::tests::validation::only_an_undo_accepts_a_disabled_accounts_passkey`).
   Disabling still cancels an unused link (`what_a_start_replaces_and_refuses`).
 - **U5.** Support undoes for an owner with no passkey left from before it, or
@@ -398,9 +398,8 @@ cannot shadow `account_recoveries`
 
 A deploy runs `migrate` before its rollout, and a rollback reverts no migration
 ([roll back production](../operations/deploying.md#roll-back-production)). The
-schema's first migration creates `account_recoveries`, so every release that can
-run against the database has the recovery this page describes. A rollback only
-loses what later releases added to it.
+schema's first migration creates `account_recoveries` and its backstops, so
+every release that can run against the database has them.
 
 ### How far back
 
@@ -408,17 +407,42 @@ While a recovery can be undone, roll production back only to its previous
 deployment: production's automatic rollback after a failed rollout, or
 `piquelctl env restore` of that deployment. Migrations expand, then contract
 ([migrations](../architecture/database.md#migrations)), so the previous release
-keeps working against the schema the current one migrated. Nothing keeps an
-older release working against it. If a migration added since the previous
-deployment says in its comments that it breaks the release before it, deploy a
-fix instead of restoring.
+keeps working against the schema the current one migrated.
 
-Restore further back only once no recovery can be undone. A recovery can be
-undone for at most 16 days after it starts: 24 hours for its link, then 15 days
-of probation. `auth-service audit list --kind recovery_started`, or the
-dashboard's **Events** page filtered by `recovery_started`, lists the recent
-starts, and each account's **Recover** page on the dashboard says where its
-recoveries stand. Then read the migrations added since, as for any restore.
+This is stricter than [deploying](../operations/deploying.md#roll-back-production),
+which lets you restore further back once you have read the migrations added
+since. Nothing proves that an older release's undo still works against the
+current schema, and the owner's undo must not go down while a recovery can be
+undone.
+
+If a migration added since the previous deployment says in its comments that
+it breaks the release before it, and it changes a table recovery or its undo
+uses, such as `account_recoveries`, `passkey_credentials`, `sessions` or
+`users`, deploy a fix instead of restoring. For any other migration, follow
+deploying's rule.
+
+To restore further back while a recovery can be undone, undo each open
+recovery first:
+
+1. List the recoveries started in the last 16 days, the longest a recovery can
+   be undone: 24 hours for its link, then 15 days of probation.
+
+   ```sh
+   auth-service audit list --kind recovery_started
+   ```
+
+   The dashboard's **Events** page, filtered by `recovery_started`, lists them
+   too. [A leaked token digest key](../operations/incidents.md#a-leaked-token-digest-key)
+   deals with recoveries the same way.
+2. For each account, run `auth-service user undo-recovery <user> --reason "…"`
+   without `--yes`, or open its **Undo recovery** page on the dashboard (U5).
+   Each lists the account's recent recoveries with where each stands. If one
+   can still be undone, confirm at the prompt, or select **Undo the recovery**.
+3. Restore the deployment.
+
+This undoes recoveries their real owners may have asked for. Once production
+runs a release past those migrations again, support starts a new recovery for
+each owner who still needs one.
 
 ### What a rollback keeps
 
@@ -426,9 +450,8 @@ recoveries stand. Then read the migrations added since, as for any restore.
   migrations, so they hold whichever release runs: a probation passkey confirms
   no session (B1), no account gains administrator rights mid-recovery (B2), and
   no passkey but the recovery's own is revoked while it can be undone (B3).
-- **The owner's undo.** B3 keeps every passkey the owner undoes with (U1),
-  and every release that can run against the database serves the undo page
-  that the notices link to.
+- **The owner's undo.** B3 keeps every passkey the owner undoes with (U1), and
+  the previous release serves the undo page that the notices link to.
 - **Support's tools.** In an environment, `auth-service` runs in an auth
   container, so after a rollback it is the restored release's own. Like the
   dashboard's **Recover** and **Undo recovery** pages, it can still start a
@@ -439,29 +462,34 @@ recoveries stand. Then read the migrations added since, as for any restore.
 - **What later releases added.** Their pages, their answers and errors, and
   any rule that lives only in their Rust code are gone until they are deployed
   again. That is why the rules a way in depends on have backstops too.
-- **Recovery emails the restored release can't decode.** An email of a kind
-  only a later release knows waits for a release that can decode it
+- **Recovery emails the restored release can't read.** An email a later
+  release stored in a shape the restored release can't read waits for a
+  release that can
   ([life of a delivery](../architecture/delivery-queue.md#life-of-a-delivery)).
   `auth-service deliveries list --status pending --channel email` shows it, with
   the last error `stored recipient or payload does not decode`. Deploying a
-  release that decodes it again sends it within 30 seconds. Otherwise it fails
-  at the email channel's `MAX_AGE`, 24 hours after it was created.
+  release that reads it again sends it within about 30 seconds of the restored
+  release stopping. Otherwise it fails at the email channel's `MAX_AGE`, 24
+  hours after it was created.
 
-  A recovery link that waits this way needs no later release: start another
-  recovery of the account. The new start cancels the waiting link (S2), and the
-  restored release mails a link it knows. Retrying the old one is no use: it
-  fails when its link expires, and the sender skips an expired link. A notice
-  that failed this way can be retried once a release that decodes it runs, with
-  `auth-service deliveries retry <id> --reason "…"` or **Retry** on the
+  If its link is unused, start another recovery of the account. The new start
+  cancels the waiting link (S2), and the restored release mails a link it
+  knows. The start also does again everything S3 does: it ends every session
+  and removes the account's unverified addresses. Retrying the old link is no
+  use: it fails when its link expires, and the sender skips an expired link. A
+  notice that failed this way can be retried once a release that reads it runs,
+  with `auth-service deliveries retry <id> --reason "…"` or **Retry** on the
   dashboard's **Deliveries** page. A retry restarts its `MAX_AGE`.
 
 ### Recoveries during a deploy
 
-Start recoveries only once a rollout is over: once
-`piquelctl env wait sourceorigin production --ready routes` returns. While a
-rollout runs, both releases serve and claim deliveries, and a rollout that
-fails rolls back on its own, so a recovery started then is the one most likely to lose its
-email or meet an older page.
+Start recoveries only once a rollout has succeeded: once
+`piquelctl env wait sourceorigin production --ready routes` succeeds (exits 0).
+While a rollout runs, both releases serve and claim deliveries. A rollout that
+fails rolls back on its own. A recovery started then is the one most likely to
+lose its email or meet an older page. Restoring the previous deployment is
+always allowed, so a recovery started after a successful rollout needs no
+further wait.
 
 ## Threat model
 
