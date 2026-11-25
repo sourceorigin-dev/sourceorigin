@@ -48,9 +48,3 @@ reason = "mdBook includes the example's parts by its `// ANCHOR:` comments, whic
 paths = [
     "crates/auth-sdk/examples/notes.rs",
 ]
-
-[deviations.duplicate-items]
-reason = "4 findings, fixed in a follow-up"
-paths = [
-    "crates/ui/src/form.rs",
-]
