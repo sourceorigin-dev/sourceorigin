@@ -93,6 +93,11 @@ The web UI is not what gates the move. Things that only speak git do:
 - Restore drills, piqueld#340, were moved from piqueld's v1.0 to its v0.2,
   because milestone 1 ships one.
 - btrfs storage pools, piqueld#339, stay in piqueld's v1.0.
+- piqueld's issues moved to Linear, in the `PQD` team, after this was written.
+  The backup issues there are PQD-80 scheduled backups, PQD-84 backup
+  repositories, PQD-85 restore and PQD-88 restore drills. Building from an
+  Origin repository is PQD-180, and deploying when Origin reports a landing is
+  PQD-181; both wait on Origin.
 
 ## Origin's milestones
 
@@ -184,14 +189,21 @@ the platform, so one milestone is enough.
 
 ### Milestone 0: groundwork
 
-Nothing here depends on Origin being ready.
+Nothing here depends on Origin being ready. It started on 25 November 2026,
+while piquel merges Origin's stack.
 
-- Reorganize the repository. See [the repository](repository.md).
-- Restructure CI into one job per area. See
-  [CI by area](repository.md#ci-by-area).
-- Add device sign-in to Origin Auth (sourceorigin#68), with sourceorigin#69
-  and sourceorigin#71.
-- Run the frontend experiment. See [the frontend](frontend.md#the-experiment).
+- **Sign-in for Origin.** Device sign-in (sourceorigin#68), APIs as resources
+  with their own scopes (sourceorigin#71), the client credentials grant
+  (sourceorigin#69), and a lookup from an account's ID to its handle
+  (sourceorigin#773). A thread of its own is doing these.
+- **The frontend experiment,** sourceorigin#774, in a thread of its own. See
+  [the frontend](frontend.md#the-experiment).
+- **Reorganize the repository,** sourceorigin#775. See
+  [the repository](repository.md). It waits until the cleanup pull requests
+  that touch every crate have merged, since every rename conflicts with them.
+- **CI by area,** sourceorigin#776. See
+  [CI by area](repository.md#ci-by-area). It waits for the platform's first
+  service.
 - Settle the Origin decisions that are expensive to change later, because
   they are written into records: principals, times on records, a repository's
   identity and key rotation. See [origin](origin.md).

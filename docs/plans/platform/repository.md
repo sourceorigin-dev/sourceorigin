@@ -53,6 +53,11 @@ confusing in a product about repositories.
 The reason for the fourth: deploying auth should never restart a node that
 holds an authority key.
 
+**Open:** whether `sourceorigin-observability` still exists. Work in progress
+on 25 November 2026 moves traces, logs and metrics into a ClickHouse in each
+environment and removes the Grafana stack. If that lands, there are three
+applications.
+
 ## CI by area
 
 **Decided.** Split CI by area of the code, not by language. That is from the
@@ -62,8 +67,14 @@ Today's CI groups jobs by language and kind (`checks`, `web`, `rust`,
 `rust-lint`, `e2e`, `docker`, `infra`, `docs`), and a `changes` job decides
 from the changed paths which ones a pull request needs.
 
-- Restructure into one job per area. Each is a `just <area> ci` recipe with
-  its input paths declared.
+- The paths each group of jobs reads are now declared in
+  `.github/filters.yml`, which CI and `just check-changed` both read. A CI
+  overhaul around the engineering standard did that in November 2026. Areas
+  are added there; nothing has to be restructured first.
+- Declare checks by area: Origin Auth, the platform, the frontend, the SDKs,
+  the documentation and the deployment files. Almost everything is Origin
+  Auth today, so this waits for the platform's first service. Tracked in
+  sourceorigin#776.
 - That is the shape of Origin's `checks.toml`, where a check declares its
   inputs, and a result carries over to a new revision when those inputs didn't
   change. Moving to `origin-ci` is then mechanical.
