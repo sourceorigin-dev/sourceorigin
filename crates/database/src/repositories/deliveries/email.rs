@@ -1,16 +1,10 @@
 //! The `email` channel: messages to account holders.
 //!
-//! A verification link's delivery stores the account and the address's ID, not
-//! the address: the sender reads it when it sends, through
-//! [`EmailRepository::pending_address`], so an address removed or verified in the
-//! meantime, or of an account no longer active, receives nothing. Nothing secret is
-//! stored either: the link's token is derived from the address's ID when the
-//! message is sent.
-//!
-//! Every notification an event gives its subject is emailed too, to the addresses
-//! [`Notification::addressees`] names, and says what the inbox says. Its delivery
-//! copies the address and the notification, so removing the address cannot
-//! cancel it.
+//! A verification link's delivery stores the account and the address's ID, not the address:
+//! the sender reads it through [`EmailRepository::pending_address`], so an address removed or
+//! verified meanwhile, or of an inactive account, receives nothing. Every notification an
+//! event gives its subject is emailed to the addresses [`Notification::addressees`] names;
+//! its delivery copies the address and the notification.
 
 use super::{Channel, NewDelivery};
 use crate::{

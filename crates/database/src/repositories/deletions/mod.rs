@@ -255,34 +255,14 @@ impl AccountDeletionRepository<'_> {
         )
     }
 
-    /// Deletes the account and everything that identifies its person. Returns
-    /// `false` if the account does not exist. Callers lock
-    /// the account first, and record its last events afterwards.
+    /// Deletes the account and everything that identifies its person. Returns `false` if the
+    /// account does not exist. Callers lock the account first, lock the administrator list so
+    /// purges take turns, and record its last events afterwards.
     ///
-    /// Deletes, in order: the grants, consents, sessions and administrator rights
-    /// that reference the account without cascading, and the announcements to
-    /// chosen accounts it was the last recipient of;
-    /// the related origins of its clients, deleted ones included, wherever events
-    /// recorded them, since its domain may be among them;
-    /// the account, which cascades to its emails, passkeys, identities, ceremonies,
-    /// announcement rows and scheduled deletion, and leaves its handles without an owner, released,
-    /// so nobody claims them for a year, when cleanup deletes them; then its email and announcement deliveries, including
-    /// any an announcement sent or an alert raised meanwhile just queued, the
-    /// personal data of every event the account is the subject or actor of, so those events read it as erased, and
-    /// any announcement to chosen accounts left without recipients, such as a
-    /// draft naming the account saved while the purge ran. Callers lock the
-    /// administrator list, so purges take turns, end its sessions, which queues
-    /// their clients' logout tokens, and delete the clients it manages first. The events themselves stay: they hold only pseudonymous
-    /// IDs.
-    ///
-    /// The personal data goes last because of the
-    /// `event_personal_data_skip_purged_accounts` trigger, which key-share locks
-    /// every account an event names as it stores the event's personal data. Only deleting the account conflicts with that lock; the
-    /// callers' `FOR NO KEY UPDATE` does not. So the delete waits for every
-    /// request that stored personal data while the account existed, and the next
-    /// statement, with a fresh snapshot, erases it too; a request that stores
-    /// some later waits for this transaction, finds the account gone, and stores
-    /// none. Erasing first would miss what such a request committed in between.
+    /// It deletes the rows that reference the account without cascading, its clients and their
+    /// sessions, the account itself (which cascades and releases its handles), its deliveries,
+    /// and last the personal data of every event it is the subject or actor of. The events stay,
+    /// holding only pseudonymous IDs.
     ///
     /// # Errors
     ///

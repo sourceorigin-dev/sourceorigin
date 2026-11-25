@@ -66,29 +66,16 @@ impl MaintenanceRepository<'_> {
         )
     }
 
-    /// Purges a bounded batch of expired ephemeral authentication state, of known
-    /// devices unused for 400 days, of event personal data older than 90 days, of
-    /// deliveries that succeeded over 7 days ago or failed or were cancelled over
-    /// 30 days ago, and of what an
-    /// account no longer uses: passkeys revoked, identities unlinked and
-    /// recoveries ended over 90 days ago, notifications and the recipients of
-    /// announcements sent over a year ago, with the announcements to chosen
-    /// accounts they leave without one, and the handles of accounts purged over a
-    /// year ago, which anyone may then claim.
-    /// Returns how many rows were deleted. `batch_size` is clamped to 1..=1000
-    /// rows per table.
-    ///
-    /// Each batch skips rows that live requests have locked, except event personal
-    /// data, which requests never lock. Outside a transaction,
-    /// each table's batch commits on its own, so cleanup never holds locks across
-    /// tables; inside one, all of them commit or roll back with it. Deleting a
-    /// session or an authorization code can still wait briefly on a locked child row
-    /// it cascades to or unlinks.
+    /// Purges a bounded batch of expired ephemeral authentication state, of known devices unused
+    /// for 400 days, of event personal data older than 90 days, of deliveries finished over 7 or
+    /// 30 days ago, and of what an account no longer uses (revoked passkeys, unlinked identities
+    /// and ended recoveries over 90 days old, announcements and notifications over a year old,
+    /// and the handles of accounts purged over a year ago). Returns how many rows were deleted;
+    /// `batch_size` is clamped to 1..=1000 rows per table. Outside a transaction each table's
+    /// batch commits on its own.
     ///
     /// # Errors
-    ///
-    /// Returns [`DatabaseError`] if a delete fails. Outside a transaction, earlier
-    /// tables stay purged.
+    /// Returns [`DatabaseError`] if a delete fails.
     #[expect(
         clippy::too_many_lines,
         reason = "Each purge statement is inline SQL so that it is checked at compile time."

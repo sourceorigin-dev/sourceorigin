@@ -72,20 +72,6 @@ paths = [
     "apps/auth-service/src/web/admin/mod.rs",
     "apps/auth-service/src/web/admin/reveal.rs",
     "apps/auth-service/src/web/mod.rs",
-    "crates/database/src/connection/mod.rs",
-    "crates/database/src/repositories/announcements/mod.rs",
-    "crates/database/src/repositories/audit/mod.rs",
-    "crates/database/src/repositories/deletions/mod.rs",
-    "crates/database/src/repositories/deliveries/email.rs",
-    "crates/database/src/repositories/deliveries/mod.rs",
-    "crates/database/src/repositories/handles/mod.rs",
-    "crates/database/src/repositories/maintenance/mod.rs",
-    "crates/database/src/repositories/mod.rs",
-    "crates/database/src/repositories/oidc/clients.rs",
-    "crates/database/src/repositories/oidc/mod.rs",
-    "crates/database/src/repositories/sessions.rs",
-    "crates/database/src/repositories/tokens/mod.rs",
-    "crates/database/src/transaction.rs",
 ]
 
 [deviations.duplicate-items]

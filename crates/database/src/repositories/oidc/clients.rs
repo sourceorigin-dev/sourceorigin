@@ -374,25 +374,17 @@ impl OidcRepository<'_> {
         )
     }
 
-    /// Deletes a client, leaving its row as a tombstone so its ID is never reused:
-    /// disables it, revokes its refresh families, and removes its secrets and
-    /// consents; triggers remove its approved related origins, and its name,
-    /// redirect URIs and back-channel logout URI, which may identify a person, so
-    /// only its ID, settings and lifecycle dates stay. Pending
-    /// authorization requests and codes need an enabled client, so they stop working
-    /// too.
-    ///
-    /// The caller locks the client's families first, as
+    /// Deletes a client, leaving its row as a tombstone so its ID is never reused: disables it,
+    /// revokes its refresh families, and removes its secrets, consents and, by triggers, its
+    /// related origins, name, redirect URIs and back-channel logout URI. Pending authorization
+    /// requests and codes stop working. The caller locks the client's families first, as
     /// [`TokenRepository::lock_client_families`](crate::TokenRepository::lock_client_families)
-    /// explains. A family granted since then is skipped if another transaction
-    /// holds it: either that one revokes it, or it is a rotation, which locked the
-    /// family before the client and will find the client disabled. Waiting for it
-    /// would deadlock with that rotation.
+    /// explains; a family another transaction holds is skipped.
     ///
     /// # Errors
     ///
-    /// Returns [`DatabaseError::NotFound`] for an unknown or already deleted
-    /// client, or another [`DatabaseError`] if the query fails.
+    /// Returns [`DatabaseError::NotFound`] for an unknown or already deleted client, or another
+    /// [`DatabaseError`] if the query fails.
     pub async fn delete_client(&mut self, id: &ClientId) -> Result<(), DatabaseError> {
         run!(
             self,

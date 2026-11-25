@@ -310,21 +310,16 @@ impl Database {
 
     /// Runs schema migrations when explicitly requested through the auth binary.
     ///
-    /// They run on a dedicated connection, whose statements may take up to
-    /// 30 minutes (`MIGRATION_STATEMENT_TIMEOUT`). It first waits for
-    /// [`LockKey::Migrations`], with no lock limit but within that statement
-    /// limit, so overlapping runs take turns; `SQLx`'s own lock is then free. Lock
-    /// waits get their default limit back before any DDL, so a migration blocked
-    /// by a long transaction fails rather than queue every request behind it; run
-    /// it again once that transaction ends.
+    /// They run on a dedicated connection whose statements may take up to 30 minutes
+    /// (`MIGRATION_STATEMENT_TIMEOUT`), after waiting for [`LockKey::Migrations`] so overlapping
+    /// runs take turns. Lock waits get their default limit back before any DDL, so a migration
+    /// blocked by a long transaction fails; run it again once that transaction ends.
     ///
     /// # Errors
     ///
-    /// Returns [`DatabaseError::Timeout`] if connecting takes too long,
-    /// [`DatabaseError::Cancelled`] if another run holds the lock for 30 minutes,
-    /// and [`DatabaseError::Operation`] if a migration fails, including on a lock
-    /// wait past its limit, or the applied history differs from the embedded
-    /// migrations.
+    /// Returns [`DatabaseError::Timeout`] if connecting takes too long, [`DatabaseError::Cancelled`]
+    /// if another run holds the lock for 30 minutes, and [`DatabaseError::Operation`] if a
+    /// migration fails or the applied history differs from the embedded migrations.
     pub async fn run_migrations(&self) -> Result<(), DatabaseError> {
         let mut connection = self
             .lock_dedicated(LockKey::Migrations, MIGRATION_STATEMENT_TIMEOUT)
@@ -336,22 +331,18 @@ impl Database {
         Ok(connection.close().await?)
     }
 
-    /// Creates `role`, or resets its attributes and password, then grants it row
-    /// access to the app tables and nothing else; see `runtime_role.sql`. Run it as
-    /// the schema owner after migrations, so the grants cover every table.
+    /// Creates `role`, or resets its attributes and password, then grants it row access to the
+    /// app tables and nothing else; see `runtime_role.sql`. Run it as the schema owner after
+    /// migrations, so the grants cover every table.
     ///
-    /// The script sets the password's SCRAM verifier, never the password, so the
-    /// server and its logs never see it. It still runs on a dedicated connection
-    /// that never logs statements, as one implicit transaction: concurrent queries
-    /// see the old grants or the new ones, never none. It takes an advisory lock, so
-    /// overlapping runs wait for each other.
+    /// The script sets the password's SCRAM verifier, never the password, on a dedicated
+    /// connection that never logs statements, as one implicit transaction under an advisory lock.
     ///
     /// # Errors
     ///
-    /// Returns [`DatabaseError::Operation`] if `role` is the schema owner, a
-    /// superuser, a member of another role or the owner of anything, if it or
-    /// `PUBLIC` was granted a server parameter, if its verifier cannot be
-    /// derived, or if a statement fails, e.g. when the owner is not a superuser.
+    /// Returns [`DatabaseError::Operation`] if `role` is the schema owner, a superuser, a member
+    /// of another role or the owner of anything, if it or `PUBLIC` was granted a server
+    /// parameter, if its verifier cannot be derived, or if a statement fails.
     pub async fn provision(&self, role: &RuntimeRole) -> Result<(), DatabaseError> {
         let verifier = ScramVerifier::new(role.password.expose_secret())
             .map_err(|error| DatabaseError::Operation(Box::new(error)))?;

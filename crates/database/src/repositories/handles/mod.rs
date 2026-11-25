@@ -283,23 +283,15 @@ impl HandleRepository<'_> {
 }
 
 impl DatabaseTransaction<'_> {
-    /// Gives the account `user_id` the handle `handle`: releases its current one,
-    /// claims the new one or reclaims its own released row, and records the change
-    /// on the account, bumping its profile version. Returns `false`, having changed
-    /// nothing, if another account holds or held `handle`, or it looks like another
-    /// handle, the account's own included. Callers lock the account first, and roll
-    /// back on `false` or an error.
-    ///
-    /// A handle taken by another account is refused before this one's is released,
-    /// so two accounts asking for each other's handles never wait on each other's
-    /// rows. A concurrent claim of a new handle waits for this transaction, then
-    /// fails.
+    /// Gives the account `user_id` the handle `handle`: releases its current one, claims the new
+    /// one or reclaims its own released row, and bumps its profile version. Returns `false`,
+    /// having changed nothing, if another account holds or held `handle`, or it looks like another
+    /// handle. Callers lock the account first, and roll back on `false` or an error.
     ///
     /// # Errors
     ///
-    /// Returns [`DatabaseError::Conflict`] if a concurrent transaction claimed
-    /// `handle` or a look-alike, or another [`DatabaseError`] if a query fails. The
-    /// transaction is then aborted.
+    /// Returns [`DatabaseError::Conflict`] if a concurrent transaction claimed `handle` or a
+    /// look-alike, or another [`DatabaseError`] if a query fails. The transaction is then aborted.
     pub async fn rename_handle(
         &mut self,
         user_id: UserId,
