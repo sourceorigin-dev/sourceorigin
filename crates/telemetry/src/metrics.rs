@@ -94,7 +94,7 @@ pub struct Instrument<T, L = ()> {
     /// Name, unit and description.
     descriptor: Descriptor,
     /// Created on first use, from the provider installed by then.
-    instrument: OnceLock<T>,
+    built: OnceLock<T>,
     /// The attributes each measurement carries.
     labels: PhantomData<fn(L)>,
 }
@@ -109,7 +109,7 @@ impl<T, L> Instrument<T, L> {
                 unit,
                 description,
             },
-            instrument: OnceLock::new(),
+            built: OnceLock::new(),
             labels: PhantomData,
         }
     }
@@ -121,7 +121,7 @@ pub type Counter<L = ()> = Instrument<metrics::Counter<u64>, L>;
 impl<L: Labels> Counter<L> {
     /// Adds `value` to the count with `labels`.
     pub fn add(&self, value: u64, labels: &L) {
-        self.instrument
+        self.built
             .get_or_init(|| build!(self.descriptor, u64_counter))
             .add(value, &labels.attributes());
     }
@@ -189,7 +189,7 @@ impl<L: Labels + 'static> Gauge<L> {
     where
         I: IntoIterator<Item = (u64, L)>,
     {
-        self.instrument.get_or_init(|| {
+        self.built.get_or_init(|| {
             build!(
                 self.descriptor,
                 u64_observable_gauge.with_callback(move |observer| {
