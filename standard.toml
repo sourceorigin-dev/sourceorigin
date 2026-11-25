@@ -361,11 +361,3 @@ paths = [
     "crates/telemetry/src/metrics.rs",
     "crates/ui/src/form.rs",
 ]
-
-[deviations.config-comments]
-reason = "4 findings, fixed in a follow-up"
-paths = [
-    ".github/workflows/ci.yml",
-    "Cargo.toml",
-    "just/docs.just",
-]
