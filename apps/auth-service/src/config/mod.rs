@@ -12,10 +12,10 @@ mod keys;
 
 pub(crate) use email::EmailConfig;
 pub(crate) use federation::{FederationConfig, ProviderConfig};
-pub(crate) use keys::LinkKeys;
 #[cfg(test)]
 pub(crate) use keys::TokenDigestKey;
 pub(crate) use keys::{AuditConfig, KeyEncryptionKeys, TokenDigestKeys};
+pub(crate) use keys::{LinkKeys, TokenLink};
 
 use crate::{invitations::InvitationLinks, recovery::RecoveryLinks};
 use email::SMTP_URL;

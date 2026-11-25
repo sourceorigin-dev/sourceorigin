@@ -9,7 +9,7 @@
 use super::{DeliveryError, Failure, Sender};
 use crate::{
     admin::Letter,
-    config::{DashboardConfig, EmailConfig},
+    config::{DashboardConfig, EmailConfig, TokenLink},
     emails::{VERIFICATION_LIFETIME, VerificationKeys},
     invitations::InvitationLinks,
     notifications::{SignOutLinks, UnsubscribeLinks},
@@ -211,7 +211,8 @@ impl<M: Mailer> EmailSender<M> {
             return Ok(None);
         };
         let link = Self::rebuilt(
-            self.invitation_links.link(id, &secret_digest),
+            self.invitation_links
+                .link(id.as_uuid().as_bytes(), &secret_digest),
             "invitation",
             &id,
         )?;
@@ -312,7 +313,7 @@ impl<M: Mailer> EmailSender<M> {
                 };
                 let link = Self::rebuilt(
                     self.recovery_links
-                        .link(*recovery_id, &pending.secret_digest),
+                        .link(recovery_id.as_uuid().as_bytes(), &pending.secret_digest),
                     "recovery",
                     recovery_id,
                 )?;

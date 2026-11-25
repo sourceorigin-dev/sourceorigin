@@ -52,6 +52,5 @@ paths = [
 [deviations.duplicate-items]
 reason = "4 findings, fixed in a follow-up"
 paths = [
-    "apps/auth-service/src/recovery/mod.rs",
     "crates/ui/src/form.rs",
 ]

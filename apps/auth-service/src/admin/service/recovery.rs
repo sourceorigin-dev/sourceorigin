@@ -5,6 +5,7 @@ use super::AdminService;
 use crate::{
     account::AccountService,
     admin::{AdminError, Operator, Reason},
+    config::TokenLink,
     emails::Emails,
     recovery::{LINK_LIFETIME, PROBATION, RecoveryLinks, Revoke},
     security::Session,

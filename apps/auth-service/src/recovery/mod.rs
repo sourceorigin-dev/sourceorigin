@@ -14,7 +14,7 @@ pub(crate) use error::RecoveryError;
 
 use crate::{
     account::{AccountError, AccountService, Owner, Viewer},
-    config::LinkKeys,
+    config::{LinkKeys, TokenLink},
     passkey::VerifiedRecoveryUndo,
     routes,
     security::RequestContext,
@@ -323,27 +323,25 @@ impl RecoveryLinks {
         self.keys.token(id.as_uuid().as_bytes())
     }
 
-    /// Recovery `id`'s link, as [`Self::url`] builds it, under the key whose
-    /// token has the stored SHA-256 `digest`. `None` once no configured key
-    /// derives it, which fails its delivery.
-    pub(crate) fn link(&self, id: RecoveryId, digest: &[u8]) -> Option<Url> {
-        let token = self.keys.rebuild(id.as_uuid().as_bytes(), digest)?;
-        Some(self.url(&token))
-    }
-
-    /// The link holding `token`: the recovery page, with the token in its
-    /// fragment so it never reaches a server log.
-    pub(crate) fn url(&self, token: &Secret) -> Url {
-        let mut link = self.origin.url(routes::page::RECOVER);
-        link.set_fragment(Some(&format!("token={}", token.encoded())));
-        link
-    }
-
     /// The undo page of recovery `id`, which the notices link to, so an owner
     /// signed out can still undo it.
     pub(crate) fn undo_url(&self, id: RecoveryId) -> Url {
         let mut link = self.origin.url(routes::page::RECOVER_UNDO);
         link.set_fragment(Some(&format!("recovery={id}")));
+        link
+    }
+}
+
+impl TokenLink for RecoveryLinks {
+    fn keys(&self) -> &LinkKeys {
+        &self.keys
+    }
+
+    /// The link holding `token`: the recovery page, with the token in its
+    /// fragment so it never reaches a server log.
+    fn url(&self, token: &Secret) -> Url {
+        let mut link = self.origin.url(routes::page::RECOVER);
+        link.set_fragment(Some(&format!("token={}", token.encoded())));
         link
     }
 }
