@@ -32,7 +32,6 @@ fn digests_match_vectors() {
         Digest::sha256(b"abc").encoded(),
         "ungWv48Bz-pBQUDeXa4iI7ADYaOWF3qctBD_YfIAFa0"
     );
-    // RFC 4231, test case 1.
     assert_eq!(
         Digest::hmac(&[0x0b; 20], b"Hi There").as_bytes(),
         &[
@@ -124,7 +123,6 @@ fn thumbprints_match_rfc() {
 fn rsa_configuration_boundaries() {
     assert!(Rs256Key::from_pem("key", "not PEM").is_err());
     assert!(Rs256Key::generate("has whitespace").is_err());
-    // The SDK vectors' 1024-bit key, which the provider refuses to load.
     let small = include_str!("../../../tests/sdk-vectors/keys/key-weak.pem");
     assert!(matches!(
         Rs256Key::from_pem("small", small),
@@ -221,7 +219,6 @@ fn notes_match_the_reference_vectors() {
         )
     );
     let verifiers = NoteVerifiers::parse(&format!("\n{vkey}\n")).expect("verifier list");
-    // Base64 keys may contain `+`, the field separator; several of these do.
     for seed in 0..32_u8 {
         let key = NoteKey::from_hex_seed("audit", &format!("{seed:064x}")).expect("seed");
         let vkey = key.verifier().to_string();
@@ -264,8 +261,6 @@ fn notes_open_only_with_a_valid_listed_signature() {
         verifiers.open(&note.replace("position 1", "position 2")),
         Err(CryptoError::NoteSignature)
     ));
-    // Garbage under the listed key's ID, of a signature's length or another, is an
-    // invalid signature, not a provider failure.
     let base64 = base64::engine::general_purpose::STANDARD;
     let (text, line) = note.split_once("\n\n").expect("split");
     let (name, signature) = line.trim_end().rsplit_once(' ').expect("signature line");

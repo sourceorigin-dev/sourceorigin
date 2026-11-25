@@ -38,7 +38,6 @@ impl ScramVerifier {
 
     /// Derives the verifier of `password` with `salt`.
     fn salted(password: &str, salt: [u8; Self::SALT_BYTES], iterations: NonZeroU32) -> Self {
-        // The salted password is as good as the password: it is zeroized when dropped.
         let mut salted = Zeroizing::new([0; Digest::LENGTH]);
         pbkdf2::derive(
             pbkdf2::PBKDF2_HMAC_SHA256,

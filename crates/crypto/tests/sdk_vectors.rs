@@ -602,9 +602,6 @@ impl Vectors {
             ),
             Expected::error(ErrorCategory::InvalidToken, ErrorReason::BadSignature),
         );
-        // A key too weak to verify is the issuer's fault, not the token's: every SDK
-        // refuses it before checking the signature, so the signature is 128 zero
-        // bytes, which an SDK checking it first would report as bad instead.
         let weak_jwks = json!({ "keys": [{
             "alg": Algorithm::Rs256.as_str(), "e": "AQAB", "kid": WEAK_KID, "kty": "RSA",
             "n": WEAK_MODULUS, "use": "sig",
@@ -626,7 +623,6 @@ impl Vectors {
             ),
             Expected::error(ErrorCategory::Keys, ErrorReason::UnusableKey),
         );
-        // The old key with each of `members`, `n` or `e`, replaced by `component(bytes)`.
         let old_key = self.jwks(&[OLD_KID]);
         let altered = |members: &[&str], component: &dyn Fn(Vec<u8>) -> Vec<u8>| {
             let mut jwks = old_key.clone();
@@ -1151,7 +1147,6 @@ impl Vectors {
                 BearerChallenge::error(BearerError::InvalidRequest),
             ),
         ] {
-            // Format cases go both ways, so the canonical header must parse back.
             let header = challenge.to_string();
             assert_eq!(
                 header.parse::<BearerChallenge>().as_ref(),
@@ -1532,7 +1527,6 @@ impl Vectors {
         let seal =
             |secret, info, context: &str, value: &Value| Self::seal(secret, info, context, value);
         let mut tampered = seal(COOKIE_KEY, SESSION_INFO, &ours, &session).into_bytes();
-        // Flip one base64url character of the ciphertext for another.
         tampered[20] = if tampered[20] == b'A' { b'B' } else { b'A' };
         let tampered = String::from_utf8(tampered).expect("base64url");
         for (name, description, value, expected) in [
@@ -1619,7 +1613,6 @@ impl Vectors {
     )]
     fn cookie_keys(&mut self) {
         use base64::engine::general_purpose::{STANDARD, URL_SAFE};
-        // Its base64 holds both `+` and `/`, which base64url writes `-` and `_`.
         let secret: Vec<u8> = [0xfb, 0xef, 0xbe, 0xff, 0xff, 0xff]
             .into_iter()
             .cycle()
@@ -1634,12 +1627,9 @@ impl Vectors {
         let standard = STANDARD.encode(&secret);
         let unpadded = standard.trim_end_matches('=').to_owned();
         let mut trailing_bits = unpadded.clone();
-        // The last character's low bits are padding, which must be zero.
         trailing_bits.pop();
         trailing_bits.push('9');
         trailing_bits.push('=');
-        // The key's bytes, in hex, or why it is refused: it holds another length
-        // than 32 bytes, or is in no encoding.
         let accepted = || Expected::ok(&hex(&secret));
         let wrong_length =
             |bytes: usize| Expected::refused(&json!({ "code": "wrong_length", "bytes": bytes }));

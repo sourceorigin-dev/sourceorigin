@@ -108,7 +108,6 @@ impl PublicKey {
     #[must_use]
     pub fn thumbprint(&self) -> Digest {
         let members = match self.jwk.kty {
-            // Base64url never needs escaping in JSON.
             KeyType::Rsa => format!(
                 r#"{{"e":"{}","kty":"RSA","n":"{}"}}"#,
                 URL_SAFE_NO_PAD.encode(self.key.exponent()),
@@ -122,7 +121,6 @@ impl PublicKey {
     /// writes, for independent verifiers.
     #[must_use]
     pub fn pem(&self) -> String {
-        // `from_jwk` refused a key with a defect, so this one has its DER.
         Pem::encode(PUBLIC_KEY_LABEL, self.key.der().unwrap_or_default())
             .as_str()
             .to_owned()
@@ -273,7 +271,6 @@ impl Rs256Key {
     /// The compact token of `input`, `header.payload`, with its RS256 signature.
     fn signed(&self, input: &str) -> Result<String, CryptoError> {
         let mut signature = vec![0; self.key.public_modulus_len()];
-        // RSASSA-PKCS1-v1_5 is deterministic: the provider ignores the generator.
         self.key.sign(
             &RSA_PKCS1_SHA256,
             &SystemRandom::new(),
@@ -458,7 +455,6 @@ impl Pem {
             begin.len() + base64.len() + base64.len().div_ceil(64) + end.len(),
         ));
         pem.push_str(&begin);
-        // Base64 is ASCII, so any split falls between characters.
         let mut rest = base64.as_str();
         while !rest.is_empty() {
             let (line, tail) = rest.split_at(rest.len().min(64));
