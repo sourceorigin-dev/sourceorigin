@@ -396,19 +396,72 @@ cannot shadow `account_recoveries`
 
 ## Deploys and rollbacks
 
-- A rollback to this release's predecessor keeps every way-in property and the
-  owner's ability to undo: the backstops hold, and the predecessor already
-  needs a confirmation for every owned-client change and re-reads a consent's
-  session under the lock. Never roll back below that
-  predecessor while a recovery can be undone.
-- What a rollback loses is availability: the recovery pages, P4 and the typed
-  errors, until the release is back. This release's CLI still runs `user
-  undo-recovery` against the same schema.
-- Start recoveries only once a rollout is over. A replica of a release that
-  can't decode a recovery email leaves it pending for one that can, until the
-  email channel's 24-hour `MAX_AGE` fails it
-  ([life of a delivery](../architecture/delivery-queue.md#life-of-a-delivery));
-  resend a failed one with `auth-service deliveries retry <id> --reason "…"`.
+A deploy runs `migrate` before its rollout, and a rollback reverts no migration
+([roll back production](../operations/deploying.md#roll-back-production)). The
+schema's first migration creates `account_recoveries`, so every release that can
+run against the database has the recovery this page describes. A rollback only
+loses what later releases added to it.
+
+### How far back
+
+While a recovery can be undone, roll production back only to its previous
+deployment: production's automatic rollback after a failed rollout, or
+`piquelctl env restore` of that deployment. Migrations expand, then contract
+([migrations](../architecture/database.md#migrations)), so the previous release
+keeps working against the schema the current one migrated. Nothing keeps an
+older release working against it. If a migration added since the previous
+deployment says in its comments that it breaks the release before it, deploy a
+fix instead of restoring.
+
+Restore further back only once no recovery can be undone. A recovery can be
+undone for at most 16 days after it starts: 24 hours for its link, then 15 days
+of probation. `auth-service audit list --kind recovery_started`, or the
+dashboard's **Events** page filtered by `recovery_started`, lists the recent
+starts, and each account's **Recover** page on the dashboard says where its
+recoveries stand. Then read the migrations added since, as for any restore.
+
+### What a rollback keeps
+
+- **The backstops.** The [database backstops](#database-backstops) live in
+  migrations, so they hold whichever release runs: a probation passkey confirms
+  no session (B1), no account gains administrator rights mid-recovery (B2), and
+  no passkey but the recovery's own is revoked while it can be undone (B3).
+- **The owner's undo.** B3 keeps every passkey the owner undoes with (U1),
+  and every release that can run against the database serves the undo page
+  that the notices link to.
+- **Support's tools.** In an environment, `auth-service` runs in an auth
+  container, so after a rollback it is the restored release's own. Like the
+  dashboard's **Recover** and **Undo recovery** pages, it can still start a
+  recovery, undo one with `user undo-recovery`, and retry or cancel deliveries.
+
+### What a rollback can lose
+
+- **What later releases added.** Their pages, their answers and errors, and
+  any rule that lives only in their Rust code are gone until they are deployed
+  again. That is why the rules a way in depends on have backstops too.
+- **Recovery emails the restored release can't decode.** An email of a kind
+  only a later release knows waits for a release that can decode it
+  ([life of a delivery](../architecture/delivery-queue.md#life-of-a-delivery)).
+  `auth-service deliveries list --status pending --channel email` shows it, with
+  the last error `stored recipient or payload does not decode`. Deploying a
+  release that decodes it again sends it within 30 seconds. Otherwise it fails
+  at the email channel's `MAX_AGE`, 24 hours after it was created.
+
+  A recovery link that waits this way needs no later release: start another
+  recovery of the account. The new start cancels the waiting link (S2), and the
+  restored release mails a link it knows. Retrying the old one is no use: it
+  fails when its link expires, and the sender skips an expired link. A notice
+  that failed this way can be retried once a release that decodes it runs, with
+  `auth-service deliveries retry <id> --reason "…"` or **Retry** on the
+  dashboard's **Deliveries** page. A retry restarts its `MAX_AGE`.
+
+### Recoveries during a deploy
+
+Start recoveries only once a rollout is over: once
+`piquelctl env wait sourceorigin production --ready routes` returns. While a
+rollout runs, both releases serve and claim deliveries, and a rollout that
+fails rolls back on its own, so a recovery started then is the one most likely to lose its
+email or meet an older page.
 
 ## Threat model
 
