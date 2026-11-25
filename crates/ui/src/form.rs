@@ -1,21 +1,12 @@
 //! What the pages' forms and links send, what a page says once a change is made or
 //! refused, and the parts every form is built of.
 //!
-//! A change posts one form to its page, naming it in the hidden `action` field.
-//! One that needs a recent passkey confirmation is marked `data-passkey-confirm`
-//! while the session has none, and the passkey script confirms before posting it.
-//! One that a passkey ceremony makes, signing in, creating an account, adding a
-//! passkey or undoing a recovery, is a [`passkey_form`], which the passkey script
-//! posts once the ceremony is done. One that a link's fragment fills in is a
-//! [`fragment_form`]. Every other form is marked `data-submit-once`, so a double
-//! click posts it once. A row opens for editing or confirmation by a `GET` form, so
-//! it works without a script.
-//!
-//! Each page's changes and query are types, such as [`SignInChange`] and
-//! [`SignInState`]. Forms and links serialize them, and the page that receives them
-//! deserializes the same types, so a field's name is written once. A field the user
-//! fills in is left empty in the change a form sends as hidden inputs, and the form
-//! renders its input instead.
+//! A change posts one form to its page, naming it in the hidden `action` field. A form that
+//! needs a recent passkey confirmation is marked `data-passkey-confirm`, one a passkey ceremony
+//! makes is a [`passkey_form`], one a link's fragment fills in is a [`fragment_form`], and every
+//! other is marked `data-submit-once`. Each page's changes and query are types, such as
+//! [`SignInChange`] and [`SignInState`], which forms and links serialize and the receiving
+//! page deserializes, so a field's name is written once.
 
 use crate::{
     AppChange, AppSettingsState, ConnectedAppChange, ConnectedAppsState, DataChange, DataState,
