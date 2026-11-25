@@ -27,8 +27,11 @@ async fn client(pool: &PgPool) -> ClientId {
         .expect("client ID");
     sqlx::query!(
         "INSERT INTO oidc_clients (
-            id, display_name, allowed_scopes, allowed_audiences, allow_refresh
-        ) VALUES ($1, 'Lock test', '[\"openid\"]', '[\"test\"]', true)",
+            id, display_name, allowed_scopes, allowed_audiences, grant_types
+        ) VALUES (
+            $1, 'Lock test', '[\"openid\"]', '[\"test\"]',
+            '[\"authorization_code\", \"refresh_token\"]'
+        )",
         client.as_str()
     )
     .execute(pool)

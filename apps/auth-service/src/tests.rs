@@ -27,12 +27,12 @@ use serde_json::Value;
 use sourceorigin_common::{
     AuthenticationMethod, ClientId, EmailId, PasskeyId, Provider, SessionId, TokenId, UserId,
     clients::{
-        AllowedScopes, ClientField, ClientKind, ClientOwner, ClientRegistration, PostLogoutUris,
-        RedirectUris, ScopeName,
+        AllowedScopes, ClientField, ClientKind, ClientOwner, ClientRegistration, GrantTypes,
+        PostLogoutUris, RedirectUris, ScopeName,
     },
     config::Origin,
     events::{Actor, RevocationReason},
-    protocol::oauth::Scope,
+    protocol::oauth::{GrantType, Scope},
 };
 use sourceorigin_crypto::{ClientSecret, KeyEncryptionKey, NoteKey, Secret};
 use sourceorigin_repository::{
@@ -664,7 +664,8 @@ pub(crate) fn registration(kind: ClientKind, origin: &str) -> ClientRegistration
             .map(ScopeName::from),
         )
         .expect("standard scopes"),
-        allow_refresh: true,
+        grant_types: GrantTypes::new([GrantType::AuthorizationCode, GrantType::RefreshToken])
+            .expect("the code and refresh grants"),
         trusted: false,
         require_pushed_authorization_requests: false,
         backchannel_logout_uri: None,
@@ -680,7 +681,7 @@ impl ClientSettings {
             redirect_uris: vec![format!("{origin}/callback")],
             post_logout_uris: Vec::new(),
             allowed_scopes: vec!["openid".into(), "offline_access".into()],
-            allow_refresh: true,
+            grant_types: vec![GrantType::AuthorizationCode, GrantType::RefreshToken],
             require_pushed_authorization_requests: false,
             backchannel_logout_uri: None,
         }

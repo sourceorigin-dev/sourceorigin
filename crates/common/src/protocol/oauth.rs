@@ -151,7 +151,7 @@ crate::str_enum! {
         Profile = "profile",
         /// Include email claims.
         Email = "email",
-        /// Allow refresh tokens when the client permits them.
+        /// Allow refresh tokens when the client has the refresh token grant.
         OfflineAccess = "offline_access",
     }
 }

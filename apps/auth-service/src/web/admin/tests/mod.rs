@@ -157,6 +157,15 @@ impl Harness {
             .await
     }
 
+    /// Posts `fields` to the dashboard's `path` as `browser`, from the dashboard's
+    /// own page.
+    async fn post(&self, browser: &Browser, path: &str, fields: &[(&str, &str)]) -> Response {
+        let url = format!("{DASHBOARD}{path}");
+        browser
+            .submit(&self.dashboard, &url, fields, OWN_PAGE)
+            .await
+    }
+
     /// Follows `response`'s redirect to auth as `browser`.
     async fn to_auth(&self, browser: &Browser, response: &Response) -> Response {
         let target = location(response);

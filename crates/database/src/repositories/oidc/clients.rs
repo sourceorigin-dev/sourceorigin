@@ -18,17 +18,15 @@ use sourceorigin_common::{
         BackchannelLogoutUri, ClientField, ClientKind, ClientOwner, ClientRegistration,
         RedirectUri, RelatedOrigin, ScopeName,
     },
+    protocol::oauth::GrantType,
 };
 use sqlx::types::Json;
+use std::collections::BTreeSet;
 
 /// A registered client with its exact URI allowlists. A deleted client is still
 /// returned, disabled, with its `deleted_at`, but without its name, redirect URIs
 /// or back-channel logout URI, which the `oidc_clients_scrub_deleted` trigger erases.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[expect(
-    clippy::struct_excessive_bools,
-    reason = "Each flag is an independent registration setting."
-)]
 pub struct StoredOidcClient {
     /// Client identifier.
     pub id: ClientId,
@@ -44,8 +42,8 @@ pub struct StoredOidcClient {
     pub allowed_scopes: Vec<String>,
     /// Audiences the client may request tokens for: its own ID, until #71.
     pub allowed_audiences: Vec<String>,
-    /// Whether the client may receive refresh tokens.
-    pub allow_refresh: bool,
+    /// The grants the client may use at the token endpoint.
+    pub grant_types: Vec<GrantType>,
     /// Disabled clients are rejected everywhere.
     pub enabled: bool,
     /// Whether the client skips the consent screen.
@@ -121,8 +119,9 @@ impl StoredOidcClient {
                 same(&self.allowed_scopes, &scopes),
             ),
             (
-                ClientField::AllowRefresh,
-                self.allow_refresh == registration.allow_refresh,
+                ClientField::GrantTypes,
+                BTreeSet::from_iter(&self.grant_types)
+                    == BTreeSet::from_iter(&*registration.grant_types),
             ),
             (ClientField::Trusted, self.trusted == registration.trusted),
             (
@@ -156,7 +155,7 @@ impl From<StoredOidcClient> for Client {
             post_logout_uris: client.post_logout_uris,
             allowed_scopes: client.allowed_scopes,
             allowed_audiences: client.allowed_audiences,
-            allow_refresh: client.allow_refresh,
+            grant_types: client.grant_types,
             enabled: client.enabled,
             trusted: client.trusted,
             require_pushed_authorization_requests: client.require_pushed_authorization_requests,
@@ -244,7 +243,7 @@ impl OidcRepository<'_> {
                 "WITH client AS (
                     INSERT INTO oidc_clients (
                         id, display_name, client_type, allowed_scopes, allowed_audiences,
-                        allow_refresh, trusted, owner_id, created_via,
+                        grant_types, trusted, owner_id, created_via,
                         require_pushed_authorization_requests, backchannel_logout_uri
                     ) VALUES (
                         $1, $2, $3, $4, jsonb_build_array($1::text), $5, $6, $7, $8, $12, $13
@@ -258,7 +257,7 @@ impl OidcRepository<'_> {
                 registration.display_name.as_str(),
                 registration.kind.as_str(),
                 Json(Self::scopes(registration)) as _,
-                registration.allow_refresh,
+                Json(&*registration.grant_types) as _,
                 registration.trusted,
                 owner.user_id().map(UserId::as_uuid),
                 owner.created_via().as_str(),
@@ -295,7 +294,7 @@ impl OidcRepository<'_> {
                     UPDATE oidc_clients
                     SET display_name = $2,
                         allowed_scopes = $3,
-                        allow_refresh = $4,
+                        grant_types = $4,
                         trusted = $5,
                         require_pushed_authorization_requests = $9,
                         backchannel_logout_uri = $10,
@@ -324,7 +323,7 @@ impl OidcRepository<'_> {
                 registration.id.as_str(),
                 registration.display_name.as_str(),
                 Json(Self::scopes(registration)) as _,
-                registration.allow_refresh,
+                Json(&*registration.grant_types) as _,
                 registration.trusted,
                 &redirects.uris,
                 &redirects.kinds,
@@ -589,7 +588,7 @@ impl OidcRepository<'_> {
                 StoredOidcClient,
                 r#"SELECT
                     c.id AS "id: ClientId", c.display_name, c.client_type AS "kind: ClientKind",
-                    c.enabled, c.allow_refresh, c.trusted,
+                    c.enabled, c.grant_types AS "grant_types: JsonArray<GrantType>", c.trusted,
                     c.require_pushed_authorization_requests, c.backchannel_logout_uri,
                     c.created_at, c.updated_at,
                     c.owner_id AS "owner_id: UserId", c.last_used_at, c.deleted_at,

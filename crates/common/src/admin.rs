@@ -13,7 +13,10 @@ use crate::{
     AccountStatus, AnnouncementId, AuthenticationMethod, ClientId, ClientSecretId, DeliveryId,
     EventId, Handle, PasskeyId, PictureId, RecoveryId, SessionId, TokenId, TraceId, UserId,
     clients::{ClientKind, ClientStatus, RelatedOrigin},
-    protocol::{jwt::KeyId, oauth::ClientAuthMethod},
+    protocol::{
+        jwt::KeyId,
+        oauth::{ClientAuthMethod, GrantType},
+    },
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -341,10 +344,6 @@ pub enum InvitationSent {
 
 /// An OIDC client: everything but its secret.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[expect(
-    clippy::struct_excessive_bools,
-    reason = "Each flag is an independent registration setting."
-)]
 pub struct Client {
     /// Client ID.
     pub id: ClientId,
@@ -358,8 +357,8 @@ pub struct Client {
     pub allowed_scopes: Vec<String>,
     /// Audiences it may request tokens for.
     pub allowed_audiences: Vec<String>,
-    /// Whether it may receive refresh tokens.
-    pub allow_refresh: bool,
+    /// The grants it may use at the token endpoint, under their RFC 7591 name.
+    pub grant_types: Vec<GrantType>,
     /// Whether it is usable.
     pub enabled: bool,
     /// Whether it skips the consent screen.

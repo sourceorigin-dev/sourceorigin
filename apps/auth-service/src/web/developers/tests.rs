@@ -13,7 +13,9 @@ use axum::{
 };
 use chrono::{Duration, Utc};
 use sourceorigin_common::{
-    AuthenticationMethod, ClientId, clients::ClientKind, protocol::oauth::Scope,
+    AuthenticationMethod, ClientId,
+    clients::ClientKind,
+    protocol::oauth::{GrantType, Scope},
 };
 use sourceorigin_ui::{
     AppChange, AppSettingsState, Checkbox, ClientDraft, Grace, Lines, MISSING, NewAppChange, Query,
@@ -28,6 +30,7 @@ fn draft(callback: &str) -> ClientDraft {
         display_name: "Console test".into(),
         redirect_uris: Lines::from(callback),
         scopes: [Scope::OpenId, Scope::Profile].into_iter().collect(),
+        grants: [GrantType::AuthorizationCode].into_iter().collect(),
         ..ClientDraft::default()
     }
 }
@@ -83,7 +86,7 @@ fn assert_unstored(response: &Response) {
 #[test]
 fn browser_forms_decode() {
     let Form(save) = Form::<AppChange>::from_bytes(
-        b"action=save&display_name=Notes&redirect_uris=https%3A%2F%2Fa.example%2Fcb%0D%0A%0D%0A+https%3A%2F%2Fb.example%2Fcb+&post_logout_uris=&openid=on&allow_refresh=on&backchannel_logout_uri=https%3A%2F%2Fa.example%2Flogout",
+        b"action=save&display_name=Notes&redirect_uris=https%3A%2F%2Fa.example%2Fcb%0D%0A%0D%0A+https%3A%2F%2Fb.example%2Fcb+&post_logout_uris=&openid=on&refresh_token=on&backchannel_logout_uri=https%3A%2F%2Fa.example%2Flogout",
     )
     .expect("save");
     let AppChange::Save { draft } = save else {
@@ -98,7 +101,7 @@ fn browser_forms_decode() {
                 .into_iter()
                 .collect(),
             scopes: [Scope::OpenId].into_iter().collect(),
-            allow_refresh: Checkbox(true),
+            grants: [GrantType::RefreshToken].into_iter().collect(),
             backchannel_logout_uri: "https://a.example/logout".into(),
             ..ClientDraft::default()
         }
@@ -330,7 +333,9 @@ async fn every_change_needs_a_passkey() {
         display_name: "Renamed".into(),
         redirect_uris: Lines::from("https://saved.example/callback"),
         scopes: [Scope::OpenId, Scope::OfflineAccess].into_iter().collect(),
-        allow_refresh: Checkbox(true),
+        grants: [GrantType::AuthorizationCode, GrantType::RefreshToken]
+            .into_iter()
+            .collect(),
         ..ClientDraft::default()
     };
     let save = AppChange::Save { draft: renamed };

@@ -27,7 +27,7 @@ use crate::{
     net::PublicAddress,
     protocol::{
         constants::MAX_IDENTIFIER_BYTES,
-        oauth::{ClientAuthMethod, Scope, Scopes},
+        oauth::{ClientAuthMethod, GrantType, Scope, Scopes},
     },
 };
 use chrono::{DateTime, Utc};
@@ -94,12 +94,15 @@ impl ClientKind {
         }
     }
 
-    /// Whether a new client of this kind may receive refresh tokens unless its
-    /// registration says otherwise: a confidential one may, so the SDKs' login
-    /// routes keep its sessions.
+    /// The grants a new client of this kind may use unless its registration names
+    /// others: the authorization code, and refresh tokens for a confidential
+    /// client, so the SDKs' login routes keep its sessions.
     #[must_use]
-    pub const fn default_refresh(self) -> bool {
-        matches!(self, Self::Confidential)
+    pub const fn default_grant_types(self) -> &'static [GrantType] {
+        match self {
+            Self::Public => &[GrantType::AuthorizationCode],
+            Self::Confidential => &[GrantType::AuthorizationCode, GrantType::RefreshToken],
+        }
     }
 }
 
@@ -214,8 +217,8 @@ crate::open_str_enum! {
         PostLogoutUris = "post_logout_uris",
         /// [`ClientRegistration::allowed_scopes`].
         AllowedScopes = "allowed_scopes",
-        /// [`ClientRegistration::allow_refresh`].
-        AllowRefresh = "allow_refresh",
+        /// [`ClientRegistration::grant_types`].
+        GrantTypes = "grant_types",
         /// [`ClientRegistration::trusted`].
         Trusted = "trusted",
         /// [`ClientRegistration::require_pushed_authorization_requests`].
@@ -234,7 +237,7 @@ impl ClientField {
             Self::RedirectUris | Self::PostLogoutUris => true,
             Self::DisplayName
             | Self::AllowedScopes
-            | Self::AllowRefresh
+            | Self::GrantTypes
             | Self::Trusted
             | Self::RequirePushedAuthorizationRequests
             | Self::BackchannelLogoutUri
@@ -639,6 +642,9 @@ pub type RedirectUris = BoundedVec<RedirectUri, 1, 16>;
 pub type PostLogoutUris = BoundedVec<RedirectUri, 0, 16>;
 /// 1 to 32 scopes a client may request.
 pub type AllowedScopes = BoundedVec<ScopeName, 1, 32>;
+/// The grants a client may use at the token endpoint, which RFC 7591 §2 calls its
+/// `grant_types`: at least one, each once.
+pub type GrantTypes = BoundedVec<GrantType, 1, { GrantType::ALL.len() }>;
 
 /// Everything an operator decides about a client. Every field is valid by
 /// construction, so storing one needs no further checks.
@@ -656,8 +662,9 @@ pub struct ClientRegistration {
     pub post_logout_uris: PostLogoutUris,
     /// The scopes the client may request.
     pub allowed_scopes: AllowedScopes,
-    /// Whether the client may receive refresh tokens, with `offline_access`.
-    pub allow_refresh: bool,
+    /// The grants the client may use at the token endpoint. It receives refresh
+    /// tokens, with `offline_access`, only with [`GrantType::RefreshToken`].
+    pub grant_types: GrantTypes,
     /// Whether the client skips the consent screen. Only for first-party clients.
     pub trusted: bool,
     /// Whether the client must push its authorization requests (RFC 9126 §6), so

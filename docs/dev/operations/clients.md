@@ -119,9 +119,9 @@ in unpadded base64url, never printed. The client's other secrets keep working
 for `--grace` at most, 1 hour by default, while the deployment rolls out;
 `--grace 0` revokes them. Only the terminal applies clients, since only it takes
 a secret. Like `create`, it gives a client the defaults of its kind for the
-scopes and refresh tokens it doesn't name, so a confidential client applied
-without `--scope` or `--refresh` gets `offline_access` and refresh tokens. To
-keep them off, name its scopes and pass `--no-refresh`.
+scopes and grant types it doesn't name, so a confidential client applied
+without `--scope` or `--grant-type` gets `offline_access` and refresh tokens. To
+keep them off, name its scopes and pass `--grant-type authorization_code`.
 
 No deployment of SourceOrigin needs a client: the admin dashboard signs
 administrators in itself (see [the admin dashboard](administration.md#how-the-dashboard-signs-administrators-in)).
@@ -155,11 +155,15 @@ sign-in**. See [passkey sign-in on your own pages](../../user/apps/passkey-sign-
   revocation and userinfo endpoints from a browser.
 - **Scopes** default to `openid`, `profile` and `email`, and `offline_access`
   for a confidential client, which the SDKs' login routes always request.
-- **Refresh tokens** are issued when the client also requests
-  `offline_access`. A confidential client may receive them unless registered
-  with `--no-refresh`, and a public one only with `--refresh`. The dashboard's
-  and the developer console's forms start with the same defaults for the kind
-  chosen.
+- **Grant types** (`--grant-type`, once per grant) are the grants the client
+  may use at the token endpoint, which RFC 7591 calls its `grant_types`:
+  `authorization_code` and `refresh_token`. A client starts an authorization
+  and redeems its code only with `authorization_code`. With `refresh_token`, it
+  receives refresh tokens when it also requests `offline_access`. A public
+  client defaults to `authorization_code` alone, and a confidential one to
+  both. Naming any replaces the list, so name every grant the client keeps.
+  The dashboard's and the developer console's forms start with the same
+  defaults for the kind chosen.
 - **Trusted** (`--trusted`) skips the consent screen. It is for first-party
   clients only.
 - **Pushed requests** (`--require-par`) make the client push its authorization

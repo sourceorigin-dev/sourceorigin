@@ -14,7 +14,7 @@ The code on this page comes from the SDK's example,
    `https://<your app>/callback`. Pages on its origin may then call auth's token
    endpoints from the browser.
 3. To keep users signed in for longer than an access token's five minutes, turn
-   on the `offline_access` scope and **Allow refresh tokens**, and request
+   on the `offline_access` scope and the **Refresh tokens** grant type, and request
    `offline_access` when signing in.
 4. Add `@sourceorigin/auth` to your app:
 

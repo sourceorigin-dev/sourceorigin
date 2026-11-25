@@ -100,7 +100,7 @@ the change, on the app's **Settings** tab.
   login on the `127.0.0.1` callback.
 - **Another port.** The redirect URI is compared with its port.
 - **`offline_access` missing.** The login routes request it on every sign-in.
-- **Sessions end after about five minutes.** **Allow refresh tokens** is off:
+- **Sessions end after about five minutes.** **Refresh tokens**, under **Grant types**, is off:
   a session without a refresh token lasts as long as its access token.
 - **The wrong environment's values.** Each environment's registration has its
   own client ID, secret and redirect URI.

@@ -12,7 +12,7 @@ use sourceorigin_common::{
     ClientId, MAX_NAME_CHARS,
     admin::{ClientDetail, SecretLifetime},
     clients::{ClientField, ClientKind, ClientStatus},
-    protocol::oauth::Scope,
+    protocol::oauth::{GrantType, Scope},
 };
 use std::{borrow::Cow, fmt};
 use topcoat::{
@@ -37,8 +37,8 @@ pub struct ClientRow<'a> {
     pub post_logout_uris: &'a [String],
     /// The scopes it may request.
     pub allowed_scopes: &'a [String],
-    /// Whether it may receive refresh tokens.
-    pub allow_refresh: bool,
+    /// The grants it may use at the token endpoint.
+    pub grant_types: &'a [GrantType],
     /// Whether it must push its authorization requests.
     pub require_pushed_authorization_requests: bool,
     /// Where logout tokens are posted, if anywhere.
@@ -59,7 +59,7 @@ impl<'a> From<&'a ClientDetail> for ClientRow<'a> {
             redirect_uris: &client.redirect_uris,
             post_logout_uris: &client.post_logout_uris,
             allowed_scopes: &client.allowed_scopes,
-            allow_refresh: client.allow_refresh,
+            grant_types: &client.grant_types,
             require_pushed_authorization_requests: client.require_pushed_authorization_requests,
             backchannel_logout_uri: client.backchannel_logout_uri.as_deref(),
             last_used_at: client.last_used_at,
@@ -168,60 +168,82 @@ impl Default for Grace {
     }
 }
 
-/// The standard scopes a client's form chose, one checkbox each, named after its
-/// scope: a form sends a list as repeated names, which a change cannot decode.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ScopeChoice {
-    /// `openid`.
-    #[serde(default, skip_serializing_if = "Checkbox::is_off")]
-    pub openid: Checkbox,
-    /// `profile`.
-    #[serde(default, skip_serializing_if = "Checkbox::is_off")]
-    pub profile: Checkbox,
-    /// `email`.
-    #[serde(default, skip_serializing_if = "Checkbox::is_off")]
-    pub email: Checkbox,
-    /// `offline_access`.
-    #[serde(default, skip_serializing_if = "Checkbox::is_off")]
-    pub offline_access: Checkbox,
+/// Declares the switches a client's form offers for a closed vocabulary, one
+/// checkbox per value, named as its field is: a form sends a list as repeated
+/// names, which a change cannot decode.
+macro_rules! switches {
+    (
+        $(#[$meta:meta])*
+        $name:ident of $vocabulary:ident {
+            $($(#[$field_meta:meta])* $field:ident => $variant:ident),+ $(,)?
+        }
+    ) => {
+        $(#[$meta])*
+        #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+        pub struct $name {
+            $(
+                $(#[$field_meta])*
+                #[serde(default, skip_serializing_if = "Checkbox::is_off")]
+                pub $field: Checkbox,
+            )+
+        }
+
+        impl $name {
+            /// The checkbox of `value`. Exhaustive, so a new value does not compile
+            /// until the form offers it.
+            const fn checkbox(&mut self, value: $vocabulary) -> &mut Checkbox {
+                match value {
+                    $($vocabulary::$variant => &mut self.$field,)+
+                }
+            }
+
+            /// Whether `value` is chosen.
+            const fn has(mut self, value: $vocabulary) -> bool {
+                self.checkbox(value).0
+            }
+
+            /// The values chosen, in the vocabulary's order.
+            pub fn chosen(self) -> impl Iterator<Item = $vocabulary> {
+                $vocabulary::ALL
+                    .into_iter()
+                    .filter(move |value| self.has(*value))
+            }
+        }
+
+        impl FromIterator<$vocabulary> for $name {
+            /// The given values chosen.
+            fn from_iter<I: IntoIterator<Item = $vocabulary>>(values: I) -> Self {
+                let mut chosen = Self::default();
+                for value in values {
+                    *chosen.checkbox(value) = Checkbox(true);
+                }
+                chosen
+            }
+        }
+    };
 }
 
-impl ScopeChoice {
-    /// The checkbox of `scope`. Exhaustive, so a new scope does not compile until
-    /// the form offers it.
-    const fn checkbox(&mut self, scope: Scope) -> &mut Checkbox {
-        match scope {
-            Scope::OpenId => &mut self.openid,
-            Scope::Profile => &mut self.profile,
-            Scope::Email => &mut self.email,
-            Scope::OfflineAccess => &mut self.offline_access,
-        }
-    }
-
-    /// Whether `scope` is chosen.
-    const fn has(mut self, scope: Scope) -> bool {
-        self.checkbox(scope).0
-    }
-
-    /// The names of the scopes chosen, in [`Scope::ALL`]'s order.
-    #[must_use]
-    pub fn names(self) -> Vec<String> {
-        Scope::ALL
-            .into_iter()
-            .filter(|scope| self.has(*scope))
-            .map(|scope| scope.as_str().to_owned())
-            .collect()
+switches! {
+    /// The standard scopes a client's form chose, each switch named after its scope.
+    ScopeChoice of Scope {
+        /// `openid`.
+        openid => OpenId,
+        /// `profile`.
+        profile => Profile,
+        /// `email`.
+        email => Email,
+        /// `offline_access`.
+        offline_access => OfflineAccess,
     }
 }
 
-impl FromIterator<Scope> for ScopeChoice {
-    /// `scopes` chosen.
-    fn from_iter<I: IntoIterator<Item = Scope>>(scopes: I) -> Self {
-        let mut chosen = Self::default();
-        for scope in scopes {
-            *chosen.checkbox(scope) = Checkbox(true);
-        }
-        chosen
+switches! {
+    /// The grant types a client's form chose, each switch named after its grant.
+    GrantChoice of GrantType {
+        /// `authorization_code`.
+        authorization_code => AuthorizationCode,
+        /// `refresh_token`.
+        refresh_token => RefreshToken,
     }
 }
 
@@ -243,9 +265,9 @@ pub struct ClientDraft {
     /// The scopes it may request.
     #[serde(flatten)]
     pub scopes: ScopeChoice,
-    /// Whether it may receive refresh tokens.
-    #[serde(default, skip_serializing_if = "Checkbox::is_off")]
-    pub allow_refresh: Checkbox,
+    /// The grants it may use at the token endpoint.
+    #[serde(flatten)]
+    pub grants: GrantChoice,
     /// Whether it must push its authorization requests.
     #[serde(default, skip_serializing_if = "Checkbox::is_off")]
     pub require_pushed_authorization_requests: Checkbox,
@@ -255,22 +277,22 @@ pub struct ClientDraft {
 }
 
 impl ClientDraft {
-    /// The settings a new client of `kind` starts with: its default scopes, and
-    /// refresh tokens if its kind allows them by default.
+    /// The settings a new client of `kind` starts with: its default scopes and
+    /// grant types.
     #[must_use]
     pub fn new_client(kind: ClientKind) -> Self {
         Self {
             scopes: kind.default_scopes().iter().copied().collect(),
-            allow_refresh: Checkbox(kind.default_refresh()),
+            grants: kind.default_grant_types().iter().copied().collect(),
             ..Self::default()
         }
     }
 
-    /// The names of the scope and refresh switches it turns on, space-separated.
+    /// The names of the scope and grant type switches it turns on, space-separated.
     fn switches(&self) -> String {
-        let mut switches = self.scopes.names();
-        switches.extend(self.allow_refresh.0.then(|| "allow_refresh".to_owned()));
-        switches.join(" ")
+        let scopes = self.scopes.chosen().map(Scope::as_str);
+        let grants = self.grants.chosen().map(GrantType::as_str);
+        scopes.chain(grants).collect::<Vec<_>>().join(" ")
     }
 }
 
@@ -286,7 +308,7 @@ impl From<&ClientRow<'_>> for ClientDraft {
                 .iter()
                 .filter_map(|scope| scope.parse().ok())
                 .collect(),
-            allow_refresh: Checkbox(client.allow_refresh),
+            grants: client.grant_types.iter().copied().collect(),
             require_pushed_authorization_requests: Checkbox(
                 client.require_pushed_authorization_requests,
             ),
@@ -307,16 +329,16 @@ pub struct FieldError<'a> {
 impl FieldError<'_> {
     /// Whether the client form shows a refusal of its setting beside the setting's
     /// input. Only the settings the service validates have a place for one: it
-    /// never refuses the refresh and pushed-request checkboxes.
+    /// never refuses the pushed-request checkbox.
     const fn placed(&self) -> bool {
         match self.field {
             ClientField::DisplayName
             | ClientField::RedirectUris
             | ClientField::PostLogoutUris
             | ClientField::AllowedScopes
+            | ClientField::GrantTypes
             | ClientField::BackchannelLogoutUri => true,
-            ClientField::AllowRefresh
-            | ClientField::Trusted
+            ClientField::Trusted
             | ClientField::RequirePushedAuthorizationRequests
             | ClientField::Other(_) => false,
         }
@@ -387,7 +409,21 @@ const fn scope_description(scope: Scope) -> &'static str {
         Scope::OpenId => "Sign users in: their stable user ID",
         Scope::Profile => "Their handle, display name and profile picture",
         Scope::Email => "Their email address, when they have one",
-        Scope::OfflineAccess => "Refresh tokens, if refresh is allowed",
+        Scope::OfflineAccess => "Refresh tokens, with the refresh token grant",
+    }
+}
+
+/// What a grant type lets a client do, under the name its switch shows.
+const fn grant_description(grant: GrantType) -> (&'static str, &'static str) {
+    match grant {
+        GrantType::AuthorizationCode => (
+            "Authorization code",
+            "Users sign in on Origin Auth, which sends them back to a redirect URI with a code your app exchanges.",
+        ),
+        GrantType::RefreshToken => (
+            "Refresh tokens",
+            "When your app requests offline_access, it can stay signed in without sending users back to Origin Auth.",
+        ),
     }
 }
 
@@ -638,6 +674,35 @@ async fn scope_choices<'a>(
     })
 }
 
+/// A switch for each grant type, those of `chosen` checked, and why the service
+/// refused them, as `grants` says, if it did.
+#[component]
+async fn grant_choices<'a>(
+    /// The grant types checked.
+    chosen: GrantChoice,
+    /// The input of the grant types, with why they were refused if they were.
+    grants: &'a Described<'a>,
+) -> Result<impl View> {
+    Ok(view! {
+        <fieldset aria-describedby=(grants.refused().then(|| grants.error()))>
+            <legend>"Grant types"</legend>
+            <div class="choices">
+                for grant in GrantType::ALL {
+                    let (label, detail) = grant_description(grant);
+                    choice(
+                        name: grant.as_str(),
+                        checked: chosen.has(grant),
+                        autofocus: grants.refused() && grant == GrantType::ALL[0],
+                        label: view! { (label) },
+                        detail: view! { (detail) },
+                    )
+                }
+            </div>
+        </fieldset>
+        refusal(of: grants)
+    })
+}
+
 /// A client's settings form, posting `change` to `action` with a button labelled
 /// `label`: its inputs show `draft`, and, with `kind`, it asks for a new client's
 /// kind, `kind` chosen. Each input is named by its label alone, and described by
@@ -679,6 +744,7 @@ pub(crate) async fn client_form<'a>(
     let redirects = Described::of(error, &ClientField::RedirectUris);
     let logouts = Described::of(error, &ClientField::PostLogoutUris);
     let scopes = Described::of(error, &ClientField::AllowedScopes);
+    let grants = Described::of(error, &ClientField::GrantTypes);
     let backchannel = Described::of(error, &ClientField::BackchannelLogoutUri);
     Ok(view! {
         <div class="card">
@@ -737,15 +803,8 @@ pub(crate) async fn client_form<'a>(
                 help(of: &logouts, "Optional, one per line: pages users may return to after signing out.")
                 refusal(of: &logouts)
                 scope_choices(chosen: draft.scopes, scopes: &scopes)
+                grant_choices(chosen: draft.grants, grants: &grants)
                 <div class="choices">
-                    choice(
-                        name: "allow_refresh",
-                        checked: draft.allow_refresh.0,
-                        label: view! { "Allow refresh tokens" },
-                        detail: view! {
-                            "When your app requests " <code>"offline_access"</code> ", it can stay signed in without sending users back to Origin Auth."
-                        },
-                    )
                     choice(
                         name: "require_pushed_authorization_requests",
                         checked: draft.require_pushed_authorization_requests.0,

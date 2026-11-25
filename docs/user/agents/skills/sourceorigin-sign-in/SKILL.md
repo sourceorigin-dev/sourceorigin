@@ -40,8 +40,9 @@ https://auth.sourceorigin.dev/developers/new and fill in:
   backend starts with. The login routes request `offline_access` on every
   sign-in, and auth refuses a sign-in that asks for a scope the app may not
   request.
-- **Allow refresh tokens**: on, as it starts. Without refresh tokens, a session
-  ends with its access token, within five minutes.
+- **Grant types**: **Authorization code** and **Refresh tokens** on, as they
+  start. Without refresh tokens, a session ends with its access token, within
+  five minutes.
 
 After **Register app**, the console shows the client secret once. Ask the
 person to put it in the app's environment themselves, and not to paste it into

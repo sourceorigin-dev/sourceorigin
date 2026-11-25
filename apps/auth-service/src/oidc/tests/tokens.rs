@@ -4,7 +4,7 @@
 use super::*;
 use crate::config::PolicyLinks;
 use sourceorigin_common::AccountStatus;
-use sourceorigin_common::clients::{AllowedScopes, ScopeName};
+use sourceorigin_common::clients::{AllowedScopes, GrantTypes, ScopeName};
 use sourceorigin_common::events::GrantRevocation;
 use sourceorigin_repository::SessionScope;
 
@@ -453,8 +453,9 @@ async fn changing_keys_keeps_codes_and_refresh_tokens() {
     assert_eq!(changed.refresh(&rotated).await.status(), StatusCode::OK);
 }
 
-/// Checks that policy reductions reject new requests and invalidate outstanding grants,
-/// and that unsafe logout redirects are refused.
+/// Checks that policy reductions reject new requests and invalidate outstanding grants:
+/// a removed scope, the refresh grant, then the authorization code grant. Unsafe
+/// logout redirects are refused.
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn policy_reduction_blocks_outstanding_codes_and_refresh() {
@@ -481,7 +482,8 @@ async fn policy_reduction_blocks_outstanding_codes_and_refresh() {
     );
     let code = flow.code(REFRESH_SCOPES).await;
     let tokens = json(flow.exchange(&code, Flow::verifier(), None).await).await;
-    flow.client.allow_refresh = false;
+    flow.client.grant_types =
+        GrantTypes::new([GrantType::AuthorizationCode]).expect("the code grant alone");
     let client = flow.client.clone();
     crate::tests::replace(&database, &client)
         .await
@@ -495,6 +497,21 @@ async fn policy_reduction_blocks_outstanding_codes_and_refresh() {
         .await
         .status(),
         StatusCode::BAD_REQUEST
+    );
+    let code = flow.code(Scope::OpenId.as_str()).await;
+    flow.client.grant_types =
+        GrantTypes::new([GrantType::RefreshToken]).expect("the refresh grant alone");
+    let client = flow.client.clone();
+    crate::tests::replace(&database, &client)
+        .await
+        .expect("remove the authorization code grant");
+    Flow::assert_invalid_grant(flow.exchange(&code, Flow::verifier(), None).await).await;
+    assert_eq!(
+        parameter(
+            &flow.client_redirect(&flow.authorize(Scope::OpenId.as_str(), None).await),
+            "error"
+        ),
+        OAuthCode::UnauthorizedClient.as_str()
     );
     let response = flow
         .request(

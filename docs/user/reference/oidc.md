@@ -83,10 +83,18 @@ as it is then, under a share lock when it issues a code or tokens: a client
 disabled, suspended or changed meanwhile gets nothing it no longer allows. Access tokens are
 intended for the configured client audience. Only requested claims are released;
 an account without a confirmed primary address has no `email` claim. Browser
-clients should keep tokens in memory and use SSO again after reload. Refresh
-tokens are issued only when the client allows them and the request asks for
-`offline_access`: a confidential client allows them by default, and a public one
-doesn't. A public client's refresh token
+clients should keep tokens in memory and use SSO again after reload.
+
+Each app is registered with the grant types it may use, `authorization_code`
+and `refresh_token`. An app without `authorization_code` is refused with
+`unauthorized_client` when it starts a sign-in. A token request names its grant
+in `grant_type` and sends that grant's parameters: one that is missing is
+refused with `invalid_request`, and a `grant_type` Origin Auth doesn't know
+with `unsupported_grant_type`.
+
+Refresh tokens are issued only when the app has the `refresh_token` grant type
+and the request asks for `offline_access`: a confidential client has it by
+default, and a public one doesn't. A public client's refresh token
 rotates: each refresh answers with a new one, and presenting a spent one revokes
 the whole grant, so a stolen copy is caught as soon as both are used. The one
 exception is a refresh repeated within 10 seconds, such as two tabs refreshing

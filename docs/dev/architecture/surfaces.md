@@ -33,7 +33,7 @@ ceremonies their forms need and keeps a form from posting twice, the picture
 script, which lets the picture form choose its crop, the search script, the
 copy script, whose buttons, and the values beside them, copy a value such as a
 client secret or a signup link to the clipboard, and the client form script,
-which sets a new client's scopes and refresh tokens to the defaults of the kind
+which sets a new client's scopes and grant types to the defaults of the kind
 chosen.
 
 The search script ranks the top bar's results as the user types. Every signed-in

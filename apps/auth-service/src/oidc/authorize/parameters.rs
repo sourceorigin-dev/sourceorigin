@@ -3,9 +3,9 @@
 //! [`ValidatedAuthorization`].
 
 use crate::oidc::{
-    AUTHORIZATION_REQUEST_MINUTES, CodeChallengeMethod, Interaction, MAX_STATE_BYTES, OAuthCode,
-    OAuthError, OidcApplication, OpaqueToken, PUSHED_REQUEST_SECONDS, Prompt, Reject, ResponseMode,
-    ResponseType, Scopes, TokenPrefix,
+    AUTHORIZATION_REQUEST_MINUTES, CodeChallengeMethod, GrantType, Interaction, MAX_STATE_BYTES,
+    OAuthCode, OAuthError, OidcApplication, OpaqueToken, PUSHED_REQUEST_SECONDS, Prompt, Reject,
+    ResponseMode, ResponseType, Scopes, TokenPrefix,
 };
 use chrono::{Duration, Utc};
 use serde::Deserialize;
@@ -80,6 +80,7 @@ impl AuthorizationParameters {
         self.supported()?;
         let hinted_user_id = self.hinted_user_id(app, client)?;
         self.response_type()?;
+        Self::grant(client)?;
         let pkce_challenge = self.pkce(client)?;
         self.state()?;
         let scopes = self.scopes(client)?;
@@ -170,6 +171,18 @@ impl AuthorizationParameters {
             })? {
             ResponseType::Code => Ok(()),
         }
+    }
+
+    /// Requires `client` to be registered for the authorization code grant, the
+    /// only one a code is redeemed with.
+    fn grant(client: &StoredOidcClient) -> Result<(), OAuthError> {
+        if client.grant_types.contains(&GrantType::AuthorizationCode) {
+            return Ok(());
+        }
+        Err(OAuthCode::UnauthorizedClient.reject(format!(
+            "this client is not registered for the {} grant",
+            GrantType::AuthorizationCode
+        )))
     }
 
     /// Bounds `state`, which comes back with the result, so it is checked before
