@@ -1,8 +1,12 @@
 //! Development tasks for the SourceOrigin workspace, run with `cargo xtask`:
-//! publishing the SDKs and releasing a version. See docs/dev/releasing.md.
+//! publishing the SDKs and releasing a version (see docs/dev/releasing.md),
+//! checking the repository against the engineering standard, and running CI's
+//! checks for what changed.
 
+mod ci;
 mod publish;
 mod release;
+mod standard;
 
 use anyhow::{Context, Result, ensure};
 use clap::{Parser, Subcommand};
@@ -10,7 +14,7 @@ use serde::Deserialize;
 use std::{
     fs,
     path::{Path, PathBuf},
-    process::Command,
+    process::{Command, ExitCode},
 };
 
 /// The TypeScript SDK's directory, relative to the workspace root.
@@ -47,9 +51,19 @@ enum Task {
         #[arg(long)]
         dry_run: bool,
     },
+    /// Check the repository against the engineering standard's rules
+    /// (`sourceorigin-standard`), or report on, list or sync them.
+    Standard(standard::Standard),
+    /// Run CI's checks for only what changed since the merge base with `base`,
+    /// counting uncommitted and untracked files.
+    CheckChanged {
+        /// The branch to compare with.
+        #[arg(default_value = sourceorigin_standard::check_changed::DEFAULT_BASE)]
+        base: String,
+    },
 }
 
-fn main() -> Result<()> {
+fn main() -> Result<ExitCode> {
     let workspace = Workspace::current()?;
     match Cli::parse().task {
         Task::Publish {
@@ -60,8 +74,15 @@ fn main() -> Result<()> {
             dry_run,
             allow_dirty,
         }
-        .run(),
-        Task::Release { dry_run } => release::Release::new(&workspace, dry_run)?.run(),
+        .run()
+        .map(|()| ExitCode::SUCCESS),
+        Task::Release { dry_run } => release::Release::new(&workspace, dry_run)?
+            .run()
+            .map(|()| ExitCode::SUCCESS),
+        Task::Standard(standard) => standard.run(&workspace.root),
+        Task::CheckChanged { base } => ci::CI
+            .run(&workspace.root, &base)
+            .context("check what changed since the merge base"),
     }
 }
 

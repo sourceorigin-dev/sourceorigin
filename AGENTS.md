@@ -10,8 +10,8 @@ This repository contains everything under the sourceorigin.dev domain:
 - `apps/auth-service`: auth.sourceorigin.dev (OIDC, its sign-in pages, the account
   settings and the developer console), the admin dashboard and the operator CLI.
 - `apps/web`: sourceorigin.dev's own site.
-- `crates/`: `auth-sdk` (the Rust SDK), `common`, `crypto`, `database`,
-  `telemetry` and `ui`.
+- `crates/`: `crates/auth-sdk` (the Rust SDK), `crates/common`, `crates/crypto`,
+  `crates/database`, `crates/telemetry` and `crates/ui`.
 - `packages/auth`: the TypeScript SDK.
 - `infra/`: Dockerfiles and piqueld deployments.
 - `tools/xtask`: `cargo xtask`, which publishes the SDKs and releases a version

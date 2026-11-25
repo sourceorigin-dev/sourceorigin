@@ -100,6 +100,7 @@ serde_json = "1.0"
 # RFC 8785 canonical JSON, which the audit chain hashes.
 serde_json_canonicalizer = "0.4"
 serde_urlencoded = "0.7"
+sourceorigin-standard = "0.1"
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls-aws-lc-rs", "postgres", "chrono", "uuid", "json", "ipnet", "migrate", "macros"] }
 thiserror = "2.0"
 # Server-rendered pages: the router, `view!` and the tower service only. Its
@@ -151,6 +152,7 @@ tokio-rustls = { version = "0.26", default-features = false, features = ["aws_lc
 # images install ca-certificates). No HTTP/2: every peer speaks HTTP/1.1.
 reqwest = { version = "0.13", default-features = false, features = ["json", "form", "rustls"] }
 webauthn-rs-proto = "0.5.5"
+webauthn-authenticator-rs = { version = "0.5.5", features = ["softpasskey"] }
 
 # Line tables keep file and line numbers in backtraces but drop the variable
 # and type info that makes up most of a debug build's output. Also applies to
