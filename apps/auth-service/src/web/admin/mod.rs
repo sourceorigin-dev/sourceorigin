@@ -357,8 +357,6 @@ impl AdminApplication {
             .layer(BodyLimit::max(MAX_DASHBOARD_BODY_BYTES))
             .layer(answers)
             .route(overview::overview)
-            .route(analytics::analytics)
-            .route(traces::trace)
             .route(preferences)
             .route(sign_in)
             .route(start_confirmation)
@@ -471,9 +469,12 @@ impl AdminApplication {
             | Op::VerifyAuditChain
             | Op::ListAnnouncements
             | Op::ListAlerts
+            | Op::ViewAnalytics
+            | Op::ViewTrace
             | Op::PurgeUser
             | Op::ApplyClient
-            | Op::PruneAuditChain => return None,
+            | Op::PruneAuditChain
+            | Op::QueryAnalytics => return None,
         })
     }
 
@@ -543,7 +544,11 @@ impl AdminApplication {
             Op::SendAnnouncement => &announcements::send,
             Op::ListAlerts => &alerts::list,
             Op::UpdateAlert => &alerts::update,
-            Op::PurgeUser | Op::ApplyClient | Op::PruneAuditChain => return None,
+            Op::ViewAnalytics => &analytics::analytics,
+            Op::ViewTrace => &traces::trace,
+            Op::PurgeUser | Op::ApplyClient | Op::PruneAuditChain | Op::QueryAnalytics => {
+                return None;
+            }
         })
     }
 

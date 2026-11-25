@@ -194,7 +194,7 @@ pub(crate) enum AdminError {
     #[error(transparent)]
     Database(#[from] DatabaseError),
     /// The analytics database refused or didn't answer a query.
-    #[error("the analytics database did not answer")]
+    #[error("the analytics database refused or didn't answer")]
     Analytics(#[from] StoreError),
     /// A client change was refused or failed.
     #[error(transparent)]

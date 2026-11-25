@@ -120,5 +120,12 @@ operations! {
         ListAlerts,
         /// Post an update on a current alert, saying where its handling stands.
         UpdateAlert,
+        /// Show what the analytics database counts: traffic, page speed,
+        /// browser errors, sign-ins, passkeys and storage.
+        ViewAnalytics,
+        /// Show one trace's spans and log lines.
+        ViewTrace,
+        /// Run a read-only SQL query on the analytics database.
+        QueryAnalytics,
     }
 }

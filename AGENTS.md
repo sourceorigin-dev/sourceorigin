@@ -57,6 +57,11 @@ can recognise a case it doesn't name.
   `auth-service` commands, `just auth` included, act on whatever database their
   `AUTH_DATABASE_*` variables name: run them on your preview
   (`piquelctl preview exec sourceorigin <branch> auth -- auth-service --operator <you> …`).
+- **Analytics:** read what the environments record (events, requests, spans,
+  logs) with `auth-service analytics`, through the `sourceorigin-analytics`
+  skill: on your own preview at will, on staging or production only when the
+  owner asks, and always as its read-only reader. What production records is
+  about real people, even without their names.
 - **Processes:** stop only a process you started, by the PID you captured, or
   the one that owns your own port. Never kill by name or pattern (`pkill -f`,
   `killall`): your own agent process has the worktree's path in its arguments,

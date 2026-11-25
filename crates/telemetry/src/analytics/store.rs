@@ -332,6 +332,35 @@ impl Store {
             .map_err(|source| StoreError::Decode { query, source })
     }
 
+    /// The rows of `statement`, an operator's own query, each as a JSON
+    /// object: what `auth-service analytics query` prints. Only the reader
+    /// should run one, as ClickHouse then refuses anything but reading, within
+    /// the reader's limits. The statement names no `FORMAT`: rows come back as
+    /// `JSONEachRow`.
+    ///
+    /// # Errors
+    /// Returns what ClickHouse refused the statement with.
+    pub async fn rows(&self, statement: &str) -> Result<Vec<serde_json::Value>, StoreError> {
+        let body = Bytes::from(format!(
+            "{}\nFORMAT JSONEachRow",
+            statement.trim_end_matches([';', ' ', '\n'])
+        ));
+        let response = self.send(&self.database, &[], body).await?;
+        let status = response.status();
+        let text = response.text().await?;
+        let refused = |message: String| StoreError::Statement {
+            statement: statement.to_owned(),
+            message,
+        };
+        if !status.is_success() {
+            return Err(refused(text.trim().to_owned()));
+        }
+        text.lines()
+            .map(serde_json::from_str)
+            .collect::<Result<_, _>>()
+            .map_err(|error| refused(error.to_string()))
+    }
+
     /// Inserts `rows`, one JSON object per line, into `table`.
     pub(crate) async fn insert(&self, table: &'static str, rows: Bytes) -> Result<(), StoreError> {
         let query = format!("INSERT INTO {table} FORMAT JSONEachRow");

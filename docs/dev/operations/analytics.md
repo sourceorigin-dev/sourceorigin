@@ -60,6 +60,30 @@ from busy Insights, and clears once their requests end. When ClickHouse
 doesn't answer, the tab says so, and auth logs `an app's insights could not be
 read`.
 
+## Read it from a terminal
+
+`auth-service analytics` reads ClickHouse as the dashboard's reader, which may
+only read, within the same limits on each query, and needs
+`ANALYTICS_READER_URL` and `ANALYTICS_READER_PASSWORD`, as auth's environment
+sets them:
+
+```sh
+piquelctl app exec sourceorigin auth --env production -- auth-service --operator alice analytics report
+```
+
+- `analytics report` prints what the Analytics page charts.
+- `analytics trace <trace ID>` prints a trace's spans and log lines.
+- `analytics query "<SQL>"` runs a read-only query of your own and prints its
+  rows, with no `FORMAT` clause.
+
+With `--json`, each prints the dashboard's view, or the rows, as JSON: agents
+use these, through the `sourceorigin-analytics` skill (`.claude/skills`), to
+find patterns and follow them into traces, on their own previews, and on
+staging or production only when you ask. Each command is an administrative
+operation (`ViewAnalytics`, `ViewTrace`, `QueryAnalytics`); the dashboard
+runs the first two on its Analytics and trace pages, and only the terminal
+runs a query of its own.
+
 ## Sign in to ClickHouse
 
 ClickHouse serves its own pages on a private route, reachable from the
