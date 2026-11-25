@@ -202,11 +202,9 @@ impl DomainEvent {
             Self::IdentityLinked { provider, .. } if !sessionless => Notification::IdentityLinked {
                 provider: *provider,
             },
-            Self::IdentityUnlinked { provider } if !sessionless => {
-                Notification::IdentityUnlinked {
-                    provider: *provider,
-                }
-            }
+            Self::IdentityUnlinked { provider } if !sessionless => Notification::IdentityUnlinked {
+                provider: *provider,
+            },
             Self::EmailAdded { provider, .. } if !sessionless => Notification::EmailAdded {
                 provider: *provider,
             },
@@ -233,60 +231,41 @@ impl DomainEvent {
                 title: format!("Alert: {}", alert.subject()),
                 text: alert.body(),
             },
-            // The owner made it, so they know. Only the owner, or their social
-            // signup, sets a picture, and only the owner changes their
-            // notification preferences.
             Self::HandleChanged { .. }
             | Self::NotificationPreferenceChanged(_)
             | Self::DisplayNameChanged { .. }
             | Self::PasskeyRenamed { .. }
             | Self::PictureRemoved {}
             | Self::PictureChanged { .. }
-            // The account's first verified address: nothing was replaced.
             | Self::PrimaryEmailChanged {
                 previous_email_id: None,
                 ..
             }
-            // Signing up, or a recovery's link or undo page: the account's
-            // creation needs no alert, and a recovery tells its owner as a whole.
             | Self::PasskeyAdded { .. }
             | Self::PasskeyRemoved { .. }
             | Self::IdentityLinked { .. }
             | Self::IdentityUnlinked { .. }
             | Self::EmailAdded { .. }
-            // A browser the account knows, or a sign-in that only shows the
-            // account's existence, such as a wrong passkey's.
             | Self::AccountCreated { .. }
             | Self::SignedIn { .. }
             | Self::SignInFailed { .. }
-            // The owner signed out, or another change that notifies ended them.
             | Self::SessionRevoked { .. }
-            // Nothing that adds a way in: a confirmation, a name, a verified
-            // address the owner already heard of, or an app's grants.
             | Self::PasskeyConfirmed { .. }
             | Self::EmailVerified { .. }
             | Self::ConsentGranted { .. }
             | Self::ConsentRevoked { .. }
             | Self::GrantIssued { .. }
             | Self::GrantRevoked { .. }
-            // A replayed code's grants are revoked as `GrantRevoked`, which shows
-            // its app's mistake rather than a stolen token: the history shows it.
             | Self::CodeReplayed { .. }
             | Self::CodeRedemptionFailed { .. }
             | Self::AccountExported {}
-            // It signs the owner out, and the history shows its use, so a link
-            // someone else used never goes unseen.
             | Self::SignedOutEverywhere { .. }
-            // Administrator rights show in the dashboard, which its holder uses.
             | Self::AdministratorGranted {}
             | Self::AdministratorRevoked {}
             | Self::DashboardSignedIn { .. }
             | Self::DashboardSignedOut { .. }
-            // A read changes nothing to tell.
             | Self::AccountViewed {}
-            // Nobody reads the inbox of an account that no longer exists.
             | Self::AccountPurged {}
-            // These concern no account's owner.
             | Self::InvitationCreated { .. }
             | Self::InvitationMailed { .. }
             | Self::InvitationRedeemed { .. }
@@ -309,13 +288,8 @@ impl DomainEvent {
             | Self::SigningKeyChanged { .. }
             | Self::AuditHistoryPruned { .. }
             | Self::AuditChainVerified(_)
-            // It concerns no one account: sending writes each recipient's.
             | Self::AnnouncementSent { .. }
-            // It leaves the message's text out, which
-            // `DatabaseTransaction::record_message` gives the account instead.
             | Self::MessageSent {}
-            // Administrators follow an alert on the dashboard's Alerts tab, or
-            // with `auth-service alerts list`, once it is raised.
             | Self::AlertUpdated { .. }
             | Self::AlertCleared { .. } => return None,
         })
@@ -516,7 +490,6 @@ impl Notification {
                 Some(NotificationAction::UndoRecovery)
             }
             Self::AlertRaised { .. } => Some(NotificationAction::SeeAlerts),
-            // Its passkeys were all removed: no passkey from before can undo it.
             Self::AccountSecured { kept: false }
             | Self::PrimaryEmailChanged
             | Self::EmailRemoved
@@ -576,9 +549,7 @@ impl Notification {
             | Self::PasskeyCopied
             | Self::SignInRefused
             | Self::AlertRaised { .. }
-            // About the account itself, so whatever the owner's preferences.
             | Self::Message { .. }
-            // Through the `announcement` channel, which has workers of its own.
             | Self::Announcement { .. } => Addressees::Primary,
         }
     }

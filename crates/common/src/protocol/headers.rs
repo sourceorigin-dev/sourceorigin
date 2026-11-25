@@ -54,10 +54,6 @@ pub const fn security(public: bool, referrer: ReferrerPolicy) -> [(&'static str,
     ]
 }
 
-// Every `Cache-Control` value forbids transforming the body: Cloudflare's Email
-// Address Obfuscation would otherwise rewrite the pages' email links into a
-// decoding script the Content-Security-Policy blocks.
-
 /// `Cache-Control` of what no cache may keep.
 pub const CACHE_NO_STORE: &str = "no-store, no-transform";
 

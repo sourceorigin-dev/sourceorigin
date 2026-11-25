@@ -821,7 +821,6 @@ impl SigningKeyChange {
             | Self::Retired
             | Self::Deleted
             | Self::Revoked => DomainEvent::FIRST_VERSION,
-            // Releases before it cannot decode it.
             Self::Rewrapped => 2,
         }
     }
@@ -842,7 +841,6 @@ impl AuditVerification {
                 | ChainProblem::CheckpointSignature
                 | ChainProblem::CheckpointMalformed
                 | ChainProblem::CheckpointBeyondChain => {}
-                // Releases before it cannot decode it.
                 ChainProblem::OutOfOrder => return 2,
             }
         }

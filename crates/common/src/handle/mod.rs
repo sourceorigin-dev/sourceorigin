@@ -22,7 +22,6 @@ pub const MAX_LENGTH: usize = 32;
 /// `Handle::ensure_unreserved` in `similarity`). Operators may still assign them,
 /// and administrators reserve more, which auth keeps in its database.
 pub const RESERVED: &[&str] = &[
-    // Infrastructure labels: a handle may become a subdomain of sourceorigin.dev.
     "auth",
     "admin",
     "www",
@@ -36,7 +35,6 @@ pub const RESERVED: &[&str] = &[
     "status",
     "cdn",
     "static",
-    // RFC 2142 mailboxes.
     "abuse",
     "postmaster",
     "hostmaster",
@@ -44,7 +42,6 @@ pub const RESERVED: &[&str] = &[
     "security",
     "noc",
     "support",
-    // sourceorigin.dev routes.
     "settings",
     "developers",
     "login",
@@ -53,10 +50,8 @@ pub const RESERVED: &[&str] = &[
     "help",
     "privacy",
     "terms",
-    // The brand.
     "sourceorigin",
     "sourceorigindev",
-    // Other
     "system",
     "origin",
 ];
@@ -98,7 +93,6 @@ impl Handle {
         if !(MIN_LENGTH..=MAX_LENGTH).contains(&handle.chars().count()) {
             return Err(HandleError::Length);
         }
-        // Empty parts are leading, trailing or consecutive hyphens.
         if !handle.split('-').all(|part| {
             !part.is_empty()
                 && part

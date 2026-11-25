@@ -19,7 +19,6 @@ fn skeleton_vectors() {
         ("b0b", "bob"),
         ("5am", "sam"),
         ("adm1n", "admin"),
-        // Cyrillic о and е, Greek ο, fullwidth letters, accents.
         ("gооglе", "google"),
         ("gοogle", "google"),
         ("ＧＯＯＧＬＥ", "google"),

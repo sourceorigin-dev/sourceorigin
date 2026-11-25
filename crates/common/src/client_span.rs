@@ -32,7 +32,6 @@ impl SendTraced for RequestBuilder {
         let response = client.execute(request).instrument(span.clone()).await;
         match &response {
             Ok(response) => {
-                // tracing-opentelemetry exports unsigned integers as strings.
                 span.record(
                     "http.response.status_code",
                     i64::from(response.status().as_u16()),

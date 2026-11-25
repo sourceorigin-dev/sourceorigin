@@ -433,7 +433,6 @@ impl FromStr for RedirectUri {
             Some(Host::Ipv6(ip)) => ip.is_loopback(),
             Some(Host::Domain(_)) | None => false,
         };
-        // Special schemes always have a host, so an `https` URL needs no host check.
         if !(url.scheme() == "https" || (url.scheme() == "http" && loopback)) {
             return Err(InvalidRedirectUri::Insecure { uri: uri() });
         }
@@ -566,8 +565,6 @@ impl RelatedOrigin {
     /// The origin as browsers send it, e.g. `https://notes.example`.
     #[must_use]
     pub fn as_str(&self) -> &str {
-        // The URL's path is `/` and it has no query or fragment, so dropping the
-        // slash leaves the origin's serialization.
         self.0.as_str().trim_end_matches('/')
     }
 

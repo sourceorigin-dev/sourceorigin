@@ -112,7 +112,6 @@ impl Validation<'_> {
                 });
             }
         }
-        // Checked: a far-future `exp` must not overflow, and never expires.
         let expired = self.expiry.leeway().is_some_and(|leeway| {
             claims
                 .expires_at()
@@ -263,7 +262,6 @@ registered_claims! {
     impl for IdTokenClaims {
         exclusive_audience: true, not_before: nbf, nonce: nonce
     }
-    // A logout token has no `nbf`, and never a `nonce`.
     impl for LogoutTokenClaims {
         exclusive_audience: true, not_before: none, nonce: none
     }

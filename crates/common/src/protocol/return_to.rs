@@ -78,7 +78,6 @@ impl FromStr for ReturnTo {
         if !path.bytes().all(|byte| byte.is_ascii_graphic()) {
             return Err(InvalidReturnTo::NotPrintableAscii);
         }
-        // One leading `/` makes this a path on the current origin.
         if path.starts_with("//") {
             return Err(InvalidReturnTo::ProtocolRelative);
         }

@@ -387,7 +387,6 @@ fn history_kinds_are_the_kinds_the_history_shows() {
         .iter()
         .filter(|event| event.history_entry().is_some())
         .map(events::DomainEvent::kind)
-        // The history shows only a refresh replay's revocation.
         .filter(|kind| *kind != "grant_revoked")
         .collect();
     let mut listed = events::DomainEvent::HISTORY_KINDS.to_vec();
@@ -584,7 +583,6 @@ fn only_public_addresses_are_public() {
     let check = |address: &str, public: bool| {
         let ip: std::net::IpAddr = address.parse().expect("address");
         assert_eq!(ip.is_public(), public, "{address}");
-        // The URI as the browser would write it, so only the address can refuse it.
         let host: url::Host = match ip {
             std::net::IpAddr::V4(v4) => url::Host::Ipv4(v4),
             std::net::IpAddr::V6(v6) => url::Host::Ipv6(v6),

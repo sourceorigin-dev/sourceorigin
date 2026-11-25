@@ -39,8 +39,6 @@ fn secrets_are_redacted() {
     let secret = |bytes: &[u8]| SecretBytes(Zeroizing::new(bytes.to_vec()));
     assert!(!format!("{:?}", secret(b"private")).contains("private"));
     secret(&[255]).text().expect_err("should be rejected");
-    // One trailing line ending goes, as a file written by a shell or an editor ends;
-    // anything else is the secret's own.
     for (bytes, text) in [
         (&b"private"[..], "private"),
         (b"private\n", "private"),
