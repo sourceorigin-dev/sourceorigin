@@ -227,7 +227,6 @@ async fn authorization_hints_bind_initial_resumed_and_consent_requests() {
             None,
         )
         .await;
-    // A page refusing the browser's session challenges no scheme, so it isn't 401.
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
 }
 

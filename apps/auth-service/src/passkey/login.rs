@@ -45,8 +45,6 @@ impl PasskeyApplication {
             name => name,
         };
         let display_name = DisplayName::parse(display_name)?;
-        // An invitation given is checked whatever the setting, so the account it
-        // creates is the invitation's, and its address, if it was mailed one.
         let invitation = match input
             .invitation
             .as_deref()
@@ -67,7 +65,6 @@ impl PasskeyApplication {
             }
             None => None,
         };
-        // Only once admitted, so an uninvited signup hears about its invitation first.
         Handles::new(&app.database)
             .claimable(&handle, None)
             .await
@@ -130,8 +127,6 @@ impl PasskeyApplication {
             })
             .await;
         if let Err(DatabaseError::Conflict(_)) = inserted {
-            // Another account claimed the handle, or one like it, since the start.
-            // Roll back first, so the lookup holds no second connection.
             tx.rollback().await?;
             let refused = Handles::new(&app.database).refusal(&handle, None).await;
             return Err(PasskeyError::from(refused).into());
@@ -152,8 +147,6 @@ impl PasskeyApplication {
         )
         .await?;
         if let Some(redeemed) = redeemed {
-            // Before a social signup's address, which is then skipped: a provider
-            // never replaces an address the account holds verified.
             Self::invited(&mut tx, &actor, user_id, redeemed).await?;
         }
         let passkey = Self::insert_passkey(&mut tx, &actor, user_id, key, friendly_name).await?;
@@ -175,10 +168,6 @@ impl PasskeyApplication {
         let mut response =
             Self::complete_sign_up(tx, context, &headers, user_id, Credential::Passkey(passkey))
                 .await?;
-        // Once the account is committed, and off the request, so a slow provider
-        // never holds up the sign-up. A picture that cannot be imported, as while
-        // another upload holds the decode turn, is only logged: the owner may
-        // upload one.
         if let Some(picture) = picture {
             let (account, outbound) = (app.service(), app.outbound.clone());
             tokio::spawn(
@@ -193,7 +182,6 @@ impl PasskeyApplication {
                 .in_current_span(),
             );
         }
-        // Ordinary registration leaves any unrelated pending social flow untouched.
         if pending.is_some() {
             BrowserCookie::FederationPending
                 .clear_on(&mut response)
@@ -338,9 +326,6 @@ impl PasskeyApplication {
         };
         let verified = webauthn.finish_discoverable_authentication(credential, state, &keys);
         match named {
-            // Only a passkey that signed learns it is another account's. A forged
-            // assertion fails as one of the named account's would, so naming an
-            // account ID tells nothing about which handle is its.
             Some(named) if named != user_id => match verified {
                 Ok(_) => Err(self
                     .reject(

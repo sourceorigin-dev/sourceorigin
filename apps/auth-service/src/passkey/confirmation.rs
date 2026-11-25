@@ -76,7 +76,6 @@ impl PasskeyApplication {
             .accept_credential(context, actor, user_id, verified)
             .await?;
         let credential = match credential {
-            // A recovery's passkey never confirms a session during its probation.
             Credential::Probation(probation) => {
                 let settles_at = probation.settles_at();
                 return Err(RecoveryError::Probation { settles_at }.into());
@@ -213,8 +212,6 @@ impl PasskeyApplication {
             session_id: Some(session_id),
         };
         let verified = match related {
-            // The verifier also accepts auth's own origin, so the related one is
-            // checked here.
             Some(origin) => {
                 if let Err(error) = Self::signed_for(&input.credential, origin) {
                     return Err(self

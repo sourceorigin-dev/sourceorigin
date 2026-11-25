@@ -181,7 +181,6 @@ async fn related_pages_sign_in_for_pkce_bound_codes() {
         );
         assert!(headers.get(header::SET_COOKIE).is_none());
         let started = json(started).await;
-        // Signed on one replica, finished on the other.
         let finished = fixture
             .on(&replicas.b)
             .finish_related(&page, &started)
@@ -192,7 +191,6 @@ async fn related_pages_sign_in_for_pkce_bound_codes() {
         assert_eq!(answer["state"], "page-state");
         assert_eq!(answer["iss"], AUTH_ORIGIN);
         codes.push(answer["code"].as_str().expect("code").to_owned());
-        // The ceremony and its request are spent.
         let assertion = fixture.assertion_for(page.origin.url().clone(), &started);
         let replay = fixture
             .post_from(
@@ -243,8 +241,6 @@ async fn related_pages_sign_in_for_pkce_bound_codes() {
         Acr::PhishingResistant
     );
 
-    // The page's logout, confirmed in a browser with no cookie at auth, ends the
-    // session its ID token names, which no cookie could.
     let signed_out = fixture.log_out(&page.client.id, &id_token).await;
     assert_eq!(signed_out.status(), StatusCode::SEE_OTHER);
     let session = fixture
@@ -284,13 +280,11 @@ async fn related_sign_in_refuses_other_origins_requests_and_unverified_users() {
             .get(header::ACCESS_CONTROL_ALLOW_ORIGIN)
             .is_none()
     );
-    // Another client's page cannot claim the request, which stays its client's.
     let claimed = fixture.start_related(&other, &request_uri).await;
     assert_eq!(claimed.status(), StatusCode::BAD_REQUEST);
     let started = fixture.start_related(&page, &request_uri).await;
     assert_eq!(started.status(), StatusCode::OK);
     let started = json(started).await;
-    // The ceremony finishes only on the page that started it.
     let assertion = fixture.assertion_for(other.origin.url().clone(), &started);
     let moved = fixture
         .post_from(
@@ -301,7 +295,6 @@ async fn related_sign_in_refuses_other_origins_requests_and_unverified_users() {
         .await;
     assert_eq!(moved.status(), StatusCode::FORBIDDEN);
 
-    // The verifier accepts auth's own origin too, but the page must have signed.
     let started = json(
         fixture
             .start_related(&page, &fixture.push(&page, &[]).await)
@@ -335,7 +328,6 @@ async fn related_sign_in_refuses_other_origins_requests_and_unverified_users() {
         })
     );
 
-    // `prompt=consent` needs the consent page: the request is left for it.
     let request_uri = fixture.push(&page, &[("prompt", "consent")]).await;
     let refused = fixture.start_related(&page, &request_uri).await;
     assert_eq!(refused.status(), StatusCode::BAD_REQUEST);
@@ -356,7 +348,6 @@ async fn related_sign_in_refuses_other_origins_requests_and_unverified_users() {
         .await;
     assert_eq!(redirect.status(), StatusCode::SEE_OTHER);
 
-    // A removed origin's pages stop at once.
     change(&fixture.app.database, async |registry| {
         registry.remove_origin(&page.client.id, &page.origin).await
     })
@@ -429,7 +420,6 @@ async fn a_probation_passkey_signs_in_on_auths_pages_only() {
         })
         .await
         .expect("recovery");
-    // A sign-in on the related page, for `target`, refused for `why`.
     let refused = async |fixture: &mut Fixture, target: &[(&str, &str)], why: &str| {
         let request_uri = fixture.push(&page, target).await;
         let started = json(fixture.start_related(&page, &request_uri).await).await;

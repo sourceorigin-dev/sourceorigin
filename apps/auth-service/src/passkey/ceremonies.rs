@@ -276,7 +276,6 @@ impl PasskeyApplication {
         ceremony: Ceremony,
         challenge: impl Serialize,
     ) -> Result<Response, PasskeyError> {
-        // Reuse the browser's existing binding so overlapping ceremonies stay valid.
         let browser = match BrowserCookie::Ceremony.read(headers) {
             Some(browser) => browser,
             None => Secret::generate()?,
@@ -321,8 +320,6 @@ impl PasskeyApplication {
                 },
                 session_id: None,
                 kind: CeremonyKind::RelatedAuthentication,
-                // Unread: the stored origin and claim bind the ceremony; this fills
-                // the column every ceremony has.
                 challenge_digest: Digest::sha256(ceremony.origin.as_str().as_bytes())
                     .as_bytes()
                     .to_vec(),
@@ -355,8 +352,6 @@ impl PasskeyApplication {
         let browser = BrowserCookie::Ceremony
             .read(headers)
             .ok_or(PasskeyError::CeremonyBrowserMissing)?;
-        // Once taken, an invalid response cannot reuse the challenge in another attempt.
-        // A missing, expired or already consumed ceremony surfaces as `DatabaseError::NotFound`.
         let record = self
             .database
             .passkeys()

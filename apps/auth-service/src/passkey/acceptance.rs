@@ -39,8 +39,6 @@ impl PasskeyApplication {
             .await?
             .filter(|stored| stored.user_id == user_id)
             .ok_or(PasskeyError::AccountInactive)?;
-        // The ceremony contains a credential snapshot. Check the latest counter under
-        // the row lock as well, so overlapping ceremonies cannot accept a regression.
         let counter = stored
             .credential
             .pointer(CREDENTIAL_COUNTER_POINTER)
@@ -106,15 +104,12 @@ impl PasskeyApplication {
             Err(error) => (error.into(), None),
         };
         if let PasskeyError::CounterRegression = error {
-            // Logged first so the signal survives a database failure.
             tracing::warn!(
                 event = COUNTER_REGRESSION_EVENT,
                 %user_id,
                 "passkey signature counter regression rejected"
             );
         }
-        // A failed rollback is only logged: the record matters more, and a broken
-        // connection releases its locks anyway.
         if let Some(tx) = tx
             && let Err(rollback) = tx.rollback().await
         {

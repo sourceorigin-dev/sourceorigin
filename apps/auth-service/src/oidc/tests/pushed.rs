@@ -48,8 +48,6 @@ async fn pushed_requests_are_one_time_client_bound_and_authoritative() {
         )
         .await;
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-    // No redirect URI is known for a request_uri that can't be claimed, so auth's
-    // page explains it.
     let rejected = async |client_id: &str, request_uri: &str| {
         let response = flow.claim(client_id, request_uri, &[]).await;
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
@@ -108,7 +106,6 @@ async fn pushed_requests_are_one_time_client_bound_and_authoritative() {
         OAuthCode::UnauthorizedClient.as_str()
     );
     let request_uri = flow.pushed(Scope::OpenId.as_str(), None).await;
-    // The user consented above, so the claim returns a code at once.
     let response = flow.claim(&id, &request_uri, &[]).await;
     parameter(&flow.client_redirect(&response), "code");
 }

@@ -265,8 +265,6 @@ impl PasskeyApplication {
         tx.commit().await?;
         let mut response = StatusCode::NO_CONTENT.into_response();
         session.set_on(&mut response)?;
-        // An offer an earlier sign-in left to restore another account no longer
-        // stands: this one signed in.
         BrowserCookie::Restore.clear_on(&mut response)?;
         Ok(response)
     }
@@ -347,8 +345,6 @@ impl PasskeyApplication {
                     name,
                     exclusions,
                 )?;
-                // Sign-in lists no credentials (`docs/dev/security/handles.md`), so only
-                // a discoverable credential can sign in: refuse to create any other.
                 if let Some(selection) = challenge.public_key.authenticator_selection.as_mut() {
                     selection.resident_key = Some(ResidentKeyRequirement::Required);
                     selection.require_resident_key = true;

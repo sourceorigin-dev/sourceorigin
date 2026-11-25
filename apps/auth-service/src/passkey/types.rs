@@ -217,7 +217,6 @@ impl CeremonyResponse {
     pub(super) fn new(id: TokenId, challenge: impl Serialize) -> Result<Json<Self>, PasskeyError> {
         Ok(Json(Self {
             ceremony_id: id,
-            // Preserve the existing nested JSON map ordering from the library's challenge.
             public_key: serde_json::to_value(challenge).map_err(PasskeyError::Serialization)?,
         }))
     }

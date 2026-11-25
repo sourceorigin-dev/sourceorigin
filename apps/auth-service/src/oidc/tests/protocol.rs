@@ -98,7 +98,6 @@ async fn post_protocol_endpoints_and_error_contracts() {
         discovery["pushed_authorization_request_endpoint"],
         format!("{}{}", flow.app.issuer, routes::oidc::PAR)
     );
-    // Only pushed requests have a request_uri, and no redirect URI is known for it.
     let response = flow
         .claim(
             flow.client.id.as_str(),
@@ -135,7 +134,6 @@ async fn post_protocol_endpoints_and_error_contracts() {
     let response = flow
         .request(Method::POST, "/oidc/userinfo", &[], None)
         .await;
-    // No token at all is challenged without an error code (RFC 6750 §3.1).
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
     assert_eq!(response.headers()[header::WWW_AUTHENTICATE], "Bearer");
     let response = flow
@@ -231,7 +229,6 @@ async fn oauth_failures_preserve_sources_and_statuses() {
             .map(|shown| shown.0.as_str()),
         Some("The app's request was refused: code is \"malformed\" \u{2014} retry.")
     );
-    // The description reaches the client, restricted to the RFC 6749 character set.
     assert_eq!(
         json(response).await,
         serde_json::json!({

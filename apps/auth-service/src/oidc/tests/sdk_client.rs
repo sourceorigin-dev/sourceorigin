@@ -89,9 +89,6 @@ async fn sdk_login_client_runs_against_the_provider() {
     assert_eq!(user.sub, flow.user_id.to_string());
     assert!(user.profile.email.is_some());
 
-    // A confidential client keeps its refresh token, so a refresh returns none. Auth
-    // carries the sign-in over to the refreshed ID token (OIDC Core §12.2), which
-    // the SDK requires.
     let first = tokens.refresh_token.expect("refresh token");
     let refreshed = client
         .refresh(&first, id_token.claims())

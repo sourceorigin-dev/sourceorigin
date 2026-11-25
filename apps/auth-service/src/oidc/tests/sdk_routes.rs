@@ -61,9 +61,6 @@ impl LoginApp {
                 .parse()
                 .expect("callback"),
         });
-        // An API the app calls with the user's token: `/settings` needs a recent
-        // passkey, and `/stubborn` asks for a step-up, naming nothing, whatever the
-        // token holds.
         let api = Router::new()
             .route(
                 "/settings",
@@ -194,7 +191,6 @@ impl LoginApp {
                 "{cookie}"
             );
         }
-        // Pushed requests keep `state` out of the URL: the cookie is named for it.
         let pending = self.named("login-");
         let cookie = Self::cookies(&start)
             .into_iter()
@@ -280,20 +276,17 @@ async fn sdk_login_routes_run_against_the_provider() {
     assert_eq!(shown.status(), StatusCode::OK);
     let access = html(shown).await;
 
-    // A second sign-in replaces the browser's session.
     let callback = app.sign_in("/auth/login", Some(&first)).await;
     assert_eq!(LoginApp::location(&callback), "/");
     let second = LoginApp::cookie(&callback, &app.named("session"));
     assert_ne!(first, second);
 
-    // Near expiry, the access token is refreshed, and the response carries it.
     app.clock.advance(290);
     let refreshed = app.send(Method::GET, "/notes", Some(&second)).await;
     assert_eq!(refreshed.status(), StatusCode::OK);
     let copy = LoginApp::cookie(&refreshed, &app.named("session"));
     assert_ne!(html(refreshed).await, access);
 
-    // Open redirects are refused: login falls back to the home page.
     let callback = app
         .sign_in("/auth/login?return_to=%2F%2Fevil.example", None)
         .await;
@@ -311,8 +304,6 @@ async fn sdk_login_routes_run_against_the_provider() {
             .iter()
             .any(|cookie| cookie.starts_with(&format!("{}=;", app.named("session"))))
     );
-    // A copy of the cookie works until its access token expires, then its refresh is
-    // refused: the session ends, and its cookie is cleared.
     let kept = app.send(Method::GET, "/notes", Some(&copy)).await;
     assert_eq!(kept.status(), StatusCode::OK);
     app.clock.advance(300);
@@ -419,8 +410,6 @@ async fn sdk_step_up_runs_against_the_provider() {
         login,
         "/auth/login?return_to=%2Fsettings&acr_values=phr&max_age=300&step_up=true"
     );
-    // The pushed request carries `acr_values` and `max_age`: the social session is
-    // too weak for them, so the provider asks for a passkey.
     let (pending, authorize) = app.start_login(&login, Some(&first)).await;
     let prompt = app.authorize(&authorize).await;
     assert_eq!(location(&prompt).path(), routes::page::LOGIN);
@@ -446,7 +435,6 @@ async fn sdk_step_up_runs_against_the_provider() {
         .confirm_passkey(session, PasskeyId::new(), Utc::now())
         .await
         .expect("passkey confirmation");
-    // The pushed request was claimed, so the browser resumes its transaction.
     let transaction = parameter(&location(&prompt), "transaction");
     let browser = app
         .flow
@@ -481,9 +469,6 @@ async fn sdk_step_up_runs_against_the_provider() {
     assert_eq!(page.status(), StatusCode::OK);
     assert_eq!(html(page).await, "settings");
 
-    // An API that refuses whatever the token holds gets one step-up sign-in, then an
-    // error on the retry instead of another redirect, even when its challenge names
-    // no requirement.
     let page = app.send(Method::GET, "/stubborn", Some(&second)).await;
     let login = LoginApp::location(&page);
     assert_eq!(login, "/auth/login?return_to=%2Fstubborn&step_up=true");
@@ -492,13 +477,11 @@ async fn sdk_step_up_runs_against_the_provider() {
     let third = LoginApp::cookie(&callback, &app.named("session"));
     let retry = LoginApp::cookie(&callback, &app.named("step-up"));
     let cookies = format!("{third}; {retry}");
-    // Only the returning `GET` is the retry.
     let other = app.send(Method::POST, "/stubborn", Some(&cookies)).await;
     assert_eq!(LoginApp::cookies(&other), Vec::<String>::new());
     let refused = app.send(Method::GET, "/stubborn", Some(&cookies)).await;
     assert_eq!(refused.status(), StatusCode::FORBIDDEN);
 
-    // An ordinary sign-in drops a marker its return never used.
     let page = app.send(Method::GET, "/stubborn", Some(&third)).await;
     let callback = app.sign_in(&LoginApp::location(&page), Some(&third)).await;
     let fourth = LoginApp::cookie(&callback, &app.named("session"));

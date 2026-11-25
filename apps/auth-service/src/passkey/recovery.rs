@@ -86,8 +86,6 @@ impl PasskeyApplication {
             context,
         )
         .await?;
-        // Always a new session: one the browser already had, of this account or
-        // another, is neither renewed nor carried over.
         let session = security::Session::sign_in_anew(
             &mut tx,
             context,
@@ -147,7 +145,6 @@ impl PasskeyApplication {
         let (mut tx, verified) = app.verify_undo(context, &headers, input).await?;
         AccountService::undo_recovery(&mut tx, context, &verified).await?;
         let session = match verified.accepted {
-            // The undo's own notification tells its owner: no alert of its own.
             Accepted::Active(passkey) => Some(
                 security::Session::sign_in_quietly(
                     &mut tx,

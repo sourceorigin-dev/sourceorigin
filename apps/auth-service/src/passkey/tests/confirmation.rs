@@ -44,12 +44,10 @@ async fn ceremonies_require_browser_binding_and_confirmation_belongs_to_one_sess
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         assert!(response.headers().get(header::SET_COOKIE).is_none());
     }
-    // A passkey sign-in confirms its session, so enrollment right after it prompts once.
     let signed_in = fixture.login().await;
     fixture
         .start("/account/passkeys/enroll/start", &signed_in, json!({}))
         .await;
-    // Another session of the same account, from social sign-in, is not confirmed.
     let Browser {
         session_id,
         cookie: social,
@@ -78,7 +76,6 @@ async fn ceremonies_require_browser_binding_and_confirmation_belongs_to_one_sess
         StatusCode::NO_CONTENT,
         "renaming needs no confirmation"
     );
-    // A confirmation proves possession for the session that started it only.
     let (started, browser) = fixture
         .start("/account/passkeys/confirm/start", &social, json!({}))
         .await;
@@ -109,7 +106,6 @@ async fn ceremonies_require_browser_binding_and_confirmation_belongs_to_one_sess
         )
         .await;
     assert_eq!(response.status(), StatusCode::NO_CONTENT);
-    // The confirmation replaces the cookie, so a copy of the old one gains nothing.
     let stale = social;
     let social = Fixture::cookie(&response);
     assert!(fixture.session(&stale).await.is_none());
@@ -136,12 +132,9 @@ async fn ceremonies_require_browser_binding_and_confirmation_belongs_to_one_sess
             .expect("confirmed")
     };
     let confirmed = confirmed_at().await;
-    // Confirmed actions do not extend the confirmation.
     let (started, browser) = fixture
         .start("/account/passkeys/enroll/start", &social, json!({}))
         .await;
-    // The confirmation authorized enrollment at start; its lapsing at the authenticator
-    // must not discard the new credential.
     fixture
         .app
         .database
@@ -170,7 +163,6 @@ async fn ceremonies_require_browser_binding_and_confirmation_belongs_to_one_sess
         .confirm_passkey(session_id, PasskeyId::new(), confirmed)
         .await
         .expect("restore confirmation");
-    // Removal revokes both other sessions, the passkey sign-in and this one.
     fixture.social_sign_in().await;
     let response = fixture
         .request(&path, Method::DELETE, &social, json!({}))
@@ -290,8 +282,6 @@ async fn the_dashboard_proves_with_passkeys_signed_for_its_origin() {
     let mut fixture = Fixture::new().await;
     let cookie = fixture.login().await;
     let session = fixture.session(&cookie).await.expect("session");
-    // The software authenticator knows no related origins, so the dashboard is on a
-    // subdomain of auth's RP ID, which it signs for.
     let dashboard: Origin = "https://admin.auth.sourceorigin.dev"
         .parse()
         .expect("dashboard origin");
