@@ -56,7 +56,8 @@ body.admin .auth::before {
   border-top: 1px solid var(--line);
 }
 /* The providers' sign-in buttons, side by side while they fit. Each is a quiet
-   button whose logo carries it, and whose border answers the pointer. */
+   button whose logo carries it. Its border answers the pointer instead of the
+   buttons' brightening, which would shift the logos' brand colours. */
 .auth .providers {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
@@ -67,7 +68,6 @@ body.admin .auth::before {
 }
 .auth .providers button {
   gap: 0.6rem;
-  min-height: 42px;
 }
 .auth .providers button:hover {
   filter: none;

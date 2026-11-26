@@ -443,7 +443,7 @@ pub(crate) async fn hidden(
 }
 
 /// What a [`change_form`]'s button says: text, or a sign-in provider's logo
-/// and name.
+/// and name. A [`switch`] shows only the text.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum ButtonLabel {
     /// Text.

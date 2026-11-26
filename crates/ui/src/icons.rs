@@ -135,13 +135,13 @@ impl Icon {
 }
 
 /// A sign-in provider's logo, as its brand guidelines draw it: filled paths in
-/// a square box. Every provider has one, so a page never shows a provider
-/// without it.
+/// a square box. Every provider has one: [`Logo::of`] does not compile for a
+/// provider without it.
 #[derive(Clone, Copy, Debug)]
 struct Logo {
     /// The box the paths are drawn in.
     view_box: &'static str,
-    /// Each path's fill and outline; `currentColor` follows the text.
+    /// Each path's fill and data (`d`); a `currentColor` fill follows the text.
     paths: &'static [(&'static str, &'static str)],
 }
 
@@ -186,13 +186,14 @@ impl Logo {
 pub(crate) enum Glyph {
     /// A line glyph, stroked in the text's colour.
     Icon(Icon),
-    /// A provider's logo, filled in its own colours.
+    /// A provider's logo, filled in its own colours. It holds the provider
+    /// rather than its [`Logo`], which keeps the pages' futures small.
     Logo(Provider),
 }
 
 impl From<Icon> for Glyph {
-    fn from(glyph: Icon) -> Self {
-        Self::Icon(glyph)
+    fn from(line: Icon) -> Self {
+        Self::Icon(line)
     }
 }
 
@@ -216,8 +217,8 @@ pub(crate) async fn icon(
     Ok(view! {
         <svg class=(class) viewBox=(view_box) aria-hidden="true" focusable="false">
             match kind {
-                Glyph::Icon(glyph) => {
-                    for path in glyph.paths() {
+                Glyph::Icon(line) => {
+                    for path in line.paths() {
                         <path d=(*path)></path>
                     }
                 },
