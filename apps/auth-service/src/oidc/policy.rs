@@ -5,7 +5,7 @@
 //! checks the registration as it is now, never as it was when the request began.
 
 use super::{OAuthCode, OAuthError, Reject};
-use sourceorigin_common::ClientId;
+use sourceorigin_common::{ClientId, protocol::oauth::GrantType};
 use sourceorigin_repository::{
     ConsumedAuthorizationCode, Database, DatabaseTransaction, StoredAuthorizationRequest,
     StoredOidcClient,
@@ -35,6 +35,9 @@ pub(crate) enum PolicyRefusal {
     /// The audience was removed from the client.
     #[error("the client may no longer request tokens for this audience")]
     Audience,
+    /// The authorization code grant was removed from the client.
+    #[error("the client may no longer use the authorization code grant")]
+    Grant,
     /// The client must now push its requests, and this one came through the browser.
     #[error("the client must now push its authorization requests (RFC 9126)")]
     PushRequired,
@@ -120,6 +123,9 @@ impl ClientPolicy {
         let client = &self.0;
         if !client.enabled {
             return Err(PolicyRefusal::Unavailable);
+        }
+        if !client.grant_types.contains(&GrantType::AuthorizationCode) {
+            return Err(PolicyRefusal::Grant);
         }
         if !client.redirect_uris.iter().any(|uri| uri == redirect_uri) {
             return Err(PolicyRefusal::RedirectUri);

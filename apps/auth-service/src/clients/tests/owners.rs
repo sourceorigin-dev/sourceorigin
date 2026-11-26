@@ -201,6 +201,13 @@ async fn invalid_settings_name_their_field_first() {
         ),
         (
             ClientPatch {
+                grant_types: Some(Vec::new()),
+                ..ClientPatch::default()
+            },
+            ClientField::GrantTypes,
+        ),
+        (
+            ClientPatch {
                 display_name: Some(" ".into()),
                 ..ClientPatch::default()
             },

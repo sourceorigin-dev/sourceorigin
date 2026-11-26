@@ -44,7 +44,8 @@ this machine:
   there after signing out.
 - **Scopes**: the app's scopes. Keep `offline_access`, which an app with a
   backend starts with: the SDKs' login routes always request it.
-- **Allow refresh tokens**: on, as it starts.
+- **Grant types**: **Authorization code** and **Refresh tokens** on, as they
+  start.
 - **Back-channel logout URI**: empty. Auth posts logout tokens only to HTTPS
   URIs with public addresses, so it can't reach this machine.
 

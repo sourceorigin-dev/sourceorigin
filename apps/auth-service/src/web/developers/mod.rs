@@ -170,7 +170,7 @@ impl<'a> From<&'a OwnedClientView> for ClientRow<'a> {
             redirect_uris: &client.redirect_uris,
             post_logout_uris: &client.post_logout_uris,
             allowed_scopes: &client.allowed_scopes,
-            allow_refresh: client.allow_refresh,
+            grant_types: &client.grant_types,
             require_pushed_authorization_requests: client.require_pushed_authorization_requests,
             backchannel_logout_uri: client.backchannel_logout_uri.as_deref(),
             last_used_at: client.last_used_at,
@@ -186,8 +186,12 @@ impl From<ClientDraft> for ClientSettings {
             display_name: draft.display_name.trim().to_owned(),
             redirect_uris: draft.redirect_uris.into(),
             post_logout_uris: draft.post_logout_uris.into(),
-            allowed_scopes: draft.scopes.names(),
-            allow_refresh: draft.allow_refresh.0,
+            allowed_scopes: draft
+                .scopes
+                .chosen()
+                .map(|scope| scope.to_string())
+                .collect(),
+            grant_types: draft.grants.chosen().collect(),
             require_pushed_authorization_requests: draft.require_pushed_authorization_requests.0,
             backchannel_logout_uri: Some(draft.backchannel_logout_uri.trim())
                 .filter(|uri| !uri.is_empty())

@@ -10,11 +10,11 @@ use crate::{
 };
 use axum::{
     Form, Json,
-    extract::State,
+    extract::{RawForm, State, rejection::RawFormRejection},
     http::{HeaderMap, HeaderName, StatusCode, header},
 };
 use chrono::{DateTime, Duration, Utc};
-use serde::Deserialize;
+use serde::{Deserialize, de::DeserializeOwned};
 use sourceorigin_common::{
     ClientId, SessionId, TokenId, UserId,
     events::{CodeRedemptionFailure, DomainEvent, EventContext, GrantRevocation},
@@ -34,27 +34,40 @@ use sourceorigin_repository::{
 };
 use sourceorigin_telemetry::{Counter, Label};
 
-/// Untrusted grant parameters; parse grant type after authenticating the client.
+/// What every token request sends besides its grant's own parameters. It is read
+/// first, since the client is authenticated before its grant is looked at: a
+/// failed authentication answers before a bad grant (RFC 6749 §5.2).
 #[derive(Deserialize)]
-pub(super) struct TokenForm {
-    /// Untrusted grant name, parsed after client authentication for protocol error ordering.
+struct TokenForm {
+    /// Untrusted grant name, parsed once the client is authenticated.
     grant_type: String,
     /// Registered relying-party identifier.
     client_id: Option<String>,
+}
+
+/// The parameters of an `authorization_code` grant (RFC 6749 §4.1.3).
+#[derive(Deserialize)]
+struct CodeExchange {
     /// Opaque, one-use authorization code.
-    code: Option<String>,
-    /// Exact registered authorization callback.
-    redirect_uri: Option<String>,
-    /// Secret verifier proving possession of the original PKCE challenge.
+    code: String,
+    /// The callback the authorization request named, exactly.
+    redirect_uri: String,
+    /// Secret verifier proving possession of the original PKCE challenge. Only a
+    /// confidential client's code may have none.
     code_verifier: Option<String>,
+}
+
+/// The parameters of a `refresh_token` grant (RFC 6749 §6).
+#[derive(Deserialize)]
+struct Refresh {
     /// Opaque refresh token to redeem.
-    refresh_token: Option<String>,
-    /// Space-separated scopes requested or granted.
+    refresh_token: String,
+    /// Space-separated scopes to narrow the grant to; all of it when absent.
     scope: Option<String>,
 }
 
-impl TokenForm {
-    /// Whether this form redeems the locked `code` for the authenticated
+impl CodeExchange {
+    /// Whether this request redeems the locked `code` for the authenticated
     /// `client_id`: the code was issued to it, for this `redirect_uri`, and this
     /// `code_verifier` matches its PKCE challenge, or neither was sent. Answers why
     /// it does not, with the rejection.
@@ -69,7 +82,7 @@ impl TokenForm {
                 OAuthCode::InvalidGrant.reject("code was issued to another client"),
             ));
         }
-        if self.redirect_uri.as_deref() != Some(&code.redirect_uri) {
+        if self.redirect_uri != code.redirect_uri {
             return Err((
                 CodeRedemptionFailure::RedirectMismatch,
                 OAuthCode::InvalidGrant
@@ -97,9 +110,11 @@ impl TokenForm {
             )),
         }
     }
+}
 
+impl Refresh {
     /// Permits refresh scope narrowing while rejecting additions to the original grant.
-    fn refresh_scopes(&self, granted: &[String]) -> Result<Scopes, OAuthError> {
+    fn scopes(&self, granted: &[String]) -> Result<Scopes, OAuthError> {
         let Some(requested) = self.scope.as_deref() else {
             return Ok(Scopes::from_stored(granted)?);
         };
@@ -245,14 +260,18 @@ pub(super) struct RevokeForm {
 }
 
 impl OidcApplication {
-    /// Authenticates the client and dispatches an exhaustively matched token grant.
+    /// Authenticates the client, then reads its grant's own parameters and runs
+    /// the grant. The match is exhaustive, so a grant the metadata advertises
+    /// cannot go unhandled, and each grant gets exactly its parameters: a missing
+    /// one is a malformed request.
     pub(super) async fn token(
         State(app): State<Self>,
         context: RequestContext,
         headers: HeaderMap,
-        form: Result<Form<TokenForm>, axum::extract::rejection::FormRejection>,
+        form: Result<RawForm, RawFormRejection>,
     ) -> Result<([(HeaderName, &'static str); 1], Json<TokenResponse>), OAuthError> {
-        let Form(form) = form.map_err(|error| OAuthError::malformed("token request", error))?;
+        let RawForm(body) = form.map_err(|error| OAuthError::malformed(TOKEN_REQUEST, error))?;
+        let form: TokenForm = Self::parameters(&body)?;
         let client = app
             .authenticate_client(&headers, form.client_id.as_deref())
             .await?;
@@ -263,14 +282,27 @@ impl OidcApplication {
         })?;
         let context = context.client(&client.id);
         let tokens = match grant {
-            GrantType::AuthorizationCode => app.exchange_code(form, &client.id, &context).await,
-            GrantType::RefreshToken => app.refresh(form, &client, &context).await,
+            GrantType::AuthorizationCode => {
+                app.exchange_code(Self::parameters(&body)?, &client.id, &context)
+                    .await
+            }
+            GrantType::RefreshToken => {
+                app.refresh(Self::parameters(&body)?, &client, &context)
+                    .await
+            }
         }?;
         Self::count_issued(grant, &tokens);
         if let Err(error) = app.database.oidc().touch_client(&client.id).await {
             ApiError::log_error(&error);
         }
         Ok(([(header::PRAGMA, "no-cache")], Json(tokens)))
+    }
+
+    /// Reads the parameters `T` names from a token request's form `body`. One
+    /// that is missing, or sent twice, is a malformed request.
+    fn parameters<T: DeserializeOwned>(body: &[u8]) -> Result<T, OAuthError> {
+        serde_urlencoded::from_bytes(body)
+            .map_err(|error| OAuthError::malformed(TOKEN_REQUEST, error))
     }
 
     /// Exchanges a one-use code for the authenticated client after checking its client,
@@ -281,23 +313,18 @@ impl OidcApplication {
     /// expires, and is recorded, before it.
     async fn exchange_code(
         &self,
-        form: TokenForm,
+        request: CodeExchange,
         client_id: &ClientId,
         context: &EventContext,
     ) -> Result<TokenResponse, OAuthError> {
-        let opaque = OpaqueToken::parse(
-            TokenPrefix::AuthorizationCode,
-            form.code
-                .as_deref()
-                .ok_or_else(|| OAuthCode::InvalidRequest.reject("code is required"))?,
-        )?;
+        let opaque = OpaqueToken::parse(TokenPrefix::AuthorizationCode, &request.code)?;
         let digests = self.accepted_digests(&opaque);
         let mut tx = self.database.begin().await?;
         if let Some(user) = tx.oidc().code_user(opaque.id, &digests).await? {
             tx.users().find_by_id_for_update(user).await?;
         }
         if let Some(code) = tx.oidc().lock_code(opaque.id, &digests).await?
-            && let Err((reason, error)) = form.redeems(&code, client_id)
+            && let Err((reason, error)) = request.redeems(&code, client_id)
         {
             tx.oidc().expire_code(code.id).await?;
             let failed = DomainEvent::CodeRedemptionFailed {
@@ -345,7 +372,8 @@ impl OidcApplication {
             authentication: &code.authentication,
         }
         .issue(self, &user, email.as_deref())?;
-        let (family_id, refresh) = if client.allow_refresh && scopes.contains(Scope::OfflineAccess)
+        let (family_id, refresh) = if client.grant_types.contains(&GrantType::RefreshToken)
+            && scopes.contains(Scope::OfflineAccess)
         {
             let (family_id, refresh) = self.create_refresh(&mut tx, code).await?;
             (Some(family_id), Some(refresh))
@@ -379,16 +407,11 @@ impl OidcApplication {
     /// Core §12.2).
     async fn refresh(
         &self,
-        form: TokenForm,
+        request: Refresh,
         client: &StoredOidcClient,
         context: &EventContext,
     ) -> Result<TokenResponse, OAuthError> {
-        let opaque = OpaqueToken::parse(
-            TokenPrefix::RefreshToken,
-            form.refresh_token
-                .as_deref()
-                .ok_or_else(|| OAuthCode::InvalidRequest.reject("refresh_token is required"))?,
-        )?;
+        let opaque = OpaqueToken::parse(TokenPrefix::RefreshToken, &request.refresh_token)?;
         let digests = self.accepted_digests(&opaque);
         let redemption = RefreshRedemption::from(client.kind);
         let mut tx = self.database.begin().await?;
@@ -407,7 +430,7 @@ impl OidcApplication {
                 OAuthCode::InvalidGrant.reject("refresh_token was issued to another client")
             );
         }
-        let scopes = form.refresh_scopes(&redeemed.scopes)?;
+        let scopes = request.scopes(&redeemed.scopes)?;
         let user = tx
             .users()
             .find_by_id(redeemed.user_id)
@@ -737,6 +760,8 @@ impl OidcApplication {
     }
 }
 
+/// What a rejection calls a request to the token endpoint.
+const TOKEN_REQUEST: &str = "token request";
 /// Rejection of a grant whose account was disabled.
 const ACCOUNT_DISABLED: &str = "the account is disabled";
 /// Rejection of a code whose consent the user withdrew since it was issued.

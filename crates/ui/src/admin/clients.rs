@@ -98,7 +98,9 @@ impl OperatorDraft {
     /// Every scope chosen: the standard ones checked, then the others typed.
     #[must_use]
     pub fn scopes(&self) -> Vec<String> {
-        let mut scopes = self.draft.scopes.names();
+        let mut scopes: Vec<String> = (self.draft.scopes.chosen())
+            .map(|scope| scope.to_string())
+            .collect();
         scopes.extend(Vec::from(self.other_scopes.clone()));
         scopes
     }
@@ -474,7 +476,6 @@ async fn client_facts<'a>(
     page: &'a ClientPage<'a>,
 ) -> Result<impl View> {
     let client = page.client;
-    let yes_no = |yes: bool, said: &'static str| if yes { said } else { "No" };
     Ok(view! {
         <dl class="facts">
             <dt>"Kind"</dt><dd>(client.kind_name())</dd>
@@ -510,7 +511,8 @@ async fn client_facts<'a>(
             </dd>
             <dt>"Scopes"</dt><dd><code>(client.allowed_scopes.join(" "))</code></dd>
             <dt>"Audiences"</dt><dd><code>(page.audiences.join(" "))</code></dd>
-            <dt>"Refresh tokens"</dt><dd>(yes_no(client.allow_refresh, "Allowed"))</dd>
+            <dt>"Grant types"</dt>
+            <dd><code>(client.grant_types.iter().map(|grant| grant.as_str()).collect::<Vec<_>>().join(" "))</code></dd>
             <dt>"Pushed requests"</dt><dd>(if client.require_pushed_authorization_requests { "Required" } else { "Optional" })</dd>
             <dt>"Consent screen"</dt><dd>(if page.trusted { "Skipped: trusted" } else { "Shown" })</dd>
             <dt>"Registered"</dt><dd>moment(at: page.created_at)</dd>

@@ -37,7 +37,8 @@ https://auth.sourceorigin.dev/developers/new, with:
   users back there after signing out.
 - **Scopes**: the app's scopes. Keep `offline_access`, which an app with a
   backend starts with.
-- **Allow refresh tokens**: on, as it starts.
+- **Grant types**: **Authorization code** and **Refresh tokens** on, as they
+  start.
 - **Back-channel logout URI**:
   `https://<environment's host>/auth/backchannel-logout`, only if the app
   handles back-channel logout.

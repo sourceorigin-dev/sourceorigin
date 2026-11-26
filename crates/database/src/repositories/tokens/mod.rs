@@ -4,7 +4,9 @@ use super::{JsonArray, RepositoryExecutor, TokenRepository};
 use crate::{DatabaseError, SessionAuthentication};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
-use sourceorigin_common::{ClientId, SessionId, TokenId, UserId, clients::ClientKind};
+use sourceorigin_common::{
+    ClientId, SessionId, TokenId, UserId, clients::ClientKind, protocol::oauth::GrantType,
+};
 use sqlx::types::Json;
 use thiserror::Error;
 
@@ -394,7 +396,8 @@ impl TokenRepository<'_> {
                     t.family_id AS "family_id: TokenId", t.consumed_at,
                     f.user_id AS "user_id: UserId", f.client_id,
                     f.session_id AS "session_id: SessionId", f.audience, f.scopes,
-                    f.authentication, c.allow_refresh, c.allowed_scopes, c.allowed_audiences
+                    f.authentication, c.grant_types ? $4 AS "refreshes!", c.allowed_scopes,
+                    c.allowed_audiences
                 FROM refresh_tokens t
                 JOIN refresh_token_families f ON f.id = t.family_id
                 JOIN oidc_clients c ON c.id = f.client_id
@@ -414,6 +417,7 @@ impl TokenRepository<'_> {
                 id.as_uuid(),
                 digests,
                 client,
+                GrantType::RefreshToken.as_str(),
             )
         )?
         .ok_or(RefreshRedemptionError::Invalid)?;
@@ -432,7 +436,7 @@ impl TokenRepository<'_> {
         let strings = decode::<Vec<String>>;
         let scopes = strings("scopes", row.scopes)?;
         let allowed_scopes = strings("allowed_scopes", row.allowed_scopes)?;
-        let policy_valid = row.allow_refresh
+        let policy_valid = row.refreshes
             && strings("allowed_audiences", row.allowed_audiences)?.contains(&row.audience)
             && scopes.iter().all(|scope| allowed_scopes.contains(scope));
         if !policy_valid {

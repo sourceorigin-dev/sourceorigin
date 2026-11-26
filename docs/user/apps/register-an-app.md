@@ -33,7 +33,7 @@ and never appear in the console: see [OIDC clients](../../dev/operations/clients
 4. Fill in **Redirect URIs**, one per line.
 5. Leave the other settings as they are for now: [app settings](app-settings.md)
    explains each one. An app with a backend starts with `offline_access` under
-   **Scopes** and **Allow refresh tokens** on, which the SDKs' login routes
+   **Scopes** and **Refresh tokens** under **Grant types** on, which the SDKs' login routes
    need: they request `offline_access` at every sign-in, and use refresh tokens
    to learn when a user's session at Origin Auth ends.
 6. Select **Register app**. If you haven't used your passkey in the last five

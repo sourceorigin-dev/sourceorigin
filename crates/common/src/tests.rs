@@ -487,7 +487,7 @@ fn a_client_detail_extends_the_listed_client() {
         post_logout_uris: Vec::new(),
         allowed_scopes: vec!["openid".to_owned()],
         allowed_audiences: vec!["notes".to_owned()],
-        allow_refresh: false,
+        grant_types: vec![protocol::oauth::GrantType::AuthorizationCode],
         enabled: true,
         trusted: false,
         require_pushed_authorization_requests: false,

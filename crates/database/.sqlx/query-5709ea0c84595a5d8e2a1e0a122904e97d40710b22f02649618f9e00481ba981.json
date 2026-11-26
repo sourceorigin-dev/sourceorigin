@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n                    t.family_id AS \"family_id: TokenId\", t.consumed_at,\n                    f.user_id AS \"user_id: UserId\", f.client_id,\n                    f.session_id AS \"session_id: SessionId\", f.audience, f.scopes,\n                    f.authentication, c.allow_refresh, c.allowed_scopes, c.allowed_audiences\n                FROM refresh_tokens t\n                JOIN refresh_token_families f ON f.id = t.family_id\n                JOIN oidc_clients c ON c.id = f.client_id\n                JOIN sessions s ON s.id = f.session_id\n                JOIN users u ON u.id = f.user_id\n                WHERE t.id = $1\n                AND t.secret_digest = ANY($2)\n                AND f.client_id = $3\n                AND t.expires_at > now()\n                AND f.revoked_at IS NULL\n                AND c.enabled\n                AND s.user_id = f.user_id\n                AND s.revoked_at IS NULL\n                AND s.expires_at > now()\n                AND u.status = 'active'\n                FOR UPDATE OF t",
+  "query": "SELECT\n                    t.family_id AS \"family_id: TokenId\", t.consumed_at,\n                    f.user_id AS \"user_id: UserId\", f.client_id,\n                    f.session_id AS \"session_id: SessionId\", f.audience, f.scopes,\n                    f.authentication, c.grant_types ? $4 AS \"refreshes!\", c.allowed_scopes,\n                    c.allowed_audiences\n                FROM refresh_tokens t\n                JOIN refresh_token_families f ON f.id = t.family_id\n                JOIN oidc_clients c ON c.id = f.client_id\n                JOIN sessions s ON s.id = f.session_id\n                JOIN users u ON u.id = f.user_id\n                WHERE t.id = $1\n                AND t.secret_digest = ANY($2)\n                AND f.client_id = $3\n                AND t.expires_at > now()\n                AND f.revoked_at IS NULL\n                AND c.enabled\n                AND s.user_id = f.user_id\n                AND s.revoked_at IS NULL\n                AND s.expires_at > now()\n                AND u.status = 'active'\n                FOR UPDATE OF t",
   "describe": {
     "columns": [
       {
@@ -45,7 +45,7 @@
       },
       {
         "ordinal": 8,
-        "name": "allow_refresh",
+        "name": "refreshes!",
         "type_info": "Bool"
       },
       {
@@ -63,6 +63,7 @@
       "Left": [
         "Uuid",
         "ByteaArray",
+        "Text",
         "Text"
       ]
     },
@@ -75,10 +76,10 @@
       false,
       false,
       false,
-      false,
+      null,
       false,
       false
     ]
   },
-  "hash": "af11a1f7fc715513803816a78b953d11c7960a3cf96705d2f4d696ef33f9f73f"
+  "hash": "5709ea0c84595a5d8e2a1e0a122904e97d40710b22f02649618f9e00481ba981"
 }

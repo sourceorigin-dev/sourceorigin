@@ -101,12 +101,8 @@ async fn clients_are_registered_changed_and_suspended_from_the_dashboard() {
     let harness = Harness::new().await;
     let admin = harness.admin().await;
     let dashboard = harness.confirmed(&admin, "/clients/new", Utc::now()).await;
-    let post = async |path: &str, fields: &[(&str, &str)]| {
-        let url = format!("{DASHBOARD}{path}");
-        dashboard
-            .submit(&harness.dashboard, &url, fields, OWN_PAGE)
-            .await
-    };
+    let post =
+        async |path: &str, fields: &[(&str, &str)]| harness.post(&dashboard, path, fields).await;
     let id = format!("ops-{}", UserId::new());
     let registration = |redirect: &'static str| {
         [
@@ -116,6 +112,7 @@ async fn clients_are_registered_changed_and_suspended_from_the_dashboard() {
             ("kind", "confidential"),
             ("redirect_uris", redirect),
             ("openid", "on"),
+            ("authorization_code", "on"),
             ("other_scopes", "notes.read\r\n"),
             ("trusted", "on"),
             ("backchannel_logout_uri", "https://ops.example/backchannel"),
@@ -134,8 +131,7 @@ async fn clients_are_registered_changed_and_suspended_from_the_dashboard() {
         .shown_once(&dashboard, &created, "socs_", &format!("{client}/secret"))
         .await;
     let stored = stored_client(&harness.database, &id).await;
-    assert!(stored.trusted);
-    assert_eq!(stored.owner_id, None);
+    assert_eq!((stored.trusted, stored.owner_id), (true, None));
     assert_eq!(stored.allowed_scopes, ["openid", "notes.read"]);
     assert_eq!(
         stored.backchannel_logout_uri.as_deref(),
@@ -152,6 +148,7 @@ async fn clients_are_registered_changed_and_suspended_from_the_dashboard() {
             ("display_name", "Ops app"),
             ("redirect_uris", "https://ops.example/cb"),
             ("openid", "on"),
+            ("authorization_code", "on"),
             ("other_scopes", "notes.read"),
             ("backchannel_logout_uri", ""),
             REASON,
@@ -234,6 +231,7 @@ async fn pages_that_could_only_fail_refuse_at_once() {
         ("kind", "public"),
         ("redirect_uris", "https://spa.example/cb"),
         ("openid", "on"),
+        ("authorization_code", "on"),
     ];
     let client = format!("/clients/{id}");
     let page = format!("{client}/overview");

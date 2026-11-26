@@ -7,11 +7,11 @@ use chrono::{DateTime, Duration, Utc};
 use sourceorigin_common::{
     AuthenticationMethod, ClientId, Personal, SessionId, TokenId, UserId,
     clients::{
-        AllowedScopes, ClientKind, ClientOwner, ClientRegistration, PostLogoutUris, RedirectUris,
-        RelatedOrigin, ScopeName,
+        AllowedScopes, ClientKind, ClientOwner, ClientRegistration, GrantTypes, PostLogoutUris,
+        RedirectUris, RelatedOrigin, ScopeName,
     },
     events::{Actor, DomainEvent, EventContext, InlineSignIn, RecordedOrigin, RequestOrigin},
-    protocol::oauth::{Interaction, Scope},
+    protocol::oauth::{GrantType, Interaction, Scope},
 };
 use sqlx::PgPool;
 use std::net::IpAddr;
@@ -30,7 +30,7 @@ fn registration(kind: ClientKind, origin: &str) -> ClientRegistration {
         .expect("one redirect"),
         post_logout_uris: PostLogoutUris::new([]).expect("no logout pages"),
         allowed_scopes: AllowedScopes::new([ScopeName::from(Scope::OpenId)]).expect("scopes"),
-        allow_refresh: false,
+        grant_types: GrantTypes::new([GrantType::AuthorizationCode]).expect("grant types"),
         trusted: false,
         require_pushed_authorization_requests: false,
         backchannel_logout_uri: None,

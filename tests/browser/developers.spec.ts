@@ -59,9 +59,9 @@ test('the developer console registers an app, shows its secret once, and the app
   await page.getByRole('textbox', { name: 'Redirect URIs', exact: true }).fill(redirectUri);
 
   // Each kind starts with its defaults, which the SDKs' login routes need for an app
-  // with a backend: `offline_access` and refresh tokens. A choice the user made stays.
+  // with a backend: `offline_access` and the refresh token grant. A choice the user made stays.
   const offline = page.getByRole('switch', { name: 'offline_access' });
-  const refresh = page.getByLabel('Allow refresh tokens', { exact: true });
+  const refresh = page.getByRole('switch', { name: 'Refresh tokens', exact: true });
   await expect(offline).toBeChecked();
   await expect(refresh).toBeChecked();
   await page.getByLabel('No, it runs in the browser or on a device').check();

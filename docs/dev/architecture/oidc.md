@@ -53,7 +53,8 @@ pushed requests, one named step per check: no request object and no
 `response_mode` but `query`, an `id_token_hint` that auth signed for this
 client, which names the only account that may answer
 ([read as logout reads it](#id-token-hints)), `response_type=code`
-(`unsupported_response_type` for another), an
+(`unsupported_response_type` for another), a client whose grant types include
+`authorization_code` (`unauthorized_client` otherwise), an
 S256 PKCE challenge, which only a confidential client may leave out, `state`, scopes and audience the client allows, `nonce`,
 `max_age` and `prompt`. It returns a `ValidatedAuthorization`, whose `store`
 saves the request and returns its token. The request is stored in
@@ -139,6 +140,12 @@ sends HTTP Basic credentials, compared in constant time with the digests of
 every active secret, so the previous secrets work during a rotation's grace
 period.
 
+Only then does it read `grant_type` and the grant's own parameters, each grant
+into a type of its own (`CodeExchange`, `Refresh`), so a failed authentication
+answers before a bad grant. A parameter the grant needs and the request lacks
+is `invalid_request`. The handler matches `GrantType` exhaustively, so a grant
+the metadata advertises can't go unhandled.
+
 ### Exchanging a code
 
 `exchange_code` runs in one transaction:
@@ -170,8 +177,8 @@ them once the transaction commits.
 
 ### Refresh families
 
-A refresh token is issued only when the client allows refresh and the scopes
-include `offline_access`. The exchange creates a refresh family
+A refresh token is issued only when the client's grant types include
+`refresh_token` and the scopes include `offline_access`. The exchange creates a refresh family
 (`refresh_token_families`): one grant, tied to its session, to the code it came
 from and to the code's authentication. Its tokens expire with the session.
 
@@ -208,8 +215,8 @@ form a chain, though. Anyone with the key, the successor IDs from a database
 read and any earlier token of a family, however old, can derive its live token.
 So a spent token is only harmless while the key stays secret.
 
-A family whose client no longer allows refresh, its audience or its scopes is
-revoked on its next use (`policy_rejected`). A refresh may narrow the scopes,
+A family whose client no longer has the `refresh_token` grant type, its audience
+or its scopes is revoked on its next use (`policy_rejected`). A refresh may narrow the scopes,
 never add any. The new tokens keep reporting the family's original
 authentication (OIDC Core §12.2).
 

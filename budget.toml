@@ -1,11 +1,11 @@
 # The Rust crates' `#[expect]` lints, which the standard's `budget` rule
 # counts: every new exception raises a number here, which the owner reviews.
 [expect]
-auth-service = 29
+auth-service = 28
 sourceorigin-auth = 2
-sourceorigin-common = 10
+sourceorigin-common = 9
 sourceorigin-crypto = 11
-sourceorigin-repository = 20
+sourceorigin-repository = 19
 sourceorigin-telemetry = 1
 sourceorigin-ui = 3
 

@@ -8,6 +8,7 @@ use sourceorigin_common::{
     clients::ClientKind,
     events::{Browser, Platform, UserAgentFamily},
     notifications::{EmailCategory, NotificationPreference},
+    protocol::oauth::GrantType,
 };
 
 /// Every section but the events serializes under its documented name and shape.
@@ -136,7 +137,7 @@ fn serializes_every_section_in_its_documented_shape() {
                 redirect_uris: vec!["https://notes.example/callback".into()],
                 post_logout_uris: Vec::new(),
                 allowed_scopes: vec!["openid".into()],
-                allow_refresh: false,
+                grant_types: vec![GrantType::AuthorizationCode],
                 require_pushed_authorization_requests: false,
                 backchannel_logout_uri: None,
                 enabled: true,
@@ -281,7 +282,7 @@ fn serializes_every_section_in_its_documented_shape() {
                 "redirect_uris": ["https://notes.example/callback"],
                 "post_logout_uris": [],
                 "allowed_scopes": ["openid"],
-                "allow_refresh": false,
+                "grant_types": ["authorization_code"],
                 "require_pushed_authorization_requests": false,
                 "backchannel_logout_uri": null,
                 "enabled": true,

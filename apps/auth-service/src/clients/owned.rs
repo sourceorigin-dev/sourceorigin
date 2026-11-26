@@ -19,10 +19,10 @@ use sourceorigin_common::{
     ClientId,
     admin::SecretLifetime,
     clients::{
-        AllowedScopes, ClientField, ClientKind, ClientOwner, ClientRegistration, PostLogoutUris,
-        RedirectUri, RedirectUris, ScopeName,
+        AllowedScopes, ClientField, ClientKind, ClientOwner, ClientRegistration, GrantTypes,
+        PostLogoutUris, RedirectUri, RedirectUris, ScopeName,
     },
-    protocol::oauth::Scope,
+    protocol::oauth::{GrantType, Scope},
 };
 use sourceorigin_crypto::{ClientSecret, Secret};
 use sourceorigin_repository::{DatabaseTransaction, StoredOidcClient};
@@ -40,8 +40,8 @@ pub(crate) struct ClientSettings {
     pub(crate) post_logout_uris: Vec<String>,
     /// Scopes the client may request, each a standard [`Scope`].
     pub(crate) allowed_scopes: Vec<String>,
-    /// Whether the client may receive refresh tokens, with `offline_access`.
-    pub(crate) allow_refresh: bool,
+    /// The grants the client may use at the token endpoint.
+    pub(crate) grant_types: Vec<GrantType>,
     /// Whether the client must push its authorization requests (RFC 9126).
     pub(crate) require_pushed_authorization_requests: bool,
     /// Where auth posts logout tokens, if anywhere.
@@ -77,8 +77,8 @@ pub(crate) struct ClientPatch {
     pub(crate) post_logout_uris: Option<Vec<String>>,
     /// New scopes.
     pub(crate) allowed_scopes: Option<Vec<String>>,
-    /// Whether refresh tokens are allowed.
-    pub(crate) allow_refresh: Option<bool>,
+    /// New grant types.
+    pub(crate) grant_types: Option<Vec<GrantType>>,
     /// Whether authorization requests must be pushed.
     pub(crate) require_pushed_authorization_requests: Option<bool>,
     /// Where logout tokens are posted: `Some(None)` stops posting them.
@@ -116,8 +116,8 @@ pub(crate) struct OwnedClientView {
     pub(crate) post_logout_uris: Vec<String>,
     /// Scopes the client may request.
     pub(crate) allowed_scopes: Vec<String>,
-    /// Whether the client may receive refresh tokens.
-    pub(crate) allow_refresh: bool,
+    /// The grants the client may use at the token endpoint.
+    pub(crate) grant_types: Vec<GrantType>,
     /// Whether the client must push its authorization requests (RFC 9126).
     pub(crate) require_pushed_authorization_requests: bool,
     /// Where logout tokens are posted, if anywhere.
@@ -219,7 +219,8 @@ impl ClientSettings {
             .map_err(InvalidSetting::with(ClientField::PostLogoutUris))?,
             allowed_scopes: AllowedScopes::new(scopes)
                 .map_err(InvalidSetting::with(ClientField::AllowedScopes))?,
-            allow_refresh: self.allow_refresh,
+            grant_types: GrantTypes::new(self.grant_types)
+                .map_err(InvalidSetting::with(ClientField::GrantTypes))?,
             trusted,
             require_pushed_authorization_requests: self.require_pushed_authorization_requests,
             backchannel_logout_uri: self
@@ -270,7 +271,7 @@ impl From<ClientSettings> for ClientPatch {
             redirect_uris: Some(settings.redirect_uris),
             post_logout_uris: Some(settings.post_logout_uris),
             allowed_scopes: Some(settings.allowed_scopes),
-            allow_refresh: Some(settings.allow_refresh),
+            grant_types: Some(settings.grant_types),
             require_pushed_authorization_requests: Some(
                 settings.require_pushed_authorization_requests,
             ),
@@ -296,7 +297,9 @@ impl ClientPatch {
             allowed_scopes: self
                 .allowed_scopes
                 .unwrap_or_else(|| current.allowed_scopes.clone()),
-            allow_refresh: self.allow_refresh.unwrap_or(current.allow_refresh),
+            grant_types: self
+                .grant_types
+                .unwrap_or_else(|| current.grant_types.clone()),
             require_pushed_authorization_requests: self
                 .require_pushed_authorization_requests
                 .unwrap_or(current.require_pushed_authorization_requests),
@@ -351,7 +354,7 @@ impl From<StoredOidcClient> for OwnedClientView {
             redirect_uris: client.redirect_uris,
             post_logout_uris: client.post_logout_uris,
             allowed_scopes: client.allowed_scopes,
-            allow_refresh: client.allow_refresh,
+            grant_types: client.grant_types,
             require_pushed_authorization_requests: client.require_pushed_authorization_requests,
             backchannel_logout_uri: client.backchannel_logout_uri,
             enabled: client.enabled,

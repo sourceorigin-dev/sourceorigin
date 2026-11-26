@@ -11,9 +11,11 @@ use sourceorigin_common::{
     admin::{ApprovedOrigin, Client, ClientDetail},
     clients::{
         AllowedScopes, BackchannelLogoutUri, ClientKind, ClientRegistration, ClientStatus,
-        DisplayName, PostLogoutUris, RedirectUri, RedirectUris, RelatedOrigin, ScopeName,
+        DisplayName, GrantTypes, PostLogoutUris, RedirectUri, RedirectUris, RelatedOrigin,
+        ScopeName,
     },
     config::{Origin, SecretReference},
+    protocol::oauth::GrantType,
 };
 use sourceorigin_crypto::ClientSecret;
 use sourceorigin_repository::StoredOidcClient;
@@ -310,7 +312,7 @@ impl ClientCommand {
 report!([Client], self, out, {
     out.table(
         [
-            "ID", "AUTH", "STATUS", "REFRESH", "TRUSTED", "PAR", "OWNER", "NAME",
+            "ID", "AUTH", "STATUS", "GRANTS", "TRUSTED", "PAR", "OWNER", "NAME",
         ],
         "No clients.",
         self.iter().map(|client| {
@@ -318,7 +320,7 @@ report!([Client], self, out, {
                 Cell::new(&client.id),
                 Cell::new(client.token_endpoint_auth_method),
                 ClientCommand::status(client.status()),
-                client.allow_refresh.into(),
+                Cell::new(Joined(&client.grant_types, ",")),
                 client.trusted.into(),
                 client.require_pushed_authorization_requests.into(),
                 ClientCommand::owner(client.owner_id),
@@ -345,7 +347,7 @@ report!(ClientDetail, self, out, {
         ("Redirect URIs", list(&client.redirect_uris)),
         ("Post-logout URIs", list(&client.post_logout_uris)),
         ("Scopes", list(&client.allowed_scopes)),
-        ("Refresh tokens", client.allow_refresh.into()),
+        ("Grant types", Cell::new(Joined(&client.grant_types, ", "))),
         ("Trusted", client.trusted.into()),
         (
             "Requires PAR",
@@ -391,10 +393,6 @@ report!([ApprovedOrigin], self, out, {
 
 /// The registration of a new client.
 #[derive(Args)]
-#[expect(
-    clippy::struct_excessive_bools,
-    reason = "Clap reads each `--x` option into a flag."
-)]
 pub(super) struct CreateClient {
     /// The client's ID: 1 to 64 characters from A-Z, a-z, 0-9, '.', '_' and '-'.
     id: ClientId,
@@ -414,13 +412,12 @@ pub(super) struct CreateClient {
     /// The client runs on a server and authenticates with a secret.
     #[arg(long)]
     confidential: bool,
-    /// The client may receive refresh tokens when it requests `offline_access`.
-    /// The default for a confidential client.
-    #[arg(long, conflicts_with = "no_refresh")]
-    refresh: bool,
-    /// The client receives no refresh tokens. The default for a public client.
-    #[arg(long)]
-    no_refresh: bool,
+    /// A grant the client may use at the token endpoint; repeat for several.
+    /// `refresh_token` lets it receive refresh tokens when it requests
+    /// `offline_access`. Defaults to `authorization_code`, and `refresh_token` for
+    /// a confidential client.
+    #[arg(long = "grant-type")]
+    grant_types: Vec<GrantType>,
     /// The client skips the consent screen. Only for first-party clients.
     #[arg(long)]
     trusted: bool,
@@ -510,7 +507,12 @@ impl CreateClient {
             post_logout_uris: PostLogoutUris::new(self.post_logout_uris)
                 .map_err(CliError::count("post-logout URIs"))?,
             allowed_scopes: AllowedScopes::new(scopes).map_err(CliError::count("scopes"))?,
-            allow_refresh: self.refresh || (kind.default_refresh() && !self.no_refresh),
+            grant_types: GrantTypes::new(if self.grant_types.is_empty() {
+                kind.default_grant_types().to_vec()
+            } else {
+                self.grant_types
+            })
+            .map_err(CliError::count("grant types"))?,
             trusted: self.trusted,
             require_pushed_authorization_requests: self.require_par,
             backchannel_logout_uri: self.backchannel_logout_uri,
@@ -545,12 +547,10 @@ pub(super) struct UpdateClient {
     /// Replaces the scopes the client may request; repeat for several.
     #[arg(long = "scope")]
     scopes: Vec<ScopeName>,
-    /// Allow refresh tokens.
-    #[arg(long, conflicts_with = "no_refresh")]
-    refresh: bool,
-    /// Stop issuing refresh tokens; existing ones stop working.
-    #[arg(long)]
-    no_refresh: bool,
+    /// Replaces the grants the client may use at the token endpoint; repeat for
+    /// several. Without `refresh_token`, its refresh tokens stop working.
+    #[arg(long = "grant-type")]
+    grant_types: Vec<GrantType>,
     /// Skip the consent screen.
     #[arg(long, conflicts_with = "untrusted")]
     trusted: bool,
@@ -603,7 +603,12 @@ impl UpdateClient {
             )?)
             .map_err(CliError::count("post-logout URIs"))?,
             allowed_scopes: AllowedScopes::new(scopes).map_err(CliError::count("scopes"))?,
-            allow_refresh: self.refresh || (client.allow_refresh && !self.no_refresh),
+            grant_types: GrantTypes::new(if self.grant_types.is_empty() {
+                client.grant_types.clone()
+            } else {
+                self.grant_types
+            })
+            .map_err(CliError::count("grant types"))?,
             trusted: self.trusted || (client.trusted && !self.untrusted),
             require_pushed_authorization_requests: self.require_par
                 || (client.require_pushed_authorization_requests && !self.no_require_par),

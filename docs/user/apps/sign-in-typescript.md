@@ -15,7 +15,7 @@ which runs on Node's `http` server.
 1. [Register](register-an-app.md) a **Web app with a backend**. `new Login` throws
    a `TypeError` for a browser or native app.
 2. In its settings, add the redirect URI `https://<your app>/auth/callback`.
-   Leave the `offline_access` scope and **Allow refresh tokens** on, as an app
+   Leave the `offline_access` scope and the **Refresh tokens** grant type on, as an app
    with a backend starts: every login requests `offline_access`, so the session
    can refresh its access token. Without the scope, sign-in fails. Without
    refresh tokens, each session lasts only as long as its first access token,

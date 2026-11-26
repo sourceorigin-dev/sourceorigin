@@ -486,8 +486,7 @@ Options:
 - `--post-logout-uri <POST_LOGOUT_URIS>`: A page the browser may return to after logout; repeat for several.
 - `--scope <SCOPES>`: A scope the client may request; repeat for several. Defaults to `openid`, `profile` and `email`, and `offline_access` for a confidential client.
 - `--confidential`: The client runs on a server and authenticates with a secret.
-- `--refresh`: The client may receive refresh tokens when it requests `offline_access`. The default for a confidential client.
-- `--no-refresh`: The client receives no refresh tokens. The default for a public client.
+- `--grant-type <GRANT_TYPES>`: A grant the client may use at the token endpoint; repeat for several. `refresh_token` lets it receive refresh tokens when it requests `offline_access`. Defaults to `authorization_code`, and `refresh_token` for a confidential client.
 - `--trusted`: The client skips the consent screen. Only for first-party clients.
 - `--require-par`: The client must push its authorization requests (RFC 9126), so none of their parameters travel through the browser.
 - `--backchannel-logout-uri <BACKCHANNEL_LOGOUT_URI>`: Where auth posts a logout token when a session the client holds tokens from ends (OIDC Back-Channel Logout); HTTPS with a public address.
@@ -514,8 +513,7 @@ Options:
 - `--post-logout-uri <POST_LOGOUT_URIS>`: A page the browser may return to after logout; repeat for several.
 - `--scope <SCOPES>`: A scope the client may request; repeat for several. Defaults to `openid`, `profile` and `email`, and `offline_access` for a confidential client.
 - `--confidential`: The client runs on a server and authenticates with a secret.
-- `--refresh`: The client may receive refresh tokens when it requests `offline_access`. The default for a confidential client.
-- `--no-refresh`: The client receives no refresh tokens. The default for a public client.
+- `--grant-type <GRANT_TYPES>`: A grant the client may use at the token endpoint; repeat for several. `refresh_token` lets it receive refresh tokens when it requests `offline_access`. Defaults to `authorization_code`, and `refresh_token` for a confidential client.
 - `--trusted`: The client skips the consent screen. Only for first-party clients.
 - `--require-par`: The client must push its authorization requests (RFC 9126), so none of their parameters travel through the browser.
 - `--backchannel-logout-uri <BACKCHANNEL_LOGOUT_URI>`: Where auth posts a logout token when a session the client holds tokens from ends (OIDC Back-Channel Logout); HTTPS with a public address.
@@ -575,8 +573,7 @@ Options:
 - `--add-post-logout-uri <ADD_POST_LOGOUT_URIS>`: A post-logout page to add; repeat for several.
 - `--remove-post-logout-uri <REMOVE_POST_LOGOUT_URIS>`: A post-logout page to remove, exactly as registered; repeat for several.
 - `--scope <SCOPES>`: Replaces the scopes the client may request; repeat for several.
-- `--refresh`: Allow refresh tokens.
-- `--no-refresh`: Stop issuing refresh tokens; existing ones stop working.
+- `--grant-type <GRANT_TYPES>`: Replaces the grants the client may use at the token endpoint; repeat for several. Without `refresh_token`, its refresh tokens stop working.
 - `--trusted`: Skip the consent screen.
 - `--untrusted`: Show the consent screen again.
 - `--require-par`: Require pushed authorization requests.
