@@ -103,7 +103,7 @@ pub use client_span::SendTraced;
 #[cfg(feature = "server")]
 pub use handle::{Handle, HandleError};
 #[cfg(feature = "server")]
-pub use name::{MAX_NAME_CHARS, is_valid_name};
+pub use name::{MAX_NAME_CHARS, is_shown_text, is_valid_name};
 
 /// Formats an error followed by each of its causes, e.g.
 /// `AUTH_PUBLIC_BASE_URL is invalid: must use https://`.
@@ -386,6 +386,10 @@ macro_rules! uuid_id {
 uuid_id!(UserId, "Immutable global Origin Account identifier.");
 uuid_id!(SessionId, "Opaque central-session identifier.");
 uuid_id!(TokenId, "Identifier for a token record or JWT.");
+uuid_id!(
+    ResourceId,
+    "Identifier of an API registered as a resource. Its identifier, a URI, may be registered again once it is deleted; this never is."
+);
 uuid_id!(
     DeliveryId,
     "Identifier of an outbound delivery, reused by every attempt as its `jti` or `Message-ID`."

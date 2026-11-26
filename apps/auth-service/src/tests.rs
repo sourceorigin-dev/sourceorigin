@@ -12,6 +12,7 @@ use crate::{
     },
     invitations::InvitationLinks,
     recovery::RecoveryLinks,
+    resources::{ResourceEdit, ResourceRegistry, ResourceRegistryError},
     routes,
     security::{BrowserCookie, Credential, RequestContext, Session},
 };
@@ -25,14 +26,18 @@ use axum::{
 use chrono::{Duration, Utc};
 use serde_json::Value;
 use sourceorigin_common::{
-    AuthenticationMethod, ClientId, EmailId, PasskeyId, Provider, SessionId, TokenId, UserId,
+    AuthenticationMethod, ClientId, EmailId, PasskeyId, Provider, ResourceId, SessionId, TokenId,
+    UserId,
     clients::{
         AllowedScopes, ClientField, ClientKind, ClientOwner, ClientRegistration, GrantTypes,
-        PostLogoutUris, RedirectUris, ScopeName,
+        PostLogoutUris, RedirectUris,
     },
     config::Origin,
     events::{Actor, RevocationReason},
-    protocol::oauth::{GrantType, Scope},
+    protocol::{
+        oauth::{GrantType, Scope},
+        resource::ResourceIdentifier,
+    },
 };
 use sourceorigin_crypto::{ClientSecret, KeyEncryptionKey, NoteKey, Secret};
 use sourceorigin_repository::{
@@ -615,6 +620,51 @@ pub(crate) async fn change<T, E: From<ClientRegistryError>>(
     Ok(value)
 }
 
+/// Makes `change` with a resource registry over a transaction of its own, as
+/// [`operator`], and commits it if it succeeds.
+pub(crate) async fn change_resources<T>(
+    database: &Database,
+    change: impl AsyncFnOnce(&mut ResourceRegistry<'_, '_>) -> Result<T, ResourceRegistryError>,
+) -> Result<T, ResourceRegistryError> {
+    let mut tx = database.begin().await?;
+    let context = operator().context(&reason());
+    let value = change(&mut ResourceRegistry::new(&mut tx, context)).await?;
+    tx.commit().await?;
+    Ok(value)
+}
+
+/// An API operators manage, named `Notes API`, with an identifier of its own,
+/// defining `notes:read` and `notes:write`, which `client` may request `scopes`
+/// of. Returns its ID and identifier.
+pub(crate) async fn api(
+    database: &Database,
+    client: &ClientId,
+    scopes: &str,
+) -> (ResourceId, ResourceIdentifier) {
+    let identifier: ResourceIdentifier = format!("https://{}.example/api", ResourceId::new())
+        .parse()
+        .expect("identifier");
+    let id = change_resources(database, async |resources| {
+        let name = "Notes API".parse().expect("name");
+        let id = resources
+            .create(ClientOwner::Operator, &identifier, &name)
+            .await?;
+        for (scope, description) in [
+            ("notes:read", "Read your notes"),
+            ("notes:write", "Change your notes"),
+        ] {
+            let edit = ResourceEdit::put_scope(scope, description).expect("scope");
+            resources.edit(id, edit).await?;
+        }
+        let grant = ResourceEdit::grant(client.as_str(), scopes).expect("grant");
+        resources.edit(id, grant).await?;
+        Ok(id)
+    })
+    .await
+    .expect("API");
+    (id, identifier)
+}
+
 /// Registers `client` as an operator, returning a confidential client's secret.
 pub(crate) async fn register(
     database: &Database,
@@ -654,15 +704,12 @@ pub(crate) fn registration(kind: ClientKind, origin: &str) -> ClientRegistration
             .parse()
             .expect("logout page")])
         .expect("one logout page"),
-        allowed_scopes: AllowedScopes::new(
-            [
-                Scope::OpenId,
-                Scope::Profile,
-                Scope::Email,
-                Scope::OfflineAccess,
-            ]
-            .map(ScopeName::from),
-        )
+        allowed_scopes: AllowedScopes::new([
+            Scope::OpenId,
+            Scope::Profile,
+            Scope::Email,
+            Scope::OfflineAccess,
+        ])
         .expect("standard scopes"),
         grant_types: GrantTypes::new([GrantType::AuthorizationCode, GrantType::RefreshToken])
             .expect("the code and refresh grants"),
@@ -680,7 +727,7 @@ impl ClientSettings {
             display_name: "Notes".into(),
             redirect_uris: vec![format!("{origin}/callback")],
             post_logout_uris: Vec::new(),
-            allowed_scopes: vec!["openid".into(), "offline_access".into()],
+            allowed_scopes: vec![Scope::OpenId, Scope::OfflineAccess],
             grant_types: vec![GrantType::AuthorizationCode, GrantType::RefreshToken],
             require_pushed_authorization_requests: false,
             backchannel_logout_uri: None,

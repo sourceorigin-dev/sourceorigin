@@ -31,6 +31,8 @@ mod lists;
 mod overview;
 /// An account's recent recoveries.
 mod recoveries;
+/// The APIs registered as resources.
+mod resources;
 /// Account search and one account.
 mod users;
 
@@ -56,6 +58,7 @@ pub use lists::{
 };
 pub use overview::{AdminOverview, Measure, Problem, admin_overview};
 pub use recoveries::{RecoveryKey, RecoveryRow, recovery_list};
+pub use resources::{AdminResourceRow, ResourcePage, resource_list, resource_page};
 pub use users::{
     AccountPages, MessageIntent, MessagePreview, MessageUser, SessionRow, UserRow, message_page,
     user_page, user_search,
@@ -127,6 +130,8 @@ pub enum Tab {
     Handles,
     /// The OIDC clients.
     Clients,
+    /// The APIs registered as resources.
+    Resources,
     /// Domain events.
     Events,
     /// The outbound delivery queue.
@@ -151,6 +156,7 @@ impl Tab {
             Self::Invitations => Icon::Invitation,
             Self::Handles => Icon::At,
             Self::Clients => Icon::Client,
+            Self::Resources => Icon::Code,
             Self::Events => Icon::Events,
             Self::Deliveries => Icon::Send,
             Self::SigningKeys => Icon::Key,
@@ -171,6 +177,7 @@ impl Label for Tab {
             Self::Invitations => "Invitations",
             Self::Handles => "Handles",
             Self::Clients => "Clients",
+            Self::Resources => "Resources",
             Self::Events => "Events",
             Self::Deliveries => "Deliveries",
             Self::SigningKeys => "Signing keys",
@@ -194,6 +201,7 @@ impl Searchable for Tab {
             Self::Invitations => "invites signup links codes",
             Self::Handles => "usernames reserved released trademark",
             Self::Clients => "oidc oauth apps applications relying parties",
+            Self::Resources => "apis audiences scopes resource servers access",
             Self::Events => "logs activity feed history domain events",
             Self::Deliveries => "outbound queue emails webhooks backchannel logout retries",
             Self::SigningKeys => "jwks jwt tokens keys rotation",
@@ -217,6 +225,8 @@ pub enum SearchAction {
     ReserveHandle,
     /// Registering a client operators manage.
     RegisterClient,
+    /// Registering a resource operators manage.
+    RegisterResource,
     /// Publishing a new signing key.
     RotateSigningKey,
     /// Sealing the signing keys again under the current key-encryption key.
@@ -233,6 +243,7 @@ impl SearchAction {
             Self::Invite => Tab::Invitations,
             Self::ReserveHandle => Tab::Handles,
             Self::RegisterClient => Tab::Clients,
+            Self::RegisterResource => Tab::Resources,
             Self::RotateSigningKey | Self::RewrapSigningKeys => Tab::SigningKeys,
             Self::DraftAnnouncement => Tab::Announcements,
         }
@@ -253,6 +264,9 @@ impl SearchAction {
                 "new client create oidc oauth app application",
                 true,
             ),
+            Self::RegisterResource => {
+                Change::RegisterResource.spot("new resource api audience create scopes")
+            }
             Self::RotateSigningKey => Change::RotateSigningKey.spot("new key jwks rotate"),
             Self::RewrapSigningKeys => {
                 Change::RewrapSigningKeys.spot("reseal kek key-encryption key encryption rewrap")
@@ -499,6 +513,20 @@ pub enum Change {
     UnsuspendClient,
     /// Deleting a client for good.
     DeleteClient,
+    /// Registering an API as a resource operators manage.
+    RegisterResource,
+    /// Giving a resource another name.
+    RenameResource,
+    /// Defining a scope of a resource, or describing it anew.
+    DefineScope,
+    /// Removing a scope from a resource.
+    RemoveScope,
+    /// Letting a client ask for a resource's tokens.
+    GrantAccess,
+    /// Ending a client's access to a resource.
+    RevokeAccess,
+    /// Deleting a resource for good.
+    DeleteResource,
     /// Changing an account's display name, with a reason.
     ChangeDisplayName,
     /// Freeing a released handle for anyone to claim.
@@ -556,6 +584,13 @@ impl Change {
             Self::SuspendClient => "Suspend this client",
             Self::UnsuspendClient => "Lift this client's suspension",
             Self::DeleteClient => "Delete this client",
+            Self::RegisterResource => "Register a resource",
+            Self::RenameResource => "Rename this resource",
+            Self::DefineScope => "Define a scope",
+            Self::RemoveScope => "Remove this scope",
+            Self::GrantAccess => "Grant a client access",
+            Self::RevokeAccess => "Revoke this client's access",
+            Self::DeleteResource => "Delete this resource",
             Self::ChangeDisplayName => "Change this account's display name",
             Self::ReleaseHandle => "Release this handle",
             Self::ReserveHandle => "Reserve a handle",
@@ -574,6 +609,7 @@ impl Change {
     }
 
     /// What it does, below the title.
+    #[expect(clippy::too_many_lines, reason = "One arm per change.")]
     pub(crate) const fn description(self) -> &'static str {
         match self {
             Self::Disable => {
@@ -659,6 +695,25 @@ impl Change {
             Self::DeleteClient => {
                 "It stops working at once: its refresh tokens are revoked, and its secrets and the consents users gave it are removed. Its ID can never be registered again. This cannot be undone."
             }
+            Self::RegisterResource => {
+                "An API that access tokens are issued for. Its identifier is the aud of those tokens: an absolute https URI, written as the API checks it, which cannot change later. Operators manage it; no account owns it."
+            }
+            Self::RenameResource => "Consent screens and connected apps show the new name at once.",
+            Self::DefineScope => {
+                "Clients given the scope can request it for this resource, and the consent screen shows its description. Defining a scope the resource already has describes it anew."
+            }
+            Self::RemoveScope => {
+                "No client can request it any more, and a refresh token that holds it is refused at its next use."
+            }
+            Self::GrantAccess => {
+                "The client can ask for this resource's tokens with these scopes, which replace any it could request before. Users still consent, unless the client is trusted."
+            }
+            Self::RevokeAccess => {
+                "The client gets no more tokens for this resource, and its refresh tokens for it are revoked. Access tokens already issued work until they expire, within five minutes."
+            }
+            Self::DeleteResource => {
+                "No client gets tokens for it any more: every refresh token and consent for it ends, with its scopes and the access clients had. Its identifier can be registered again. This cannot be undone."
+            }
             Self::DraftAnnouncement => {
                 "Save it as a draft to check its email first, or send it now."
             }
@@ -691,11 +746,16 @@ impl Change {
             Self::Recover => "Send the recovery link",
             Self::UndoRecovery => "Undo the recovery",
             Self::ApproveOrigin => "Add",
-            Self::RemoveOrigin | Self::UnreserveHandle => "Remove",
+            Self::RemoveOrigin | Self::UnreserveHandle | Self::RemoveScope => "Remove",
             Self::ChangeHandle => "Change handle",
             Self::SuspendClient => "Suspend",
             Self::UnsuspendClient => "Lift the suspension",
-            Self::DeleteClient => "Delete for good",
+            Self::DeleteClient | Self::DeleteResource => "Delete for good",
+            Self::RegisterResource => "Register",
+            Self::RenameResource => "Rename",
+            Self::DefineScope => "Define",
+            Self::GrantAccess => "Grant access",
+            Self::RevokeAccess => "Revoke access",
             Self::ChangeDisplayName => "Change",
             Self::ReleaseHandle => "Release",
             Self::ReserveHandle => "Reserve",
@@ -713,7 +773,7 @@ impl Change {
     /// The button opening it, on the row or page it belongs to.
     const fn label(self) -> &'static str {
         match self {
-            Self::Delete | Self::DeleteClient => "Delete",
+            Self::Delete | Self::DeleteClient | Self::DeleteResource => "Delete",
             Self::UnsuspendClient => "Lift suspension",
             Self::Recover => "Recover",
             Self::UndoRecovery => "Undo recovery",
@@ -734,6 +794,12 @@ impl Change {
             | Self::EnableClient
             | Self::DisableClient
             | Self::SuspendClient
+            | Self::RegisterResource
+            | Self::RenameResource
+            | Self::DefineScope
+            | Self::RemoveScope
+            | Self::GrantAccess
+            | Self::RevokeAccess
             | Self::ChangeDisplayName
             | Self::ReleaseHandle
             | Self::ReserveHandle
@@ -792,6 +858,9 @@ impl Change {
                 | Self::DisableClient
                 | Self::SuspendClient
                 | Self::DeleteClient
+                | Self::RemoveScope
+                | Self::RevokeAccess
+                | Self::DeleteResource
                 | Self::ReleaseHandle
                 | Self::UnreserveHandle
                 | Self::CancelDelivery
@@ -829,6 +898,13 @@ impl Change {
             | Self::SuspendClient
             | Self::UnsuspendClient
             | Self::DeleteClient
+            | Self::RegisterResource
+            | Self::RenameResource
+            | Self::DefineScope
+            | Self::RemoveScope
+            | Self::GrantAccess
+            | Self::RevokeAccess
+            | Self::DeleteResource
             | Self::ReleaseHandle
             | Self::UnreserveHandle
             | Self::RetryDelivery

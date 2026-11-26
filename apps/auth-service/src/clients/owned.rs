@@ -17,10 +17,10 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 use sourceorigin_common::{
     ClientId,
-    admin::SecretLifetime,
+    admin::{ClientResource, SecretLifetime},
     clients::{
         AllowedScopes, ClientField, ClientKind, ClientOwner, ClientRegistration, GrantTypes,
-        PostLogoutUris, RedirectUri, RedirectUris, ScopeName,
+        PostLogoutUris, RedirectUri, RedirectUris,
     },
     protocol::oauth::{GrantType, Scope},
 };
@@ -38,8 +38,8 @@ pub(crate) struct ClientSettings {
     pub(crate) redirect_uris: Vec<String>,
     /// Pages the browser may return to after logout.
     pub(crate) post_logout_uris: Vec<String>,
-    /// Scopes the client may request, each a standard [`Scope`].
-    pub(crate) allowed_scopes: Vec<String>,
+    /// The scopes auth defines that the client may request.
+    pub(crate) allowed_scopes: Vec<Scope>,
     /// The grants the client may use at the token endpoint.
     pub(crate) grant_types: Vec<GrantType>,
     /// Whether the client must push its authorization requests (RFC 9126).
@@ -48,10 +48,10 @@ pub(crate) struct ClientSettings {
     pub(crate) backchannel_logout_uri: Option<String>,
 }
 
-/// The settings an operator chooses for any client: an owner's, with any scope
-/// rather than the standard ones alone, and the client's trust.
+/// The settings an operator chooses for any client: an owner's, with any name
+/// and the client's trust.
 pub(crate) struct OperatorSettings {
-    /// What an owner would choose, its scopes any [`ScopeName`].
+    /// What an owner would choose.
     pub(crate) settings: ClientSettings,
     /// Whether the client skips the consent screen.
     pub(crate) trusted: bool,
@@ -76,7 +76,7 @@ pub(crate) struct ClientPatch {
     /// New post-logout pages.
     pub(crate) post_logout_uris: Option<Vec<String>>,
     /// New scopes.
-    pub(crate) allowed_scopes: Option<Vec<String>>,
+    pub(crate) allowed_scopes: Option<Vec<Scope>>,
     /// New grant types.
     pub(crate) grant_types: Option<Vec<GrantType>>,
     /// Whether authorization requests must be pushed.
@@ -114,8 +114,11 @@ pub(crate) struct OwnedClientView {
     pub(crate) redirect_uris: Vec<String>,
     /// Pages the browser may return to after logout.
     pub(crate) post_logout_uris: Vec<String>,
-    /// Scopes the client may request.
+    /// The scopes auth defines that the client may request.
     pub(crate) allowed_scopes: Vec<String>,
+    /// The resources it may request tokens for, as their owners granted, each
+    /// with the scopes of the resource it may request.
+    pub(crate) resources: Vec<ClientResource>,
     /// The grants the client may use at the token endpoint.
     pub(crate) grant_types: Vec<GrantType>,
     /// Whether the client must push its authorization requests (RFC 9126).
@@ -166,24 +169,7 @@ impl ClientSettings {
         id: ClientId,
         kind: ClientKind,
     ) -> Result<ClientRegistration, InvalidSetting> {
-        #[expect(
-            clippy::map_err_ignore,
-            reason = "The message names the scope and the allowed ones, which `InvalidScope` does not"
-        )]
-        let scopes = self
-            .allowed_scopes
-            .iter()
-            .map(|scope| {
-                scope.parse::<Scope>().map(ScopeName::from).map_err(|_| {
-                    let allowed = Scope::ALL.map(Scope::as_str).join(", ");
-                    InvalidSetting::new(
-                        ClientField::AllowedScopes,
-                        format!("scope {scope:?} is not one of {allowed}"),
-                    )
-                })
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        let registration = self.validated(id, kind, scopes, false)?;
+        let registration = self.validated(id, kind, false)?;
         registration
             .display_name
             .ensure_unreserved()
@@ -191,13 +177,12 @@ impl ClientSettings {
         Ok(registration)
     }
 
-    /// Validates every setting but the scopes, already `scopes`, and builds the
-    /// registration of client `id` of `kind`, `trusted` or not.
+    /// Validates every setting, and builds the registration of client `id` of
+    /// `kind`, `trusted` or not.
     fn validated(
         self,
         id: ClientId,
         kind: ClientKind,
-        scopes: Vec<ScopeName>,
         trusted: bool,
     ) -> Result<ClientRegistration, InvalidSetting> {
         Ok(ClientRegistration {
@@ -217,7 +202,7 @@ impl ClientSettings {
                 &self.post_logout_uris,
             )?)
             .map_err(InvalidSetting::with(ClientField::PostLogoutUris))?,
-            allowed_scopes: AllowedScopes::new(scopes)
+            allowed_scopes: AllowedScopes::new(self.allowed_scopes)
                 .map_err(InvalidSetting::with(ClientField::AllowedScopes))?,
             grant_types: GrantTypes::new(self.grant_types)
                 .map_err(InvalidSetting::with(ClientField::GrantTypes))?,
@@ -248,17 +233,7 @@ impl OperatorSettings {
         id: ClientId,
         kind: ClientKind,
     ) -> Result<ClientRegistration, InvalidSetting> {
-        let scopes = self
-            .settings
-            .allowed_scopes
-            .iter()
-            .map(|scope| {
-                scope
-                    .parse()
-                    .map_err(InvalidSetting::with(ClientField::AllowedScopes))
-            })
-            .collect::<Result<_, _>>()?;
-        self.settings.validated(id, kind, scopes, self.trusted)
+        self.settings.validated(id, kind, self.trusted)
     }
 }
 
@@ -294,9 +269,11 @@ impl ClientPatch {
             post_logout_uris: self
                 .post_logout_uris
                 .unwrap_or_else(|| current.post_logout_uris.clone()),
-            allowed_scopes: self
-                .allowed_scopes
-                .unwrap_or_else(|| current.allowed_scopes.clone()),
+            allowed_scopes: self.allowed_scopes.unwrap_or_else(|| {
+                (current.allowed_scopes.iter())
+                    .filter_map(|scope| scope.parse().ok())
+                    .collect()
+            }),
             grant_types: self
                 .grant_types
                 .unwrap_or_else(|| current.grant_types.clone()),
@@ -354,6 +331,7 @@ impl From<StoredOidcClient> for OwnedClientView {
             redirect_uris: client.redirect_uris,
             post_logout_uris: client.post_logout_uris,
             allowed_scopes: client.allowed_scopes,
+            resources: client.resources,
             grant_types: client.grant_types,
             require_pushed_authorization_requests: client.require_pushed_authorization_requests,
             backchannel_logout_uri: client.backchannel_logout_uri,

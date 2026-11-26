@@ -12,7 +12,7 @@ use crate::{
 use axum::http::HeaderMap;
 use chrono::{Duration, Utc};
 use serde::Deserialize;
-use sourceorigin_common::{Handle, UserId, events::DomainEvent};
+use sourceorigin_common::{Handle, UserId, admin::GrantedResource, events::DomainEvent};
 use sourceorigin_repository::{
     DatabaseTransaction, InsertAuthorizationCode, SessionAuthentication,
     StoredAuthorizationRequest, StoredSession,
@@ -45,6 +45,9 @@ pub(crate) struct ConsentRequest {
     pub(crate) registered_by: Option<Handle>,
     /// The handle of the account the browser is signed in to, which would approve.
     pub(crate) account: Handle,
+    /// The API the request asks tokens for, if not the client itself, with the
+    /// scopes of it asked for.
+    pub(crate) resource: Option<GrantedResource>,
 }
 
 /// Consent choice posted by the consent page.
@@ -81,11 +84,24 @@ impl OidcApplication {
             .handle(session.user_id)
             .await?
             .ok_or(SessionError::Missing)?;
+        let resource = self.granted(&request.audience, &request.scopes).await?;
         Ok(ConsentRequest {
             request,
             registered_by,
             account,
+            resource,
         })
+    }
+
+    /// The resource `audience` names, with those of `scopes` it defines, as the
+    /// consent page and the device page describe them, or `None` when the tokens
+    /// are for the client itself.
+    pub(in crate::oidc) async fn granted(
+        &self,
+        audience: &str,
+        scopes: &[String],
+    ) -> Result<Option<GrantedResource>, OAuthError> {
+        Ok(self.database.resources().granted(audience, scopes).await?)
     }
 
     /// The current handle of account `user`, or `None` once it is purged.

@@ -150,6 +150,7 @@ impl WebApplication {
                         registered_by: request.registered_by.as_ref().map(Handle::as_str),
                         account: request.account.as_str(),
                         scopes: &request.scopes,
+                        resource: request.resource.as_ref(),
                         code: &code,
                         started: request.started_at,
                         days: SESSION_LIFETIME_DAYS,

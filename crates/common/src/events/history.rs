@@ -181,6 +181,11 @@ impl DomainEvent {
             | Self::HandleReleased { .. }
             | Self::HandleReserved { .. }
             | Self::HandleUnreserved { .. }
+            | Self::ResourceRegistered { .. }
+            | Self::ResourceUpdated { .. }
+            | Self::ResourceDeleted { .. }
+            | Self::ResourceAccessGranted { .. }
+            | Self::ResourceAccessRevoked { .. }
             | Self::ClientRegistered { .. }
             | Self::ClientUpdated { .. }
             | Self::ClientEnabled { .. }

@@ -13,6 +13,7 @@ use crate::{
     passkey::PasskeyError,
     pictures::PictureError,
     recovery::RecoveryError,
+    resources::OwnedResourceError,
     security::{ApiError, SessionError},
     sessions::SessionsError,
 };
@@ -53,6 +54,9 @@ pub(crate) enum AccountError {
     /// One of the owner's clients could not be registered or changed.
     #[error(transparent)]
     Client(#[from] OwnedClientError),
+    /// One of the owner's resources could not be registered or changed.
+    #[error(transparent)]
+    Resource(#[from] OwnedResourceError),
     /// A recovery link was refused, or a recovery could not be undone.
     #[error(transparent)]
     Recovery(#[from] RecoveryError),
@@ -84,6 +88,7 @@ impl From<AccountError> for ApiError {
             AccountError::History(error) => error.into(),
             AccountError::Notification(error) => error.into(),
             AccountError::Client(error) => error.into(),
+            AccountError::Resource(error) => error.into(),
             AccountError::Recovery(error) => error.into(),
             AccountError::Deletion(error) => error.into(),
             AccountError::Owner(error) => error.into(),

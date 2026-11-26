@@ -2,7 +2,7 @@
 
 use crate::{
     GracePeriod,
-    routes::page::developers::{self, APP, APP_SECRETS, APP_SETTINGS, HOME, NEW},
+    routes::page::developers::{self, APP, APP_SECRETS, APP_SETTINGS, HOME, NEW, RESOURCES},
     security::BrowserCookie,
     tests::{Browser, Replicas, cookie, html, policy, redirect},
     web::tests::value_after,
@@ -19,7 +19,7 @@ use sourceorigin_common::{
 };
 use sourceorigin_ui::{
     AppChange, AppSettingsState, Checkbox, ClientDraft, Grace, Lines, MISSING, NewAppChange, Query,
-    SecretsChange,
+    ResourceChange, ResourcesChange, SecretsChange,
 };
 use topcoat::router::content::Form;
 
@@ -504,4 +504,83 @@ async fn the_crumb_leads_through_the_app() {
         "{page}"
     );
     assert!(page.contains("<b>settings</b>"), "{page}");
+}
+
+/// An owner registers an API, which goes on to its page, where they define a
+/// scope, let one of their apps request it and rename it; what a form cannot
+/// take is said on the page. Another account finds the page missing, read or
+/// posted to. Deleting the API goes back to the APIs, and its page is missing
+/// from then on.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL"]
+async fn resources_are_registered_changed_and_deleted() {
+    let replicas = Replicas::new().await;
+    let database = Replicas::database().await;
+    let browser = Browser::new_account(&database).await;
+    let identifier = format!("https://{}.example/api", browser.user_id);
+    let register = |identifier: &str| ResourcesChange::Register {
+        identifier: identifier.to_owned(),
+        display_name: "Notes API".into(),
+    };
+    let page = html(browser.visit(&replicas.a, RESOURCES).await).await;
+    assert!(page.contains("You have no API yet."), "{page}");
+    let refused = browser.post(&replicas, RESOURCES, &register("notes")).await;
+    assert_eq!(refused.status(), StatusCode::BAD_REQUEST);
+    let page = html(refused).await;
+    assert!(page.contains("is not an absolute URL"), "{page}");
+
+    let registered = browser
+        .post(&replicas, RESOURCES, &register(&identifier))
+        .await;
+    assert_eq!(registered.status(), StatusCode::SEE_OTHER);
+    assert_eq!(
+        cookie(&registered, BrowserCookie::Notice).0,
+        "resource_registered"
+    );
+    let here = redirect(&registered).to_owned();
+    let app = browser
+        .register_app(&database, ClientKind::Public, "https://console.example")
+        .await;
+    for change in [
+        ResourceChange::DefineScope {
+            name: "notes:read".into(),
+            description: "Read your notes".into(),
+        },
+        ResourceChange::Grant {
+            client: app.to_string(),
+            scopes: "notes:read".into(),
+        },
+        ResourceChange::Rename {
+            display_name: "Notes".into(),
+        },
+    ] {
+        let saved = browser.post(&replicas, &here, &change).await;
+        assert_eq!(saved.status(), StatusCode::SEE_OTHER, "{change:?}");
+        assert_eq!(redirect(&saved), here);
+    }
+    let page = html(browser.visit(&replicas.a, &here).await).await;
+    for shown in ["Read your notes", app.as_str(), identifier.as_str()] {
+        assert!(page.contains(shown), "{shown}: {page}");
+    }
+    let nobody = ResourceChange::Grant {
+        client: "nobody".into(),
+        scopes: String::new(),
+    };
+    let refused = browser.post(&replicas, &here, &nobody).await;
+    assert_eq!(refused.status(), StatusCode::BAD_REQUEST);
+    let page = html(refused).await;
+    assert!(page.contains("no client has ID nobody"), "{page}");
+
+    let stranger = Browser::new_account(&database).await;
+    assert_missing(stranger.visit(&replicas.a, &here).await).await;
+    let delete = ResourceChange::Delete {};
+    assert_missing(stranger.post(&replicas, &here, &delete).await).await;
+
+    let deleted = browser.post(&replicas, &here, &delete).await;
+    assert_eq!(redirect(&deleted), RESOURCES);
+    assert_eq!(
+        cookie(&deleted, BrowserCookie::Notice).0,
+        "resource_deleted"
+    );
+    assert_missing(browser.visit(&replicas.a, &here).await).await;
 }

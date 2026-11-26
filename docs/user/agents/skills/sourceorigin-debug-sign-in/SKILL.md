@@ -79,6 +79,7 @@ names the problem:
 | `invalid_client` | `this public client must not send HTTP Basic credentials` | The app was registered without a backend. The login routes need one with a secret: register a new app, since the kind never changes |
 | `invalid_request` | `redirect_uri is not registered for this client; it must match exactly` | Compare `SOURCEORIGIN_REDIRECT_URI` with the registration |
 | `invalid_scope` | `scope includes values this client may not request` | The registration doesn't allow every scope, often `offline_access` |
+| `invalid_target` | `this client has no access to the resource` | The request names an API in `resource` whose owner hasn't given the app access, or misspells its identifier: the owner lists the app on the API's page in the console |
 
 ## 4. Compare with the registration
 

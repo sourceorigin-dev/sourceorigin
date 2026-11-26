@@ -489,16 +489,22 @@ async fn revoking_a_session_queues_a_logout_token_for_each_client_to_tell() {
             false,
         ),
     ] {
-        sqlx::query!("WITH client AS (
-                INSERT INTO oidc_clients(id,display_name,allowed_scopes,allowed_audiences,backchannel_logout_uri)
-                VALUES($1,'Logout test','[]','[]',$2) RETURNING id
+        sqlx::query!(
+            "WITH client AS (
+                INSERT INTO oidc_clients(id,display_name,allowed_scopes,backchannel_logout_uri)
+                VALUES($1,'Logout test','[]',$2) RETURNING id
             )
             INSERT INTO authorization_codes(id,secret_digest,client_id,user_id,session_id,
                 redirect_uri,pkce_challenge,scopes,audience,expires_at,authentication,digest_key)
             SELECT gen_random_uuid(),uuid_send(gen_random_uuid()),id,$3,$4,
                 'https://app.example/callback','challenge','[]',id,now()+interval '1 minute','{}',
                 'test'
-            FROM client", &client, uri, user.as_uuid(), session.as_uuid())
+            FROM client",
+            &client,
+            uri,
+            user.as_uuid(),
+            session.as_uuid()
+        )
         .execute(&pool)
         .await
         .expect("client and code");

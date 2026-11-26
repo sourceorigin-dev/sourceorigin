@@ -31,7 +31,8 @@ supported.
 An app registered for the device grant signs a device without a browser in
 (RFC 8628): see
 [signing in on a device without a browser](../apps/device-sign-in.md). The
-device posts `client_id` and `scope` to `/oauth/device_authorization`,
+device posts `client_id` and `scope`, and `resource` for tokens for an
+[API](#apis-and-the-resource-parameter), to `/oauth/device_authorization`,
 authenticated as at the token endpoint, and receives a `device_code`, a
 `user_code`, the `verification_uri` where the user types the user code, and
 `verification_uri_complete`, which fills it in. Both codes last 10 minutes.
@@ -108,8 +109,9 @@ is tried once: a redemption by another client, with another `redirect_uri` or a
 wrong `code_verifier` expires it and records `code_redemption_failed`, so it
 can't be tried again. Every step of an authorization checks the client's registration
 as it is then, under a share lock when it issues a code or tokens: a client
-disabled, suspended or changed meanwhile gets nothing it no longer allows. Access tokens are
-intended for the configured client audience. Only requested claims are released;
+disabled, suspended or changed meanwhile gets nothing it no longer allows. An access token is
+for one audience, its `aud`: the client itself, or the
+[API the request named](#apis-and-the-resource-parameter). Only requested claims are released;
 an account without a confirmed primary address has no `email` claim. Browser
 clients should keep tokens in memory and use SSO again after reload.
 
@@ -132,11 +134,12 @@ client keeps its token, and a refresh answers with none: without the client's
 secret the token is useless, so it needs no rotation (RFC 9700 §4.14), and a
 refresh writes nothing.
 
-Consent is remembered per user,
-client and scope; explicitly trusted clients bypass consent. The consent page
-names the host the app sends the browser back to and the signed-in account, which
-can switch to another, and labels an app an account registered as unverified,
-with its owner's handle. Users see the apps they consented to, or whose refresh
+Consent is remembered per user, client, audience and scope; explicitly trusted
+clients bypass consent. The consent page names the host the app sends the
+browser back to and the signed-in account, which can switch to another, and
+labels an app an account registered as unverified, with its owner's handle. For
+an API, it names the API and its identifier, and describes each of its scopes
+as the API's owner did. Users see the apps they consented to, or whose refresh
 grants still work, and remove an app's access, in
 [connected apps](../account/connected-apps.md). Removing it also ends its
 refresh grants and stops its outstanding codes working. The settings API serves
@@ -144,6 +147,33 @@ them too (`GET /account/apps`, `DELETE /account/apps/{client_id}`). An administr
 one the same way from the account's Connected apps page on the dashboard, and an
 operator with `auth-service account <user> apps remove <client-id>`, each with a
 reason the owner sees in their history.
+
+## APIs and the `resource` parameter
+
+An API registered with Origin Auth is a resource (RFC 8707): an identifier, the
+scopes it defines, and the clients it admits, each with the scopes it may
+request. [Registering an API](../apps/apis.md) shows how.
+
+An authorization request, pushed or not, and a device authorization request
+take one `resource` parameter, the API's identifier. The access token's `aud` is
+then that identifier, and `scope` may list the API's scopes the client was
+granted, beside Origin Auth's own. Without `resource`, the audience is the
+client itself, and only Origin Auth's scopes are allowed. The ID token's `aud`
+is always the client.
+
+| Error | When |
+| --- | --- |
+| `invalid_target` | `resource` isn't an `https` URI without query or fragment, names no registered API, or names one the client has no access to. |
+| `invalid_scope` | `scope` lists a scope the client may not request for that audience. |
+
+A token request for the `authorization_code` or `refresh_token` grant may
+repeat `resource`. It must be the one the grant was issued for: another is
+`invalid_target`, and the code or refresh token is not used up. A refresh may
+narrow `scope`, and keeps its audience.
+
+When a client loses its access to an API, or the API is deleted, the refresh
+tokens issued for it stop working. One that holds a scope the client may no
+longer request is refused at its next use.
 
 ## Authentication claims
 

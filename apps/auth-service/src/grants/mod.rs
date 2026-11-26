@@ -4,7 +4,9 @@
 //! tests, which issue the grants they remove.
 use crate::account::{AccountError, AccountService, Subject, Viewer};
 use serde::Serialize;
-use sourceorigin_common::{ClientId, events::DomainEvent, protocol::oauth::Scope};
+use sourceorigin_common::{
+    ClientId, admin::GrantedResource, events::DomainEvent, protocol::oauth::Scope,
+};
 use sourceorigin_repository::StoredApp;
 
 /// Removal failures and their browser response mapping.
@@ -22,25 +24,31 @@ pub(crate) struct ConnectedApp {
     /// Whether it is first-party: it signs in without the consent screen, so
     /// its next sign-in grants it access again.
     pub(crate) first_party: bool,
-    /// What it can read, `offline_access` aside.
+    /// What it can read, `offline_access` and the scopes of resources aside.
     pub(crate) scopes: Vec<String>,
+    /// The APIs it can use as the account, each with what it can do there.
+    pub(crate) resources: Vec<GrantedResource>,
     /// Whether it holds a refresh grant, so it can act while the user is away.
     pub(crate) offline: bool,
 }
 
 impl From<StoredApp> for ConnectedApp {
-    /// Says `offline_access` as whether the app holds a refresh grant, rather
-    /// than among what it reads.
+    /// Says `offline_access` as whether the app holds a refresh grant, and a
+    /// resource's scopes with their resource, rather than among what it reads.
     fn from(app: StoredApp) -> Self {
+        let defined = app.resources.iter().flat_map(|resource| &resource.scopes);
+        let scopes = app
+            .scopes
+            .into_iter()
+            .filter(|scope| scope != Scope::OfflineAccess.as_str())
+            .filter(|scope| !defined.clone().any(|definition| definition.name == *scope))
+            .collect();
         Self {
             client_id: app.client_id,
             name: app.name,
             first_party: app.trusted,
-            scopes: app
-                .scopes
-                .into_iter()
-                .filter(|scope| scope != Scope::OfflineAccess.as_str())
-                .collect(),
+            scopes,
+            resources: app.resources,
             offline: app.offline,
         }
     }

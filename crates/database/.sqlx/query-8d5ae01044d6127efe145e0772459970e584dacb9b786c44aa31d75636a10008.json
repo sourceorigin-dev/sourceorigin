@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH revoked AS (\n                    DELETE FROM client_resource_access a\n                    USING resources r\n                    WHERE a.client_id = $1 AND a.resource_id = $2 AND r.id = a.resource_id\n                    RETURNING r.identifier\n                ),\n                families AS (\n                    UPDATE refresh_token_families f\n                    SET revoked_at = now()\n                    FROM revoked\n                    WHERE f.client_id = $1\n                    AND f.audience = revoked.identifier\n                    AND f.revoked_at IS NULL\n                )\n                SELECT identifier FROM revoked",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "identifier",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "8d5ae01044d6127efe145e0772459970e584dacb9b786c44aa31d75636a10008"
+}

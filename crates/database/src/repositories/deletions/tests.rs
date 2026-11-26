@@ -142,8 +142,10 @@ async fn purge_leaves_nothing_that_references_or_identifies_the_account() {
     let (session, code, family) = (SessionId::new(), TokenId::new(), TokenId::new());
     let (alone, shared, everyone) = (TokenId::new(), TokenId::new(), TokenId::new());
     sqlx::raw_sql(&format!(
-        "INSERT INTO oidc_clients (id, display_name, allowed_scopes, allowed_audiences, owner_id)
-        VALUES ('{client}', 'Purge test', '[]', '[]', '{user}');
+        "INSERT INTO oidc_clients (id, display_name, allowed_scopes, owner_id)
+        VALUES ('{client}', 'Purge test', '[]', '{user}');
+        INSERT INTO resources (id, identifier, display_name, owner_id)
+        VALUES (uuidv7(), 'https://{client}.example/api', 'Purge test', '{user}');
         INSERT INTO profile_pictures (user_id, id, image) VALUES ('{user}', uuidv7(), '\\x00');
         -- Expired, so it does not refuse the administrator rights below.
         INSERT INTO account_recoveries (id, user_id, secret_digest, started_at, expires_at)

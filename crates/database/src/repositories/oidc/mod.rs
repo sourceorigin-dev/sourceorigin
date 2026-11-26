@@ -5,7 +5,7 @@ use crate::{DatabaseError, SessionAuthentication};
 use chrono::{DateTime, Utc};
 use sourceorigin_common::{
     ClientId, SessionId, TokenId, UserId,
-    admin::Consent,
+    admin::{Consent, GrantedResource},
     protocol::{claims::Acr, oauth::Interaction},
 };
 use sqlx::types::Json;
@@ -32,6 +32,8 @@ pub struct StoredApp {
     pub trusted: bool,
     /// What the account consented to or granted it.
     pub scopes: Vec<String>,
+    /// The resources it has tokens for, each with the scopes of it granted.
+    pub resources: Vec<GrantedResource>,
     /// Whether it holds a refresh grant, so it can act while the user is away.
     pub offline: bool,
 }
@@ -762,26 +764,51 @@ impl OidcRepository<'_> {
             fetch_all,
             sqlx::query_as!(
                 StoredApp,
-                r#"SELECT
-                    c.id AS "client_id: ClientId", c.display_name AS name, c.trusted,
-                    COALESCE(
-                        jsonb_agg(DISTINCT s.scope) FILTER (WHERE s.scope IS NOT NULL),
-                        '[]'
-                    ) AS "scopes!: JsonArray<String>",
-                    bool_or(g.refresh) AS "offline!"
-                FROM (
-                    SELECT client_id, scopes, FALSE AS refresh
+                r#"WITH granted AS (
+                    SELECT client_id, audience, scopes, FALSE AS refresh
                     FROM oidc_consents
                     WHERE user_id = $1
                     UNION ALL
-                    SELECT f.client_id, f.scopes, TRUE
+                    SELECT f.client_id, f.audience, f.scopes, TRUE
                     FROM refresh_token_families f
                     JOIN sessions session ON session.id = f.session_id
                     WHERE f.user_id = $1
                     AND f.revoked_at IS NULL
                     AND session.revoked_at IS NULL
                     AND session.expires_at > now()
-                ) g
+                )
+                SELECT
+                    c.id AS "client_id!: ClientId", c.display_name AS "name!", c.trusted AS "trusted!",
+                    COALESCE(
+                        jsonb_agg(DISTINCT s.scope) FILTER (WHERE s.scope IS NOT NULL),
+                        '[]'
+                    ) AS "scopes!: JsonArray<String>",
+                    COALESCE(
+                        (
+                            SELECT jsonb_agg(api.granted ORDER BY api.granted->>'display_name')
+                            FROM (
+                                SELECT jsonb_build_object(
+                                    'identifier', r.identifier,
+                                    'display_name', r.display_name,
+                                    'scopes', COALESCE(
+                                        jsonb_agg(DISTINCT jsonb_build_object(
+                                            'name', d.name, 'description', d.description
+                                        )) FILTER (WHERE d.name IS NOT NULL),
+                                        '[]'::jsonb
+                                    )
+                                ) AS granted
+                                FROM granted own
+                                JOIN resources r ON r.identifier = own.audience
+                                LEFT JOIN resource_scopes d
+                                    ON d.resource_id = r.id AND own.scopes ? d.name
+                                WHERE own.client_id = c.id
+                                GROUP BY r.id
+                            ) api
+                        ),
+                        '[]'::jsonb
+                    ) AS "resources!: JsonArray<GrantedResource>",
+                    bool_or(g.refresh) AS "offline!"
+                FROM granted g
                 JOIN oidc_clients c ON c.id = g.client_id
                 LEFT JOIN LATERAL jsonb_array_elements_text(g.scopes) AS s(scope) ON TRUE
                 WHERE c.enabled

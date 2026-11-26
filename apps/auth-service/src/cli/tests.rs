@@ -104,6 +104,54 @@ impl AdminOperation {
             Self::UnsuspendClient => &["client", "unsuspend", "notes", "--reason", "Fixed"],
             Self::DeleteClient => &["client", "delete", "notes", "--reason", "Retired"],
             Self::RotateClientSecret => &["client", "rotate-secret", "notes", "--reason", "Leaked"],
+            Self::ListResources => &["resource", "list"],
+            Self::ViewResource => &["resource", "show", AN_API],
+            Self::CreateResource => &[
+                "resource",
+                "create",
+                AN_API,
+                "--name",
+                "Notes API",
+                "--reason",
+                "New API",
+            ],
+            Self::RenameResource => &[
+                "resource", "rename", AN_API, "--name", "Notes", "--reason", "Renamed",
+            ],
+            Self::DefineResourceScope => &[
+                "resource",
+                "scope",
+                "add",
+                AN_API,
+                "notes:read",
+                "--description",
+                "Read your notes",
+                "--reason",
+                "New scope",
+            ],
+            Self::RemoveResourceScope => &[
+                "resource",
+                "scope",
+                "remove",
+                AN_API,
+                "notes:read",
+                "--reason",
+                "Unused",
+            ],
+            Self::GrantResourceAccess => &[
+                "resource",
+                "grant",
+                "notes",
+                AN_API,
+                "--scope",
+                "notes:read",
+                "--reason",
+                "Its own API",
+            ],
+            Self::RevokeResourceAccess => {
+                &["resource", "revoke", "notes", AN_API, "--reason", "Retired"]
+            }
+            Self::DeleteResource => &["resource", "delete", AN_API, "--reason", "Retired", "--yes"],
             Self::ApproveRelatedOrigin => &[
                 "client",
                 "origin",
@@ -255,6 +303,9 @@ impl AccountOperation {
 
 /// A well-formed UUID for commands that take an ID.
 const AN_ID: &str = "0199a000-0000-7000-8000-000000000001";
+
+/// A well-formed identifier for commands that take a resource.
+const AN_API: &str = "https://notes.example/api";
 
 /// Every operation has a command, and that command runs it: its command line
 /// parses to a command naming that operation.
@@ -613,4 +664,61 @@ async fn account_apps_remove_withdraws_the_consent() {
     .await;
     assert!(matches!(removed.actor.known(), Some(Actor::Cli { os_user, .. }) if os_user == "test"));
     assert_eq!(removed.reason.as_deref(), Some("Impersonating app"));
+}
+
+/// `resource` runs the admin operations: an API is registered with a scope a
+/// client is given, as `resource show` then finds it, and revoking the access,
+/// removing the scope and deleting the API leave nothing of it.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL"]
+async fn resource_commands_run_the_admin_operations() {
+    let database = Replicas::database().await;
+    let service = AdminService::new(database.clone(), true);
+    let client = crate::tests::registration(ClientKind::Public, "https://notes.example");
+    crate::tests::register(&database, &client)
+        .await
+        .expect("client");
+    let api = format!("https://{}.example/api", UserId::new());
+    let (api, client) = (api.as_str(), client.id.as_str());
+    let run = async |arguments: &[&str]| {
+        let why = ["--reason", "Asked by email"];
+        let arguments = [&["resource"], arguments, &why].concat();
+        Administration::parse(&arguments).run_on(&database).await;
+    };
+    run(&["create", api, "--name", "Notes API"]).await;
+    run(&[
+        "scope",
+        "add",
+        api,
+        "notes:read",
+        "--description",
+        "Read your notes",
+    ])
+    .await;
+    run(&["grant", client, api, "--scope", "notes:read"]).await;
+    run(&["rename", api, "--name", "Notes"]).await;
+    let identifier = api.parse().expect("identifier");
+    let found = service
+        .find_resource(&operator(), &identifier)
+        .await
+        .expect("resource");
+    let detail = async || {
+        service
+            .resource_detail(&operator(), found.id)
+            .await
+            .expect("detail")
+    };
+    let shown = detail().await;
+    assert_eq!(shown.resource.display_name, "Notes");
+    assert_eq!(shown.scopes[0].description, "Read your notes");
+    assert_eq!(shown.access[0].client_id.as_str(), client);
+    assert_eq!(shown.access[0].scopes, ["notes:read"]);
+
+    run(&["revoke", client, api]).await;
+    run(&["scope", "remove", api, "notes:read"]).await;
+    let shown = detail().await;
+    assert!(shown.scopes.is_empty() && shown.access.is_empty());
+    run(&["delete", api, "--yes"]).await;
+    let gone = service.find_resource(&operator(), &identifier).await;
+    assert!(gone.is_err(), "{gone:?}");
 }

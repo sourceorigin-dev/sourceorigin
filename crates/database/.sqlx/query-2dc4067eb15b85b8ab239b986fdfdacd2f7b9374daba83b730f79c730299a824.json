@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH account AS (\n            INSERT INTO users (id, display_name) VALUES ($1, 'Purge')\n        ), browser AS (\n            INSERT INTO sessions (\n                id, user_id, authentication_methods, authenticated_at, expires_at, last_seen_at\n            ) VALUES ($2, $1, '[]', now(), now() + interval '30 days', now())\n        ), registration AS (\n            INSERT INTO oidc_clients (id, display_name, allowed_scopes)\n            VALUES ($5, 'Purge', '[]')\n        ), redeemed AS (\n            INSERT INTO authorization_codes (\n                id, secret_digest, client_id, user_id, session_id, redirect_uri,\n                pkce_challenge, scopes, audience, expires_at, consumed_at, authentication,\n                digest_key\n            ) VALUES ($3, convert_to($3::uuid::text, 'UTF8'), $5, $1, $2, 'https://client.example',\n                'challenge', '[]', 'test', now() - interval '2 days', now() - interval '2 days', '{}',\n                'test')\n        )\n        INSERT INTO refresh_token_families (\n            id, user_id, client_id, session_id, authorization_code_id, audience, scopes,\n            authentication\n        ) VALUES ($4, $1, $5, $2, $3, 'test', '[]', '{}')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2dc4067eb15b85b8ab239b986fdfdacd2f7b9374daba83b730f79c730299a824"
+}

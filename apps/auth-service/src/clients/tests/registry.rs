@@ -252,7 +252,7 @@ async fn apply_changes_only_what_differs() {
     assert!(revokes(&first).await);
     let mut reordered = client.clone();
     reordered.allowed_scopes =
-        AllowedScopes::new(client.allowed_scopes.iter().rev().cloned()).expect("scopes");
+        AllowedScopes::new(client.allowed_scopes.iter().rev().copied()).expect("scopes");
     assert_eq!(
         apply(&reordered, Some(&first), "1h").await.expect("again"),
         Applied::Unchanged

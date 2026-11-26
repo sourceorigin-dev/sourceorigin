@@ -80,6 +80,8 @@ pub mod metadata;
 pub mod oauth;
 /// The one check of a token's registered claims, and its leeway policy.
 pub mod registered;
+/// Resource indicators: an API's identifier and the scopes it defines.
+pub mod resource;
 /// The path a sign-in sends the browser back to.
 pub mod return_to;
 /// Whether a browser request comes from a site's own pages.

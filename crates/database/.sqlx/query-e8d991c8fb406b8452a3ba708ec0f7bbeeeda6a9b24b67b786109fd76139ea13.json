@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n            (SELECT count(*) FROM resource_scopes WHERE resource_id = $1)\n            + (SELECT count(*) FROM client_resource_access WHERE resource_id = $1) AS \"count!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "e8d991c8fb406b8452a3ba708ec0f7bbeeeda6a9b24b67b786109fd76139ea13"
+}

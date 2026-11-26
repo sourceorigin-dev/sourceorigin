@@ -183,8 +183,8 @@ async fn cleanup_keeps_redeemed_codes_while_their_session_is_live() {
                 id, user_id, authentication_methods, authenticated_at, expires_at, last_seen_at
             ) VALUES ($2, $1, '[]', now(), now() + interval '30 days', now())
         ), registration AS (
-            INSERT INTO oidc_clients (id, display_name, allowed_scopes, allowed_audiences)
-            VALUES ($5, 'Purge', '[]', '[]')
+            INSERT INTO oidc_clients (id, display_name, allowed_scopes)
+            VALUES ($5, 'Purge', '[]')
         ), redeemed AS (
             INSERT INTO authorization_codes (
                 id, secret_digest, client_id, user_id, session_id, redirect_uri,

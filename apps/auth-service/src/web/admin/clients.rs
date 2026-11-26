@@ -111,7 +111,7 @@ pub(super) async fn detail(cx: &Cx) -> Result<Response> {
     let shown = ClientPage {
         client: row,
         trusted: client.trusted,
-        audiences: &client.allowed_audiences,
+        resources: &client.resources,
         owner: client
             .owner_id
             .map(|owner| (owner, App::account(cx, owner))),
@@ -398,14 +398,10 @@ pub(super) async fn delete(cx: &Cx, form: Option<Form<ReasonForm>>) -> Result<Re
 }
 
 impl From<OperatorDraft> for OperatorSettings {
-    /// The settings as the form sent them, with every scope chosen.
+    /// The settings as the form sent them.
     fn from(operator: OperatorDraft) -> Self {
-        let allowed_scopes = operator.scopes();
         Self {
-            settings: ClientSettings {
-                allowed_scopes,
-                ..ClientSettings::from(operator.draft)
-            },
+            settings: ClientSettings::from(operator.draft),
             trusted: operator.trusted.0,
         }
     }

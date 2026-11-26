@@ -61,7 +61,8 @@ pub use payload::{
 
 use crate::{
     AlertId, AnnouncementId, AuthenticationMethod, ClientId, DeliveryId, EmailId, EventId, Handle,
-    NotificationId, PasskeyId, Personal, PictureId, Provider, RecoveryId, SessionId, TokenId,
+    NotificationId, PasskeyId, Personal, PictureId, Provider, RecoveryId, ResourceId, SessionId,
+    TokenId,
     admin::{AuditVerification, ChainBreak, ChainProblem, VerificationKeys},
     alerts::{Alert, AlertStatus},
     clients::{ClientField, ClientKind},
@@ -380,6 +381,44 @@ pub enum DomainEvent {
         /// The handle.
         handle: Handle,
     },
+    /// An API was registered as a resource, which access tokens can be issued for.
+    #[serde(rename = "resource_registered")]
+    ResourceRegistered {
+        /// The new resource.
+        resource_id: ResourceId,
+    },
+    /// A resource's name changed, or a scope it defines was added, described
+    /// anew or removed.
+    #[serde(rename = "resource_updated")]
+    ResourceUpdated {
+        /// The changed resource.
+        resource_id: ResourceId,
+    },
+    /// A resource was deleted: the refresh grants and consents for it ended.
+    #[serde(rename = "resource_deleted")]
+    ResourceDeleted {
+        /// The deleted resource.
+        resource_id: ResourceId,
+    },
+    /// A client was let to ask for tokens for a resource, with these scopes of
+    /// it, which replace any it could request before.
+    #[serde(rename = "resource_access_granted")]
+    ResourceAccessGranted {
+        /// The resource.
+        resource_id: ResourceId,
+        /// The client.
+        client_id: ClientId,
+        /// The scopes of the resource the client may request.
+        scopes: Vec<String>,
+    },
+    /// A client's access to a resource ended, with its refresh grants for it.
+    #[serde(rename = "resource_access_revoked")]
+    ResourceAccessRevoked {
+        /// The resource.
+        resource_id: ResourceId,
+        /// The client.
+        client_id: ClientId,
+    },
     /// An OIDC client was registered, enabled. A confidential client got its first secret.
     #[serde(rename = "client_registered")]
     ClientRegistered {
@@ -680,6 +719,8 @@ impl DomainEvent {
             | Self::ClientSecretRotated { client_id, .. }
             | Self::RelatedOriginApproved { client_id, .. }
             | Self::RelatedOriginRemoved { client_id, .. }
+            | Self::ResourceAccessGranted { client_id, .. }
+            | Self::ResourceAccessRevoked { client_id, .. }
             | Self::SignedIn {
                 inline: Some(InlineSignIn { client_id, .. }),
                 ..
@@ -725,6 +766,9 @@ impl DomainEvent {
             | Self::HandleReleased { .. }
             | Self::HandleReserved { .. }
             | Self::HandleUnreserved { .. }
+            | Self::ResourceRegistered { .. }
+            | Self::ResourceUpdated { .. }
+            | Self::ResourceDeleted { .. }
             | Self::CompromiseReported { .. }
             | Self::SigningKeyChanged { .. }
             | Self::AccountExported {}
@@ -786,6 +830,11 @@ impl DomainEvent {
             | Self::HandleReleased { .. }
             | Self::HandleReserved { .. }
             | Self::HandleUnreserved { .. }
+            | Self::ResourceRegistered { .. }
+            | Self::ResourceUpdated { .. }
+            | Self::ResourceDeleted { .. }
+            | Self::ResourceAccessGranted { .. }
+            | Self::ResourceAccessRevoked { .. }
             | Self::ClientRegistered { .. }
             | Self::ClientUpdated { .. }
             | Self::ClientEnabled { .. }

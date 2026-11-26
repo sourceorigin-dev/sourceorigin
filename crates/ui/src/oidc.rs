@@ -11,6 +11,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sourceorigin_common::{
     Provider,
+    admin::GrantedResource,
     protocol::oauth::{ErrorCode, Scope},
 };
 use topcoat::{
@@ -39,6 +40,9 @@ pub async fn consent<'a>(
     account: &'a str,
     /// What the application asks to receive.
     scopes: &'a [String],
+    /// The API it asks tokens for, if not itself, with what it may do there.
+    #[default]
+    resource: Option<&'a GrantedResource>,
     /// Where the decision posts.
     action: &'a str,
     /// Where to sign in as another account.
@@ -60,14 +64,7 @@ pub async fn consent<'a>(
                 </span>
             </p>
         }
-        <section class="card" aria-labelledby="access-heading">
-            <header><h2 id="access-heading">(format!("{client} will receive"))</h2></header>
-            <ul class="list">
-                for scope in scopes {
-                    <li>icon(kind: Icon::Check)<span class="text">(scope_label(scope))</span></li>
-                }
-            </ul>
-        </section>
+        access(client: client, scopes: scopes, resource: resource)
         <p class="help">
             (format!("{client} cannot see your passkeys or change your account. You can remove its access at any time from your connected apps."))
         </p>
@@ -180,6 +177,9 @@ pub async fn device_approval<'a>(
     account: &'a str,
     /// What the application asks to receive.
     scopes: &'a [String],
+    /// The API it asks tokens for, if not itself, with what it may do there.
+    #[default]
+    resource: Option<&'a GrantedResource>,
     /// The code the device shows, written as devices show it.
     code: &'a str,
     /// When the device asked.
@@ -218,14 +218,7 @@ pub async fn device_approval<'a>(
                 </span>
             </p>
         }
-        <section class="card" aria-labelledby="access-heading">
-            <header><h2 id="access-heading">(format!("{client} will receive"))</h2></header>
-            <ul class="list">
-                for scope in scopes {
-                    <li>icon(kind: Icon::Check)<span class="text">(scope_label(scope))</span></li>
-                }
-            </ul>
-        </section>
+        access(client: client, scopes: scopes, resource: resource)
         <p class="help">
             (format!("{client} cannot see your passkeys or change your account. The device stays signed in while it is used at least every {days} days, for {longest_days} days at most: you can sign it out at any time from your devices."))
         </p>
@@ -270,9 +263,71 @@ pub async fn device_decided<'a>(
     })
 }
 
+/// What the application named `client` asks for, on the consent page and the
+/// device page: what it receives through `scopes`, and, when it asks tokens for
+/// an API rather than for itself, `resource`: the API, by the name and identifier
+/// its owner registered, and what the application may do there, as the API's
+/// owner described each scope.
+#[component]
+async fn access<'a>(
+    /// What the application is called.
+    client: &'a str,
+    /// Every scope it asks for.
+    scopes: &'a [String],
+    /// The API it asks tokens for, if not itself.
+    resource: Option<&'a GrantedResource>,
+) -> Result<impl View> {
+    let defined = |scope: &&String| {
+        resource.is_some_and(|resource| resource.scopes.iter().any(|d| d.name == **scope))
+    };
+    let receives: Vec<_> = scopes.iter().filter(|scope| !defined(scope)).collect();
+    Ok(view! {
+        if !receives.is_empty() {
+            <section class="card" aria-labelledby="access-heading">
+                <header><h2 id="access-heading">(format!("{client} will receive"))</h2></header>
+                <ul class="list">
+                    for scope in &receives {
+                        <li>icon(kind: Icon::Check)<span class="text">(scope_label(scope))</span></li>
+                    }
+                </ul>
+            </section>
+        }
+        if let Some(resource) = resource {
+            <section class="card" aria-labelledby="resource-heading">
+                <header>
+                    <h2 id="resource-heading">(format!("{client} will use {} as you", resource.display_name))</h2>
+                </header>
+                <ul class="list">
+                    for scope in &resource.scopes {
+                        <li>icon(kind: Icon::Check)<span class="text">(scope.description.as_str())</span></li>
+                    }
+                    if resource.scopes.is_empty() {
+                        <li>icon(kind: Icon::Check)<span class="text">"Connect to it with your account"</span></li>
+                    }
+                </ul>
+                <p class="help">(format!("{} is the API at ", resource.display_name)) <code>(resource.identifier.as_str())</code> "."</p>
+            </section>
+        }
+    })
+}
+
+/// What an app can do with `resource` as the account, in one line, among the
+/// connected apps: the API's name, and each scope as its owner described it.
+pub(crate) fn resource_label(resource: &GrantedResource) -> String {
+    let name = &resource.display_name;
+    let can: Vec<_> = (resource.scopes.iter())
+        .map(|scope| scope.description.as_str())
+        .collect();
+    if can.is_empty() {
+        format!("Uses {name}")
+    } else {
+        format!("Uses {name}: {}", can.join(", "))
+    }
+}
+
 /// What a scope gives the application, in the user’s words, on the consent page
-/// and among the connected apps. A scope SourceOrigin does not describe, such as an
-/// application's own, is shown as it is.
+/// and among the connected apps. A scope SourceOrigin does not describe is shown
+/// as it is.
 pub(crate) fn scope_label(scope: &str) -> &str {
     match scope.parse() {
         Ok(Scope::OpenId) => "Your account identifier",

@@ -12,7 +12,7 @@ use crate::{
         secret_panel, secrets_list,
     },
     developers::{SecretsState, app_secrets},
-    form::{Checkbox, Lines},
+    form::Checkbox,
     icons::Icon,
     layout::{Destination, Group, alert_notice, page_head},
 };
@@ -20,9 +20,8 @@ use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use sourceorigin_common::{
     UserId,
-    admin::Client,
+    admin::{Client, ClientResource},
     clients::{ClientKind, ClientStatus},
-    protocol::oauth::Scope,
 };
 use topcoat::{
     Result,
@@ -66,9 +65,6 @@ pub struct OperatorDraft {
     /// What an owner chooses too.
     #[serde(flatten)]
     pub draft: ClientDraft,
-    /// The scopes it may request beyond the standard ones, which have checkboxes.
-    #[serde(default)]
-    pub other_scopes: Lines,
     /// Whether it skips the consent screen.
     #[serde(default)]
     pub trusted: Checkbox,
@@ -84,25 +80,9 @@ impl OperatorDraft {
     pub fn of(client: &ClientRow<'_>, trusted: bool) -> Self {
         Self {
             draft: ClientDraft::from(client),
-            other_scopes: client
-                .allowed_scopes
-                .iter()
-                .filter(|scope| scope.parse::<Scope>().is_err())
-                .cloned()
-                .collect(),
             trusted: Checkbox(trusted),
             reason: String::new(),
         }
-    }
-
-    /// Every scope chosen: the standard ones checked, then the others typed.
-    #[must_use]
-    pub fn scopes(&self) -> Vec<String> {
-        let mut scopes: Vec<String> = (self.draft.scopes.chosen())
-            .map(|scope| scope.to_string())
-            .collect();
-        scopes.extend(Vec::from(self.other_scopes.clone()));
-        scopes
     }
 }
 
@@ -214,13 +194,6 @@ pub async fn client_registration<'a>(
                     </small>
                 }
             },
-            <label>
-                "Other scopes"
-                <textarea name="other_scopes" rows="2" aria-describedby="other-scopes-help">(settings.other_scopes.text())</textarea>
-            </label>
-            <small class="field-help" id="other-scopes-help">
-                "Optional, one per line: scopes beyond the standard ones above, such as an API's."
-            </small>
             choice(
                 name: "trusted",
                 checked: settings.trusted.0,
@@ -257,8 +230,8 @@ pub struct ClientPage<'a> {
     pub client: ClientRow<'a>,
     /// Whether it skips the consent screen.
     pub trusted: bool,
-    /// The audiences it may request tokens for.
-    pub audiences: &'a [String],
+    /// The resources it may request tokens for, beside itself.
+    pub resources: &'a [ClientResource],
     /// The account that manages it, and its page; none for operators'.
     pub owner: Option<(UserId, String)>,
     /// When it was registered.
@@ -510,7 +483,13 @@ async fn client_facts<'a>(
                 }
             </dd>
             <dt>"Scopes"</dt><dd><code>(client.allowed_scopes.join(" "))</code></dd>
-            <dt>"Audiences"</dt><dd><code>(page.audiences.join(" "))</code></dd>
+            <dt>"Resources"</dt>
+            <dd>
+                for access in page.resources {
+                    <div><code>(access.resource.as_str())</code>": "<code>(access.scopes.join(" "))</code></div>
+                }
+                if page.resources.is_empty() { "None" }
+            </dd>
             <dt>"Grant types"</dt>
             <dd><code>(client.grant_types.iter().map(|grant| grant.as_str()).collect::<Vec<_>>().join(" "))</code></dd>
             <dt>"Pushed requests"</dt><dd>(if client.require_pushed_authorization_requests { "Required" } else { "Optional" })</dd>

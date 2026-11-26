@@ -3,7 +3,7 @@
 use super::UserRef;
 use crate::{
     ClientRegistryError, KeyError, deletion::DeletionError, handles::HandlesError,
-    security::ApiError,
+    resources::ResourceRegistryError, security::ApiError,
 };
 use sourceorigin_common::{
     DeliveryId, PasskeyId,
@@ -195,6 +195,9 @@ pub(crate) enum AdminError {
     /// A client change was refused or failed.
     #[error(transparent)]
     Client(#[from] ClientRegistryError),
+    /// A change to a resource was refused or failed.
+    #[error(transparent)]
+    Resource(#[from] ResourceRegistryError),
     /// Deleting, restoring or purging the account was refused or failed.
     #[error(transparent)]
     Deletion(#[from] DeletionError),
@@ -276,6 +279,7 @@ impl AdminError {
             Self::AnnouncementChanged => "announcement_changed",
             Self::Database(_) => "database",
             Self::Client(_) => "client",
+            Self::Resource(_) => "resource",
             Self::Deletion(_) => "deletion",
             Self::Crypto(_) => "crypto",
             Self::Event(_) => "event",
@@ -369,6 +373,7 @@ impl From<AdminError> for ApiError {
                 error.into()
             }
             AdminError::Client(error) => error.for_operators(),
+            AdminError::Resource(error) => error.into(),
             AdminError::Deletion(error) => error.into(),
             error @ (AdminError::Crypto(_)
             | AdminError::Event(_)

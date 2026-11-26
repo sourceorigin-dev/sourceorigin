@@ -53,6 +53,8 @@ mod passkey;
 mod pictures;
 /// Account recovery for owners who lost every passkey.
 mod recovery;
+/// APIs registered as resources: their scopes, and the clients they admit.
+mod resources;
 /// Every HTTP path the service serves.
 mod routes;
 /// Shared browser-session extraction and HTTP trust policy.

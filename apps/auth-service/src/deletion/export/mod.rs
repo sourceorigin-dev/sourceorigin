@@ -16,7 +16,7 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 use serde_json::Value;
 use sourceorigin_common::admin::{
-    self, ApprovedOrigin, Consent, DashboardSession, KnownDevice, RecoveryState,
+    self, ApprovedOrigin, Consent, DashboardSession, KnownDevice, RecoveryState, ResourceDetail,
 };
 use sourceorigin_common::{
     AccountStatus, ClientId, ErrorChain, Handle, PasskeyId, PictureId, RecoveryId, SessionId,
@@ -121,6 +121,9 @@ struct Records {
     /// console shows them, with their related origins: a deleted one keeps only
     /// its ID, settings and dates.
     clients: Vec<Client>,
+    /// The APIs the account registered as resources, by identifier, each with
+    /// the scopes it defines and the clients it admits.
+    resources: Vec<ResourceDetail>,
     /// The recoveries support started for the account, newest first.
     recoveries: Vec<Recovery>,
     /// The inbox, newest first, with when each notification was read.
@@ -436,6 +439,10 @@ impl AccountExport {
             .filter(|client| client.owner_id == Some(user_id))
             .map(|client| Client::new(client, &origins))
             .collect();
+        let mut resources = Vec::new();
+        for resource in tx.resources().list(Some(user_id)).await? {
+            resources.extend(tx.resources().detail(resource.id).await?);
+        }
         let dashboard = tx.exports().dashboard_sessions(user_id).await?;
         let records = Records {
             format: FORMAT,
@@ -476,6 +483,7 @@ impl AccountExport {
                 .map(Recovery::from)
                 .collect(),
             clients,
+            resources,
             notifications: (tx.exports().notifications(user_id).await?)
                 .into_iter()
                 .map(Notification::from)

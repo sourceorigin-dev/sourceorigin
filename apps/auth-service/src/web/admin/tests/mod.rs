@@ -39,6 +39,7 @@ mod announcements;
 mod clients;
 mod frame;
 mod operations;
+mod resources;
 mod sessions;
 
 /// The dashboard's origin in these scenarios.

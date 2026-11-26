@@ -8,7 +8,7 @@ use sourceorigin_common::{
     AuthenticationMethod, ClientId, Personal, SessionId, TokenId, UserId,
     clients::{
         AllowedScopes, ClientKind, ClientOwner, ClientRegistration, GrantTypes, PostLogoutUris,
-        RedirectUris, RelatedOrigin, ScopeName,
+        RedirectUris, RelatedOrigin,
     },
     events::{Actor, DomainEvent, EventContext, InlineSignIn, RecordedOrigin, RequestOrigin},
     protocol::oauth::{GrantType, Interaction, Scope},
@@ -29,7 +29,7 @@ fn registration(kind: ClientKind, origin: &str) -> ClientRegistration {
             .expect("redirect URI")])
         .expect("one redirect"),
         post_logout_uris: PostLogoutUris::new([]).expect("no logout pages"),
-        allowed_scopes: AllowedScopes::new([ScopeName::from(Scope::OpenId)]).expect("scopes"),
+        allowed_scopes: AllowedScopes::new([Scope::OpenId]).expect("scopes"),
         grant_types: GrantTypes::new([GrantType::AuthorizationCode]).expect("grant types"),
         trusted: false,
         require_pushed_authorization_requests: false,
@@ -202,7 +202,7 @@ async fn public_client_origins_follow_registrations() {
         .expect("find")
         .expect("registered");
     assert_eq!(stored.redirect_uris, [format!("{second}/callback")]);
-    assert_eq!(stored.allowed_audiences, [client.id.to_string()]);
+    assert_eq!(stored.resources, []);
 
     assert!(
         oidc.set_client_enabled(&client.id, false)

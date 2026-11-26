@@ -34,6 +34,8 @@ sourceorigin_common::str_enum! {
         AuthorizationRequests = "authorization_requests",
         /// Digests of session cookies.
         BrowserSessionSecrets = "browser_session_secrets",
+        /// The resources each client may ask for tokens for.
+        ClientResourceAccess = "client_resource_access",
         /// Clients' related origins.
         ClientWebauthnOrigins = "client_webauthn_origins",
         /// Sign-ins to the admin dashboard in progress.
@@ -84,6 +86,10 @@ sourceorigin_common::str_enum! {
         RefreshTokenFamilies = "refresh_token_families",
         /// Digests of refresh tokens.
         RefreshTokens = "refresh_tokens",
+        /// The scopes each resource defines.
+        ResourceScopes = "resource_scopes",
+        /// APIs registered as resources.
+        Resources = "resources",
         /// Rate limit counters.
         RequestLimits = "request_limits",
         /// Handles administrators reserved.
@@ -142,6 +148,9 @@ impl Table {
             Self::OidcClients => Holds::Exported("clients"),
             Self::OidcRedirectUris => Holds::Exported("clients/*/redirect_uris"),
             Self::ClientWebauthnOrigins => Holds::Exported("clients/*/related_origins"),
+            Self::Resources => Holds::Exported("resources"),
+            Self::ResourceScopes => Holds::Exported("resources/*/scopes"),
+            Self::ClientResourceAccess => Holds::Exported("resources/*/access"),
             Self::AccountRecoveries => Holds::Exported("recoveries"),
             Self::DomainEvents => Holds::Exported("events"),
             Self::EventPersonalData => Holds::Exported("events/*/ip"),

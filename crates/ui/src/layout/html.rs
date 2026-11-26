@@ -30,6 +30,10 @@ pub enum Title {
     NewApp,
     /// One of the account's apps, when its name is unknown.
     App,
+    /// The APIs the account registered as resources.
+    Resources,
+    /// One of the account's resources, when its name is unknown.
+    Resource,
     /// Adding a passkey with a recovery link.
     Recover,
     /// Undoing or cancelling a recovery.
@@ -63,6 +67,8 @@ impl Title {
             Self::Developers => "Developers",
             Self::NewApp => "New app",
             Self::App => "App",
+            Self::Resources => "Your APIs",
+            Self::Resource => "API",
             Self::Recover => "Recover your account",
             Self::UndoRecovery => "Undo a recovery",
             Self::Dashboard => "Admin dashboard",

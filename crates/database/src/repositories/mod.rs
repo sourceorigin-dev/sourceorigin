@@ -117,6 +117,8 @@ repositories! {
     oidc: OidcRepository;
     /// Refresh token families and their redemption.
     tokens: TokenRepository;
+    /// APIs registered as resources, their scopes and the clients they admit.
+    resources: ResourceRepository;
     /// Social login transactions, pending signups and linked identities.
     federation: FederationRepository;
     /// Invitations and shared request rate limits.
@@ -514,6 +516,8 @@ pub(crate) mod passkeys;
 pub(crate) mod pictures;
 /// Account recoveries and their links.
 pub(crate) mod recoveries;
+/// APIs registered as resources, their scopes and the clients they admit.
+pub(crate) mod resources;
 /// Signup invitations and shared request budgets.
 pub(crate) mod security;
 /// Browser sessions, cookie digests and passkey confirmations.

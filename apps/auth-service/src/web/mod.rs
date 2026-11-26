@@ -185,38 +185,35 @@ impl WebApplication {
     }
 
     /// Each page's route, the handler showing it and the one submitting its form.
-    fn pages() -> [(&'static str, RouteHandlerFn, RouteHandlerFn); 28] {
-        use routes::page::{
-            ADMIN, CONSENT, DEVICE, LOGIN, LOGOUT, PREFERENCES, RECOVER, RECOVER_UNDO, REGISTER,
-            SIGN_OUT, UNSUBSCRIBE, settings::VERIFY,
-        };
+    fn pages() -> [(&'static str, RouteHandlerFn, RouteHandlerFn); 30] {
+        use routes::page;
         [
             page!(
-                LOGIN,
+                page::LOGIN,
                 SignInPage::Login.title(),
                 |cx| Self::sign_in(cx, SignInPage::Login),
                 |cx, body| Self::sign_in_change(cx, SignInPage::Login, body),
             ),
             page!(
-                REGISTER,
+                page::REGISTER,
                 SignInPage::Register.title(),
                 |cx| Self::sign_in(cx, SignInPage::Register),
                 |cx, body| Self::sign_in_change(cx, SignInPage::Register, body),
             ),
             page!(
-                CONSENT,
+                page::CONSENT,
                 Title::Consent.as_str(),
                 Self::consent,
                 Self::decide
             ),
             page!(
-                DEVICE,
+                page::DEVICE,
                 Title::DeviceCode.as_str(),
                 Self::device,
                 Self::decide_device
             ),
             page!(
-                LOGOUT,
+                page::LOGOUT,
                 Title::Logout.as_str(),
                 Self::logout,
                 Self::end_session
@@ -228,13 +225,13 @@ impl WebApplication {
                 Self::logout_form
             ),
             page!(
-                ADMIN,
+                page::ADMIN,
                 Title::Dashboard.as_str(),
                 Self::admin,
                 Self::admin_proof
             ),
             page!(
-                PREFERENCES,
+                page::PREFERENCES,
                 Title::Preferences.as_str(),
                 Self::preferences,
                 Self::prefer
@@ -246,7 +243,7 @@ impl WebApplication {
             Self::entry::<settings::Profile>(),
             Self::entry::<settings::Addresses>(),
             page!(
-                VERIFY,
+                page::settings::VERIFY,
                 Title::VerifyEmail.as_str(),
                 Self::verify,
                 Self::confirm_address,
@@ -260,26 +257,28 @@ impl WebApplication {
             Self::entry::<developers::Overview>(),
             Self::entry::<developers::AppSettings>(),
             Self::entry::<developers::AppSecrets>(),
+            Self::entry::<developers::Resources>(),
+            Self::entry::<developers::Resource>(),
             page!(
-                RECOVER,
+                page::RECOVER,
                 Title::Recover.as_str(),
                 Self::recover,
                 Self::recover_change,
             ),
             page!(
-                RECOVER_UNDO,
+                page::RECOVER_UNDO,
                 Title::UndoRecovery.as_str(),
                 Self::undo_recovery,
                 Self::undo_recovery_change,
             ),
             page!(
-                UNSUBSCRIBE,
+                page::UNSUBSCRIBE,
                 Title::Unsubscribe.as_str(),
                 Self::unsubscription,
                 Self::unsubscribe,
             ),
             page!(
-                SIGN_OUT,
+                page::SIGN_OUT,
                 Title::SignOut.as_str(),
                 Self::sign_out_confirmation,
                 Self::sign_out_everywhere,

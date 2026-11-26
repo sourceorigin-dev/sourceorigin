@@ -279,6 +279,12 @@ impl AccountDeletionRepository<'_> {
             "DELETE FROM authorization_codes WHERE user_id = $1",
             "DELETE FROM authorization_requests WHERE hinted_user_id = $1",
             "DELETE FROM oidc_consents WHERE user_id = $1",
+            "UPDATE refresh_token_families f
+            SET revoked_at = now()
+            FROM resources r
+            WHERE r.owner_id = $1 AND f.audience = r.identifier AND f.revoked_at IS NULL",
+            "DELETE FROM oidc_consents c USING resources r
+            WHERE r.owner_id = $1 AND c.audience = r.identifier",
             "DELETE FROM sessions WHERE user_id = $1",
             "DELETE FROM administrators WHERE user_id = $1",
             "SELECT FROM announcements a

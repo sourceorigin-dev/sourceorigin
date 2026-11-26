@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO client_resource_access (client_id, resource_id, scopes)\n                VALUES ($1, $2, $3)\n                ON CONFLICT (client_id, resource_id) DO UPDATE SET scopes = EXCLUDED.scopes",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid",
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "02e268ae09d8fa08510ef18a906cae600642b434a5a4fa28a8b5be8764addcfe"
+}

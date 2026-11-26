@@ -1,7 +1,7 @@
 //! Transactional refresh-token families, their redemption and replay revocation.
 
 use super::{JsonArray, RepositoryExecutor, TokenRepository};
-use crate::{DatabaseError, SessionAuthentication};
+use crate::{DatabaseError, SessionAuthentication, StoredOidcClient};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use sourceorigin_common::{
@@ -389,6 +389,17 @@ impl TokenRepository<'_> {
         )
     }
 
+    /// Decodes the JSONB `column` of a grant, naming it if its `value` is invalid.
+    fn decode<T: serde::de::DeserializeOwned>(
+        column: &str,
+        value: serde_json::Value,
+    ) -> Result<T, DatabaseError> {
+        serde_json::from_value(value).map_err(|source| DatabaseError::InvalidStoredData {
+            column: column.into(),
+            source: source.into(),
+        })
+    }
+
     /// Redeems a refresh token, consuming it if `redemption` rotates it, and returns its grant.
     /// A consumed token revokes its family as a replay, unless it rotates, was consumed less than
     /// [`REFRESH_REUSE_SECONDS`] ago, and its successor is still unused: that refresh is answered
@@ -408,16 +419,6 @@ impl TokenRepository<'_> {
         client: &str,
         redemption: RefreshRedemption,
     ) -> Result<RedeemedRefreshToken, RefreshRedemptionError> {
-        /// Decodes a JSONB column of the grant, naming it if invalid.
-        fn decode<T: serde::de::DeserializeOwned>(
-            column: &str,
-            value: serde_json::Value,
-        ) -> Result<T, DatabaseError> {
-            serde_json::from_value(value).map_err(|source| DatabaseError::InvalidStoredData {
-                column: column.into(),
-                source: source.into(),
-            })
-        }
         self.lock_refresh(id, digests, client).await?;
         let row = run!(
             self,
@@ -428,7 +429,12 @@ impl TokenRepository<'_> {
                     f.user_id AS "user_id: UserId", f.client_id,
                     f.session_id AS "session_id: SessionId", f.audience, f.scopes,
                     f.authentication, c.grant_types ? $4 AS "refreshes!", c.allowed_scopes,
-                    c.allowed_audiences
+                    (
+                        SELECT a.scopes
+                        FROM client_resource_access a
+                        JOIN resources r ON r.id = a.resource_id
+                        WHERE a.client_id = f.client_id AND r.identifier = f.audience
+                    ) AS resource_scopes
                 FROM refresh_tokens t
                 JOIN refresh_token_families f ON f.id = t.family_id
                 JOIN oidc_clients c ON c.id = f.client_id
@@ -464,12 +470,23 @@ impl TokenRepository<'_> {
                 return Err(self.replay(user_id, family_id).await);
             }
         };
-        let strings = decode::<Vec<String>>;
+        let strings = Self::decode::<Vec<String>>;
         let scopes = strings("scopes", row.scopes)?;
         let allowed_scopes = strings("allowed_scopes", row.allowed_scopes)?;
+        let resource_scopes = row
+            .resource_scopes
+            .map(|scopes| strings("resource_scopes", scopes))
+            .transpose()?;
+        let grantable = StoredOidcClient::grantable(
+            &row.client_id,
+            &allowed_scopes,
+            resource_scopes.as_deref(),
+            &row.audience,
+        );
         let policy_valid = row.refreshes
-            && strings("allowed_audiences", row.allowed_audiences)?.contains(&row.audience)
-            && scopes.iter().all(|scope| allowed_scopes.contains(scope));
+            && grantable.is_some_and(|allowed| {
+                scopes.iter().all(|scope| allowed.contains(&scope.as_str()))
+            });
         if !policy_valid {
             self.revoke_family(family_id).await?;
             return Err(RefreshRedemptionError::Policy { user_id, family_id });
@@ -493,7 +510,7 @@ impl TokenRepository<'_> {
             session_id: row.session_id,
             audience: row.audience,
             scopes,
-            authentication: decode("authentication", row.authentication)?,
+            authentication: Self::decode("authentication", row.authentication)?,
             outcome,
         })
     }

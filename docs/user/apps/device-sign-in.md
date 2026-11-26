@@ -34,6 +34,9 @@ curl https://auth.sourceorigin.dev/oauth/device_authorization \
     -d scope="openid profile offline_access"
 ```
 
+For tokens for an [API you registered](apis.md), add its identifier as
+`resource`, with the scopes of it you need.
+
 Origin Auth answers with two codes:
 
 ```json

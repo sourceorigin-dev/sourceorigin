@@ -22,7 +22,7 @@ overrides with actionable `DatabaseConnectionError` variants. TCP requires
 `sslmode=verify-full` or explicit `sslmode=disable`; local Unix sockets use an
 absolute `host` path with `localhost` in the URL. Parser failures retain their
 sources. Client registrations are written only from a `ClientRegistration`, whose
-field types (`ClientId`, `RedirectUri`, `ScopeName`, bounded lists) reject invalid
+field types (`ClientId`, `RedirectUri`, `ResourceIdentifier`, bounded lists) reject invalid
 values before any SQL runs.
 
 ## Repositories and queries

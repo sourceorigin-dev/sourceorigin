@@ -13,10 +13,10 @@ use chrono::{DateTime, Duration, Utc};
 use serde::Serialize;
 use sourceorigin_common::{
     ClientId, ClientSecretId, UserId,
-    admin::{ApprovedOrigin, Client, ClientDetail, SecretLifetime},
+    admin::{ApprovedOrigin, Client, ClientDetail, ClientResource, SecretLifetime},
     clients::{
         BackchannelLogoutUri, ClientField, ClientKind, ClientOwner, ClientRegistration,
-        RedirectUri, RelatedOrigin, ScopeName,
+        RedirectUri, RelatedOrigin,
     },
     protocol::oauth::GrantType,
 };
@@ -38,10 +38,11 @@ pub struct StoredOidcClient {
     pub redirect_uris: Vec<String>,
     /// Exact allowed post-logout redirect URIs.
     pub post_logout_uris: Vec<String>,
-    /// Scopes the client may request.
+    /// The scopes auth itself defines that the client may request.
     pub allowed_scopes: Vec<String>,
-    /// Audiences the client may request tokens for: its own ID, until #71.
-    pub allowed_audiences: Vec<String>,
+    /// The resources the client may request tokens for, beside itself, each with
+    /// the scopes of the resource it may request.
+    pub resources: Vec<ClientResource>,
     /// The grants the client may use at the token endpoint.
     pub grant_types: Vec<GrantType>,
     /// Disabled clients are rejected everywhere.
@@ -93,11 +94,7 @@ impl StoredOidcClient {
             given.sort_unstable();
             stored == given
         };
-        let scopes: Vec<&str> = registration
-            .allowed_scopes
-            .iter()
-            .map(ScopeName::as_str)
-            .collect();
+        let scopes = OidcRepository::scopes(registration);
         [
             (
                 ClientField::DisplayName,
@@ -144,6 +141,40 @@ impl StoredOidcClient {
     }
 }
 
+impl StoredOidcClient {
+    /// The scopes a grant of this client for `audience` may hold, or `None` when
+    /// the client may not ask for tokens for `audience`. Its own ID is an
+    /// audience it may always ask for, with the scopes auth defines; a resource
+    /// is one once the client has access to it, which adds the resource's scopes
+    /// it may request.
+    #[must_use]
+    pub fn scopes_for(&self, audience: &str) -> Option<Vec<&str>> {
+        let resource = self
+            .resources
+            .iter()
+            .find(|access| access.resource == audience)
+            .map(|access| access.scopes.as_slice());
+        Self::grantable(self.id.as_str(), &self.allowed_scopes, resource, audience)
+    }
+
+    /// [`Self::scopes_for`], from the columns of a client `id`: the scopes auth
+    /// defines that it may request, `allowed`, and the scopes it may request of
+    /// the resource `audience` names, `resource`, if it has access to one.
+    pub(crate) fn grantable<'a>(
+        id: &str,
+        allowed: &'a [String],
+        resource: Option<&'a [String]>,
+        audience: &str,
+    ) -> Option<Vec<&'a str>> {
+        let resource = match resource {
+            Some(scopes) => scopes,
+            None if audience == id => &[],
+            None => return None,
+        };
+        Some(allowed.iter().chain(resource).map(String::as_str).collect())
+    }
+}
+
 impl From<StoredOidcClient> for Client {
     /// Shows the client without its secrets, only the authentication method its kind implies.
     fn from(client: StoredOidcClient) -> Self {
@@ -154,7 +185,7 @@ impl From<StoredOidcClient> for Client {
             redirect_uris: client.redirect_uris,
             post_logout_uris: client.post_logout_uris,
             allowed_scopes: client.allowed_scopes,
-            allowed_audiences: client.allowed_audiences,
+            resources: client.resources,
             grant_types: client.grant_types,
             enabled: client.enabled,
             trusted: client.trusted,
@@ -242,12 +273,10 @@ impl OidcRepository<'_> {
             sqlx::query!(
                 "WITH client AS (
                     INSERT INTO oidc_clients (
-                        id, display_name, client_type, allowed_scopes, allowed_audiences,
+                        id, display_name, client_type, allowed_scopes,
                         grant_types, trusted, owner_id, created_via,
                         require_pushed_authorization_requests, backchannel_logout_uri
-                    ) VALUES (
-                        $1, $2, $3, $4, jsonb_build_array($1::text), $5, $6, $7, $8, $12, $13
-                    )
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $12, $13)
                     RETURNING id
                 )
                 INSERT INTO oidc_redirect_uris (client_id, uri, kind, origin)
@@ -339,11 +368,11 @@ impl OidcRepository<'_> {
     }
 
     /// The allowed scopes as stored, a JSON array of strings.
-    fn scopes(registration: &ClientRegistration) -> Vec<&str> {
+    fn scopes(registration: &ClientRegistration) -> Vec<&'static str> {
         registration
             .allowed_scopes
             .iter()
-            .map(ScopeName::as_str)
+            .map(|scope| scope.as_str())
             .collect()
     }
 
@@ -374,7 +403,7 @@ impl OidcRepository<'_> {
     }
 
     /// Deletes a client, leaving its row as a tombstone so its ID is never reused: disables it,
-    /// revokes its refresh families, and removes its secrets, consents and, by triggers, its
+    /// revokes its refresh families, and removes its secrets, consents, access to resources and, by triggers, its
     /// related origins, name, redirect URIs and back-channel logout URI. Pending authorization
     /// requests and codes stop working. The caller locks the client's families first, as
     /// [`TokenRepository::lock_client_families`](crate::TokenRepository::lock_client_families)
@@ -400,6 +429,10 @@ impl OidcRepository<'_> {
                 ),
                 consents AS (
                     DELETE FROM oidc_consents c USING client WHERE c.client_id = client.id
+                ),
+                access AS (
+                    DELETE FROM client_resource_access a USING client
+                    WHERE a.client_id = client.id
                 ),
                 families AS (
                     UPDATE refresh_token_families f
@@ -594,7 +627,18 @@ impl OidcRepository<'_> {
                     c.owner_id AS "owner_id: UserId", c.last_used_at, c.deleted_at,
                     c.suspended_at,
                     c.allowed_scopes AS "allowed_scopes: JsonArray<String>",
-                    c.allowed_audiences AS "allowed_audiences: JsonArray<String>",
+                    (
+                        SELECT COALESCE(
+                            jsonb_agg(
+                                jsonb_build_object('resource', api.identifier, 'scopes', a.scopes)
+                                ORDER BY api.identifier
+                            ),
+                            '[]'
+                        )
+                        FROM client_resource_access a
+                        JOIN resources api ON api.id = a.resource_id
+                        WHERE a.client_id = c.id
+                    ) AS "resources!: JsonArray<ClientResource>",
                     COALESCE(
                         jsonb_agg(r.uri ORDER BY r.uri) FILTER (WHERE r.kind = 'authorization'),
                         '[]'::jsonb

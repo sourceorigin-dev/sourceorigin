@@ -140,6 +140,7 @@ impl<'a> From<&'a ConnectedApp> for ConnectedAppRow<'a> {
             name: &app.name,
             first_party: app.first_party,
             scopes: &app.scopes,
+            resources: &app.resources,
             offline: app.offline,
         }
     }

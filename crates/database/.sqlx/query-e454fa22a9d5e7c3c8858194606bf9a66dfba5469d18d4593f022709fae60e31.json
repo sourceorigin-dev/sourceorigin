@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH deleted AS (\n                    DELETE FROM resources WHERE id = $1 RETURNING identifier\n                ),\n                families AS (\n                    UPDATE refresh_token_families f\n                    SET revoked_at = now()\n                    FROM deleted\n                    WHERE f.audience = deleted.identifier AND f.revoked_at IS NULL\n                ),\n                consents AS (\n                    DELETE FROM oidc_consents c USING deleted\n                    WHERE c.audience = deleted.identifier\n                )\n                SELECT identifier FROM deleted",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "identifier",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "e454fa22a9d5e7c3c8858194606bf9a66dfba5469d18d4593f022709fae60e31"
+}

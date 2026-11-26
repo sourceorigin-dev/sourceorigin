@@ -1,5 +1,6 @@
 //! Each registration field's rules at their bounds, and the errors naming them.
 use super::*;
+use crate::protocol::resource::ResourceScope;
 
 /// Client IDs accept the identifier alphabet up to 64 bytes, and serde enforces it.
 #[test]
@@ -136,7 +137,8 @@ fn related_origins_are_bare_https_domain_origins() {
         .expect_err("should be rejected");
 }
 
-/// Display names are nonblank and count characters, not bytes; scopes are tokens.
+/// Display names are nonblank and count characters, not bytes; an API's scopes are
+/// tokens, and none of auth's own.
 #[test]
 fn names_and_scopes_are_bounded() {
     "é".repeat(80)
@@ -153,18 +155,18 @@ fn names_and_scopes_are_bounded() {
         ("notes:read", true),
         ("", false),
         ("two words", false),
+        ("openid", false),
         (&"s".repeat(64), true),
         (&"s".repeat(65), false),
     ] {
-        assert_eq!(value.parse::<ScopeName>().is_ok(), valid, "{value}");
+        assert_eq!(value.parse::<ResourceScope>().is_ok(), valid, "{value}");
     }
 }
 
 /// Bounded lists drop repeats before counting them.
 #[test]
 fn bounded_lists_count_distinct_values() {
-    let scopes = AllowedScopes::new([Scope::OpenId, Scope::OpenId].map(ScopeName::from))
-        .expect("one distinct scope");
+    let scopes = AllowedScopes::new([Scope::OpenId, Scope::OpenId]).expect("one distinct scope");
     assert_eq!(scopes.len(), 1);
     assert_eq!(
         RedirectUris::new([]),

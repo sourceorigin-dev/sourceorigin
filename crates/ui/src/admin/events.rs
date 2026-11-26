@@ -391,6 +391,27 @@ impl EventRow<'_> {
                 "earlier secrets work until",
                 previous_expire_at.to_rfc3339(),
             ),
+            DomainEvent::ResourceRegistered { resource_id } => {
+                Description::new("Resource registered").with("resource", resource_id)
+            }
+            DomainEvent::ResourceUpdated { resource_id } => {
+                Description::new("Resource changed").with("resource", resource_id)
+            }
+            DomainEvent::ResourceDeleted { resource_id } => {
+                Description::new("Resource deleted").with("resource", resource_id)
+            }
+            DomainEvent::ResourceAccessGranted {
+                resource_id,
+                client_id,
+                scopes,
+            } => Description::new(format!("Client {client_id} given access to a resource"))
+                .with("resource", resource_id)
+                .with("scopes", scopes.join(" ")),
+            DomainEvent::ResourceAccessRevoked {
+                resource_id,
+                client_id,
+            } => Description::new(format!("Client {client_id} lost access to a resource"))
+                .with("resource", resource_id),
             DomainEvent::RecoveryStarted {
                 recovery_id,
                 expires_at,

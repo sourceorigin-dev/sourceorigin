@@ -4,10 +4,10 @@ use super::{Audience, Part};
 use crate::{
     form::{Query, change_form, open},
     layout::page_head,
-    oidc::scope_label,
+    oidc::{resource_label, scope_label},
 };
 use serde::{Deserialize, Serialize};
-use sourceorigin_common::ClientId;
+use sourceorigin_common::{ClientId, admin::GrantedResource};
 use topcoat::{
     Result,
     view::{View, component, view},
@@ -46,6 +46,8 @@ pub struct ConnectedAppRow<'a> {
     pub first_party: bool,
     /// What it can read.
     pub scopes: &'a [String],
+    /// The APIs it can use as the account, each with what it can do there.
+    pub resources: &'a [GrantedResource],
     /// Whether it can act while the user is away.
     pub offline: bool,
 }
@@ -131,6 +133,9 @@ async fn app_row<'a>(
                     " " <span class="badge">"Made by SourceOrigin"</span>
                 }
                 <small>(format!("Sees: {}", sees.join(", ")))</small>
+                for resource in row.resources {
+                    <small>(resource_label(resource))</small>
+                }
                 <small>(away)</small>
             </div>
             if removing {

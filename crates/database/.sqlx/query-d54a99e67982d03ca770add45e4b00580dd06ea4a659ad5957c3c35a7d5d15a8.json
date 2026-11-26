@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH client AS (\n            INSERT INTO oidc_clients (id, display_name, allowed_scopes) VALUES ($1, 'API test', '[]')\n        ), session AS (\n            INSERT INTO sessions (\n                id, user_id, authentication_methods, authenticated_at, expires_at, last_seen_at\n            ) VALUES ($3, $2, '[]', now(), now() + interval '1 day', now())\n        ), consent AS (\n            INSERT INTO oidc_consents (user_id, client_id, audience, scopes)\n            VALUES ($2, $1, $5, '[]')\n        )\n        INSERT INTO refresh_token_families (\n            id, user_id, client_id, session_id, audience, scopes, authentication\n        ) VALUES ($4, $2, $1, $3, $5, '[]', '{}')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d54a99e67982d03ca770add45e4b00580dd06ea4a659ad5957c3c35a7d5d15a8"
+}

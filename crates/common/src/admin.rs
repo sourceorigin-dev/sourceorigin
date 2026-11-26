@@ -11,7 +11,8 @@ pub use crate::protocol::api::{Identity, Passkey};
 pub use crate::user_agent::{Browser, Platform, UserAgentFamily};
 use crate::{
     AccountStatus, AnnouncementId, AuthenticationMethod, ClientId, ClientSecretId, DeliveryId,
-    EventId, Handle, PasskeyId, PictureId, RecoveryId, SessionId, TokenId, TraceId, UserId,
+    EventId, Handle, PasskeyId, PictureId, RecoveryId, ResourceId, SessionId, TokenId, TraceId,
+    UserId,
     clients::{ClientKind, ClientStatus, RelatedOrigin},
     protocol::{
         jwt::KeyId,
@@ -346,6 +347,79 @@ pub enum InvitationSent {
     Mailed(String),
 }
 
+/// An API registered as a resource (RFC 8707): what access tokens are issued
+/// for, under its identifier.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Resource {
+    /// Its ID, which never changes or comes back.
+    pub id: ResourceId,
+    /// Its identifier, an absolute https URI: the `aud` of its tokens.
+    pub identifier: String,
+    /// The name consent screens show.
+    pub display_name: String,
+    /// The account that manages it; `None` for one operators manage.
+    pub owner_id: Option<UserId>,
+    /// When it was registered.
+    pub created_at: DateTime<Utc>,
+    /// When its name or scopes last changed.
+    pub updated_at: DateTime<Utc>,
+}
+
+/// A scope a resource defines, with what the consent page says of it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ScopeDefinition {
+    /// The scope, as clients request it.
+    pub name: String,
+    /// What it lets a client do, in the user's words.
+    pub description: String,
+}
+
+/// What an account let a client do with a resource: the resource, and the scopes
+/// of it the client asked for, each as the consent page describes it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GrantedResource {
+    /// The resource's identifier, the audience of the client's tokens for it.
+    pub identifier: String,
+    /// The name its owner gave it.
+    pub display_name: String,
+    /// The scopes of it the client asked for, by name.
+    pub scopes: Vec<ScopeDefinition>,
+}
+
+/// A client's access to a resource: the scopes of the resource it may request.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ResourceAccess {
+    /// The client.
+    pub client_id: ClientId,
+    /// The client's consent-screen name; empty once it is deleted.
+    pub client_name: String,
+    /// The scopes of the resource the client may request.
+    pub scopes: Vec<String>,
+    /// When the access was first granted.
+    pub granted_at: DateTime<Utc>,
+}
+
+/// A resource with its scopes and the clients it admits.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ResourceDetail {
+    /// The resource.
+    #[serde(flatten)]
+    pub resource: Resource,
+    /// The scopes it defines, by name.
+    pub scopes: Vec<ScopeDefinition>,
+    /// The clients that may ask for its tokens, by client ID.
+    pub access: Vec<ResourceAccess>,
+}
+
+/// A resource a client may ask for tokens for, with the scopes it may request.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClientResource {
+    /// The resource's identifier.
+    pub resource: String,
+    /// The scopes of the resource the client may request.
+    pub scopes: Vec<String>,
+}
+
 /// An OIDC client: everything but its secret.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Client {
@@ -359,8 +433,9 @@ pub struct Client {
     pub post_logout_uris: Vec<String>,
     /// Scopes it may request.
     pub allowed_scopes: Vec<String>,
-    /// Audiences it may request tokens for.
-    pub allowed_audiences: Vec<String>,
+    /// The resources it may request tokens for, beside itself, by identifier.
+    #[serde(default)]
+    pub resources: Vec<ClientResource>,
     /// The grants it may use at the token endpoint, under their RFC 7591 name.
     pub grant_types: Vec<GrantType>,
     /// Whether it is usable.

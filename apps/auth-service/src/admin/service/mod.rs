@@ -17,6 +17,8 @@ mod events;
 mod keys;
 /// Recovering an account whose owner lost every passkey, and undoing it.
 mod recovery;
+/// APIs registered as resources, their scopes and the clients they admit.
+mod resources;
 
 pub(crate) use alerts::ALERTS_SHOWN;
 

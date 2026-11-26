@@ -36,8 +36,9 @@ pub(in crate::oidc) struct AuthorizationParameters {
     code_challenge: Option<String>,
     /// Must be `S256` when `code_challenge` is sent.
     code_challenge_method: Option<String>,
-    /// Resource the access token is for; defaults to the client's first audience.
-    audience: Option<String>,
+    /// The resource the access token is for (RFC 8707); the client itself when
+    /// absent.
+    resource: Option<String>,
     /// Space-separated [`Prompt`] values.
     pub(super) prompt: Option<String>,
     /// Maximum seconds since sign-in; zero forces a fresh sign-in.
@@ -83,8 +84,7 @@ impl AuthorizationParameters {
         Self::grant(client)?;
         let pkce_challenge = self.pkce(client)?;
         self.state()?;
-        let scopes = Scopes::requested(&self.scope, client)?;
-        let audience = self.audience(client)?;
+        let (audience, scopes) = Scopes::requested(&self.scope, self.resource.as_deref(), client)?;
         self.nonce()?;
         self.max_age()?;
         let interaction = self.interaction()?;
@@ -232,18 +232,6 @@ impl AuthorizationParameters {
                 .reject("code_challenge must be a base64url SHA-256 digest, 43 characters long"));
         }
         Ok(Some(challenge.clone()))
-    }
-
-    /// The resource the access token is for: the one asked for, or `client`'s
-    /// first audience, which must be registered for it.
-    fn audience(&self, client: &StoredOidcClient) -> Result<String, OAuthError> {
-        self.audience
-            .clone()
-            .or_else(|| client.allowed_audiences.first().cloned())
-            .filter(|audience| client.allowed_audiences.contains(audience))
-            .ok_or_else(|| {
-                OAuthCode::InvalidTarget.reject("audience is not registered for this client")
-            })
     }
 
     /// Bounds `nonce`, which comes back in the ID token.

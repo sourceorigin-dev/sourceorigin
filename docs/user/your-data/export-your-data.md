@@ -40,6 +40,8 @@ downloaded".
 - the apps you gave access to, with what each may read, and their access
   grants,
 - the apps you registered in the developer console, deleted ones included,
+- the APIs you registered there, with their scopes and the apps you gave access
+  to them,
 - the recoveries support started for your account,
 - your notifications, with which kinds you receive by email, and the
   announcements you received,
