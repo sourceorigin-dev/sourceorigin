@@ -205,6 +205,26 @@ include `openid`, with the request's nonce. Both last five minutes
 session's current one. `sourceorigin.auth.tokens.issued{grant_type, token_type}` counts
 them once the transaction commits.
 
+### Client credentials
+
+`client_credentials` (`token.rs`) issues a confidential client a token for
+itself: for the resource it names, or its only one, with the scopes of it the
+client was granted. Nothing is read beyond the client the endpoint just
+authenticated, whose row carries its resources, and nothing is stored or
+recorded: the grant is the client's access to the resource, which granting it
+recorded. The counter above counts the tokens, by `grant_type`; a client or a
+resource can't be a label.
+
+`AccessGrant` builds the claims every access token has: client, audience,
+scopes and times, with the subject it is given and no session, authentication
+or profile. A user's grant (`TokenGrant::issue`) adds those; the client's own
+token uses the claims as they are, with the client's ID as `sub` (RFC 9068
+§2.2), so it can't carry a user's.
+
+Only a confidential client may be registered with the grant:
+`ClientKind::grant_types` refuses it for a public one, and a `CHECK` on
+`oidc_clients` holds it for every writer.
+
 ### Refresh families
 
 A refresh token is issued only when the client's grant types include

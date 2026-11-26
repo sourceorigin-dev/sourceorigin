@@ -10,7 +10,10 @@ use axum::{
     response::Response,
 };
 use base64::Engine;
-use sourceorigin_common::clients::AllowedScopes;
+use sourceorigin_common::{
+    clients::{AllowedScopes, GrantTypes},
+    protocol::oauth::GrantType,
+};
 use sourceorigin_crypto::Secret;
 use tower::ServiceExt;
 
@@ -411,4 +414,29 @@ async fn the_quota_holds_under_concurrent_registrations() {
             ));
         }
     }
+}
+
+/// The database refuses a public client the client credentials grant, whoever
+/// writes it: a registration built past `ClientKind::grant_types` is not stored.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL"]
+async fn the_database_keeps_client_credentials_to_confidential_clients() {
+    let database = Replicas::database().await;
+    let own = GrantTypes::new([GrantType::AuthorizationCode, GrantType::ClientCredentials]);
+    let own = own.expect("grants");
+    let public = ClientRegistration {
+        grant_types: own.clone(),
+        ..registration(ClientKind::Public, "https://public.example")
+    };
+    let refused = register(&database, &public).await;
+    assert!(
+        matches!(refused, Err(ClientRegistryError::Database(_))),
+        "{refused:?}"
+    );
+    let confidential = ClientRegistration {
+        grant_types: own,
+        ..registration(ClientKind::Confidential, "https://service.example")
+    };
+    let secret = register(&database, &confidential).await.expect("register");
+    assert!(secret.is_some());
 }

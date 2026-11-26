@@ -4,7 +4,7 @@ use crate::{
     AdminError, ClientRegistryError, KeyError, StartupError, UserRef, account::AccountError,
 };
 use sourceorigin_common::{
-    clients::{InvalidCount, InvalidDisplayName, InvalidRedirectUri},
+    clients::{InvalidCount, InvalidDisplayName, InvalidGrantTypes, InvalidRedirectUri},
     config::{ConfigurationError, SecretError},
 };
 use sourceorigin_crypto::CryptoError;
@@ -83,6 +83,9 @@ pub(super) enum CliError {
         #[source]
         source: InvalidCount,
     },
+    /// The grant types are none, or one the client's kind may not have.
+    #[error("invalid grant types")]
+    GrantTypes(#[from] InvalidGrantTypes),
     /// The secret given with `--secret` could not be read.
     #[error("could not read the client secret given with --secret")]
     SecretUnreadable(#[from] SecretError),

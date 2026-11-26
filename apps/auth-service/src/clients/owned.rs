@@ -19,8 +19,8 @@ use sourceorigin_common::{
     ClientId,
     admin::{ClientResource, SecretLifetime},
     clients::{
-        AllowedScopes, ClientField, ClientKind, ClientOwner, ClientRegistration, GrantTypes,
-        PostLogoutUris, RedirectUri, RedirectUris,
+        AllowedScopes, ClientField, ClientKind, ClientOwner, ClientRegistration, PostLogoutUris,
+        RedirectUri, RedirectUris,
     },
     protocol::oauth::{GrantType, Scope},
 };
@@ -204,7 +204,8 @@ impl ClientSettings {
             .map_err(InvalidSetting::with(ClientField::PostLogoutUris))?,
             allowed_scopes: AllowedScopes::new(self.allowed_scopes)
                 .map_err(InvalidSetting::with(ClientField::AllowedScopes))?,
-            grant_types: GrantTypes::new(self.grant_types)
+            grant_types: kind
+                .grant_types(self.grant_types)
                 .map_err(InvalidSetting::with(ClientField::GrantTypes))?,
             trusted,
             require_pushed_authorization_requests: self.require_pushed_authorization_requests,

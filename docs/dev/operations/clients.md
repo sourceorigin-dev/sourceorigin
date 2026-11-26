@@ -42,6 +42,16 @@ auth-service client create notes-cli --name "Notes CLI" --reason "Notes' command
     --grant-type urn:ietf:params:oauth:grant-type:device_code --grant-type refresh_token
 ```
 
+A worker, which calls an API as itself:
+
+```sh
+auth-service client create notes-worker --name "Notes worker" --confidential --reason "Notes' worker" \
+    --redirect-uri https://notes.example/callback --grant-type client_credentials
+auth-service resource grant notes-worker https://notes.sourceorigin.dev/api --scope notes:read --reason "Notes' worker"
+```
+
+Every client lists a redirect URI, even one that signs nobody in.
+
 For a confidential client, the command prints its secret once: store it in the
 app's configuration straight away.
 
@@ -170,12 +180,16 @@ sign-in**. See [passkey sign-in on your own pages](../../user/apps/passkey-sign-
   with its [access to the API](#apis).
 - **Grant types** (`--grant-type`, once per grant) are the grants the client
   may use at the token endpoint, which RFC 7591 calls its `grant_types`:
-  `authorization_code`, `refresh_token` and
-  `urn:ietf:params:oauth:grant-type:device_code`. A client starts an
+  `authorization_code`, `refresh_token`,
+  `urn:ietf:params:oauth:grant-type:device_code` and `client_credentials`. A client starts an
   authorization and redeems its code only with `authorization_code`. With
   `refresh_token`, it receives refresh tokens when it also requests
   `offline_access`. With the device grant, it signs devices without a browser
-  in ([signing in on a device](../../user/apps/device-sign-in.md)). A public
+  in ([signing in on a device](../../user/apps/device-sign-in.md)). With
+  `client_credentials`, a confidential client gets tokens for itself, with no
+  user, for the [APIs](#apis) it has access to
+  ([calling an API as your app](../../user/apps/service-tokens.md)); a public
+  client is refused it. A public
   client defaults to `authorization_code` alone, and a confidential one to
   both. Naming any replaces the list, so name every grant the client keeps.
   The dashboard's and the developer console's forms start with the same

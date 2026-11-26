@@ -103,6 +103,39 @@ impl ClientKind {
             Self::Confidential => &[GrantType::AuthorizationCode, GrantType::RefreshToken],
         }
     }
+
+    /// The grants a client of this kind is registered with, from `grants`: at
+    /// least one, each once.
+    ///
+    /// # Errors
+    /// Fails if there are none, or if a public client is given
+    /// [`GrantType::ClientCredentials`]: it has no credentials of its own to
+    /// present, so anyone knowing its ID would get its tokens.
+    pub fn grant_types(
+        self,
+        grants: impl IntoIterator<Item = GrantType>,
+    ) -> Result<GrantTypes, InvalidGrantTypes> {
+        let grants = GrantTypes::new(grants)?;
+        match self {
+            Self::Public if grants.contains(&GrantType::ClientCredentials) => {
+                Err(InvalidGrantTypes::Confidential)
+            }
+            Self::Public | Self::Confidential => Ok(grants),
+        }
+    }
+}
+
+/// Grant types a client of its kind may not be registered with.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Error)]
+pub enum InvalidGrantTypes {
+    /// There are none, or more than there are grants.
+    #[error(transparent)]
+    Count(#[from] InvalidCount),
+    /// A public client was given the client credentials grant.
+    #[error(
+        "only an app with a backend, which keeps a secret, may use the client_credentials grant"
+    )]
+    Confidential,
 }
 
 /// Who manages a client, fixed when it is registered.

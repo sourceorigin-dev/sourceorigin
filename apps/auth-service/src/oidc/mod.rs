@@ -495,6 +495,17 @@ impl OidcApplication {
         }))
     }
 
+    /// Requires `client` to be registered for `grant`, the grant its request
+    /// uses or starts (`unauthorized_client`, RFC 6749 §5.2).
+    fn registered_for(client: &StoredOidcClient, grant: GrantType) -> Result<(), OAuthError> {
+        if client.grant_types.contains(&grant) {
+            return Ok(());
+        }
+        Err(OAuthCode::UnauthorizedClient.reject(format!(
+            "this client is not registered for the {grant} grant"
+        )))
+    }
+
     /// Authenticates the client at the token, revocation, pushed authorization
     /// and device authorization endpoints: public clients by ID alone, confidential clients with HTTP Basic.
     /// A `client_id` form field, when sent, must name the same client. A client

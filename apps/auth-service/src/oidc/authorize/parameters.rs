@@ -81,7 +81,7 @@ impl AuthorizationParameters {
         self.supported()?;
         let hinted_user_id = self.hinted_user_id(app, client)?;
         self.response_type()?;
-        Self::grant(client)?;
+        OidcApplication::registered_for(client, GrantType::AuthorizationCode)?;
         let pkce_challenge = self.pkce(client)?;
         self.state()?;
         let (audience, scopes) = Scopes::requested(&self.scope, self.resource.as_deref(), client)?;
@@ -171,18 +171,6 @@ impl AuthorizationParameters {
             })? {
             ResponseType::Code => Ok(()),
         }
-    }
-
-    /// Requires `client` to be registered for the authorization code grant, the
-    /// only one a code is redeemed with.
-    fn grant(client: &StoredOidcClient) -> Result<(), OAuthError> {
-        if client.grant_types.contains(&GrantType::AuthorizationCode) {
-            return Ok(());
-        }
-        Err(OAuthCode::UnauthorizedClient.reject(format!(
-            "this client is not registered for the {} grant",
-            GrantType::AuthorizationCode
-        )))
     }
 
     /// Bounds `state`, which comes back with the result, so it is checked before

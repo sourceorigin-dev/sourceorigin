@@ -7,7 +7,7 @@ use thiserror::Error;
 use url::Url;
 
 crate::str_enum! {
-    /// Token endpoint grants (RFC 6749 §4.1.3 and §6, RFC 8628 §3.4).
+    /// Token endpoint grants (RFC 6749 §4.1.3, §4.4 and §6, RFC 8628 §3.4).
     pub enum GrantType {
         /// Exchange a single-use authorization code, bound to PKCE.
         AuthorizationCode = "authorization_code",
@@ -16,6 +16,9 @@ crate::str_enum! {
         /// Poll for the tokens of a device authorization the user approves on
         /// another device (RFC 8628).
         DeviceCode = "urn:ietf:params:oauth:grant-type:device_code",
+        /// A confidential client's own credentials, for a token that acts for no
+        /// user (RFC 6749 §4.4).
+        ClientCredentials = "client_credentials",
     }
 }
 
