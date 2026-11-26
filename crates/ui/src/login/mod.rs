@@ -518,14 +518,16 @@ async fn sign_in_forms<'a>(
         )
         if !passkey_only && !providers.is_empty() {
             <div class="divider">"or continue with"</div>
-            for provider in providers {
-                change_form(
-                    action: action,
-                    change: LoginChange::Social { provider: *provider },
-                    label: provider.name(),
-                    class: "secondary full",
-                )
-            }
+            <div class="providers">
+                for provider in providers {
+                    change_form(
+                        action: action,
+                        change: LoginChange::Social { provider: *provider },
+                        label: *provider,
+                        class: "secondary full",
+                    )
+                }
+            </div>
         }
         if signed_in {
             switch_account(action: action, label: "Sign out", class: "secondary")

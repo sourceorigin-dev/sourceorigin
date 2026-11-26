@@ -120,9 +120,10 @@ fn a_provider_sign_in_continues_the_authorization_it_started_for() {
     }
 }
 
-/// The sign-in page offers one passkey button, the enabled providers' and a handle;
-/// once the handle is asked for, the form takes it. Its forms may redirect to the
-/// providers, and its link to create an account keeps where the browser goes on to.
+/// The sign-in page offers one passkey button, the enabled providers', each led by
+/// its logo, and a handle; once the handle is asked for, the form takes it. Its
+/// forms may redirect to the providers, and its link to create an account keeps
+/// where the browser goes on to.
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL"]
 async fn signing_in_offers_passkeys_providers_and_a_handle() {
@@ -160,7 +161,11 @@ async fn signing_in_offers_passkeys_providers_and_a_handle() {
         page.contains(r#"<input type="hidden" name="provider" value="github">"#),
         "{page}"
     );
-    assert!(page.contains(">GitHub</button>"), "{page}");
+    assert!(
+        page.contains(r#"<button class="secondary full"><svg class="icon logo""#),
+        "{page}"
+    );
+    assert!(page.contains("</svg>GitHub</button>"), "{page}");
     assert!(page.contains(">Use a handle instead</button>"), "{page}");
     assert!(!page.contains(r#"name="handle" autocomplete"#), "{page}");
     let register = attribute(&link(REGISTER, &query));

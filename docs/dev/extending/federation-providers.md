@@ -50,8 +50,8 @@ verification email.
 
 ## 1. Name the provider
 
-Add a variant to `Provider` in `crates/common/src/lib.rs`, and its display name
-to `Provider::name` below it:
+Add a variant to `Provider` in `crates/common/src/server.rs`, and its display
+name to `Provider::name` below it:
 
 ```rust
 /// GitLab `OpenID` Connect identity.
@@ -61,8 +61,11 @@ GitLab = "gitlab",
 The wire name is stored in the database and appears in URLs, such as the
 callback's `/login/gitlab/callback`, so never change it once released. Every
 `match` on `Provider` now fails to compile: the errors list the places the next
-steps fill in. The sign-in and sign-in methods pages list enabled providers by
-`Provider::name`, so they need no change.
+steps fill in. The sign-in and sign-in methods pages show each provider by
+`Provider::name` and its logo, `Logo::of` in `crates/ui/src/icons.rs`: give
+that `match` the provider's logo from its brand guidelines, as filled paths in a
+square `viewBox`, using `currentColor` for a one-colour mark so it follows the
+theme.
 
 ## 2. Allow it in the database
 

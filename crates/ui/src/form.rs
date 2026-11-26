@@ -12,12 +12,12 @@ use crate::{
     AppChange, AppSettingsState, ConnectedAppChange, ConnectedAppsState, DataChange, DataState,
     DeviceChange, EmailChange, EmailsState, FieldError, HistoryChange, HistoryState, InboxChange,
     LoginChange, LoginQuery, NewAppChange, NotificationState, ProfileChange, RecoverChange,
-    SecretsChange, SignInChange, SignInState, UndoChange, layout::alert_notice,
+    SecretsChange, SignInChange, SignInState, UndoChange, icons::icon, layout::alert_notice,
 };
 use chrono::{DateTime, SecondsFormat, Utc};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::IgnoredAny};
 use sourceorigin_common::{
-    MAX_NAME_CHARS, RecoveryId,
+    MAX_NAME_CHARS, Provider, RecoveryId,
     handle::{MAX_LENGTH, MIN_LENGTH},
 };
 use std::str::FromStr;
@@ -442,6 +442,45 @@ pub(crate) async fn hidden(
     })
 }
 
+/// What a [`change_form`]'s button says: text, or a sign-in provider's logo
+/// and name. A [`switch`] shows only the text.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum ButtonLabel {
+    /// Text.
+    Text(String),
+    /// The provider's logo and name.
+    Provider(Provider),
+}
+
+impl ButtonLabel {
+    /// The label as text: what the button says beside any logo, and what a
+    /// switch is named.
+    fn text(&self) -> &str {
+        match self {
+            Self::Text(text) => text,
+            Self::Provider(provider) => provider.name(),
+        }
+    }
+}
+
+impl From<&str> for ButtonLabel {
+    fn from(text: &str) -> Self {
+        Self::Text(text.to_owned())
+    }
+}
+
+impl From<String> for ButtonLabel {
+    fn from(text: String) -> Self {
+        Self::Text(text)
+    }
+}
+
+impl From<Provider> for ButtonLabel {
+    fn from(provider: Provider) -> Self {
+        Self::Provider(provider)
+    }
+}
+
 /// A change posted to the page at `action`: `change` as hidden inputs, the inputs
 /// the user fills in as `child`, the reason an administrator gives when `reason`
 /// asks for one, holding what they typed last, and a button labelled `label`, of `class`, beside a link back to
@@ -461,7 +500,7 @@ pub(crate) async fn change_form<'a>(
     change: Fields,
     /// What the button says.
     #[into]
-    label: String,
+    label: ButtonLabel,
     /// The button's CSS class.
     #[default]
     class: &'a str,
@@ -512,9 +551,14 @@ pub(crate) async fn change_form<'a>(
             }
             <div class="row actions">
                 if let Some(on) = on {
-                    switch(on: on, label: label.as_str(), disabled: confirm)
+                    switch(on: on, label: label.text(), disabled: confirm)
                 } else {
-                    <button class=(class) aria-label=(aria_label.as_deref()) disabled=(confirm)>(label.as_str())</button>
+                    <button class=(class) aria-label=(aria_label.as_deref()) disabled=(confirm)>
+                        if let ButtonLabel::Provider(provider) = label {
+                            icon(kind: provider)
+                        }
+                        (label.text())
+                    </button>
                 }
                 if let Some(cancel) = &cancel {
                     <a class="button secondary" href=(cancel.as_str())>"Cancel"</a>
