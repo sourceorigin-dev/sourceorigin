@@ -4,6 +4,7 @@ use super::{Audience, Part};
 use crate::{
     Recovery, RecoveryPasskey, RecoveryStage,
     form::{Ceremony, Precision, Query, change_form, new_passkey, open, passkey_form, time},
+    icons::icon,
     layout::page_head,
 };
 use serde::{Deserialize, Serialize};
@@ -391,6 +392,7 @@ async fn provider_row<'a>(
             </li>
         } else {
             <li>
+                icon(kind: provider)
                 <div class="text">
                     <strong>(name)</strong>
                     <small>

@@ -55,6 +55,24 @@ body.admin .auth::before {
   flex: 1;
   border-top: 1px solid var(--line);
 }
+/* The providers' sign-in buttons, side by side while they fit. Each is a quiet
+   button whose logo carries it, and whose border answers the pointer. */
+.auth .providers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.6rem;
+}
+.auth .providers .actions {
+  margin-top: 0;
+}
+.auth .providers button {
+  gap: 0.6rem;
+  min-height: 42px;
+}
+.auth .providers button:hover {
+  filter: none;
+  border-color: var(--muted);
+}
 .auth > main > footer {
   display: grid;
   gap: 0.4rem;
