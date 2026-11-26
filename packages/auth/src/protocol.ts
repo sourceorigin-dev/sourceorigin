@@ -718,6 +718,41 @@ request_uri: string,
 expires_in?: number, };
 
 /**
+ * The answer to a lookup: the accounts, among those asked for, that can be
+ * named. An account that is disabled, scheduled for deletion or deleted, and an
+ * ID no account has, are left out, and nothing tells them apart.
+ */
+export type AccountLookup = {
+/**
+ * The accounts found, by ID.
+ */
+accounts: Array<PublicAccount>, };
+
+/**
+ * What is public about one account.
+ */
+export type PublicAccount = {
+/**
+ * The account's ID, which never changes: the `sub` of its tokens.
+ */
+id: string,
+/**
+ * Its handle now. A rename changes it.
+ */
+handle: string, };
+
+/**
+ * Path of the account lookup, under the issuer: `GET` with one `id` query
+ * parameter per account.
+ */
+export const ACCOUNTS_PATH = "/accounts";
+
+/**
+ * The most account IDs one lookup may name.
+ */
+export const MAX_LOOKUP_IDS: number = 100;
+
+/**
  * One `Bearer` challenge. Without `error` it means no token was sent (RFC 6750 §3.1).
  */
 export type BearerChallenge = {

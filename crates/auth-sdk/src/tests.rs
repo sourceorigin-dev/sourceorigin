@@ -943,3 +943,54 @@ async fn logout_requests_post_the_id_token_hint() {
         ]
     );
 }
+
+/// A lookup asks the directory under the issuer for at most 100 accounts at a
+/// time, by ID, and joins the answers; an answer other than `200` with a
+/// lookup's body fails it.
+#[tokio::test]
+async fn accounts_are_looked_up_in_batches() {
+    let asked = Arc::new(Mutex::new(Vec::new()));
+    let kept = asked.clone();
+    let router = Router::new().route(
+        "/accounts",
+        get(
+            move |::axum::extract::RawQuery(query): ::axum::extract::RawQuery| {
+                let ids: Vec<String> =
+                    url::form_urlencoded::parse(query.unwrap_or_default().as_bytes())
+                        .map(|(name, id)| {
+                            assert_eq!(name, "id");
+                            id.into_owned()
+                        })
+                        .collect();
+                kept.lock().expect("asked").push(ids.len());
+                let accounts: Vec<_> = ids
+                    .iter()
+                    .map(|id| serde_json::json!({ "id": id, "handle": "ada" }))
+                    .collect();
+                async move { ::axum::Json(serde_json::json!({ "accounts": accounts })) }
+            },
+        ),
+    );
+    let mut metadata = metadata();
+    metadata.issuer = format!("http://{}/", serve(router).await);
+    let issuer = issuer_with(&Case::all("tokens").remove(0), metadata);
+    let ids: Vec<UserId> = (0..150).map(|_| UserId::new()).collect();
+    let found = issuer.accounts(&ids).await.expect("accounts");
+    assert_eq!(*asked.lock().expect("asked"), [100, 50]);
+    let found: Vec<_> = found.iter().map(|account| account.id).collect();
+    assert_eq!(found, ids);
+
+    let mut metadata = self::metadata();
+    let empty = serve(Router::new()).await;
+    metadata.issuer = format!("http://{empty}");
+    let issuer = issuer_with(&Case::all("tokens").remove(0), metadata);
+    let refused = issuer.accounts(&ids[..1]).await.expect_err("no directory");
+    assert!(matches!(
+        refused,
+        LookupError::Network(NetworkError::Status { status: 404, .. })
+    ));
+    assert_eq!(
+        refused.code(),
+        SdkError::category(protocol::sdk::ErrorCategory::Network)
+    );
+}

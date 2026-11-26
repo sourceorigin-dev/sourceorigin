@@ -17,7 +17,8 @@ use super::{
         BACKCHANNEL_LOGOUT_EVENT, Confirmation, IdTokenClaims, LogoutEvents, LogoutTokenClaims,
         ProfileClaims, UserInfo,
     },
-    constants,
+    constants, directory,
+    directory::{AccountLookup, PublicAccount},
     jwt::{Algorithm, Claim, Jwk, JwkSet, KeyId, KeyOperation, KeyType, KeyUse, TokenType},
     metadata,
     metadata::ServerMetadata,
@@ -29,7 +30,7 @@ use super::{
     sdk::{ErrorCategory, ErrorReason, SdkError},
     step_up::StepUpRequirement,
 };
-use crate::{ClientId, DeliveryId, SessionId, TokenId};
+use crate::{ClientId, DeliveryId, SessionId, TokenId, UserId};
 use chrono::TimeDelta;
 use std::{collections::BTreeSet, fs, path::PathBuf, time::Duration};
 use ts_rs::{Config, TS};
@@ -142,6 +143,7 @@ builtin!(
     SessionId,
     TokenId,
     DeliveryId,
+    UserId,
     KeyId,
     ErrorDescription,
     Scopes
@@ -373,6 +375,9 @@ fn generate() -> String {
         .add::<ErrorResponse>()
         .add::<TokenResponse>()
         .add::<PushedAuthorization>()
+        .add::<AccountLookup>()
+        .add::<PublicAccount>()
+        .constants(directory::typescript())
         .add::<BearerChallenge>()
         .add::<BearerError>()
         .add::<SdkError>()

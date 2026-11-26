@@ -5,13 +5,17 @@ import { type Fetch, Http, type Reply } from './http.ts';
 import * as json from './json.ts';
 import { KeyCache } from './keys.ts';
 import {
+  type AccountLookup,
+  ACCOUNTS_PATH,
   ACR,
   ALGORITHMS,
   CLAIMS,
   CLIENT_AUTH_METHODS,
   CODE_CHALLENGE_METHODS,
   GRANT_TYPES,
+  MAX_LOOKUP_IDS,
   OPENID_CONFIGURATION_PATH,
+  type PublicAccount,
   RESPONSE_MODES,
   RESPONSE_TYPES,
   SCOPES,
@@ -53,6 +57,11 @@ const serverMetadata: json.Decoder<ServerMetadata> = json.object({
   authorization_response_iss_parameter_supported: json.boolean,
   backchannel_logout_supported: json.withDefault(json.boolean, false),
   backchannel_logout_session_supported: json.withDefault(json.boolean, false)
+});
+
+/** The answer to an account lookup. */
+const accountLookup: json.Decoder<AccountLookup> = json.object({
+  accounts: json.array(json.object({ id: json.string, handle: json.string }))
 });
 
 /** Options for {@link Issuer.discover}. */
@@ -171,6 +180,37 @@ export class Issuer {
   /** The issuer identifier, exactly as tokens carry it in `iss`. */
   get issuer(): string {
     return this.metadata.issuer;
+  }
+
+  /**
+   * What is public about the accounts `ids`: the current handle of each, to show
+   * beside the ID a record keeps, which a rename never changes. An account that is
+   * disabled, scheduled for deletion or deleted is left out, as an ID no account has
+   * is, so show such an ID as a former account. IDs are asked for 100 at a time. A
+   * directory that can't be read throws a `network` error.
+   *
+   * ```ts
+   * const [author] = await issuer.accounts([note.authorId]);
+   * const byline = author ? `@${author.handle}` : 'a former account';
+   * ```
+   */
+  async accounts(ids: readonly string[]): Promise<PublicAccount[]> {
+    const accounts: PublicAccount[] = [];
+    for (let start = 0; start < ids.length; start += MAX_LOOKUP_IDS) {
+      const query = new URLSearchParams(
+        ids.slice(start, start + MAX_LOOKUP_IDS).map((id) => ['id', id])
+      );
+      const url = `${this.url(ACCOUNTS_PATH)}?${query.toString()}`;
+      const reply = (await this.http.get(url)).ok();
+      try {
+        accounts.push(...accountLookup(reply.json(), 'accounts').accounts);
+      } catch (error) {
+        throw new AuthError({ code: 'network', url }, `${url} answered an unexpected body`, {
+          cause: error
+        });
+      }
+    }
+    return accounts;
   }
 
   /** Signs users in as the client `config` describes. */

@@ -33,6 +33,9 @@ The wire format is defined by types in `sourceorigin_common::protocol`, not by p
 - `oauth`: grant, response and scope vocabulary, `Scopes`, `ErrorCode`,
   `ErrorResponse`, and the token and pushed authorization endpoints' answers,
   `TokenResponse` and `PushedAuthorization`.
+- `directory`: `AccountLookup` and `PublicAccount`, the answer of the public
+  lookup of accounts by ID, with its path and its limit. Both SDKs ask it under
+  the issuer, `MAX_LOOKUP_IDS` accounts at a time (`Issuer::accounts`).
 - `challenge::BearerChallenge`, the `WWW-Authenticate` value.
 - `sdk`: the error codes below.
 

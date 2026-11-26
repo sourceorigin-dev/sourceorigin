@@ -398,7 +398,7 @@ impl HttpSecurity {
     }
 
     /// Determines whether an exact browser origin may access this endpoint family:
-    /// any origin reads discovery and the audit checkpoints, and auth's own pages
+    /// any origin reads discovery, the audit checkpoints and the directory, and auth's own pages
     /// reach every endpoint. The
     /// back-channel and `UserInfo` endpoints also serve the redirect origins of
     /// enabled public clients, and related sign-in the approved origins of trusted
@@ -411,7 +411,7 @@ impl HttpSecurity {
     ) -> Result<bool, HttpSecurityError> {
         if matches!(
             endpoint,
-            Endpoint::Discovery | Endpoint::Checkpoints | Endpoint::Picture
+            Endpoint::Discovery | Endpoint::Checkpoints | Endpoint::Picture | Endpoint::Directory
         ) || origin == self.origin.ascii_serialization()
         {
             return Ok(true);
@@ -429,6 +429,7 @@ impl HttpSecurity {
             Endpoint::Discovery
             | Endpoint::Checkpoints
             | Endpoint::Picture
+            | Endpoint::Directory
             | Endpoint::Health
             | Endpoint::Authorize
             | Endpoint::Logout
@@ -480,9 +481,10 @@ impl HttpSecurity {
                 .await;
         }
         let grant = match endpoint {
-            Endpoint::Discovery | Endpoint::Checkpoints | Endpoint::Picture => {
-                Some(CorsGrant::Public)
-            }
+            Endpoint::Discovery
+            | Endpoint::Checkpoints
+            | Endpoint::Picture
+            | Endpoint::Directory => Some(CorsGrant::Public),
             Endpoint::RelatedLogin => origin.filter(|_| allowed).map(CorsGrant::Related),
             _ => origin.filter(|_| allowed).map(CorsGrant::Client),
         };
@@ -578,7 +580,9 @@ impl HttpSecurity {
     /// `grant` when set. A cacheable response is the same for every origin, so public
     /// data is granted to all origins and other cached responses to none. Other
     /// sites' pages may embed or read only public responses, such as profile
-    /// pictures (`Cross-Origin-Resource-Policy`).
+    /// pictures (`Cross-Origin-Resource-Policy`). A public grant names no origin
+    /// and does not vary by it. Every grant lets its callers read the trace ID of
+    /// a failed request, and when a refused one may try again.
     pub(super) fn decorate(response: &mut Response, grant: Option<CorsGrant>) {
         let class = CacheClass::enforced(response);
         let grant = match class {
@@ -597,28 +601,26 @@ impl HttpSecurity {
         }
         let (origin, allowed_headers, methods) = match grant {
             None => return,
-            Some(CorsGrant::Public) => {
-                for (name, value) in [
-                    (header::ACCESS_CONTROL_ALLOW_ORIGIN, "*"),
-                    (header::ACCESS_CONTROL_ALLOW_HEADERS, "*"),
-                    (header::ACCESS_CONTROL_ALLOW_METHODS, "GET, OPTIONS"),
-                ] {
-                    headers.insert(name, HeaderValue::from_static(value));
-                }
-                return;
-            }
-            Some(CorsGrant::Client(origin)) => {
-                (origin, "content-type, authorization", "GET, POST, OPTIONS")
-            }
-            Some(CorsGrant::Related(origin)) => {
-                (origin, "content-type, x-sourceorigin-csrf", "POST, OPTIONS")
-            }
+            Some(CorsGrant::Public) => (None, "*", "GET, OPTIONS"),
+            Some(CorsGrant::Client(origin)) => (
+                Some(origin),
+                "content-type, authorization",
+                "GET, POST, OPTIONS",
+            ),
+            Some(CorsGrant::Related(origin)) => (
+                Some(origin),
+                "content-type, x-sourceorigin-csrf",
+                "POST, OPTIONS",
+            ),
         };
-        headers.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, origin);
+        let any = HeaderValue::from_static("*");
+        if origin.is_some() {
+            headers.insert(header::VARY, HeaderValue::from_static("Origin"));
+        }
+        headers.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, origin.unwrap_or(any));
         for (name, value) in [
             (header::ACCESS_CONTROL_ALLOW_HEADERS, allowed_headers),
             (header::ACCESS_CONTROL_ALLOW_METHODS, methods),
-            (header::VARY, "Origin"),
         ] {
             headers.insert(name, HeaderValue::from_static(value));
         }

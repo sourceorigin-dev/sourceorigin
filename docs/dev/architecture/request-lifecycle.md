@@ -87,6 +87,7 @@ read:
 | `Discovery` | discovery, `/.well-known/oauth-authorization-server`, JWKS, `/.well-known/webauthn` | any | none |
 | `Checkpoints` | audit checkpoints | any | `audit` |
 | `Picture` | `/pictures/{id}` | any | `picture` |
+| `Directory` | `/accounts`, the lookup of accounts by ID | any | `directory` |
 | `Health` | `/health/live`, `/health/ready` | auth | none |
 | `Authorize` | `/oauth/authorize` | auth | `login` |
 | `Logout` | `/oidc/logout` | auth | `login` |
@@ -112,8 +113,8 @@ rebound DNS name reaches nothing.
 When a request carries an `Origin` header, `allowed_origin` decides whether that
 origin is allowed on the endpoint. An allowed origin gets CORS headers on the
 response. One that is not gets none, and the browser-proof rule below decides
-whether the request is refused. Auth's own origin is always allowed. Discovery, checkpoints
-and pictures take any origin. The back channel and userinfo also take the
+whether the request is refused. Auth's own origin is always allowed. Discovery, checkpoints,
+pictures and the directory take any origin. The back channel and userinfo also take the
 redirect origins of enabled public clients, and related sign-in the approved
 origins of trusted clients: both are looked up in the database on each request,
 so a registration change applies at once on every replica.
@@ -264,7 +265,7 @@ errors and preflights included:
   listener's pages load only its own files.
 - **CORS**, once the origin check allowed the request's origin: `*` for public
   documents, or the exact origin with `Vary: Origin` and the methods and headers
-  its class takes, which may then read `X-Trace-Id` and `Retry-After`. A refusal
+  its class takes. Either may then read `X-Trace-Id` and `Retry-After`. A refusal
 for the in-flight limit grants any origin, since it skips the origin check.
 
 Each listener also has one `Content-Security-Policy`, which goes on every

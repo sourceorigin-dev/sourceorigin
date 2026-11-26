@@ -126,6 +126,8 @@
 pub mod axum;
 /// Login: authorization, callbacks, refresh, revocation and logout.
 mod client;
+/// Looking accounts up by ID in auth's public directory.
+mod directory;
 /// HTTP requests with bounded bodies.
 mod http;
 /// Discovery and the shared issuer handle.
@@ -146,6 +148,7 @@ pub use client::{
     AuthorizeRequest, BearerToken, CallbackParams, Client, ClientConfig, Credentials, LoginError,
     LogoutRequest, OAuthError, PendingLogin, RefreshToken, Tokens,
 };
+pub use directory::LookupError;
 pub use http::NetworkError;
 pub use issuer::{DiscoveryError, Issuer, IssuerBuilder};
 pub use keys::{Jws, JwsHeader, KeyCache, KeyDefect, KeyError, KeySet};
@@ -182,6 +185,11 @@ pub mod protocol {
             Absent, Acr, Actor, Amr, Audience, AuthenticationClaims, Confirmation, IdTokenClaims,
             LogoutEvents, LogoutTokenClaims, ProfileClaims, UserInfo,
         };
+    }
+
+    /// What anyone may read about an account from its ID.
+    pub mod directory {
+        pub use sourceorigin_common::protocol::directory::PublicAccount;
     }
 
     /// JWT claim and JOSE field vocabulary.
@@ -223,6 +231,7 @@ pub use protocol::{
     claims::{
         Acr, Actor, Amr, Confirmation, IdTokenClaims, LogoutTokenClaims, ProfileClaims, UserInfo,
     },
+    directory::PublicAccount,
     oauth::Scopes,
     sdk::SdkError,
     step_up::StepUpRequirement,
