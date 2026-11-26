@@ -30,7 +30,10 @@ and never appear in the console: see [OIDC clients](../../dev/operations/clients
 
    You can't change this later. An app without a secret must sign in with
    PKCE; the SDKs use it for both kinds.
-4. Fill in **Redirect URIs**, one per line.
+4. Fill in **Redirect URIs**, one per line. Leave it empty for an app that
+   turns **Authorization code** off under **Grant types**, such as one that
+   only [signs in devices](device-sign-in.md) or
+   [gets tokens for itself](service-tokens.md).
 5. Leave the other settings as they are for now: [app settings](app-settings.md)
    explains each one. An app with a backend starts with `offline_access` under
    **Scopes** and **Refresh tokens** under **Grant types** on, which the SDKs' login routes

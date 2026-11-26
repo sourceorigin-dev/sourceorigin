@@ -235,6 +235,35 @@ async fn invalid_settings_name_their_field_first() {
     }
 }
 
+/// An app that turns the authorization code grant off needs no redirect URI,
+/// and one without a redirect URI cannot turn the grant back on.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL"]
+async fn only_the_authorization_code_grant_needs_a_redirect_uri() {
+    let account = Account::new().await;
+    let id = account.create(ClientKind::Public).await;
+    let client = account.find(account.owner().await, &id).await;
+    let device = ClientPatch {
+        grant_types: Some(vec![GrantType::DeviceCode]),
+        redirect_uris: Some(Vec::new()),
+        ..ClientPatch::default()
+    };
+    let changed = account.service.update_client(&client, device).await;
+    assert_eq!(changed.expect("change").redirect_uris, Vec::<String>::new());
+
+    let client = account.find(account.owner().await, &id).await;
+    let browser = ClientPatch {
+        grant_types: Some(vec![GrantType::AuthorizationCode]),
+        ..ClientPatch::default()
+    };
+    match account.service.update_client(&client, browser).await {
+        Err(AccountError::Client(OwnedClientError::InvalidSetting(error))) => {
+            assert_eq!(error.field(), &ClientField::RedirectUris);
+        }
+        result => panic!("{result:?}"),
+    }
+}
+
 /// An operator's suspension disables a client, and its owner cannot enable it,
 /// though they can still see and disable it. Lifting the suspension leaves it
 /// disabled, for the owner to enable.

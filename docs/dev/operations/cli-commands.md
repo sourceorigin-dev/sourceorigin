@@ -473,7 +473,7 @@ Commands:
 Register a client. A confidential client's secret is printed once.
 
 ```text
-auth-service client create [OPTIONS] --name <NAME> --redirect-uri <REDIRECT_URIS> --reason <REASON> <ID>
+auth-service client create [OPTIONS] --name <NAME> --reason <REASON> <ID>
 ```
 
 Arguments:
@@ -483,7 +483,7 @@ Arguments:
 Options:
 
 - `--name <NAME>`: The name consent screens show. Required.
-- `--redirect-uri <REDIRECT_URIS>`: An authorization callback, matched exactly; repeat for several. Required.
+- `--redirect-uri <REDIRECT_URIS>`: An authorization callback, matched exactly; repeat for several. A client with the authorization code grant needs at least one.
 - `--post-logout-uri <POST_LOGOUT_URIS>`: A page the browser may return to after logout; repeat for several.
 - `--scope <SCOPES>`: A scope of Origin Auth's own the client may request, such as `openid`; repeat for several. Defaults to `openid`, `profile` and `email`, and `offline_access` for a confidential client. An API's scopes are granted with `resource grant`.
 - `--confidential`: The client runs on a server and authenticates with a secret.
@@ -500,7 +500,7 @@ Options:
 Register a client, or update it to match, with the secret its deployment generated: for clients a deployment manages, from its deployment job. Records nothing when the client already matches.
 
 ```text
-auth-service client apply [OPTIONS] --name <NAME> --redirect-uri <REDIRECT_URIS> --reason <REASON> <ID>
+auth-service client apply [OPTIONS] --name <NAME> --reason <REASON> <ID>
 ```
 
 Arguments:
@@ -510,7 +510,7 @@ Arguments:
 Options:
 
 - `--name <NAME>`: The name consent screens show. Required.
-- `--redirect-uri <REDIRECT_URIS>`: An authorization callback, matched exactly; repeat for several. Required.
+- `--redirect-uri <REDIRECT_URIS>`: An authorization callback, matched exactly; repeat for several. A client with the authorization code grant needs at least one.
 - `--post-logout-uri <POST_LOGOUT_URIS>`: A page the browser may return to after logout; repeat for several.
 - `--scope <SCOPES>`: A scope of Origin Auth's own the client may request, such as `openid`; repeat for several. Defaults to `openid`, `profile` and `email`, and `offline_access` for a confidential client. An API's scopes are granted with `resource grant`.
 - `--confidential`: The client runs on a server and authenticates with a secret.

@@ -17,8 +17,8 @@ your app receives its tokens. This is the OAuth device authorization grant
   device should stay signed in for longer than an access token's five minutes.
 - A command-line tool or a TV app can't keep a secret, so register it as an app
   without a backend. It then sends its client ID alone.
-- Every app still lists a redirect URI, even one that only uses this grant. A
-  loopback URI such as `http://127.0.0.1/callback` works.
+- An app that only uses this grant needs no redirect URI: turn **Authorization
+  code** off, and leave **Redirect URIs** empty.
 
 The SDKs don't run this grant yet ([#779](https://github.com/sourceorigin-dev/sourceorigin/issues/779)). The requests below are plain HTTPS, and
 `curl` shows them.
