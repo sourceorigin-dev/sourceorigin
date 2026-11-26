@@ -1,5 +1,5 @@
-//! ClickHouse over its HTTP interface, through the workspace's `reqwest`: inserts
-//! as `JSONEachRow`, and the statements `migrate` runs.
+//! ClickHouse through its own client, `clickhouse`, over its HTTP interface:
+//! inserts as `JSONEachRow`, and the statements `migrate` runs.
 
 use super::Table;
 use bytes::Bytes;
@@ -43,13 +43,11 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 /// A ClickHouse user's connection to one database.
 #[derive(Clone)]
 pub struct Store {
-    /// Sends the requests.
-    client: reqwest::Client,
-    /// The server's HTTP interface, without user or path.
-    endpoint: Url,
+    /// Sends the requests, as the user, to the database.
+    client: clickhouse::Client,
     /// The user, a plain identifier.
     user: String,
-    /// The user's password.
+    /// The user's password, which `migrate` sets when it provisions the user.
     password: SecretString,
     /// The database, a plain identifier.
     database: String,
@@ -59,24 +57,28 @@ pub struct Store {
 /// ClickHouse answered an insert with, which can quote the rows.
 #[derive(Debug, Error)]
 pub enum StoreError {
+    /// ClickHouse did not answer within the time one request may take.
+    #[error("ClickHouse did not answer within {} seconds", REQUEST_TIMEOUT.as_secs())]
+    TimedOut(#[from] tokio::time::error::Elapsed),
     /// The request did not complete, such as when ClickHouse is unreachable.
     #[error("could not reach ClickHouse")]
-    Unreachable(#[from] reqwest::Error),
+    Unreachable(#[source] clickhouse::error::Error),
     /// ClickHouse refused an insert, with its error code.
     #[error("ClickHouse refused the insert into {table} (code {code})")]
     Insert {
         /// The table.
         table: &'static str,
-        /// ClickHouse's error code, such as `60` for a missing table.
+        /// ClickHouse's error code, such as `60` for a missing table, or
+        /// `unknown`.
         code: String,
     },
-    /// ClickHouse refused a statement of `migrate`, with its message.
-    #[error("ClickHouse refused `{statement}`: {message}")]
+    /// ClickHouse refused a statement of `migrate`.
+    #[error("ClickHouse refused `{statement}`")]
     Statement {
         /// The statement, without any password it set.
         statement: String,
         /// What ClickHouse answered.
-        message: String,
+        source: clickhouse::error::Error,
     },
 }
 
@@ -126,12 +128,13 @@ impl Store {
         value: &str,
         password: SecretString,
     ) -> Result<Self, ConfigurationError> {
-        const SHAPE: &str = "must be an http:// or https:// URL naming a user and a database, \
-                             such as http://USER@HOST:8123/DATABASE, without a password";
+        const SHAPE: &str = "must be an http:// URL naming a user and a database, such as \
+                             http://USER@HOST:8123/DATABASE, without a password: ClickHouse \
+                             is only reached inside the deployment's network";
         let mut endpoint = Url::parse(value).map_err(|source| variable.error(SHAPE, source))?;
         let user = endpoint.username().to_owned();
         let database = endpoint.path().trim_matches('/').to_owned();
-        if !matches!(endpoint.scheme(), "http" | "https")
+        if endpoint.scheme() != "http"
             || endpoint.password().is_some()
             || endpoint.query().is_some()
             || !Self::identifier(&user)
@@ -141,28 +144,45 @@ impl Store {
         }
         endpoint.set_path("/");
         endpoint.set_username("").ok();
-        let client = reqwest::Client::builder()
-            .timeout(REQUEST_TIMEOUT)
-            .build()
-            .map_err(|source| variable.error("could not build the HTTP client", source))?;
-        Ok(Self {
-            client,
-            endpoint,
+        Ok(Self::connect(&endpoint, user, password, database))
+    }
+
+    /// The client of `user` with `password`, to `database` at `endpoint`.
+    fn connect(endpoint: &Url, user: String, password: SecretString, database: String) -> Self {
+        let client = clickhouse::Client::default()
+            .with_url(endpoint.as_str())
+            .with_database(&database);
+        Self::signed_in(client, user, password, database)
+    }
+
+    /// `client`, which names the server and the database, as `user` with
+    /// `password`.
+    fn signed_in(
+        client: clickhouse::Client,
+        user: String,
+        password: SecretString,
+        database: String,
+    ) -> Self {
+        Self {
+            client: client
+                .with_user(&user)
+                .with_password(password.expose_secret()),
             user,
             password,
             database,
-        })
+        }
     }
 
     /// The same server as another user, e.g. the writer `migrate` provisions.
     #[cfg(any(test, feature = "test-util"))]
     #[must_use]
     pub fn as_user(&self, user: &str, password: &str) -> Self {
-        Self {
-            user: user.to_owned(),
-            password: SecretString::from(password),
-            ..self.clone()
-        }
+        Self::signed_in(
+            self.client.clone(),
+            user.to_owned(),
+            SecretString::from(password),
+            self.database.clone(),
+        )
     }
 
     /// The first column of `query`'s rows, as text, one row per line.
@@ -171,23 +191,27 @@ impl Store {
     /// Returns what ClickHouse refused the query with.
     #[cfg(any(test, feature = "test-util"))]
     pub async fn select(&self, query: &str) -> Result<String, StoreError> {
-        let response = self
-            .send(
-                &self.database,
-                None,
-                Bytes::from(format!("{query} FORMAT TSV")),
-            )
-            .await?;
-        let status = response.status();
-        let text = response.text().await?;
-        if status.is_success() {
-            Ok(text.trim_end().to_owned())
-        } else {
-            Err(StoreError::Statement {
-                statement: query.to_owned(),
-                message: text.trim().to_owned(),
-            })
-        }
+        let refused = |source| StoreError::Statement {
+            statement: query.to_owned(),
+            source,
+        };
+        let mut cursor = self
+            .client
+            .query_raw(query)
+            .fetch_bytes("TSV")
+            .map_err(refused)?;
+        let text = Self::within(cursor.collect()).await?.map_err(refused)?;
+        Ok(String::from_utf8_lossy(&text).trim_end().to_owned())
+    }
+
+    /// The result of `request`, unless ClickHouse takes longer than
+    /// [`REQUEST_TIMEOUT`] to answer it.
+    async fn within<T>(
+        request: impl Future<Output = clickhouse::error::Result<T>>,
+    ) -> Result<clickhouse::error::Result<T>, StoreError> {
+        tokio::time::timeout(REQUEST_TIMEOUT, request)
+            .await
+            .map_err(StoreError::from)
     }
 
     /// Whether `name` is a plain identifier, which statements quote safely.
@@ -199,62 +223,60 @@ impl Store {
             && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
     }
 
-    /// Inserts `rows`, one JSON object per line, into `table`.
+    /// Inserts `rows`, one JSON object per line, into `table`. A refusal keeps
+    /// only ClickHouse's error code, since its message can quote the rows.
     pub(crate) async fn insert(&self, table: &'static str, rows: Bytes) -> Result<(), StoreError> {
-        let query = format!("INSERT INTO {table} FORMAT JSONEachRow");
-        let response = self.send(&self.database, Some(&query), rows).await?;
-        if response.status().is_success() {
-            return Ok(());
+        let mut insert = self
+            .client
+            .insert_formatted_with(format!("INSERT INTO {table} FORMAT JSONEachRow"));
+        let sent = Self::within(async move {
+            insert.send(rows).await?;
+            insert.end().await
+        })
+        .await?;
+        sent.map_err(|error| match error {
+            clickhouse::error::Error::Network(_) => StoreError::Unreachable(error),
+            error => StoreError::Insert {
+                table,
+                code: Self::code(&error),
+            },
+        })
+    }
+
+    /// The error code ClickHouse's answer starts with, `Code: 60. DB::Exception:
+    /// …`, without the message, or `unknown`.
+    fn code(error: &clickhouse::error::Error) -> String {
+        let clickhouse::error::Error::BadResponse(message) = error else {
+            return "unknown".to_owned();
+        };
+        let digits: String = message
+            .strip_prefix("Code: ")
+            .unwrap_or_default()
+            .chars()
+            .take_while(char::is_ascii_digit)
+            .collect();
+        if digits.is_empty() {
+            "unknown".to_owned()
+        } else {
+            digits
         }
-        let code = response
-            .headers()
-            .get("x-clickhouse-exception-code")
-            .and_then(|code| code.to_str().ok())
-            .unwrap_or("unknown")
-            .to_owned();
-        Err(StoreError::Insert { table, code })
     }
 
     /// Runs one statement, e.g. a `CREATE TABLE`, in `database`. `shown` is how
-    /// errors quote it.
+    /// errors quote it. It is sent as it is: a `?` in a comment binds nothing.
     async fn execute(
         &self,
         database: &str,
         statement: &str,
         shown: &str,
     ) -> Result<(), StoreError> {
-        let response = self
-            .send(database, None, Bytes::from(statement.to_owned()))
-            .await?;
-        if response.status().is_success() {
-            return Ok(());
-        }
-        Err(StoreError::Statement {
-            statement: shown.to_owned(),
-            message: response.text().await?.trim().to_owned(),
-        })
-    }
-
-    /// Sends `body` to `database`: the statement itself, or the rows that
-    /// `insert`, an `INSERT` statement, reads.
-    async fn send(
-        &self,
-        database: &str,
-        insert: Option<&str>,
-        body: Bytes,
-    ) -> Result<reqwest::Response, StoreError> {
-        let mut url = self.endpoint.clone();
-        url.query_pairs_mut()
-            .extend_pairs(insert.map(|query| ("query", query)))
-            .append_pair("database", database);
-        Ok(self
-            .client
-            .post(url)
-            .header("x-clickhouse-user", &self.user)
-            .header("x-clickhouse-key", self.password.expose_secret())
-            .body(body)
-            .send()
-            .await?)
+        let client = self.client.clone().with_database(database);
+        Self::within(client.query_raw(statement).execute())
+            .await?
+            .map_err(|source| StoreError::Statement {
+                statement: shown.to_owned(),
+                source,
+            })
     }
 
     /// Creates the database and every table of `tables` that does not exist,

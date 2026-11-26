@@ -111,8 +111,10 @@ its rights, so running replicas never lose them while it does.
 `Telemetry::init` starts the writer when `ANALYTICS_URL` is set. Rows wait in a
 queue of 10,000, and a task sends each table's every second, or once 5,000
 wait, as one `INSERT … FORMAT JSONEachRow` over ClickHouse's HTTP interface,
-so ClickHouse gets few, large inserts. `Telemetry::shutdown` sends what is left
-before the process exits.
+so ClickHouse gets few, large inserts. It goes through ClickHouse's own Rust
+client, `clickhouse`, over plain HTTP: ClickHouse is only reached inside the
+deployment's network, so `ANALYTICS_URL` is an `http://` URL.
+`Telemetry::shutdown` sends what is left before the process exits.
 
 Analytics is best effort, like telemetry. When the queue is full, or
 ClickHouse refuses or doesn't answer an insert, the rows are dropped, never

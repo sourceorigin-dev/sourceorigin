@@ -18,6 +18,7 @@ async-trait.workspace = true
 axum.workspace = true
 bytes.workspace = true
 chrono.workspace = true
+clickhouse.workspace = true
 http.workspace = true
 opentelemetry.workspace = true
 opentelemetry_sdk.workspace = true
