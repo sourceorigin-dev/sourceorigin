@@ -9,7 +9,7 @@
 //! fails renders the page again, with the change's row still open and why above
 //! it, or beside the setting it refused.
 
-use super::{Failure, WebApplication};
+use super::{Audience, Failure, WebApplication};
 use crate::{
     account::{AccountError, Owner, Viewer},
     clients::OwnedClientError,
@@ -552,7 +552,7 @@ impl WebApplication {
             )
         };
         Ok(self
-            .render_document(cx, status, title.as_str(), targets, false, page)
+            .render_document(cx, status, title.as_str(), targets, Audience::Private, page)
             .await?)
     }
 

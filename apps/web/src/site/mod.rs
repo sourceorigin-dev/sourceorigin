@@ -122,7 +122,7 @@ impl Site {
             sourceorigin_ui::document(
                 title: page.title(),
                 stylesheet: &stylesheet,
-                indexable: true,
+                canonical: Some(page.path()),
                 sourceorigin_ui::site_shell(
                     home: Page::Home.path(),
                     links: &header,

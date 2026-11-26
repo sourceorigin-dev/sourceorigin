@@ -193,6 +193,33 @@ async fn signing_in_offers_passkeys_providers_and_a_handle() {
     );
 }
 
+/// Search engines index the sign-in page at `/login`, whatever its query, and no
+/// other page, such as creating an account.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL"]
+async fn only_signing_in_is_indexed_at_its_canonical_url() {
+    let replicas = Replicas::new().await;
+    let browser = Browser::signed_out();
+    let query = LoginQuery {
+        return_to: Some(settings::HOME.to_owned()),
+        ..LoginQuery::default()
+    };
+    let sign_in = html(browser.visit(&replicas.a, &link(LOGIN, &query)).await).await;
+    assert!(
+        sign_in.contains(&format!(
+            r#"<link rel="canonical" href="{AUTH_ORIGIN}/login">"#
+        )),
+        "{sign_in}"
+    );
+    assert!(!sign_in.contains("noindex"), "{sign_in}");
+    let register = html(browser.visit(&replicas.a, REGISTER).await).await;
+    assert!(
+        register.contains(r#"<meta name="robots" content="noindex">"#),
+        "{register}"
+    );
+    assert!(!register.contains("canonical"), "{register}");
+}
+
 /// Once the passkey script signed the browser in, its form sends it on to the path
 /// on auth it asked for, or to the settings when it asked for none or for another
 /// site. A browser already signed in goes there at once, unless the page asks for

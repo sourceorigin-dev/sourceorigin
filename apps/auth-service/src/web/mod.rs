@@ -97,6 +97,19 @@ pub(crate) struct WebApplication {
     policies: PolicyLinks,
 }
 
+/// Who a page is for, which says how its document looks and whether search engines
+/// index it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(in crate::web) enum Audience {
+    /// One browser: its account or the flow it is in. Not indexed.
+    Private,
+    /// The admin dashboard's administrators: coloured as the dashboard, and not
+    /// indexed.
+    Admin,
+    /// Anyone, such as the sign-in page: indexed at this canonical URL.
+    Public(Url),
+}
+
 /// What a page answers when it cannot show itself.
 enum Failure {
     /// The request or its flow failed: the page explains `error`, with a `link`
@@ -411,7 +424,7 @@ impl WebApplication {
     /// Answers with `page` in the narrow frame of a page outside the account's
     /// shell, titled `title`, with the trace ID of a server
     /// error. Its forms may post to auth's own pages, and redirect on to the
-    /// origins of `targets`.
+    /// origins of `targets`. The page is [private](Audience::Private).
     fn render<'a>(
         &'a self,
         cx: &'a Cx,
@@ -420,21 +433,22 @@ impl WebApplication {
         targets: &'a [Url],
         page: impl View + 'a,
     ) -> impl Future<Output = Result<Response>> + 'a {
-        self.render_as(cx, status, title, targets, false, page)
+        self.render_as(cx, status, title, targets, Audience::Private, page)
     }
 
-    /// [`Self::render`], as a page of the admin dashboard when `admin`: auth's
-    /// pages on the way to it look like it, not like the account's.
+    /// [`Self::render`], for `audience`: auth's pages on the way to the admin
+    /// dashboard look like it, not like the account's.
     pub(in crate::web) async fn render_as(
         &self,
         cx: &Cx,
         status: StatusCode,
         title: &str,
         targets: &[Url],
-        admin: bool,
+        audience: Audience,
         page: impl View,
     ) -> Result<Response> {
         let page = Child::new(page);
+        let admin = audience == Audience::Admin;
         let framed = view! { cx =>
             sourceorigin_ui::auth_shell(
                 home: routes::page::settings::HOME,
@@ -444,22 +458,22 @@ impl WebApplication {
                 (page)
             )
         };
-        self.render_document(cx, status, title, targets, admin, framed)
+        self.render_document(cx, status, title, targets, audience, framed)
             .await
     }
 
     /// Answers with the whole `page`, its shell included, inside the document
     /// titled `title`, with the browser's theme and sidebar
-    /// preferences, coloured as the admin dashboard when `admin`. Its forms may
-    /// post to auth's own pages, and redirect on to the origins of `targets`:
-    /// browsers apply `form-action` to a form's redirects too.
+    /// preferences, for `audience`. Its forms may post to auth's own pages, and
+    /// redirect on to the origins of `targets`: browsers apply `form-action` to a
+    /// form's redirects too.
     pub(in crate::web) async fn render_document(
         &self,
         cx: &Cx,
         status: StatusCode,
         title: &str,
         targets: &[Url],
-        admin: bool,
+        audience: Audience,
         page: impl View,
     ) -> Result<Response> {
         let page = Child::new(page);
@@ -473,7 +487,11 @@ impl WebApplication {
                 stylesheet: &stylesheet,
                 scripts: scripts,
                 preferences: preferences,
-                admin: admin,
+                admin: audience == Audience::Admin,
+                canonical: match &audience {
+                    Audience::Public(canonical) => Some(canonical.as_str()),
+                    Audience::Private | Audience::Admin => None,
+                },
                 (page)
             )
         }

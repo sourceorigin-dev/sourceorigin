@@ -73,8 +73,11 @@ sourceorigin.dev is its own product, served by its own web server, `apps/web`. I
 on auth only to sign people in: it links auth's pages and never shares auth's
 database, keys or process. Today it serves the homepage, which says what SourceOrigin's
 sign-in is and links each surface, the privacy policy at `/privacy` and the terms
-of service at `/terms`. They are static, with no session, form or script, and the
-only pages search engines may index. Auth links the policies there
+of service at `/terms`. They are static, with no session, form or script, and
+search engines index them, each at its own path. The only other page they index
+is auth's sign-in, at `/login` whatever its query, so that a signed-out
+`/settings`, which leads there, finds it too; every other auth page is
+`noindex`. Auth links the policies there
 (`AUTH_WEB_ORIGIN`): every auth page's footer does, the dashboard's included, and
 so does the registration form, which agrees to them. OIDC discovery advertises
 them as `op_policy_uri` and `op_tos_uri`, which the SDK reads with the rest of the

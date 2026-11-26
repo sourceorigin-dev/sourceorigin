@@ -129,8 +129,8 @@ pub struct PreferenceChange {
 /// names the page in the browser, before "· SourceOrigin". The browser's `preferences`
 /// set the theme and the sidebar's width on the root, where the stylesheet reads
 /// them, and an `admin` page is marked so the stylesheet colours it as the
-/// dashboard. Only an `indexable` page, such as sourceorigin.dev's own, may be indexed
-/// by search engines.
+/// dashboard. Only a page with a `canonical` URL, such as sourceorigin.dev's own or
+/// auth's sign-in, may be indexed by search engines, and only at that URL.
 #[component]
 pub async fn document<'a>(
     /// What the page is titled.
@@ -146,9 +146,10 @@ pub async fn document<'a>(
     /// Whether the page is the dashboard's.
     #[default]
     admin: bool,
-    /// Whether search engines may index the page.
+    /// The URL search engines index the page at, which its variants, such as the
+    /// same page with another query, name too. A page without one is not indexed.
     #[default]
-    indexable: bool,
+    canonical: Option<&'a str>,
     /// The page.
     child: Child<'_>,
 ) -> Result<impl View> {
@@ -162,8 +163,9 @@ pub async fn document<'a>(
             <head>
                 <meta charset="utf-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-                if !indexable {
-                    <meta name="robots" content="noindex">
+                match canonical {
+                    Some(canonical) => <link rel="canonical" href=(canonical)>,
+                    None => <meta name="robots" content="noindex">,
                 }
                 <meta name="color-scheme" content="light dark">
                 <title>(format!("{title} · SourceOrigin"))</title>

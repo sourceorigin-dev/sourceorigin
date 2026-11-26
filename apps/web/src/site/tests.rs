@@ -19,8 +19,9 @@ async fn visit(path: &str) -> Response {
         .expect("answer")
 }
 
-/// The homepage and the policies are indexable pages that load nothing but the
-/// stylesheet, and whose footer links the policies here.
+/// The homepage and the policies are pages search engines index at their own
+/// path, which load nothing but the stylesheet, and whose footer links the
+/// policies here.
 #[tokio::test]
 async fn serves_its_pages() {
     for (page, heading) in [
@@ -36,6 +37,8 @@ async fn serves_its_pages() {
         let html = String::from_utf8(body.to_vec()).expect("UTF-8");
         assert!(html.contains(heading), "{page:?}");
         assert!(!html.contains("noindex"), "{page:?}");
+        let canonical = format!(r#"<link rel="canonical" href="{}">"#, page.path());
+        assert!(html.contains(&canonical), "{page:?}");
         assert!(html.contains(r#"href="/privacy""#), "{page:?}");
         assert!(html.contains(&STYLESHEET.path()), "{page:?}");
     }
