@@ -10,7 +10,7 @@
 //! [`Continuation`] says, which the server alone decides. A change the service
 //! refuses renders the page again, saying why.
 
-use crate::web::{Audience, Failure, WebApplication};
+use crate::web::{Failure, Reach, WebApplication};
 use crate::{
     account::{AccountError, Owner, Viewer},
     deletion::{RestoreOffer, RestoreSettled},
@@ -710,7 +710,7 @@ impl WebApplication {
             linked: None,
             ..query.clone()
         });
-        let audience = self.audience(step);
+        let reach = Reach::of_sign_in(&step);
         let title = step.title().as_str();
         let view = view! { cx =>
             sourceorigin_ui::sign_in(
@@ -723,20 +723,21 @@ impl WebApplication {
                 alert: alert,
             )
         };
-        Ok(Box::pin(self.render_as(cx, status, title, &targets, audience, view)).await?)
+        Ok(Box::pin(self.render_as(cx, status, title, &targets, reach, view)).await?)
     }
+}
 
-    /// Who the sign-in page at `step` is for. Signing in is for anyone, and the one
-    /// auth page search engines index: at `/login`, whatever the query or redirect
-    /// that led there, such as a signed-out `/settings`. Every other step is the
-    /// browser's alone.
-    fn audience(&self, step: Step<'_>) -> Audience {
+impl Reach {
+    /// Who the sign-in page at `step` reaches. Signing in is for anyone, and the one
+    /// auth page search engines index: at `/login`, whatever the query that led
+    /// there, such as a page's `return_to`. Every other step is the browser's alone.
+    const fn of_sign_in(step: &Step<'_>) -> Self {
         match step {
-            Step::SignIn { .. } => Audience::Public(self.issuer.url(routes::page::LOGIN)),
+            Step::SignIn { .. } => Self::Public,
             Step::SignUp { .. }
             | Step::Link { .. }
             | Step::Linked { .. }
-            | Step::Restore { .. } => Audience::Private,
+            | Step::Restore { .. } => Self::Private,
         }
     }
 }

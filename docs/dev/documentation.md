@@ -201,3 +201,8 @@ Every deployment publishes the book of its own commit: production at
 <https://docs.sourceorigin.dev>, staging at `docs.staging.sourceorigin.dev`, and `just preview`
 at the `docs-<slug>.dev.sourceorigin.dev` it prints. See
 [documentation](operations/deploying.md#documentation).
+
+Search engines index every page of the book but two, which mdBook marks
+`noindex` by design: `print.html`, the whole book on one page, which would
+compete with the pages it copies, and `toc.html`, the sidebar for browsers
+without scripts. Search Console lists both as excluded, and nothing needs fixing.

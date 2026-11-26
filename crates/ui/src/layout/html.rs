@@ -146,8 +146,9 @@ pub async fn document<'a>(
     /// Whether the page is the dashboard's.
     #[default]
     admin: bool,
-    /// The URL search engines index the page at, which its variants, such as the
-    /// same page with another query, name too. A page without one is not indexed.
+    /// The URL search engines index the page at, or its path on the page's origin,
+    /// which its variants, such as the same page with another query, name too. A
+    /// page without one is not indexed.
     #[default]
     canonical: Option<&'a str>,
     /// The page.

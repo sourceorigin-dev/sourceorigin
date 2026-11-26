@@ -64,7 +64,7 @@ use topcoat::{
         content::Form,
         error::see_other,
         header, parse_query_params,
-        request::{FromRequest, extensions, headers},
+        request::{FromRequest, extensions, headers, uri},
         response::{IntoResponse, Response},
         tower::TowerService,
     },
@@ -91,23 +91,35 @@ pub(crate) struct WebApplication {
     invite_required: bool,
     /// Whether email is sent, which adding or importing an address needs.
     email: EmailConfig,
-    /// The `OpenID` Connect issuer, which the console tells apps to discover.
+    /// The `OpenID` Connect issuer, which the console tells apps to discover: auth's
+    /// public origin, where search engines index a [public](Reach::Public) page.
     issuer: Origin,
     /// SourceOrigin's policies on sourceorigin.dev, which every page's footer links.
     policies: PolicyLinks,
 }
 
-/// Who a page is for, which says how its document looks and whether search engines
+/// Who a page reaches, which says how its document looks and whether search engines
 /// index it.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(in crate::web) enum Audience {
+#[derive(Clone, Copy, Debug)]
+pub(in crate::web) enum Reach {
     /// One browser: its account or the flow it is in. Not indexed.
     Private,
     /// The admin dashboard's administrators: coloured as the dashboard, and not
     /// indexed.
     Admin,
-    /// Anyone, such as the sign-in page: indexed at this canonical URL.
-    Public(Url),
+    /// Anyone, such as the sign-in page: indexed at its path on auth, whatever its
+    /// query.
+    Public,
+}
+
+impl Reach {
+    /// Whether the page is on the way to the admin dashboard, and looks like it.
+    const fn is_admin(self) -> bool {
+        match self {
+            Self::Admin => true,
+            Self::Private | Self::Public => false,
+        }
+    }
 }
 
 /// What a page answers when it cannot show itself.
@@ -424,7 +436,7 @@ impl WebApplication {
     /// Answers with `page` in the narrow frame of a page outside the account's
     /// shell, titled `title`, with the trace ID of a server
     /// error. Its forms may post to auth's own pages, and redirect on to the
-    /// origins of `targets`. The page is [private](Audience::Private).
+    /// origins of `targets`. The page is [private](Reach::Private).
     fn render<'a>(
         &'a self,
         cx: &'a Cx,
@@ -433,10 +445,10 @@ impl WebApplication {
         targets: &'a [Url],
         page: impl View + 'a,
     ) -> impl Future<Output = Result<Response>> + 'a {
-        self.render_as(cx, status, title, targets, Audience::Private, page)
+        self.render_as(cx, status, title, targets, Reach::Private, page)
     }
 
-    /// [`Self::render`], for `audience`: auth's pages on the way to the admin
+    /// [`Self::render`], as far as `reach`: auth's pages on the way to the admin
     /// dashboard look like it, not like the account's.
     pub(in crate::web) async fn render_as(
         &self,
@@ -444,27 +456,26 @@ impl WebApplication {
         status: StatusCode,
         title: &str,
         targets: &[Url],
-        audience: Audience,
+        reach: Reach,
         page: impl View,
     ) -> Result<Response> {
         let page = Child::new(page);
-        let admin = audience == Audience::Admin;
         let framed = view! { cx =>
             sourceorigin_ui::auth_shell(
                 home: routes::page::settings::HOME,
                 reference: HttpTelemetry::trace_id(status),
-                admin: admin,
+                admin: reach.is_admin(),
                 policies: self.policies.links(),
                 (page)
             )
         };
-        self.render_document(cx, status, title, targets, audience, framed)
+        self.render_document(cx, status, title, targets, reach, framed)
             .await
     }
 
     /// Answers with the whole `page`, its shell included, inside the document
     /// titled `title`, with the browser's theme and sidebar
-    /// preferences, for `audience`. Its forms may post to auth's own pages, and
+    /// preferences, as far as `reach`. Its forms may post to auth's own pages, and
     /// redirect on to the origins of `targets`: browsers apply `form-action` to a
     /// form's redirects too.
     pub(in crate::web) async fn render_document(
@@ -473,10 +484,14 @@ impl WebApplication {
         status: StatusCode,
         title: &str,
         targets: &[Url],
-        audience: Audience,
+        reach: Reach,
         page: impl View,
     ) -> Result<Response> {
         let page = Child::new(page);
+        let canonical = match reach {
+            Reach::Public => Some(self.issuer.join(uri(cx).path())),
+            Reach::Private | Reach::Admin => None,
+        };
         let stylesheet = EmbeddedAssets::STYLESHEET.path();
         let paths = EmbeddedAssets::SCRIPTS.map(|script| script.path());
         let scripts = &paths.each_ref().map(String::as_str);
@@ -487,11 +502,8 @@ impl WebApplication {
                 stylesheet: &stylesheet,
                 scripts: scripts,
                 preferences: preferences,
-                admin: audience == Audience::Admin,
-                canonical: match &audience {
-                    Audience::Public(canonical) => Some(canonical.as_str()),
-                    Audience::Private | Audience::Admin => None,
-                },
+                admin: reach.is_admin(),
+                canonical: canonical.as_deref(),
                 (page)
             )
         }

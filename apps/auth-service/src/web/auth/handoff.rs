@@ -8,7 +8,7 @@
 //! does not administer SourceOrigin is told it has no access, and nothing is
 //! handed off.
 
-use crate::web::{Audience, Failure, WebApplication};
+use crate::web::{Failure, Reach, WebApplication};
 use crate::{
     AdminError,
     account::Owner,
@@ -148,7 +148,7 @@ impl WebApplication {
                         StatusCode::FORBIDDEN,
                         Title::Dashboard.as_str(),
                         &[],
-                        Audience::Admin,
+                        Reach::Admin,
                         page,
                     )
                     .await?)
@@ -187,7 +187,7 @@ impl WebApplication {
                 status,
                 Title::Dashboard.as_str(),
                 &[dashboard],
-                Audience::Admin,
+                Reach::Admin,
                 page,
             )
             .await?)
