@@ -453,7 +453,8 @@ pub(crate) enum ButtonLabel {
 }
 
 impl ButtonLabel {
-    /// The text the button says, and a switch is named.
+    /// The label as text: what the button says beside any logo, and what a
+    /// switch is named.
     fn text(&self) -> &str {
         match self {
             Self::Text(text) => text,
