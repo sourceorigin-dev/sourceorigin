@@ -43,8 +43,8 @@ impl DirectoryApplication {
     /// once. Other parameters are ignored.
     ///
     /// # Errors
-    /// Refuses a query that names none, more than [`MAX_LOOKUP_IDS`], or an `id`
-    /// that is no account ID, at `400`.
+    /// Refuses a query that names none, more than [`MAX_LOOKUP_IDS`] distinct
+    /// ones, or an `id` that is no account ID, at `400`.
     fn ids(query: Option<&str>) -> Result<Vec<UserId>, ApiError> {
         let named = url::form_urlencoded::parse(query.unwrap_or_default().as_bytes())
             .filter(|(name, _)| name == "id")

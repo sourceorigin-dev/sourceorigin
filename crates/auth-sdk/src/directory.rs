@@ -10,10 +10,10 @@ use sourceorigin_common::protocol::{
     sdk::{ErrorCategory, SdkError},
 };
 use thiserror::Error;
-use url::Url;
 
 /// The directory could not be read.
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum LookupError {
     /// The issuer's identifier does not make a lookup URL.
     #[error("issuer {0:?} has no account lookup URL")]
@@ -54,8 +54,7 @@ impl Issuer {
     /// # Errors
     /// See [`LookupError`].
     pub async fn accounts(&self, ids: &[UserId]) -> Result<Vec<PublicAccount>, LookupError> {
-        let lookup = format!("{}{ACCOUNTS_PATH}", self.issuer().trim_end_matches('/'));
-        let lookup = Url::parse(&lookup)
+        let lookup = Self::under(self.issuer(), ACCOUNTS_PATH)
             .map_err(|source| LookupError::InvalidIssuer(self.issuer().to_owned(), source))?;
         let mut accounts = Vec::new();
         for batch in ids.chunks(MAX_LOOKUP_IDS) {

@@ -218,11 +218,13 @@ impl Issuer {
         if url.scheme() != "https" || url.query().is_some() || url.fragment().is_some() {
             return Err(invalid(None));
         }
-        Url::parse(&format!(
-            "{}{OPENID_CONFIGURATION_PATH}",
-            issuer.trim_end_matches('/')
-        ))
-        .map_err(|source| invalid(Some(source)))
+        Self::under(issuer, OPENID_CONFIGURATION_PATH).map_err(|source| invalid(Some(source)))
+    }
+
+    /// `path` under the identifier `issuer`, whatever slash it ends with: where
+    /// auth serves its own routes.
+    pub(crate) fn under(issuer: &str, path: &str) -> Result<Url, url::ParseError> {
+        Url::parse(&format!("{}{path}", issuer.trim_end_matches('/')))
     }
 
     /// Parses a metadata document and checks it belongs to `issuer`.
