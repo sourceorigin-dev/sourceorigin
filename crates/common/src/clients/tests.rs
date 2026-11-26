@@ -169,10 +169,10 @@ fn bounded_lists_count_distinct_values() {
     let scopes = AllowedScopes::new([Scope::OpenId, Scope::OpenId]).expect("one distinct scope");
     assert_eq!(scopes.len(), 1);
     assert_eq!(
-        RedirectUris::new([]),
+        GrantTypes::new([]),
         Err(InvalidCount {
             min: 1,
-            max: 16,
+            max: GrantType::ALL.len(),
             found: 0
         })
     );
@@ -225,6 +225,38 @@ fn client_status_takes_the_first_that_applies() {
     assert_eq!(ClientStatus::of(false, None, None), ClientStatus::Disabled);
     assert_eq!(ClientStatus::of(true, None, None), ClientStatus::Enabled);
     assert_eq!(ClientStatus::Deleted { at: deleted }.to_string(), "deleted");
+}
+
+/// A client with the authorization code grant lists a redirect URI, where its
+/// users come back. One that signs in only devices, or only itself, needs none,
+/// and may still list some.
+#[test]
+fn only_the_authorization_code_grant_needs_a_redirect_uri() {
+    let callback = || "https://app.example/callback".parse::<RedirectUri>();
+    let browser =
+        GrantTypes::new([GrantType::AuthorizationCode, GrantType::DeviceCode]).expect("grants");
+    assert_eq!(browser.redirect_uris([]), Err(InvalidRedirectUris::Missing));
+    assert_eq!(
+        browser
+            .redirect_uris([callback().expect("URI")])
+            .expect("one")
+            .len(),
+        1
+    );
+    let device = GrantTypes::new([GrantType::DeviceCode, GrantType::RefreshToken]).expect("grants");
+    assert!(device.redirect_uris([]).expect("none").is_empty());
+    assert_eq!(
+        device
+            .redirect_uris([callback().expect("URI")])
+            .expect("one")
+            .len(),
+        1
+    );
+    let many = (0..17).map(|n| format!("https://app.example/{n}").parse().expect("URI"));
+    assert!(matches!(
+        device.redirect_uris(many),
+        Err(InvalidRedirectUris::Count(_))
+    ));
 }
 
 /// Only a confidential client is registered with the client credentials grant,

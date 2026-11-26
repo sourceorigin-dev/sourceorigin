@@ -14,6 +14,8 @@ This is the OAuth client credentials grant (RFC 6749 §4.4).
   [settings](app-settings.md). An operator's client gets it with
   `--grant-type client_credentials`: see
   [OIDC clients](../../dev/operations/clients.md).
+- An app that only gets tokens for itself needs no redirect URI: turn
+  **Authorization code** off, and leave **Redirect URIs** empty.
 - The app needs access to the [API it calls](apis.md), with the scopes it uses.
   The API's owner gives it, on the API's page.
 

@@ -466,6 +466,7 @@ async fn client_facts<'a>(
                 for uri in client.redirect_uris {
                     <div><code>(uri.as_str())</code></div>
                 }
+                if client.redirect_uris.is_empty() { "None" }
             </dd>
             <dt>"After sign-out"</dt>
             <dd>

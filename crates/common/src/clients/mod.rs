@@ -664,8 +664,9 @@ impl<T, const MIN: usize, const MAX: usize> Deref for BoundedVec<T, MIN, MAX> {
     }
 }
 
-/// 1 to 16 authorization callbacks.
-pub type RedirectUris = BoundedVec<RedirectUri, 1, 16>;
+/// Up to 16 authorization callbacks. A client with the authorization code grant
+/// has at least one: [`GrantTypes::redirect_uris`] builds them.
+pub type RedirectUris = BoundedVec<RedirectUri, 0, 16>;
 /// Up to 16 pages the browser may return to after logout.
 pub type PostLogoutUris = BoundedVec<RedirectUri, 0, 16>;
 /// The scopes auth itself defines that a client may request: at least one, each
@@ -675,6 +676,39 @@ pub type AllowedScopes = BoundedVec<Scope, 1, { Scope::ALL.len() }>;
 /// The grants a client may use at the token endpoint, which RFC 7591 §2 calls its
 /// `grant_types`: at least one, each once.
 pub type GrantTypes = BoundedVec<GrantType, 1, { GrantType::ALL.len() }>;
+
+impl GrantTypes {
+    /// The authorization callbacks a client with these grants is registered
+    /// with, from `uris`: up to 16, each once.
+    ///
+    /// # Errors
+    /// Fails if there are more, or none for a client with
+    /// [`GrantType::AuthorizationCode`], which sends its users back to one. A
+    /// client that signs in only devices, or only itself, needs none.
+    pub fn redirect_uris(
+        &self,
+        uris: impl IntoIterator<Item = RedirectUri>,
+    ) -> Result<RedirectUris, InvalidRedirectUris> {
+        let uris = RedirectUris::new(uris)?;
+        if uris.is_empty() && self.contains(&GrantType::AuthorizationCode) {
+            return Err(InvalidRedirectUris::Missing);
+        }
+        Ok(uris)
+    }
+}
+
+/// Redirect URIs a client with its grant types may not be registered with.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Error)]
+pub enum InvalidRedirectUris {
+    /// There are more than a client may list.
+    #[error(transparent)]
+    Count(#[from] InvalidCount),
+    /// A client with the authorization code grant lists none.
+    #[error(
+        "an app with the authorization_code grant needs a redirect URI, where its users come back after signing in"
+    )]
+    Missing,
+}
 
 /// Everything an operator decides about a client. Every field is valid by
 /// construction, so storing one needs no further checks.
@@ -686,7 +720,8 @@ pub struct ClientRegistration {
     pub display_name: DisplayName,
     /// Public, or confidential with a secret.
     pub kind: ClientKind,
-    /// Where authorization responses may be sent, matched exactly.
+    /// Where authorization responses may be sent, matched exactly: at least one
+    /// with [`GrantType::AuthorizationCode`].
     pub redirect_uris: RedirectUris,
     /// Where the browser may return after logout, matched exactly.
     pub post_logout_uris: PostLogoutUris,

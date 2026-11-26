@@ -38,7 +38,7 @@ device, and stays signed in:
 
 ```sh
 auth-service client create notes-cli --name "Notes CLI" --reason "Notes' command-line tool" \
-    --redirect-uri http://127.0.0.1/callback --scope openid --scope offline_access \
+    --scope openid --scope offline_access \
     --grant-type urn:ietf:params:oauth:grant-type:device_code --grant-type refresh_token
 ```
 
@@ -46,11 +46,12 @@ A worker, which calls an API as itself:
 
 ```sh
 auth-service client create notes-worker --name "Notes worker" --confidential --reason "Notes' worker" \
-    --redirect-uri https://notes.example/callback --grant-type client_credentials
+    --grant-type client_credentials
 auth-service resource grant notes-worker https://notes.sourceorigin.dev/api --scope notes:read --reason "Notes' worker"
 ```
 
-Every client lists a redirect URI, even one that signs nobody in.
+A client with the authorization code grant lists at least one redirect URI.
+The command-line tool and the worker have other grants only, so they list none.
 
 For a confidential client, the command prints its secret once: store it in the
 app's configuration straight away.

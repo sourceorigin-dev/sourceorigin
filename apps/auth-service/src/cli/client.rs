@@ -11,7 +11,7 @@ use sourceorigin_common::{
     admin::{ApprovedOrigin, Client, ClientDetail},
     clients::{
         AllowedScopes, BackchannelLogoutUri, ClientKind, ClientRegistration, ClientStatus,
-        DisplayName, PostLogoutUris, RedirectUri, RedirectUris, RelatedOrigin,
+        DisplayName, PostLogoutUris, RedirectUri, RelatedOrigin,
     },
     config::{Origin, SecretReference},
     protocol::oauth::{GrantType, Scope},
@@ -398,8 +398,9 @@ pub(super) struct CreateClient {
     /// The name consent screens show.
     #[arg(long)]
     name: DisplayName,
-    /// An authorization callback, matched exactly; repeat for several.
-    #[arg(long = "redirect-uri", required = true)]
+    /// An authorization callback, matched exactly; repeat for several. A client
+    /// with the authorization code grant needs at least one.
+    #[arg(long = "redirect-uri")]
     redirect_uris: Vec<RedirectUri>,
     /// A page the browser may return to after logout; repeat for several.
     #[arg(long = "post-logout-uri")]
@@ -499,20 +500,20 @@ impl CreateClient {
         } else {
             self.scopes
         };
+        let grant_types = kind.grant_types(if self.grant_types.is_empty() {
+            kind.default_grant_types().to_vec()
+        } else {
+            self.grant_types
+        })?;
         Ok(ClientRegistration {
             id: self.id,
             display_name: self.name,
             kind,
-            redirect_uris: RedirectUris::new(self.redirect_uris)
-                .map_err(CliError::count("redirect URIs"))?,
+            redirect_uris: grant_types.redirect_uris(self.redirect_uris)?,
             post_logout_uris: PostLogoutUris::new(self.post_logout_uris)
                 .map_err(CliError::count("post-logout URIs"))?,
             allowed_scopes: AllowedScopes::new(scopes).map_err(CliError::count("scopes"))?,
-            grant_types: kind.grant_types(if self.grant_types.is_empty() {
-                kind.default_grant_types().to_vec()
-            } else {
-                self.grant_types
-            })?,
+            grant_types,
             trusted: self.trusted,
             require_pushed_authorization_requests: self.require_par,
             backchannel_logout_uri: self.backchannel_logout_uri,
@@ -586,15 +587,19 @@ impl UpdateClient {
         } else {
             self.scopes
         };
+        let grant_types = client.kind.grant_types(if self.grant_types.is_empty() {
+            client.grant_types.clone()
+        } else {
+            self.grant_types
+        })?;
         Ok(ClientRegistration {
             display_name: self.name.map_or_else(|| client.display_name.parse(), Ok)?,
             kind: client.kind,
-            redirect_uris: RedirectUris::new(Self::edit(
+            redirect_uris: grant_types.redirect_uris(Self::edit(
                 &client.redirect_uris,
                 &self.remove_redirect_uris,
                 self.add_redirect_uris,
-            )?)
-            .map_err(CliError::count("redirect URIs"))?,
+            )?)?,
             post_logout_uris: PostLogoutUris::new(Self::edit(
                 &client.post_logout_uris,
                 &self.remove_post_logout_uris,
@@ -602,11 +607,7 @@ impl UpdateClient {
             )?)
             .map_err(CliError::count("post-logout URIs"))?,
             allowed_scopes: AllowedScopes::new(scopes).map_err(CliError::count("scopes"))?,
-            grant_types: client.kind.grant_types(if self.grant_types.is_empty() {
-                client.grant_types.clone()
-            } else {
-                self.grant_types
-            })?,
+            grant_types,
             trusted: self.trusted || (client.trusted && !self.untrusted),
             require_pushed_authorization_requests: self.require_par
                 || (client.require_pushed_authorization_requests && !self.no_require_par),

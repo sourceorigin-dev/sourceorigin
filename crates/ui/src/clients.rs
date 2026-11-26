@@ -542,6 +542,7 @@ pub(crate) async fn client_facts<'a>(
                 for uri in client.redirect_uris {
                     <div><code>(uri.as_str())</code></div>
                 }
+                if client.redirect_uris.is_empty() { "None" }
             </dd>
         </dl>
     })
@@ -791,7 +792,6 @@ pub(crate) async fn client_form<'a>(
                         name="redirect_uris"
                         rows="3"
                         placeholder="https://app.example/auth/callback"
-                        required=""
                         aria-invalid=(redirects.flag())
                         aria-describedby=(redirects.described_by())
                         autofocus=(redirects.refused())
@@ -799,7 +799,7 @@ pub(crate) async fn client_form<'a>(
                 </label>
                 help(
                     of: &redirects,
-                    "One per line, matched exactly: where Origin Auth sends users back after signing in. HTTPS, or HTTP on a loopback IP for native apps."
+                    "One per line, matched exactly: where Origin Auth sends users back after signing in. HTTPS, or HTTP on a loopback IP for native apps. An app without the authorization code grant needs none."
                 )
                 refusal(of: &redirects)
                 <label>

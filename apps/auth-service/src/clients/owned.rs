@@ -20,7 +20,7 @@ use sourceorigin_common::{
     admin::{ClientResource, SecretLifetime},
     clients::{
         AllowedScopes, ClientField, ClientKind, ClientOwner, ClientRegistration, PostLogoutUris,
-        RedirectUri, RedirectUris,
+        RedirectUri,
     },
     protocol::oauth::{GrantType, Scope},
 };
@@ -185,6 +185,9 @@ impl ClientSettings {
         kind: ClientKind,
         trusted: bool,
     ) -> Result<ClientRegistration, InvalidSetting> {
+        let grant_types = kind
+            .grant_types(self.grant_types)
+            .map_err(InvalidSetting::with(ClientField::GrantTypes))?;
         Ok(ClientRegistration {
             id,
             display_name: self
@@ -192,11 +195,9 @@ impl ClientSettings {
                 .parse()
                 .map_err(InvalidSetting::with(ClientField::DisplayName))?,
             kind,
-            redirect_uris: RedirectUris::new(Self::uris(
-                &ClientField::RedirectUris,
-                &self.redirect_uris,
-            )?)
-            .map_err(InvalidSetting::with(ClientField::RedirectUris))?,
+            redirect_uris: grant_types
+                .redirect_uris(Self::uris(&ClientField::RedirectUris, &self.redirect_uris)?)
+                .map_err(InvalidSetting::with(ClientField::RedirectUris))?,
             post_logout_uris: PostLogoutUris::new(Self::uris(
                 &ClientField::PostLogoutUris,
                 &self.post_logout_uris,
@@ -204,9 +205,7 @@ impl ClientSettings {
             .map_err(InvalidSetting::with(ClientField::PostLogoutUris))?,
             allowed_scopes: AllowedScopes::new(self.allowed_scopes)
                 .map_err(InvalidSetting::with(ClientField::AllowedScopes))?,
-            grant_types: kind
-                .grant_types(self.grant_types)
-                .map_err(InvalidSetting::with(ClientField::GrantTypes))?,
+            grant_types,
             trusted,
             require_pushed_authorization_requests: self.require_pushed_authorization_requests,
             backchannel_logout_uri: self
