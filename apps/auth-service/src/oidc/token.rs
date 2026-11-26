@@ -610,7 +610,7 @@ impl OidcApplication {
         let claims: AccessTokenClaims = self
             .keys
             .current()?
-            .verify(token, TokenType::Access, &self.issuer, Utc::now())
+            .verify(token, &self.issuer, Utc::now())
             .map_err(|error| {
                 invalid(
                     OAuthCode::InvalidToken

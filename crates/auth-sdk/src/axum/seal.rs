@@ -151,6 +151,7 @@ impl fmt::Debug for CookieKey {
 
 /// A [`CookieKey`] could not be made.
 #[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum CookieKeyError {
     /// The text is neither base64, base64url nor hex.
     #[error("a cookie key must be 32 bytes in base64, base64url or hex")]

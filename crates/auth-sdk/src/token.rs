@@ -54,6 +54,7 @@ use thiserror::Error;
 /// # Ok::<(), sourceorigin_auth::protocol::oauth::InvalidScope>(())
 /// ```
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum TokenError {
     /// The token is not a compact JWS.
     #[error("token is malformed")]
@@ -244,6 +245,7 @@ pub trait AuthenticationPolicy: Send + Sync + 'static {
 
 /// Who an access token acts for.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum Subject {
     /// A user's account.
     User(UserId),
@@ -553,11 +555,18 @@ impl IdToken {
         )
     }
 
-    /// Requires this token to name the user `expected` names.
+    /// Requires this token to name the user `expected`. A user ID has one spelling,
+    /// so its text names it exactly.
     ///
     /// # Errors
     /// [`TokenError::SubjectMismatch`] if it names another.
-    pub fn require_subject(&self, expected: &str) -> Result<(), TokenError> {
+    pub fn require_subject(&self, expected: &UserId) -> Result<(), TokenError> {
+        self.require_sub(&expected.to_string())
+    }
+
+    /// Requires this token's `sub` to be `expected`, as another token of the same
+    /// sign-in names it.
+    pub(crate) fn require_sub(&self, expected: &str) -> Result<(), TokenError> {
         if self.claims.sub == expected {
             Ok(())
         } else {
@@ -576,7 +585,7 @@ impl IdToken {
     /// # Errors
     /// [`TokenError::SubjectMismatch`] or [`TokenError::AuthenticationChanged`].
     pub fn require_refresh_of(&self, signed_in: &IdTokenClaims) -> Result<(), TokenError> {
-        self.require_subject(&signed_in.sub)?;
+        self.require_sub(&signed_in.sub)?;
         let (new, old) = (&self.claims, signed_in);
         let changed = if new.authentication.auth_time != old.authentication.auth_time {
             Some(Claim::AuthTime)
@@ -603,6 +612,7 @@ impl IdToken {
 
 /// Which sessions a back-channel logout ends.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum LogoutScope {
     /// One auth session: every session the app started under its `sid`.
     Session(SessionId),
@@ -666,18 +676,17 @@ impl Issuer {
             .collect()
     }
 
-    /// Runs the shared checks on a token of type `typ` meant for `audience`, bound to
+    /// Runs the shared checks on a token of `T`'s type meant for `audience`, bound to
     /// the login's `nonce` if it sent one, in the order of the SDK design: framing,
     /// type, algorithm, key, signature, claims.
     pub(crate) async fn decode<T: RegisteredClaims + DeserializeOwned>(
         &self,
         token: &str,
-        typ: TokenType,
         audience: &str,
         nonce: Option<&str>,
     ) -> Result<T, TokenError> {
         let jws = Jws::parse(token)?;
-        jws.require_type(typ)?;
+        jws.require_type(T::TYPE)?;
         let algorithm = jws.require_algorithm(&self.algorithms())?;
         self.keys().verify(&jws, algorithm).await?;
         let claims: T = serde_json::from_slice(jws.payload()).map_err(TokenError::InvalidClaims)?;
@@ -701,9 +710,7 @@ impl Issuer {
         nonce: Option<&str>,
         max_age: Option<u32>,
     ) -> Result<IdToken, TokenError> {
-        let claims: IdTokenClaims = self
-            .decode(token, TokenType::Id, client.as_str(), nonce)
-            .await?;
+        let claims: IdTokenClaims = self.decode(token, client.as_str(), nonce).await?;
         if let Some(azp) = claims.azp.as_ref().filter(|azp| *azp != client) {
             return Err(TokenError::WrongAuthorizedParty {
                 expected: client.clone(),

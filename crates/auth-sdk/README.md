@@ -8,12 +8,17 @@ with your API's scopes declared as types.
 
 ```console
 cargo add sourceorigin-auth --features axum
+cargo add axum@0.8
+cargo add tokio --features macros,rt-multi-thread,net
 ```
 
-The `axum` feature adds extractors, a bearer layer and the login routes for
+The SDK asks tokio only for what it uses, so your app names the runtime it runs
+on. The `axum` feature adds extractors, a bearer layer and the login routes for
 [axum](https://docs.rs/axum) 0.8. Without it, the SDK works with any framework. It
 needs Rust 1.88 or newer, and a C compiler for its cryptography,
-[aws-lc-rs](https://docs.rs/aws-lc-rs).
+[aws-lc-rs](https://docs.rs/aws-lc-rs). It re-exports the crates its API names,
+such as `reqwest` and `url`, so you can use the versions it does, except axum,
+which your app depends on directly.
 
 ## Sign users in
 

@@ -39,7 +39,14 @@ The wire format is defined by types in `sourceorigin_common::protocol`, not by p
 The Rust SDK re-exports by name, as `sourceorigin_auth::protocol`, the types its
 API names and the types those name in turn. That list, in
 `crates/auth-sdk/src/lib.rs`, is its contract. The rest, such as
-`AccessTokenClaims`, `JwkSet` and `TokenResponse`, it reads only inside.
+`AccessTokenClaims`, `JwkSet` and `TokenResponse`, it reads only inside. It also
+re-exports `CryptoError` and the crates its API names (`chrono`, `reqwest`,
+`secrecy`, `serde_json`, `tokio` and `url`), so an app names the versions it uses, except
+axum, which an app depends on directly. Its
+enums and the `Tokens` it returns are `#[non_exhaustive]`, so a release can add
+a variant or a field without breaking apps, and no two of its items share a
+name: its scope trait is `DeclaredScope`, apart from `protocol::oauth::Scope`, and
+its `KeySet` is the only one an app meets, since crypto's is `SigningKeySet`.
 
 Auth issues tokens and documents by serializing these types, and the Rust SDK
 deserializes them, so the two cannot disagree. An SDK in another language mirrors
@@ -131,7 +138,9 @@ Checks run in this order, and the first failure is reported. Each failure is an
       delivery attempt for two minutes;
     - `sub` or `sid` is present (`invalid_claims`).
 
-In Rust, steps 8 to 10 and the `nonce` are one check, `Validation::check` in
+In Rust, each claims type names the `typ` of its tokens (`RegisteredClaims::TYPE`),
+so a token is only ever read as the claims of its type, by the SDK and by
+auth's `SigningKeySet::verify`. Steps 8 to 10 and the `nonce` are one check, `Validation::check` in
 `sourceorigin_common::protocol::registered`, at the time the issuer's clock gives.
 Auth runs the same check on Google's ID tokens, with `Expiry::Strict`: no leeway
 on `exp`.

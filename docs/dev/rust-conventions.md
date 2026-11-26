@@ -82,7 +82,7 @@ Keep implementations simple. Follow neighbouring modules and share repeated logi
   `serde_urlencoded`, `url` and Topcoat's `view`, so it compiles beside the
   database crate.
 
-Application code uses `Secret`, `Digest`, `Pkce`, `Rs256Key`, `KeySet`,
+Application code uses `Secret`, `Digest`, `Pkce`, `Rs256Key`, `SigningKeySet`,
 `KeyEncryptionKey`, `NoteKey` and `ScramVerifier` instead of calling
 `aws-lc-rs` directly. Environment reads go through `Variable`.
 Keep cryptographic implementations in the crypto crate so they can be audited

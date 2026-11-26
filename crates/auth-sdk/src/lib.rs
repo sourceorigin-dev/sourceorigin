@@ -107,6 +107,16 @@
 //! `sourceorigin_common` target, with its method, host and status only, as OpenTelemetry's
 //! HTTP client conventions name them.
 //!
+//! # Dependencies in the API
+//!
+//! The crates whose types the API names are re-exported, so an app names the
+//! versions the SDK uses: [`chrono`] for times, [`reqwest`] for the HTTP client,
+//! [`secrecy`] for client secrets, [`serde_json`] for the documents that fail to
+//! parse, [`tokio`] for a request's deadline, and [`url`] for URLs.
+//! [`CryptoError`] is why the operating system's
+//! randomness or a cookie key failed. axum is the exception: an app depends on it
+//! directly, at the version the SDK uses.
+//!
 //! The behavior follows `docs/dev/architecture/sdk.md` in the sourceorigin repository, and is
 //! tested against the shared vectors in `tests/sdk-vectors`.
 #![cfg_attr(docsrs, feature(doc_cfg))]
@@ -140,11 +150,14 @@ pub use http::NetworkError;
 pub use issuer::{DiscoveryError, Issuer, IssuerBuilder};
 pub use keys::{Jws, JwsHeader, KeyCache, KeyDefect, KeyError, KeySet};
 pub use resource::{Resource, ResourceError, ResourceValidator};
-pub use scope::{Scope, ScopeSet};
+pub use scope::{DeclaredScope, ScopeSet};
 pub use token::{
     AccessToken, AuthenticationPolicy, IdToken, LogoutScope, LogoutToken, Malformed, Subject,
     TokenError,
 };
+
+pub use sourceorigin_crypto::CryptoError;
+pub use {chrono, reqwest, secrecy, serde_json, tokio, url};
 
 /// The wire types this SDK reads, shared with auth itself. Each item is re-exported
 /// by name, so this list is the SDK's contract: every type its API names, and the

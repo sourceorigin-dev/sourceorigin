@@ -134,18 +134,17 @@ impl PublicKey {
         }
     }
 
-    /// Verifies the type and signature of a token naming this key, decodes its
-    /// claims as `T`, and checks them at `now` as auth checks its own tokens: from
-    /// `issuer`, of any audience and nonce, expiring as `expiry` says.
+    /// Verifies the type, `T`'s, and signature of a token naming this key, decodes
+    /// its claims as `T`, and checks them at `now` as auth checks its own tokens:
+    /// from `issuer`, of any audience and nonce, expiring as `expiry` says.
     fn verified<T: RegisteredClaims + DeserializeOwned>(
         &self,
         token: &Token<'_>,
-        typ: TokenType,
         issuer: &str,
         expiry: Expiry,
         now: DateTime<Utc>,
     ) -> Result<T, CryptoError> {
-        if token.header.typ != typ || !self.signs_with(token.header.alg) {
+        if token.header.typ != T::TYPE || !self.signs_with(token.header.alg) {
             return Err(CryptoError::UnexpectedHeader);
         }
         self.key
@@ -293,7 +292,7 @@ impl Rs256Key {
 /// whose tokens verify and which JWKS lists, and retired keys, which verify only
 /// `id_token_hint`s, since a hint may outlive its key's publication. Each key
 /// identifier appears once, and a token is checked only against the key it names.
-pub struct KeySet {
+pub struct SigningKeySet {
     /// The key that signs new tokens; one of `published`.
     signer: Rs256Key,
     /// Keys whose tokens verify, in JWKS order.
@@ -304,7 +303,7 @@ pub struct KeySet {
     jwks: JwkSet,
 }
 
-impl KeySet {
+impl SigningKeySet {
     /// Builds a set that signs with `signer`, which `published` must contain.
     ///
     /// # Errors
@@ -370,31 +369,24 @@ impl KeySet {
         &self.jwks
     }
 
-    /// Verifies a compact token signed by a published key and decodes its claims
-    /// as `T`, which pass the shared check at `now`: `issuer`, no leeway on `exp`
-    /// ([`Expiry::Strict`]), and the leeway on `nbf` and `iat`. Any audience will
-    /// do: auth reads its own tokens, whoever they are for.
+    /// Verifies a compact token of `T`'s type signed by a published key, and decodes
+    /// its claims as `T`, which pass the shared check at `now`: `issuer`, no leeway
+    /// on `exp` ([`Expiry::Strict`]), and any audience.
     ///
     /// # Errors
-    /// Returns [`CryptoError::UnknownKey`] for a key outside the published ones,
+    /// Returns [`CryptoError::UnexpectedHeader`] for a token of another type,
+    /// [`CryptoError::UnknownKey`] for a key outside the published ones,
     /// [`CryptoError::InvalidClaims`] for claims that do not decode as `T`, and
     /// [`CryptoError::Claims`] for claims that fail the check; otherwise preserves
     /// provider and decoding failures and rejects invalid signatures.
     pub fn verify<T: RegisteredClaims + DeserializeOwned>(
         &self,
         token: &str,
-        token_type: TokenType,
         issuer: &str,
         now: DateTime<Utc>,
     ) -> Result<T, CryptoError> {
         let token = Token::parse(token)?;
-        Self::find(&self.published, &token)?.verified(
-            &token,
-            token_type,
-            issuer,
-            Expiry::Strict,
-            now,
-        )
+        Self::find(&self.published, &token)?.verified(&token, issuer, Expiry::Strict, now)
     }
 
     /// Verifies an ID token hint signed by a published or retired key, and checks
@@ -412,7 +404,7 @@ impl KeySet {
         let token = Token::parse(token)?;
         Self::find(&self.published, &token)
             .or_else(|_| Self::find(&self.retired, &token))?
-            .verified(&token, TokenType::Id, issuer, Expiry::Ignored, now)
+            .verified(&token, issuer, Expiry::Ignored, now)
     }
 
     /// The key among `keys` that `token` names.

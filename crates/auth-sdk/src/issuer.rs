@@ -29,6 +29,7 @@ use url::Url;
 /// );
 /// ```
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum DiscoveryError {
     /// The configured issuer is not an `https` URL without query or fragment.
     #[error("issuer {0:?} must be an https URL without query or fragment")]

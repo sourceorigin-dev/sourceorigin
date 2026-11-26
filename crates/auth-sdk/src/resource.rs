@@ -3,7 +3,7 @@
 use crate::{AccessToken, Issuer, ScopeSet, TokenError};
 use chrono::{DateTime, Utc};
 use serde::de::DeserializeOwned;
-use sourceorigin_common::protocol::{claims::AccessTokenClaims, jwt::TokenType};
+use sourceorigin_common::protocol::claims::AccessTokenClaims;
 use std::{fmt, marker::PhantomData, str::FromStr};
 use thiserror::Error;
 use url::Url;
@@ -213,7 +213,7 @@ impl<X: DeserializeOwned> ResourceValidator<X> {
     ) -> Result<AccessToken<S, X>, TokenError> {
         let claims: AccessTokenClaims<X> = self
             .issuer
-            .decode(token, TokenType::Access, self.resource.identifier(), None)
+            .decode(token, self.resource.identifier(), None)
             .await?;
         AccessToken::from_claims(claims)?.into_scoped()
     }

@@ -43,6 +43,7 @@
 use super::{
     claims::{AccessTokenClaims, Audience, IdTokenClaims, LogoutTokenClaims},
     constants::LEEWAY,
+    jwt::TokenType,
     sdk::ErrorReason,
 };
 use chrono::{DateTime, TimeDelta, Utc};
@@ -140,6 +141,7 @@ impl Validation<'_> {
 
 /// Why [`Validation::check`] refused a token's claims.
 #[derive(Clone, Debug, Error, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ClaimsError {
     /// `iss` is none of the accepted issuers.
     #[error("token issuer is {found:?}, expected one of {expected:?}")]
@@ -187,8 +189,13 @@ impl ClaimsError {
     }
 }
 
-/// A token's registered claims and `nonce`, as [`Validation::check`] reads them.
+/// A token's type, registered claims and `nonce`, as [`Validation::check`] reads
+/// them.
 pub trait RegisteredClaims {
+    /// The `typ` header of the tokens that carry these claims, so a verifier reads
+    /// claims only from a token of their type.
+    const TYPE: TokenType;
+
     /// Whether `aud` must name the expected recipient alone. ID tokens trust no
     /// other audience (OIDC Core §3.1.3.7), so `azp` can only confirm the client,
     /// and auth addresses each logout token to one client; access tokens may name
@@ -210,7 +217,8 @@ pub trait RegisteredClaims {
 }
 
 /// Implements [`RegisteredClaims`] for claims types whose registered claims are their
-/// `iss`, `aud`, `exp` and `iat` fields. Each names its `nbf` and `nonce` fields, or
+/// `iss`, `aud`, `exp` and `iat` fields. Each names its token type, and its `nbf`
+/// and `nonce` fields, or
 /// `none` for a type without one, so no type can leave a check out by omission.
 macro_rules! registered_claims {
     (@nbf $claims:ident, none) => {
@@ -227,10 +235,12 @@ macro_rules! registered_claims {
     };
     ($(
         impl $([$($generics:tt)*])? for $claims:ty {
-            exclusive_audience: $exclusive:literal, not_before: $nbf:ident, nonce: $nonce:ident
+            type: $type:ident, exclusive_audience: $exclusive:literal, not_before: $nbf:ident,
+            nonce: $nonce:ident
         }
     )+) => {$(
         impl$(<$($generics)*>)? RegisteredClaims for $claims {
+            const TYPE: TokenType = TokenType::$type;
             const EXCLUSIVE_AUDIENCE: bool = $exclusive;
 
             fn issuer(&self) -> &str {
@@ -257,13 +267,13 @@ macro_rules! registered_claims {
 
 registered_claims! {
     impl [X] for AccessTokenClaims<X> {
-        exclusive_audience: false, not_before: nbf, nonce: none
+        type: Access, exclusive_audience: false, not_before: nbf, nonce: none
     }
     impl for IdTokenClaims {
-        exclusive_audience: true, not_before: nbf, nonce: nonce
+        type: Id, exclusive_audience: true, not_before: nbf, nonce: nonce
     }
     impl for LogoutTokenClaims {
-        exclusive_audience: true, not_before: none, nonce: none
+        type: Logout, exclusive_audience: true, not_before: none, nonce: none
     }
 }
 

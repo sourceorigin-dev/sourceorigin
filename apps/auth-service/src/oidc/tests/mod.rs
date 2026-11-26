@@ -20,7 +20,7 @@ use sourceorigin_common::{
     events::{Actor, CodeRedemptionFailure, DomainEvent, RevocationReason},
     protocol::claims::{Acr, IdTokenClaims},
 };
-use sourceorigin_crypto::{KeySet, Rs256Key};
+use sourceorigin_crypto::{Rs256Key, SigningKeySet};
 use std::sync::Arc;
 use tower::ServiceExt;
 use url::Url;
@@ -99,7 +99,7 @@ impl Flow {
                 digest_keys: Arc::new(TokenDigestKeys::new(TokenDigestKey::derive(&[7; 32]), None)),
                 policies: config.oidc.policies.clone(),
             },
-            SigningKeys::new(KeySet::single(
+            SigningKeys::new(SigningKeySet::single(
                 Rs256Key::generate("oidc-tests").expect("RSA signing key"),
             )),
         )
@@ -335,7 +335,6 @@ impl Flow {
             .expect("fresh keys")
             .verify(
                 tokens["id_token"].as_str().expect("ID token"),
-                TokenType::Id,
                 &self.app.issuer,
                 Utc::now(),
             )

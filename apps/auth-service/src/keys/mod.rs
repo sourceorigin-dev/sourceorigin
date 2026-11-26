@@ -17,7 +17,7 @@ use sourceorigin_common::{
     events::{DomainEvent, EventContext, JobName, SigningKeyChange},
     protocol::jwt::KeyId,
 };
-use sourceorigin_crypto::{CryptoError, Digest, KeySet, PublicKey, Rs256Key, Secret};
+use sourceorigin_crypto::{CryptoError, Digest, PublicKey, Rs256Key, Secret, SigningKeySet};
 use sourceorigin_repository::{
     Database, DatabaseError, DatabaseTransaction, InsertSigningKey, SigningKeyState,
     SigningKeyType, StoredSigningKey,
@@ -103,14 +103,14 @@ pub(crate) struct SigningKeys(Arc<RwLock<Loaded>>);
 /// A key set, and when it was loaded.
 struct Loaded {
     /// The keys.
-    keys: Arc<KeySet>,
+    keys: Arc<SigningKeySet>,
     /// When they were loaded.
     at: Instant,
 }
 
 impl SigningKeys {
     /// Shares `keys` until the next reload.
-    pub(crate) fn new(keys: KeySet) -> Self {
+    pub(crate) fn new(keys: SigningKeySet) -> Self {
         Self(Arc::new(RwLock::new(Loaded {
             keys: Arc::new(keys),
             at: Instant::now(),
@@ -121,7 +121,7 @@ impl SigningKeys {
     ///
     /// # Errors
     /// Returns [`StaleKeys`] once no reload succeeded for [`STALE_AFTER`].
-    pub(crate) fn current(&self) -> Result<Arc<KeySet>, StaleKeys> {
+    pub(crate) fn current(&self) -> Result<Arc<SigningKeySet>, StaleKeys> {
         self.loaded_within(STALE_AFTER)
     }
 
@@ -134,7 +134,7 @@ impl SigningKeys {
     }
 
     /// The current key set, if it was loaded at most `limit` ago.
-    fn loaded_within(&self, limit: Duration) -> Result<Arc<KeySet>, StaleKeys> {
+    fn loaded_within(&self, limit: Duration) -> Result<Arc<SigningKeySet>, StaleKeys> {
         let loaded = self.0.read().unwrap_or_else(PoisonError::into_inner);
         let age = loaded.at.elapsed();
         if age > limit {
@@ -144,7 +144,7 @@ impl SigningKeys {
     }
 
     /// Replaces the key set for every clone.
-    fn replace(&self, keys: KeySet) {
+    fn replace(&self, keys: SigningKeySet) {
         *self.0.write().unwrap_or_else(PoisonError::into_inner) = Loaded {
             keys: Arc::new(keys),
             at: Instant::now(),
@@ -364,7 +364,7 @@ impl KeyStore {
     /// the private keys sealed with them are trusted. A `next` or `retiring` one
     /// that fails is left out and logged, rather than failing the whole set: it
     /// signs nothing, and promotion refuses it.
-    fn key_set(&self, stored: &[StoredSigningKey]) -> Result<KeySet, KeyError> {
+    fn key_set(&self, stored: &[StoredSigningKey]) -> Result<SigningKeySet, KeyError> {
         let mut signer = None;
         let (mut published, mut retired) = (Vec::new(), Vec::new());
         for key in stored {
@@ -393,7 +393,7 @@ impl KeyStore {
                 ),
             }
         }
-        Ok(KeySet::new(
+        Ok(SigningKeySet::new(
             signer.ok_or(KeyError::NoActiveKey)?,
             published,
             retired,

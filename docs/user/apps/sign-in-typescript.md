@@ -73,7 +73,8 @@ which also defines the small helpers they call, `env`, `page` and `escape`.
 - `GET /auth/callback` completes the sign-in and sets the session cookie.
 - `POST /auth/logout` signs the user out.
 
-The `mount` option moves the routes from `/auth`, and `afterLogin` sets where a
+The `mount` option moves the routes from `/auth` to another path on your app, with
+no query or route parameters, and `afterLogin` sets where a
 sign-in lands when it came from no page, `/` by default. `Issuer.discover` takes
 `fetch` and `clock` options, to send its requests through another client or pin
 time in tests. Whatever `fetch` you give it, the SDK sends only `https` requests,

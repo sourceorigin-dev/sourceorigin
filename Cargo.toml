@@ -102,7 +102,7 @@ sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio",
 thiserror = "2.0"
 # Server-rendered pages: only the router, `view!` and the tower service; its defaults add a browser runtime.
 topcoat = { version = "0.10", default-features = false }
-tokio = { version = "1.48", features = ["macros", "rt-multi-thread", "signal", "net", "sync", "time"] }
+tokio = { version = "1.48" }
 # The receiver stream a data export's body reads; already in the tree through sqlx.
 tokio-stream = { version = "0.1", default-features = false }
 tower = { version = "0.5", features = ["util"] }

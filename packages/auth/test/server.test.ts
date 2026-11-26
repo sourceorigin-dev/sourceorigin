@@ -335,6 +335,21 @@ test('a public client is refused', async () => {
   });
 });
 
+test('mount is a path on the app, as in the Rust SDK', async () => {
+  const issuer = await Issuer.discover(ISSUER, { fetch: FakeFetch.issuer().fetch });
+  const client = issuer.client({
+    clientId: CLIENT_ID,
+    clientSecret: 'secret',
+    redirectUri: `${APP}/account/callback`
+  });
+  const login = (mount: string) => new Login(client, { cookieKey: CookieKey.generate(), mount });
+  assert.doesNotThrow(() => login('/account'));
+  // Another site would make every login link an open redirect.
+  for (const mount of ['account', '//evil.example', '/\\evil.example', '/a?b', '/{tenant}']) {
+    assert.throws(() => login(mount), { name: 'TypeError', message: /mount/ }, mount);
+  }
+});
+
 test('a sign-in requests offline_access and sets sealed host-only cookies', async () => {
   const auth = await Auth.start();
   const browser = new Browser(auth);

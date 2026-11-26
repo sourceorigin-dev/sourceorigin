@@ -9,7 +9,7 @@ use serde::Deserialize;
 use sourceorigin_auth::{Jws, KeyCache, TokenError};
 use sourceorigin_common::protocol::{
     claims::Audience,
-    jwt::Algorithm,
+    jwt::{Algorithm, TokenType},
     oauth::{Prompt, Scope},
     registered::{ClaimsError, Expiry, RegisteredClaims, Validation},
 };
@@ -215,6 +215,9 @@ impl GoogleClaims {
 }
 
 impl RegisteredClaims for GoogleClaims {
+    /// An ID token. Only auth's own verifier reads the type, and Google's tokens
+    /// never reach it.
+    const TYPE: TokenType = TokenType::Id;
     /// An ID token, which trusts no other audience (OIDC Core §3.1.3.7).
     const EXCLUSIVE_AUDIENCE: bool = true;
 
