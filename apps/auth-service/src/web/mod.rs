@@ -448,8 +448,8 @@ impl WebApplication {
         self.render_as(cx, status, title, targets, Reach::Private, page)
     }
 
-    /// [`Self::render`], as far as `reach`: auth's pages on the way to the admin
-    /// dashboard look like it, not like the account's.
+    /// [`Self::render`], for whom `reach` names: auth's pages on the way to the
+    /// admin dashboard look like it, not like the account's.
     pub(in crate::web) async fn render_as(
         &self,
         cx: &Cx,
@@ -474,8 +474,8 @@ impl WebApplication {
     }
 
     /// Answers with the whole `page`, its shell included, inside the document
-    /// titled `title`, with the browser's theme and sidebar
-    /// preferences, as far as `reach`. Its forms may post to auth's own pages, and
+    /// titled `title`, with the browser's theme and sidebar preferences, coloured
+    /// and indexed as `reach` says. Its forms may post to auth's own pages, and
     /// redirect on to the origins of `targets`: browsers apply `form-action` to a
     /// form's redirects too.
     pub(in crate::web) async fn render_document(
