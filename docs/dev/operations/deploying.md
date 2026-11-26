@@ -106,7 +106,7 @@ To follow it:
 
 ```sh
 piquelctl env history sourceorigin staging                   # its deployments, newest first
-piquelctl --timeout 30m env wait sourceorigin staging --ready routes
+piquelctl --wait-timeout 30m env wait sourceorigin staging --ready routes
 piquelctl env logs sourceorigin staging --service auth
 ```
 
