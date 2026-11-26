@@ -11,7 +11,12 @@ use std::net::IpAddr;
 /// refresh tokens, sending its requests from an address of its own, so its
 /// lookups by user code spend no other scenario's budget.
 async fn device_flow(trusted: bool) -> Flow {
-    let mut flow = Flow::new(false, trusted).await;
+    device_flow_of(false, trusted).await
+}
+
+/// [`device_flow`], with a confidential client if `confidential`.
+async fn device_flow_of(confidential: bool, trusted: bool) -> Flow {
+    let mut flow = Flow::new(confidential, trusted).await;
     flow.client.grant_types = GrantTypes::new([GrantType::DeviceCode, GrantType::RefreshToken])
         .expect("the device and refresh grants");
     crate::tests::replace(&flow.app.database, &flow.client)
@@ -30,7 +35,7 @@ impl Flow {
                 Method::POST,
                 routes::oidc::DEVICE_AUTHORIZATION,
                 &fields,
-                None,
+                self.basic.as_deref(),
             )
             .await;
         assert_eq!(response.status(), StatusCode::OK);
@@ -44,8 +49,13 @@ impl Flow {
             ("client_id", self.client.id.as_str()),
             ("device_code", device_code),
         ];
-        self.request(Method::POST, routes::oidc::TOKEN, &fields, None)
-            .await
+        self.request(
+            Method::POST,
+            routes::oidc::TOKEN,
+            &fields,
+            self.basic.as_deref(),
+        )
+        .await
     }
 
     /// The error code of a poll with `device_code`.
@@ -283,6 +293,52 @@ async fn a_device_and_its_approving_browser_sign_out_apart() {
         .request(Method::GET, routes::page::DEVICE, &[], None)
         .await;
     assert_eq!(page.status(), StatusCode::OK, "the browser stays signed in");
+}
+
+/// A device stays signed in while it refreshes its tokens at least every 30
+/// days, whether its client rotates its refresh token or keeps it, and for a
+/// year from its approval at most: then its user approves it again.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL"]
+async fn a_device_stays_signed_in_while_it_refreshes_for_a_year_at_most() {
+    for confidential in [false, true] {
+        let flow = device_flow_of(confidential, true).await;
+        let started = flow.device_authorization(REFRESH_SCOPES).await;
+        let user_code = started["user_code"].as_str().expect("user code");
+        flow.device_page(user_code, Some("approve")).await;
+        let device_code = started["device_code"].as_str().expect("device code");
+        let tokens = json(flow.poll(device_code).await).await;
+        let mut token = tokens["refresh_token"]
+            .as_str()
+            .expect("refresh token")
+            .to_owned();
+        let device = flow.device_sessions().await.pop().expect("device session");
+        let age = async || {
+            let mut sessions = flow.app.database.sessions();
+            sessions.age(device.id, 29).await.expect("age the session");
+        };
+
+        for month in 1..=12 {
+            age().await;
+            let refreshed = flow.refresh(&token).await;
+            assert_eq!(refreshed.status(), StatusCode::OK, "month {month}");
+            let refreshed = json(refreshed).await;
+            assert_eq!(refreshed["refresh_token"].is_string(), !confidential);
+            if let Some(rotated) = refreshed["refresh_token"].as_str() {
+                rotated.clone_into(&mut token);
+            }
+        }
+        let renewed = flow.device_sessions().await.pop().expect("device session");
+        let left = renewed.expires_at - Utc::now();
+        assert_eq!(
+            left.num_days(),
+            365 - 12 * 29 - 1,
+            "a year from its approval"
+        );
+
+        age().await;
+        Flow::assert_invalid_grant(flow.refresh(&token).await).await;
+    }
 }
 
 /// Guessing user codes is throttled: a browser's lookups are counted, whatever

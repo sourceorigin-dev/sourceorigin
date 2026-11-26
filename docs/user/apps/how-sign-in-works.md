@@ -74,6 +74,8 @@ A sign-in gives your app up to three tokens:
   auth. It comes only with `offline_access`, for an app allowed refresh tokens. It
   works until the user's session at auth ends, 30 days after they signed in, or
   until it is revoked, as when the user signs out or removes the app's access.
+  A device signed in with a code
+  [stays signed in longer](device-sign-in.md#keep-the-device-signed-in).
 
 A browser or native app gets a new refresh token with every refresh, and the old
 one stops working. A web app with a backend keeps the same one.

@@ -10,7 +10,7 @@ own. It builds on the [security boundaries](boundaries.md); the
 | Asset | Why it matters | Where it lives |
 | --- | --- | --- |
 | Accounts and their passkeys | A passkey is the strongest way in, and the only one that confirms sensitive changes | `users`, `passkey_credentials`; the private keys stay on the owner's authenticators |
-| Sessions | A session signs its browser in for up to 30 days | `sessions`, with only the cookie's digest, in `browser_session_secrets` |
+| Sessions | A session signs its browser in for up to 30 days, or a device signed in with a code for up to 365 | `sessions`, with only the cookie's digest, in `browser_session_secrets` |
 | Tokens | Codes, refresh tokens and ID and access tokens let apps act as the user | Codes and refresh tokens as HMAC digests; issued tokens at the apps |
 | Signing keys | Whoever holds one can mint any token apps accept | `signing_keys`, sealed under the key-encryption key |
 | Personal data | Email addresses, IP addresses, devices, profile pictures, the apps an account uses | PostgreSQL; the events' IPs and devices in `event_personal_data`, deleted after 90 days; a session's IPs and device as long as its row; known browsers' device until unused for 400 days |
@@ -49,7 +49,7 @@ own. It builds on the [security boundaries](boundaries.md); the
 
 | Threat | Mitigation |
 | --- | --- |
-| A session stolen or left signed in | Every way into an account needs a passkey confirmation from the last five minutes, which a social sign-in never gives. Sessions end after 30 days, and the owner signs others out from the settings. |
+| A session stolen or left signed in | Every way into an account needs a passkey confirmation from the last five minutes, which a social sign-in never gives. A browser's session ends after 30 days, and a device's after 30 days without a refresh, or 365 days in all. The owner signs others out from the settings. |
 | A linked GitHub or Google account taken over | A social sign-in can use the account, but cannot add a way in, and never replaces an established account's passkeys ([properties](properties.md)). |
 | A stolen passkey | It grants everything, as it would the owner. Support confirms the owner under the evidence policy, then recovers with `--revoke`, keeping only the passkeys the owner vouches for ([stolen older passkeys](account-recovery.md#stolen-older-passkeys)). |
 | A stolen mailbox | Email signs nobody in. A recovery link sent there gives only a probation sign-in, which adds no way in, and every verified address and the owner's next passkey sign-in hear of it ([account recovery](account-recovery.md#threat-model)). |

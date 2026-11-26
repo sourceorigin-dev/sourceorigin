@@ -196,6 +196,9 @@ fails on it. What it does depends on the client's kind:
 - A **confidential** client keeps its token, which is useless without the
   client's secret, so its refresh writes nothing.
 
+Either way, the refresh of a device's session renews the session, and the token
+its client keeps ([expiry](sessions.md#expiry-and-revocation)).
+
 A public client's retry is not a replay. Two tabs refreshing at once, or a
 client retrying after a lost response, present the same token moments apart. A
 token consumed less than `REFRESH_REUSE_SECONDS` (10) ago, whose successor is
@@ -280,7 +283,7 @@ while it holds the row that account's decision waits for.
 Once approved, the poll issues the tokens as a code exchange does: the account
 and the device's session must be active, the client must still allow the grant,
 and an untrusted client must still have the consent. It marks the row redeemed,
-starts the device session's 30 days, records the client among the session's
+starts the device session's 30 days, which each refresh renews, records the client among the session's
 (`oidc_session_clients`) and `GrantIssued`, and creates a refresh family when
 the client and scopes allow one. The tokens report the authentication the
 device's session copied from the approving one.

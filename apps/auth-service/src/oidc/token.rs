@@ -6,7 +6,7 @@ use super::{
 };
 use crate::{
     routes,
-    security::{ApiError, RequestContext},
+    security::{ApiError, DEVICE_LIFETIME_DAYS, RequestContext, SESSION_LIFETIME_DAYS},
 };
 use axum::{
     Form, Json,
@@ -29,8 +29,9 @@ use sourceorigin_common::{
 };
 use sourceorigin_repository::{
     CodeRedemptionError, ConsumedAuthorizationCode, DatabaseTransaction, InsertRefreshFamily,
-    InsertRefreshToken, RefreshOutcome, RefreshRedemption, RefreshRedemptionError,
-    RefreshSuccessor, SessionAuthentication, StoredOidcClient,
+    InsertRefreshToken, RedeemedRefreshToken, RefreshOutcome, RefreshRedemption,
+    RefreshRedemptionError, RefreshSuccessor, SessionAuthentication, StoredOidcClient,
+    StoredSession,
 };
 use sourceorigin_telemetry::{Counter, Label};
 
@@ -417,6 +418,8 @@ impl OidcApplication {
     /// response carries none and the refresh writes nothing. The new tokens report
     /// the grant's original authentication, not the session's current one (OIDC
     /// Core §12.2).
+    ///
+    /// Each refresh renews a device's session ([`Self::refreshed_session`]).
     async fn refresh(
         &self,
         request: Refresh,
@@ -448,11 +451,9 @@ impl OidcApplication {
             .find_by_id(redeemed.user_id)
             .await?
             .ok_or_else(|| OAuthCode::InvalidGrant.reject("the account no longer exists"))?;
-        let session = tx
-            .sessions()
-            .find_by_id(redeemed.session_id)
-            .await?
-            .ok_or_else(|| OAuthCode::InvalidGrant.reject(SESSION_ENDED))?;
+        let session = self
+            .refreshed_session(&mut tx, &redeemed, &opaque, context)
+            .await?;
         let refresh_token = match &redeemed.outcome {
             RefreshOutcome::Kept => None,
             RefreshOutcome::Rotated => {
@@ -478,6 +479,41 @@ impl OidcApplication {
             refresh_token,
             ..tokens
         })
+    }
+
+    /// The session of the refresh token `presented`, just `redeemed` in `tx` by
+    /// the request of `context`. A device's session is renewed: it now ends
+    /// [`SESSION_LIFETIME_DAYS`] from now, and [`DEVICE_LIFETIME_DAYS`] after its
+    /// approval at the latest, and a token its client keeps is renewed with it,
+    /// while a rotated token's successor takes the new end. A browser's session
+    /// never extends.
+    async fn refreshed_session(
+        &self,
+        tx: &mut DatabaseTransaction<'_>,
+        redeemed: &RedeemedRefreshToken,
+        presented: &OpaqueToken,
+        context: &EventContext,
+    ) -> Result<StoredSession, OAuthError> {
+        let ends = Utc::now() + Duration::days(i64::from(SESSION_LIFETIME_DAYS));
+        let address = context.origin.client_ip;
+        let device = tx
+            .sessions()
+            .renew_device(redeemed.session_id, ends, DEVICE_LIFETIME_DAYS, address)
+            .await?;
+        let Some(device) = device else {
+            return tx
+                .sessions()
+                .find_by_id(redeemed.session_id)
+                .await?
+                .ok_or_else(|| OAuthCode::InvalidGrant.reject(SESSION_ENDED));
+        };
+        if redeemed.outcome == RefreshOutcome::Kept {
+            let (digest, key) = self.token_digest(presented);
+            tx.tokens()
+                .renew_token(presented.id, device.expires_at, &digest, &key)
+                .await?;
+        }
+        Ok(device)
     }
 
     /// Creates the refresh `family` of a grant just issued to `client` for

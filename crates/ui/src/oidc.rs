@@ -163,8 +163,9 @@ pub async fn device_code<'a>(
 }
 
 /// The device page's approval: what the application named `client` asks to
-/// receive through `scopes` on the device showing `code`, since `started`, for
-/// `days` days, and the decision, posted to `action` with the code. An application an account
+/// receive through `scopes` on the device showing `code`, since `started`, how
+/// long the device stays signed in, and the decision, posted to `action` with
+/// the code. An application an account
 /// registered, `registered_by` by its handle, is labelled unverified. The page
 /// names the signed-in `account`, and offers to switch accounts by posting to
 /// `sign_in`. The form posts once: a second decision would find the code used.
@@ -183,8 +184,10 @@ pub async fn device_approval<'a>(
     code: &'a str,
     /// When the device asked.
     started: DateTime<Utc>,
-    /// How many days the device stays signed in.
+    /// How many days the device stays signed in without being used.
     days: u32,
+    /// How many days the device stays signed in at most.
+    longest_days: u16,
     /// Where the decision posts.
     action: &'a str,
     /// Where to sign in as another account.
@@ -224,7 +227,7 @@ pub async fn device_approval<'a>(
             </ul>
         </section>
         <p class="help">
-            (format!("{client} cannot see your passkeys or change your account. The device stays signed in for {days} days: you can sign it out at any time from your devices."))
+            (format!("{client} cannot see your passkeys or change your account. The device stays signed in while it is used at least every {days} days, for {longest_days} days at most: you can sign it out at any time from your devices."))
         </p>
         <form method="post" action=(action) data-submit-once="">
             <input type="hidden" name="user_code" value=(code)>

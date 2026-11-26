@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH aged AS (\n                    UPDATE sessions\n                    SET created_at = created_at - make_interval(days => $2),\n                        authenticated_at = authenticated_at - make_interval(days => $2),\n                        expires_at = expires_at - make_interval(days => $2)\n                    WHERE id = $1\n                    RETURNING id\n                )\n                UPDATE refresh_tokens t\n                SET expires_at = t.expires_at - make_interval(days => $2)\n                FROM refresh_token_families f, aged\n                WHERE f.id = t.family_id AND f.session_id = aged.id",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "901cde175e67c07896750612bf797dcb0435e28ebce170af56d2ee0fa7e45fdc"
+}

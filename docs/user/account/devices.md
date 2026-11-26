@@ -28,7 +28,10 @@ Each device shows:
 - if you are an administrator, a line for each admin dashboard signed in
   through it, such as **Admin dashboard · Active now**.
 
-A device stays signed in for 30 days at most, then signs in again. The admin
+A browser stays signed in for 30 days at most, then signs in again. A device
+you signed in [with a code](signing-in.md#sign-in-on-a-device-with-a-code)
+stays signed in while you use it at least every 30 days, for 365 days at most.
+The admin
 dashboard signs out after 30 minutes without use, and 12 hours after you signed
 in to it. Signing a device out signs its admin dashboard out too.
 

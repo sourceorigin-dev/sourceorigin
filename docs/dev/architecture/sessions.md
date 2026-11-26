@@ -77,6 +77,7 @@ Five sign-ins differ:
   truthfully. It lasts no longer than the device code until the device collects
   its tokens (`start_device`), which starts its 30 days and records the
   device's address, so an approval nobody collects leaves no session behind.
+  Each refresh then renews it (see [expiry](#expiry-and-revocation)).
   It is listed with its app's name and signed out like any other, apart from
   the browser that approved it. Its approval is recorded as `DeviceAuthorized`,
   not `SignedIn`.
@@ -151,8 +152,19 @@ retries. The operation checks the confirmation again under the account lock
 
 ## Expiry and revocation
 
-A session expires 30 days after it was created. Re-authenticating never extends
-it, and neither do the refresh tokens issued from it, which expire with it.
+A browser's session expires 30 days after it was created. Re-authenticating
+never extends it, and neither do the refresh tokens issued from it, which expire
+with it.
+
+A device's session has no browser to sign in again, so each refresh renews it
+(`SessionRepository::renew_device`): it then ends 30 days later, and 365 days
+after its approval at the latest (`DEVICE_LIFETIME_DAYS`), and counts as last
+seen from the refresh's address. A device that refreshes at least every 30
+days stays signed in for a year, and one left unused expires as a browser
+does. A rotated refresh token's successor takes the session's new end. A token
+its client keeps is renewed with it (`TokenRepository::renew_token`), and
+stored under the current token digest key.
+
 Expiry is passive: the lookups ignore an expired session, and nothing is recorded
 or sent.
 

@@ -10,7 +10,7 @@
 use crate::{
     oidc::{DeviceDecision, DeviceLookup, UserCode},
     routes,
-    security::SESSION_LIFETIME_DAYS,
+    security::{DEVICE_LIFETIME_DAYS, SESSION_LIFETIME_DAYS},
     web::{Failure, WebApplication},
 };
 use sourceorigin_common::Handle;
@@ -153,6 +153,7 @@ impl WebApplication {
                         code: &code,
                         started: request.started_at,
                         days: SESSION_LIFETIME_DAYS,
+                        longest_days: DEVICE_LIFETIME_DAYS,
                         action: routes::page::DEVICE,
                         sign_in: &sign_in,
                     )

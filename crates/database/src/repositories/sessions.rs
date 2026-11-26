@@ -325,6 +325,42 @@ impl SessionRepository<'_> {
         )
     }
 
+    /// Renews the active device session `id`, whose client just refreshed its
+    /// tokens from `ip`: it now ends at `ends`, or `longest_days` after its
+    /// approval if that comes first, and was last seen now. `None` if `id` is not
+    /// an active device session: a browser's session never extends.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DatabaseError`] if the query fails or the row is invalid.
+    pub async fn renew_device(
+        &mut self,
+        id: SessionId,
+        ends: DateTime<Utc>,
+        longest_days: u16,
+        ip: Option<IpAddr>,
+    ) -> Result<Option<StoredSession>, DatabaseError> {
+        run!(
+            self,
+            fetch_optional,
+            sessions!(
+                "UPDATE sessions s
+                SET expires_at = LEAST($2, s.created_at + make_interval(days => $3)),
+                    last_seen_at = now(), last_seen_ip = COALESCE($4, s.last_seen_ip)
+                WHERE s.id = $1
+                AND s.client_id IS NOT NULL
+                AND s.revoked_at IS NULL
+                AND s.expires_at > now()
+                RETURNING",
+                "",
+                id.as_uuid(),
+                ends,
+                i32::from(longest_days),
+                ip as _,
+            )
+        )
+    }
+
     /// Finds a session in any state.
     ///
     /// # Errors
@@ -433,6 +469,37 @@ impl SessionRepository<'_> {
             sqlx::query!(
                 "UPDATE sessions SET expires_at = clock_timestamp() WHERE id = $1",
                 id.as_uuid(),
+            )
+        )?;
+        Ok(())
+    }
+
+    /// Makes session `id` and its refresh tokens `days` days older, as if that
+    /// long had passed: a fixture for what a session's age decides.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DatabaseError`] if the update fails.
+    #[cfg(any(test, feature = "test-util"))]
+    pub async fn age(&mut self, id: SessionId, days: i32) -> Result<(), DatabaseError> {
+        run!(
+            self,
+            execute,
+            sqlx::query!(
+                "WITH aged AS (
+                    UPDATE sessions
+                    SET created_at = created_at - make_interval(days => $2),
+                        authenticated_at = authenticated_at - make_interval(days => $2),
+                        expires_at = expires_at - make_interval(days => $2)
+                    WHERE id = $1
+                    RETURNING id
+                )
+                UPDATE refresh_tokens t
+                SET expires_at = t.expires_at - make_interval(days => $2)
+                FROM refresh_token_families f, aged
+                WHERE f.id = t.family_id AND f.session_id = aged.id",
+                id.as_uuid(),
+                days,
             )
         )?;
         Ok(())

@@ -241,6 +241,37 @@ impl TokenRepository<'_> {
         Ok(())
     }
 
+    /// Renews the token `id`, which its client keeps, when its device session
+    /// was renewed: it is now accepted until `expires_at`, and stored as
+    /// `secret_digest` under the current `digest_key`, so a kept token leaves an
+    /// old digest key as soon as a rotated one does.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DatabaseError`] if the update fails.
+    pub async fn renew_token(
+        &mut self,
+        id: TokenId,
+        expires_at: DateTime<Utc>,
+        secret_digest: &[u8],
+        digest_key: &str,
+    ) -> Result<(), DatabaseError> {
+        run!(
+            self,
+            execute,
+            sqlx::query!(
+                "UPDATE refresh_tokens
+                SET expires_at = $2, secret_digest = $3, digest_key = $4
+                WHERE id = $1",
+                id.as_uuid(),
+                expires_at,
+                secret_digest,
+                digest_key,
+            )
+        )?;
+        Ok(())
+    }
+
     /// Locks the token's account, session, family and client in a fixed order.
     async fn lock_refresh(
         &mut self,

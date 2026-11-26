@@ -48,8 +48,9 @@ for any other client, it is `invalid_grant`.
 
 The user always approves on Origin Auth's page, which names the app and what it
 asks for, whether or not they approved the app before. The approval creates a
-session for the device alone, which lasts 30 days and ends apart from the
-browser that approved it. The device's tokens carry that session as `sid`, and
+session for the device alone, which ends apart from the browser that approved
+it: 30 days after the device's last refresh, and 365 days after the approval
+at the latest. The device's tokens carry that session as `sid`, and
 report the authentication of the browser that approved.
 
 ## Errors

@@ -80,7 +80,9 @@ detail.
   no change, and another passkey of the account can undo the recovery on
   `/recover/undo` (see
   [recovering an account](../architecture/surfaces.md#recovering-an-account)).
-- Sessions last at most 30 days. An admin dashboard session lasts at most 12
+- A browser's session lasts at most 30 days. A device signed in with a code
+  stays signed in while it refreshes at least every 30 days, for 365 days at
+  most. An admin dashboard session lasts at most 12
   hours, ends after 30 minutes without a request, and starts only with a passkey
   proved for it. Access tokens last five minutes. Refresh tokens
   stop when their central session expires or is revoked; a public client's rotate

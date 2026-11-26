@@ -39,6 +39,10 @@ pub(crate) use session::{Confirmed, Credential, OptionalSession, Session, Sessio
 pub(crate) const CSRF_HEADER: &str = "x-sourceorigin-csrf";
 /// Browser session lifetime, also used by its host cookie.
 pub(crate) const SESSION_LIFETIME_DAYS: u32 = 30;
+/// How long a device signed in with a code stays signed in at most, from its
+/// approval, while it refreshes its tokens at least every
+/// [`SESSION_LIFETIME_DAYS`]: its owner approves it again once a year.
+pub(crate) const DEVICE_LIFETIME_DAYS: u16 = 365;
 /// How long an admin dashboard session lasts from its sign-in however busy, also
 /// used by its host cookie: an unattended browser or a stolen cookie stops working
 /// within a working day.

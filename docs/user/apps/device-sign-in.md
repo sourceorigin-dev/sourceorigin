@@ -97,8 +97,10 @@ device code collects its tokens once.
 ## Keep the device signed in
 
 The device gets a session of its own at Origin Auth, apart from the browser
-that approved it. It lasts 30 days, like a browser's, and so does its refresh
-token: after that, the user approves a new code.
+that approved it. Each refresh keeps it signed in for another 30 days, up to
+365 days after the user approved it. A device that doesn't refresh for 30
+days is signed out, and so is every device after 365 days: the user then
+approves a new code.
 
 - Refresh the access token with the refresh token, as any app does. An app
   without a backend gets a new refresh token with every refresh: keep the
@@ -108,6 +110,8 @@ token: after that, the user approves a new code.
   approved it leaves the device signed in.
 - To sign the device out yourself, [revoke](../reference/oidc.md) its refresh
   token.
+- If you send an ID token as `id_token_hint`, send the newest one: Origin Auth
+  may no longer verify one issued more than 30 days ago, and then ignores it.
 
 ## Check that it works
 

@@ -59,7 +59,8 @@ Only approve a code that your own device shows you. If someone sends you a code
 or a link to this page, select **Cancel**: approving it would sign them in to
 your account.
 
-The device stays signed in for 30 days at most. It appears in your
+The device stays signed in while you use it at least every 30 days, for 365
+days at most: then it shows you a new code. It appears in your
 [devices](devices.md), named after its app, where you can sign it out.
 
 ## Sign out

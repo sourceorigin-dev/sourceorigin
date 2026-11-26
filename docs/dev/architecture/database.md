@@ -183,6 +183,8 @@ Important invariants:
   transactionally, each new token naming the one it replaced, and reuse revokes
   the family, unless it repeats the newest rotation within seconds; a confidential client keeps its
   own, and its refresh writes nothing but still holds the rotation's locks.
+  The refresh of a device's session also renews that session, and a kept token
+  with it.
 - Each refresh family records the code it was redeemed from. Redeeming that code
   again with its secret, as the same client, revokes the family and records the
   replay; a wrong secret or client revokes nothing. The browser session stays
