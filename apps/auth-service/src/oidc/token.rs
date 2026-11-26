@@ -6,7 +6,7 @@ use super::{
 };
 use crate::{
     routes,
-    security::{ApiError, RequestContext},
+    security::{ApiError, DEVICE_LIFETIME_DAYS, RequestContext, SESSION_LIFETIME_DAYS},
 };
 use axum::{
     Form, Json,
@@ -29,8 +29,9 @@ use sourceorigin_common::{
 };
 use sourceorigin_repository::{
     CodeRedemptionError, ConsumedAuthorizationCode, DatabaseTransaction, InsertRefreshFamily,
-    InsertRefreshToken, RefreshOutcome, RefreshRedemption, RefreshRedemptionError,
-    RefreshSuccessor, SessionAuthentication, StoredOidcClient,
+    InsertRefreshToken, RedeemedRefreshToken, RefreshOutcome, RefreshRedemption,
+    RefreshRedemptionError, RefreshSuccessor, SessionAuthentication, StoredOidcClient,
+    StoredSession,
 };
 use sourceorigin_telemetry::{Counter, Label};
 
@@ -150,25 +151,26 @@ static TOKENS_ISSUED: Counter<[Label; 2]> = Counter::new(
     "Tokens issued by the token endpoint, by grant type and token type.",
 );
 
-/// Client-bound claim policy shared by initial exchanges and refreshes.
-struct TokenGrant<'a> {
+/// Client-bound claim policy shared by every grant a user approved: code
+/// exchanges, refreshes and device authorizations.
+pub(super) struct TokenGrant<'a> {
     /// Client identifier bound into the token claims.
-    client: &'a ClientId,
+    pub(super) client: &'a ClientId,
     /// Registered resource audience receiving the access token.
-    audience: &'a str,
+    pub(super) audience: &'a str,
     /// Granted or requested scope set.
-    scopes: &'a Scopes,
+    pub(super) scopes: &'a Scopes,
     /// Client nonce echoed only in the ID token.
-    nonce: Option<&'a str>,
-    /// Browser session that authorized the grant.
-    session: SessionId,
-    /// How that session had authenticated when the grant's code was issued.
-    authentication: &'a SessionAuthentication,
+    pub(super) nonce: Option<&'a str>,
+    /// Session that authorized the grant: a browser's, or a device's own.
+    pub(super) session: SessionId,
+    /// How that session had authenticated when the grant was approved.
+    pub(super) authentication: &'a SessionAuthentication,
 }
 
 impl TokenGrant<'_> {
     /// Signs access and optional ID tokens with only the claims allowed by granted scopes.
-    fn issue(
+    pub(super) fn issue(
         &self,
         app: &OidcApplication,
         user: &sourceorigin_repository::StoredUser,
@@ -280,6 +282,7 @@ impl OidcApplication {
             OAuthCode::UnsupportedGrantType
                 .reject_with(format!("grant_type must be one of: {supported}"), error)
         })?;
+        let request = context;
         let context = context.client(&client.id);
         let tokens = match grant {
             GrantType::AuthorizationCode => {
@@ -288,6 +291,10 @@ impl OidcApplication {
             }
             GrantType::RefreshToken => {
                 app.refresh(Self::parameters(&body)?, &client, &context)
+                    .await
+            }
+            GrantType::DeviceCode => {
+                app.redeem_device(Self::parameters(&body)?, &client.id, request)
                     .await
             }
         }?;
@@ -372,14 +379,20 @@ impl OidcApplication {
             authentication: &code.authentication,
         }
         .issue(self, &user, email.as_deref())?;
-        let (family_id, refresh) = if client.grant_types.contains(&GrantType::RefreshToken)
-            && scopes.contains(Scope::OfflineAccess)
-        {
-            let (family_id, refresh) = self.create_refresh(&mut tx, code).await?;
-            (Some(family_id), Some(refresh))
-        } else {
-            (None, None)
+        let family = InsertRefreshFamily {
+            id: TokenId::new(),
+            user_id: code.user_id,
+            client_id: code.client_id.into(),
+            session_id: code.session_id,
+            authorization_code_id: Some(code.id),
+            audience: code.audience,
+            scopes: code.scopes,
+            authentication: code.authentication,
         };
+        let (family_id, refresh) = self
+            .create_refresh(&mut tx, client, &scopes, family)
+            .await?
+            .unzip();
         tx.record(
             context,
             Some(user.id),
@@ -405,6 +418,8 @@ impl OidcApplication {
     /// response carries none and the refresh writes nothing. The new tokens report
     /// the grant's original authentication, not the session's current one (OIDC
     /// Core §12.2).
+    ///
+    /// Each refresh renews a device's session ([`Self::refreshed_session`]).
     async fn refresh(
         &self,
         request: Refresh,
@@ -436,11 +451,9 @@ impl OidcApplication {
             .find_by_id(redeemed.user_id)
             .await?
             .ok_or_else(|| OAuthCode::InvalidGrant.reject("the account no longer exists"))?;
-        let session = tx
-            .sessions()
-            .find_by_id(redeemed.session_id)
-            .await?
-            .ok_or_else(|| OAuthCode::InvalidGrant.reject(SESSION_ENDED))?;
+        let session = self
+            .refreshed_session(&mut tx, &redeemed, &opaque, context)
+            .await?;
         let refresh_token = match &redeemed.outcome {
             RefreshOutcome::Kept => None,
             RefreshOutcome::Rotated => {
@@ -468,37 +481,66 @@ impl OidcApplication {
         })
     }
 
-    /// Creates the refresh family of a redeemed code, linked to the code so a replay
-    /// can revoke it, and its first token bounded by the browser session lifetime.
-    /// Returns the family and the encoded token.
-    async fn create_refresh(
+    /// The session of the refresh token `presented`, just `redeemed` in `tx` by
+    /// the request of `context`. A device's session is renewed: it now ends
+    /// [`SESSION_LIFETIME_DAYS`] from now, and [`DEVICE_LIFETIME_DAYS`] after its
+    /// approval at the latest, and a token its client keeps is renewed with it,
+    /// while a rotated token's successor takes the new end. A browser's session
+    /// never extends.
+    async fn refreshed_session(
         &self,
         tx: &mut DatabaseTransaction<'_>,
-        code: ConsumedAuthorizationCode,
-    ) -> Result<(TokenId, String), OAuthError> {
+        redeemed: &RedeemedRefreshToken,
+        presented: &OpaqueToken,
+        context: &EventContext,
+    ) -> Result<StoredSession, OAuthError> {
+        let ends = Utc::now() + Duration::days(i64::from(SESSION_LIFETIME_DAYS));
+        let address = context.origin.client_ip;
+        let device = tx
+            .sessions()
+            .renew_device(redeemed.session_id, ends, DEVICE_LIFETIME_DAYS, address)
+            .await?;
+        let Some(device) = device else {
+            return tx
+                .sessions()
+                .find_by_id(redeemed.session_id)
+                .await?
+                .ok_or_else(|| OAuthCode::InvalidGrant.reject(SESSION_ENDED));
+        };
+        if redeemed.outcome == RefreshOutcome::Kept {
+            let (digest, key) = self.token_digest(presented);
+            tx.tokens()
+                .renew_token(presented.id, device.expires_at, &digest, &key)
+                .await?;
+        }
+        Ok(device)
+    }
+
+    /// Creates the refresh `family` of a grant just issued to `client` for
+    /// `scopes`, and its first token, bounded by its session's lifetime, when the
+    /// client has the refresh token grant and the scopes include
+    /// `offline_access`. Returns the family and the encoded token, or `None`
+    /// when the grant gets no refresh token.
+    pub(super) async fn create_refresh(
+        &self,
+        tx: &mut DatabaseTransaction<'_>,
+        client: &StoredOidcClient,
+        scopes: &Scopes,
+        family: InsertRefreshFamily,
+    ) -> Result<Option<(TokenId, String)>, OAuthError> {
+        if !(client.grant_types.contains(&GrantType::RefreshToken)
+            && scopes.contains(Scope::OfflineAccess))
+        {
+            return Ok(None);
+        }
         let session = tx
             .sessions()
-            .find_active_by_id(code.session_id)
+            .find_active_by_id(family.session_id)
             .await?
             .ok_or_else(|| OAuthCode::InvalidGrant.reject(SESSION_ENDED))?;
-        let family_id = TokenId::new();
-        let (token, raw) = self.new_refresh(family_id, session.expires_at, None)?;
-        tx.tokens()
-            .insert_family(
-                &InsertRefreshFamily {
-                    id: family_id,
-                    user_id: code.user_id,
-                    client_id: code.client_id.into(),
-                    session_id: code.session_id,
-                    authorization_code_id: code.id,
-                    audience: code.audience,
-                    scopes: code.scopes,
-                    authentication: code.authentication,
-                },
-                &token,
-            )
-            .await?;
-        Ok((family_id, raw))
+        let (token, raw) = self.new_refresh(family.id, session.expires_at, None)?;
+        tx.tokens().insert_family(&family, &token).await?;
+        Ok(Some((family.id, raw)))
     }
 
     /// Generates a refresh token of `family_id`, accepted until `expires_at`, the
@@ -739,7 +781,7 @@ impl OidcApplication {
     /// Commits the revocation a rejected grant already made in `tx`, together with
     /// the `events` recording it, then returns the grant's `error`, or the database
     /// failure that prevented the commit.
-    async fn commit_rejection(
+    pub(super) async fn commit_rejection(
         mut tx: DatabaseTransaction<'_>,
         context: &EventContext,
         user_id: UserId,
@@ -763,11 +805,11 @@ impl OidcApplication {
 /// What a rejection calls a request to the token endpoint.
 const TOKEN_REQUEST: &str = "token request";
 /// Rejection of a grant whose account was disabled.
-const ACCOUNT_DISABLED: &str = "the account is disabled";
-/// Rejection of a code whose consent the user withdrew since it was issued.
-const CONSENT_WITHDRAWN: &str = "the user withdrew consent for this application";
-/// Rejection of a grant whose browser session ended.
-const SESSION_ENDED: &str = "the sign-in session behind this grant has ended";
+pub(super) const ACCOUNT_DISABLED: &str = "the account is disabled";
+/// Rejection of a grant whose consent the user withdrew since they approved it.
+pub(super) const CONSENT_WITHDRAWN: &str = "the user withdrew consent for this application";
+/// Rejection of a grant whose session ended.
+pub(super) const SESSION_ENDED: &str = "the sign-in session behind this grant has ended";
 
 /// Stable telemetry event name for refresh-token replay rejection.
 const REFRESH_REPLAY_EVENT: &str = "auth.refresh_replay";

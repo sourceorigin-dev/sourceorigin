@@ -1,8 +1,9 @@
 # Devices
 
 The **Devices** tab of your settings, at `auth.sourceorigin.dev/settings/sessions`,
-lists every browser signed in to your account. Use it to sign out a device you
-lost, sold or no longer use.
+lists every browser signed in to your account, and every device you signed in
+to an app with a code. Use it to sign out a device you lost, sold or no longer
+use.
 
 ![The devices settings, listing this device and another signed-in browser with a Sign out button](../../images/account/devices.png)
 
@@ -16,15 +17,21 @@ passkey confirmation.
 Each device shows:
 
 - its browser and system, such as **Firefox on Windows**, marked **This
-  device** for the browser you are using,
-- how it signed in: **Passkey**, **Social sign-in**, or both,
+  device** for the browser you are using. A device you
+  [signed in with a code](signing-in.md#sign-in-on-a-device-with-a-code) is
+  named after its app instead, such as **Notes on a device**,
+- how it signed in: **Passkey**, **Social sign-in**, or both. A device signed
+  in with a code shows how the browser that approved it had signed in,
 - the network address of its last activity, and when that was, such as
   **Active 2 hours ago**,
 - the day it signed in,
 - if you are an administrator, a line for each admin dashboard signed in
   through it, such as **Admin dashboard · Active now**.
 
-A device stays signed in for 30 days at most, then signs in again. The admin
+A browser stays signed in for 30 days at most, then signs in again. A device
+you signed in [with a code](signing-in.md#sign-in-on-a-device-with-a-code)
+stays signed in while you use it at least every 30 days, for 365 days at most.
+The admin
 dashboard signs out after 30 minutes without use, and 12 hours after you signed
 in to it. Signing a device out signs its admin dashboard out too.
 
@@ -38,6 +45,10 @@ it: they can't refresh it, and those that listen for it are told to sign you
 out. An app's access token keeps working until it expires, within five minutes,
 and an app that keeps its own session may keep you signed in until it next
 checks with Origin Auth.
+
+A device signed in with a code has a session of its own: signing it out leaves
+the browser that approved it signed in, and signing that browser out leaves the
+device signed in.
 
 To sign out everywhere but here, select **Sign out of all other devices** at
 the top of the page. The page says **Your other devices were signed out.**

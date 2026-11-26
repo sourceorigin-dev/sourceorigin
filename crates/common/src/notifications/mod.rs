@@ -249,6 +249,7 @@ impl DomainEvent {
             | Self::PasskeyConfirmed { .. }
             | Self::EmailVerified { .. }
             | Self::ConsentGranted { .. }
+            | Self::DeviceAuthorized { .. }
             | Self::ConsentRevoked { .. }
             | Self::GrantIssued { .. }
             | Self::GrantRevoked { .. }

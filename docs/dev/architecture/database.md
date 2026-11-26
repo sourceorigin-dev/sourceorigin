@@ -155,8 +155,8 @@ Important invariants:
   their domain: only its ID, settings that identify nobody and lifecycle dates stay.
   Its name becomes empty, which the history reads as no name. Operational copies
   of its URLs go with their own retention: pending authorization requests within
-  minutes, codes about a day later, and logout deliveries after 7 days, or 30 if
-  they failed.
+  minutes, device authorizations within the hour after they expire, codes about
+  a day later, and logout deliveries after 7 days, or 30 if they failed.
 - An account has at most one profile picture. Setting or removing it bumps the
   account's `profile_version` in the same statement, and its URL's ID changes with
   every upload. Only an active account's current picture is served. The row
@@ -183,6 +183,8 @@ Important invariants:
   transactionally, each new token naming the one it replaced, and reuse revokes
   the family, unless it repeats the newest rotation within seconds; a confidential client keeps its
   own, and its refresh writes nothing but still holds the rotation's locks.
+  The refresh of a device's session also renews that session, and a kept token
+  with it.
 - Each refresh family records the code it was redeemed from. Redeeming that code
   again with its secret, as the same client, revokes the family and records the
   replay; a wrong secret or client revokes nothing. The browser session stays

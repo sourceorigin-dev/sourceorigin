@@ -35,9 +35,9 @@ pub(crate) enum PolicyRefusal {
     /// The audience was removed from the client.
     #[error("the client may no longer request tokens for this audience")]
     Audience,
-    /// The authorization code grant was removed from the client.
-    #[error("the client may no longer use the authorization code grant")]
-    Grant,
+    /// The grant was removed from the client.
+    #[error("the client may no longer use the {0} grant")]
+    Grant(GrantType),
     /// The client must now push its requests, and this one came through the browser.
     #[error("the client must now push its authorization requests (RFC 9126)")]
     PushRequired,
@@ -112,6 +112,16 @@ impl ClientPolicy {
         Ok(())
     }
 
+    /// Whether the client still allows the device authorization for `scopes` and
+    /// `audience`: showing it for approval, approving it, and issuing its tokens.
+    pub(crate) fn allows_device(
+        &self,
+        scopes: &[String],
+        audience: &str,
+    ) -> Result<(), PolicyRefusal> {
+        self.allows_tokens(GrantType::DeviceCode, scopes, audience)
+    }
+
     /// Whether the enabled client may still send a code for `scopes` and
     /// `audience` to `redirect_uri`.
     fn allows_grant(
@@ -120,15 +130,27 @@ impl ClientPolicy {
         scopes: &[String],
         audience: &str,
     ) -> Result<(), PolicyRefusal> {
+        self.allows_tokens(GrantType::AuthorizationCode, scopes, audience)?;
+        if !self.0.redirect_uris.iter().any(|uri| uri == redirect_uri) {
+            return Err(PolicyRefusal::RedirectUri);
+        }
+        Ok(())
+    }
+
+    /// Whether the enabled client may still get tokens for `scopes` and
+    /// `audience` through `grant`.
+    fn allows_tokens(
+        &self,
+        grant: GrantType,
+        scopes: &[String],
+        audience: &str,
+    ) -> Result<(), PolicyRefusal> {
         let client = &self.0;
         if !client.enabled {
             return Err(PolicyRefusal::Unavailable);
         }
-        if !client.grant_types.contains(&GrantType::AuthorizationCode) {
-            return Err(PolicyRefusal::Grant);
-        }
-        if !client.redirect_uris.iter().any(|uri| uri == redirect_uri) {
-            return Err(PolicyRefusal::RedirectUri);
+        if !client.grant_types.contains(&grant) {
+            return Err(PolicyRefusal::Grant(grant));
         }
         if !scopes
             .iter()

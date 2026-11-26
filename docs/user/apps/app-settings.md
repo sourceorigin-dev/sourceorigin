@@ -32,6 +32,8 @@ What a change does to users already signed in:
 - **Turning off Authorization code** stops the sign-ins under way, and the
   codes not yet exchanged. The app can't start a sign-in until you turn it on
   again.
+- **Turning off Device code** stops the devices waiting for an approval. Those
+  already signed in stay so until their refresh tokens end.
 - **Turning on Require pushed authorization requests** stops the sign-ins under
   way that came through the browser.
 - **Renaming the app** changes what the consent screen shows. Users who already
@@ -105,7 +107,7 @@ at auth, which answers instead of sending the browser back to your app:
 | **Redirect URIs** | 1 to 16 places, one per line, where Origin Auth sends users back after they sign in. Each is matched exactly, and must use HTTPS, or HTTP on a loopback IP such as `127.0.0.1` ([local development](local-development.md)). It can't contain a user name, a password or a fragment. |
 | **Post-logout URIs** | Up to 16 pages, one per line, where users may return after signing out, under the same rules. None by default. |
 | **Scopes** | What the app may ask for: `openid` (the user's stable ID), `profile` (their handle, display name and profile picture), `email` (their email address, when they have one) and `offline_access` (refresh tokens, with the **Refresh tokens** grant type). `openid`, `profile` and `email` by default, and `offline_access` for an app with a backend. |
-| **Grant types** | How the app gets tokens, at least one. **Authorization code**: users sign in on Origin Auth, which sends them back to a redirect URI with a code the app exchanges. On by default. **Refresh tokens**: the app stays signed in without sending users back to Origin Auth, when it requests `offline_access`. On by default for an app with a backend, off for one without. |
+| **Grant types** | How the app gets tokens, at least one. **Authorization code**: users sign in on Origin Auth, which sends them back to a redirect URI with a code the app exchanges. On by default. **Refresh tokens**: the app stays signed in without sending users back to Origin Auth, when it requests `offline_access`. On by default for an app with a backend, off for one without. **Device code**: the app signs users in on a device without a browser, which shows a code they approve on Origin Auth ([signing in on a device](device-sign-in.md)). Off by default. |
 | **Require pushed authorization requests** | The app must post its sign-in requests to `/oauth/par` (RFC 9126), so none of their parameters travel through the browser. The SDKs push their requests whenever auth offers it. Off by default. |
 | **Back-channel logout URI** | Where Origin Auth tells the app that a user's session ended ([back-channel logout](back-channel-logout.md)). Origin Auth's server posts to it, so it uses HTTPS and, when its host is an IP address, a public one. None by default. |
 

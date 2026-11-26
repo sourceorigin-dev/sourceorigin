@@ -10,7 +10,7 @@ own. It builds on the [security boundaries](boundaries.md); the
 | Asset | Why it matters | Where it lives |
 | --- | --- | --- |
 | Accounts and their passkeys | A passkey is the strongest way in, and the only one that confirms sensitive changes | `users`, `passkey_credentials`; the private keys stay on the owner's authenticators |
-| Sessions | A session signs its browser in for up to 30 days | `sessions`, with only the cookie's digest, in `browser_session_secrets` |
+| Sessions | A session signs its browser in for up to 30 days, or a device signed in with a code for up to 365 | `sessions`, with only the cookie's digest, in `browser_session_secrets` |
 | Tokens | Codes, refresh tokens and ID and access tokens let apps act as the user | Codes and refresh tokens as HMAC digests; issued tokens at the apps |
 | Signing keys | Whoever holds one can mint any token apps accept | `signing_keys`, sealed under the key-encryption key |
 | Personal data | Email addresses, IP addresses, devices, profile pictures, the apps an account uses | PostgreSQL; the events' IPs and devices in `event_personal_data`, deleted after 90 days; a session's IPs and device as long as its row; known browsers' device until unused for 400 days |
@@ -49,7 +49,7 @@ own. It builds on the [security boundaries](boundaries.md); the
 
 | Threat | Mitigation |
 | --- | --- |
-| A session stolen or left signed in | Every way into an account needs a passkey confirmation from the last five minutes, which a social sign-in never gives. Sessions end after 30 days, and the owner signs others out from the settings. |
+| A session stolen or left signed in | Every way into an account needs a passkey confirmation from the last five minutes, which a social sign-in never gives. A browser's session ends after 30 days, and a device's after 30 days without a refresh, or 365 days in all. The owner signs others out from the settings. |
 | A linked GitHub or Google account taken over | A social sign-in can use the account, but cannot add a way in, and never replaces an established account's passkeys ([properties](properties.md)). |
 | A stolen passkey | It grants everything, as it would the owner. Support confirms the owner under the evidence policy, then recovers with `--revoke`, keeping only the passkeys the owner vouches for ([stolen older passkeys](account-recovery.md#stolen-older-passkeys)). |
 | A stolen mailbox | Email signs nobody in. A recovery link sent there gives only a probation sign-in, which adds no way in, and every verified address and the owner's next passkey sign-in hear of it ([account recovery](account-recovery.md#threat-model)). |
@@ -61,6 +61,8 @@ own. It builds on the [security boundaries](boundaries.md); the
 | --- | --- |
 | A code or token used by another app, or sent elsewhere | Exact redirect URIs, S256 PKCE for every public client and a secret for every confidential one, codes tried once, and tokens bound to their audience ([OIDC](../../user/reference/oidc.md#codes-tokens-and-consent)). |
 | An app impersonating another, or SourceOrigin | Console apps are never trusted, so the consent page shows unless the user already consented to the scopes asked, naming the host it returns to and labelling the app unverified with its owner's handle. `prompt=consent` forces it. Their names may not contain a well-known brand ([OIDC clients](../operations/clients.md)). |
+| A code sent to someone else's device (RFC 8628 §5.4) | An attacker starts a device authorization and sends its user code, or its link, to a victim. The device page never approves from the link alone: the user signs in, then sees the app's name, the code, when the device asked and a warning to continue only for their own device, every time, whatever they approved before. The approval is recorded in their history, where they can report it, and the device's session is listed, and ends, with their devices. |
+| Guessing a user code | A code has about 34.5 bits and lasts 10 minutes. Lookups need a signed-in session, and are limited to ten a minute per IP address and per session. |
 | An app keeping access | The owner, an administrator or an operator removes an app's access, which ends its refresh grants and outstanding codes. A public client's refresh token rotates, and replaying a spent one revokes the grant, unless it repeats the newest rotation within 10 seconds, which answers with the same new token. |
 | A logout URI aimed at the internal network | Deliveries go only over HTTPS to public addresses, and never follow a redirect ([outbound HTTP](../architecture/delivery-queue.md#outbound-http)). |
 | Registering apps in bulk | An account may hold 10 apps and register 20 a day ([OIDC clients](../operations/clients.md)). |

@@ -244,6 +244,9 @@ switches! {
         authorization_code => AuthorizationCode,
         /// `refresh_token`.
         refresh_token => RefreshToken,
+        /// The device grant, under its URN.
+        #[serde(rename = "urn:ietf:params:oauth:grant-type:device_code")]
+        device_code => DeviceCode,
     }
 }
 
@@ -423,6 +426,10 @@ const fn grant_description(grant: GrantType) -> (&'static str, &'static str) {
         GrantType::RefreshToken => (
             "Refresh tokens",
             "When your app requests offline_access, it can stay signed in without sending users back to Origin Auth.",
+        ),
+        GrantType::DeviceCode => (
+            "Device code",
+            "Your app shows a code on a device without a browser, such as a command-line tool or a TV, and users approve it on Origin Auth from another device.",
         ),
     }
 }

@@ -19,8 +19,8 @@ pub(super) const LIVE_HEADER: &str = "x-sourceorigin-live";
 /// every route that differs from `Other`.
 #[derive(Clone, Copy)]
 pub(super) enum Endpoint {
-    /// Token, revocation and pushed authorization requests, authenticated by client
-    /// credentials.
+    /// Token, revocation, pushed authorization and device authorization requests,
+    /// authenticated by client credentials.
     OAuthBackChannel,
     /// Bearer-authenticated `UserInfo`.
     UserInfo,
@@ -92,7 +92,9 @@ impl Endpoint {
     /// routes, and the account route family.
     pub(super) fn classify(path: &str) -> Self {
         match path {
-            oidc::TOKEN | oidc::REVOKE | oidc::PAR => Self::OAuthBackChannel,
+            oidc::TOKEN | oidc::REVOKE | oidc::PAR | oidc::DEVICE_AUTHORIZATION => {
+                Self::OAuthBackChannel
+            }
             oidc::USERINFO => Self::UserInfo,
             oidc::DISCOVERY | oidc::OAUTH_METADATA | oidc::JWKS | passkey::RELATED_ORIGINS => {
                 Self::Discovery

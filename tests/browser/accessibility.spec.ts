@@ -47,7 +47,8 @@ test("auth's pages, signed in", async ({ browser }) => {
     '/settings/notifications',
     '/settings/data',
     '/developers',
-    '/developers/new'
+    '/developers/new',
+    '/device'
   ]) {
     await page.goto(path);
     await expectAccessible(page, path);

@@ -513,6 +513,7 @@ report!([SessionItem], self, out, {
             "ID",
             "METHODS",
             "DEVICE",
+            "APP",
             "IP",
             "SIGNED IN",
             "LAST SEEN",
@@ -524,6 +525,9 @@ report!([SessionItem], self, out, {
                 Cell::new(session.id),
                 Cell::new(Joined(&session.methods, ", ")),
                 session.device.map(Cell::new).into(),
+                (session.app.as_ref())
+                    .map(|app| Cell::new(&app.client_id))
+                    .into(),
                 session.ip.map(Cell::new).into(),
                 session.authenticated_at.into(),
                 session.last_seen_at.into(),
@@ -532,6 +536,7 @@ report!([SessionItem], self, out, {
             let dashboard = session.dashboard.iter().map(|dashboard| {
                 [
                     Cell::new("  dashboard").style(Style::Muted),
+                    Cell::none(),
                     Cell::none(),
                     Cell::none(),
                     Cell::none(),

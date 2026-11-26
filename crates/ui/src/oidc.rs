@@ -2,10 +2,13 @@
 //! cannot go on.
 
 use crate::{
+    form::{Precision, Query, time},
     icons::{Icon, icon},
     layout::alert_notice,
     login::switch_account,
 };
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use sourceorigin_common::{
     Provider,
     protocol::oauth::{ErrorCode, Scope},
@@ -77,6 +80,193 @@ pub async fn consent<'a>(
             <p class="help">(format!("Signed in as @{account}."))</p>
             switch_account(action: sign_in, label: "Not you? Switch account", class: "text-button")
         </footer>
+    })
+}
+
+/// The device page, as a link opens it: with the code a device's link or QR code
+/// carries, which the page fills in for the user to confirm.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeviceCodeQuery {
+    /// The code the device shows, as its link wrote it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub user_code: Option<String>,
+}
+
+impl Query for DeviceCodeQuery {}
+
+sourceorigin_common::str_enum! {
+    /// What the device page's user decides about the device asking to sign in.
+    pub enum DeviceCodeDecision {
+        /// Sign the device in.
+        Approve = "approve",
+        /// Refuse it.
+        Deny = "deny",
+    }
+}
+
+/// What the device page's forms post: the code, as typed or as the approval
+/// carries it, and the decision once the user made one.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize)]
+pub struct DeviceCodeForm {
+    /// The code the device shows.
+    #[serde(default)]
+    pub user_code: String,
+    /// The decision, from the approval's buttons; none while the user only typed
+    /// the code.
+    #[serde(default)]
+    pub decision: Option<DeviceCodeDecision>,
+}
+
+/// The device page's first step: a form asking for the code a device shows,
+/// starting with `code`, which posts to `action`. An `alert` says why the last
+/// code was not accepted.
+#[component]
+pub async fn device_code<'a>(
+    /// Where the code posts.
+    action: &'a str,
+    /// What the field starts with: the code of the device's link, or what was
+    /// typed last.
+    #[default]
+    code: &'a str,
+    /// Why the last code was not accepted, if one was typed.
+    #[default]
+    alert: Option<&'a str>,
+) -> Result<impl View> {
+    Ok(view! {
+        <div>
+            <h1>"Sign in on a device"</h1>
+            <p class="lead">"Enter the code your device shows."</p>
+        </div>
+        alert_notice(message: alert)
+        <form method="post" action=(action) data-submit-once="">
+            <label>
+                "Code"
+                <input
+                    class="device-code"
+                    name="user_code"
+                    value=(code)
+                    placeholder="XXXX-XXXX"
+                    required=""
+                    maxlength="32"
+                    autocomplete="off"
+                    autocapitalize="characters"
+                    spellcheck="false"
+                    autofocus=(code.is_empty())
+                >
+            </label>
+            <button>"Continue"</button>
+        </form>
+        <p class="help">
+            "Only enter a code your own device shows you. If someone sent you a code or a link to this page, don’t use it: it would sign them in to your account."
+        </p>
+    })
+}
+
+/// The device page's approval: what the application named `client` asks to
+/// receive through `scopes` on the device showing `code`, since `started`, how
+/// long the device stays signed in, and the decision, posted to `action` with
+/// the code. An application an account
+/// registered, `registered_by` by its handle, is labelled unverified. The page
+/// names the signed-in `account`, and offers to switch accounts by posting to
+/// `sign_in`. The form posts once: a second decision would find the code used.
+#[component]
+pub async fn device_approval<'a>(
+    /// What the application is called.
+    client: &'a str,
+    /// Who registered the application, if known.
+    #[default]
+    registered_by: Option<&'a str>,
+    /// The account signed in.
+    account: &'a str,
+    /// What the application asks to receive.
+    scopes: &'a [String],
+    /// The code the device shows, written as devices show it.
+    code: &'a str,
+    /// When the device asked.
+    started: DateTime<Utc>,
+    /// How many days the device stays signed in without being used.
+    days: u32,
+    /// How many days the device stays signed in at most.
+    longest_days: u16,
+    /// Where the decision posts.
+    action: &'a str,
+    /// Where to sign in as another account.
+    sign_in: &'a str,
+) -> Result<impl View> {
+    Ok(view! {
+        <div>
+            <h1>(format!("Sign in to {client} on your device?"))</h1>
+            <p class="lead">
+                "A device showing this code asked to sign in to your account at "
+                time(at: started, precision: Precision::Minute) "."
+            </p>
+        </div>
+        <p class="device-code">(code)</p>
+        <p class="notice warning">
+            icon(kind: Icon::Warning)
+            <span class="text">
+                "Only continue if you started this on your own device."
+                <small>"If someone sent you this code or a link to this page, cancel: continuing would sign them in to your account."</small>
+            </span>
+        </p>
+        if let Some(owner) = registered_by {
+            <p class="notice warning">
+                icon(kind: Icon::Warning)
+                <span class="text">
+                    (format!("Unverified app, registered by @{owner}"))
+                    <small>"SourceOrigin hasn’t checked who runs it. Continue only if you trust it."</small>
+                </span>
+            </p>
+        }
+        <section class="card" aria-labelledby="access-heading">
+            <header><h2 id="access-heading">(format!("{client} will receive"))</h2></header>
+            <ul class="list">
+                for scope in scopes {
+                    <li>icon(kind: Icon::Check)<span class="text">(scope_label(scope))</span></li>
+                }
+            </ul>
+        </section>
+        <p class="help">
+            (format!("{client} cannot see your passkeys or change your account. The device stays signed in while it is used at least every {days} days, for {longest_days} days at most: you can sign it out at any time from your devices."))
+        </p>
+        <form method="post" action=(action) data-submit-once="">
+            <input type="hidden" name="user_code" value=(code)>
+            <button name="decision" value=(DeviceCodeDecision::Approve.as_str())>"Continue"</button>
+            <button class="secondary" name="decision" value=(DeviceCodeDecision::Deny.as_str())>"Cancel"</button>
+        </form>
+        <footer>
+            <p class="help">(format!("Signed in as @{account}."))</p>
+            switch_account(action: sign_in, label: "Not you? Switch account", class: "text-button")
+        </footer>
+    })
+}
+
+/// The device page's last step: what the user's `decision` did for the
+/// application named `client`, and that they go back to their device.
+#[component]
+pub async fn device_decided<'a>(
+    /// What the application is called.
+    client: &'a str,
+    /// What the user decided.
+    decision: DeviceCodeDecision,
+) -> Result<impl View> {
+    let (title, lead) = match decision {
+        DeviceCodeDecision::Approve => (
+            "Your device is signed in".to_owned(),
+            format!(
+                "Go back to {client} on your device, which carries on in a few seconds. You can close this page."
+            ),
+        ),
+        DeviceCodeDecision::Deny => (
+            "Sign-in cancelled".to_owned(),
+            format!("{client} was not signed in on the device. You can close this page."),
+        ),
+    };
+    Ok(view! {
+        <div>
+            <h1>(title)</h1>
+            <p class="lead">(lead)</p>
+        </div>
     })
 }
 
@@ -184,6 +374,9 @@ pub async fn failure<'a>(
         | ErrorCode::UnsupportedGrantType
         | ErrorCode::RequestNotSupported
         | ErrorCode::InvalidRequestUri
+        | ErrorCode::AuthorizationPending
+        | ErrorCode::SlowDown
+        | ErrorCode::ExpiredToken
         | ErrorCode::Other(_) => {
             "This request could not be completed. Start again from the application."
         }

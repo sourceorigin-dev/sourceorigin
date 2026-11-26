@@ -3,6 +3,8 @@
 //! dashboard. They serve browsers that may not be signed in yet, so they are
 //! pages of their own rather than [`AccountPage`](super::account::AccountPage)s.
 
+/// Approving the sign-in of a device that shows a code.
+mod device;
 /// Handing an administrator off to the admin dashboard.
 mod handoff;
 /// The sign-in pages: signing in, creating an account and linking a provider.

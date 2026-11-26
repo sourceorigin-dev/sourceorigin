@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE refresh_tokens\n                SET expires_at = $2, secret_digest = $3, digest_key = $4\n                WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz",
+        "Bytea",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "90b43444762b6ca815be5486724bbadf9ac0cceece29fbf4cfc74a88c73f6ad1"
+}

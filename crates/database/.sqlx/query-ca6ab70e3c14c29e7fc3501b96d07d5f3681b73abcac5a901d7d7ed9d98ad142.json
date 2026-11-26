@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO device_authorizations (\n                    id, secret_digest, user_code_digest, digest_key, client_id, scopes,\n                    audience, poll_interval, expires_at\n                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bytea",
+        "Bytea",
+        "Text",
+        "Text",
+        "Jsonb",
+        "Text",
+        "Int4",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ca6ab70e3c14c29e7fc3501b96d07d5f3681b73abcac5a901d7d7ed9d98ad142"
+}

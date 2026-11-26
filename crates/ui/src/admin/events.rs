@@ -251,6 +251,11 @@ impl EventRow<'_> {
                 Description::new(format!("Access approved for {client_id}"))
                     .with("scopes", scopes.join(" "))
             }
+            DomainEvent::DeviceAuthorized {
+                client_id,
+                session_id,
+            } => Description::new(format!("Device signed in to {client_id} with a code"))
+                .with("session", session_id),
             DomainEvent::ConsentRevoked { client_id } => {
                 Description::new(format!("Access withdrawn from {client_id}"))
             }

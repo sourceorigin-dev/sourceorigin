@@ -167,6 +167,10 @@ fn one_event_per_kind() -> Vec<events::DomainEvent> {
             client_id: client_id.clone(),
             scopes: vec![],
         },
+        DomainEvent::DeviceAuthorized {
+            client_id: client_id.clone(),
+            session_id: SessionId::new(),
+        },
         DomainEvent::ConsentRevoked {
             client_id: client_id.clone(),
         },

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM device_authorizations WHERE ctid IN (SELECT ctid FROM device_authorizations WHERE expires_at < now() - interval '1 hour' LIMIT $1 FOR UPDATE SKIP LOCKED)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e70be7551ef896309058aea6054bd65b404ea118af2d468bfeca0c79617dcbfd"
+}

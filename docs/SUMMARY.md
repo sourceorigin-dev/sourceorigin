@@ -31,6 +31,7 @@
 - [Signing in with Rust](user/apps/sign-in-rust.md)
 - [Signing in with TypeScript](user/apps/sign-in-typescript.md)
 - [Browser apps](user/apps/browser-apps.md)
+- [Signing in on a device without a browser](user/apps/device-sign-in.md)
 - [Protecting an API](user/apps/protect-an-api.md)
 - [Naming accounts from their IDs](user/apps/account-lookup.md)
 - [Step-up authentication](user/apps/step-up.md)

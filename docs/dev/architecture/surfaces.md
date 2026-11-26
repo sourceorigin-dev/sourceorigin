@@ -15,7 +15,7 @@ built yet are marked *(planned)*.
 The auth executable owns everything that authenticates someone or issues a
 credential: discovery, JWKS, authorization, token, userinfo, logout, and the
 pages a ceremony needs (login, signup, consent, passkey confirmation, account
-recovery at `/recover` and `/recover/undo`, device verification *(planned)*). It
+recovery at `/recover` and `/recover/undo`, device verification at `/device`). It
 also serves the account settings at `/settings`, an overview first, then the
 inbox at `/settings/notifications`, the sign-in methods at `/settings/sign-in` and
 the other pages under `/settings`, and redirects its root there, and the developer console, where

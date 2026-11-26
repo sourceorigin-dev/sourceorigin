@@ -9,12 +9,12 @@ use axum::http::{HeaderMap, header::InvalidHeaderValue};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use sourceorigin_common::{
-    AuthenticationMethod, SessionId,
+    AuthenticationMethod, ClientId, SessionId,
     admin::{DashboardSession, KnownDevice},
     events::{RevocationReason, UserAgentFamily},
 };
-use sourceorigin_repository::{SessionScope, StoredSession};
-use std::net::IpAddr;
+use sourceorigin_repository::{DatabaseError, OidcRepository, SessionScope, StoredSession};
+use std::{collections::BTreeMap, net::IpAddr};
 
 /// Sign-out failures and their browser response mapping.
 mod error;
@@ -28,6 +28,9 @@ pub(crate) struct SessionItem {
     /// Whether it is the session making the request; never, when someone other
     /// than the owner asks.
     pub(crate) current: bool,
+    /// The app whose device it is, when a device signed in to that app with a
+    /// code; `None` for a browser's session.
+    pub(crate) app: Option<SessionApp>,
     /// The browser and platform it signed in with, if recorded.
     pub(crate) device: Option<UserAgentFamily>,
     /// The IP address of its last recorded activity, if recorded.
@@ -43,6 +46,15 @@ pub(crate) struct SessionItem {
     /// The admin dashboard's sessions resting on it, newest first: an
     /// administrator's, while they last.
     pub(crate) dashboard: Vec<DashboardSession>,
+}
+
+/// The app a device's session belongs to.
+#[derive(Clone, Serialize)]
+pub(crate) struct SessionApp {
+    /// Its client ID.
+    pub(crate) client_id: ClientId,
+    /// The name its consent screen shows; empty once it is deleted.
+    pub(crate) name: String,
 }
 
 /// The answer to signing every other session out.
@@ -70,17 +82,34 @@ impl SignedOut {
 
 impl SessionItem {
     /// Shows `sessions`, in order, marking the `current` one, each with those of
-    /// the `dashboard`'s sessions resting on it.
-    pub(crate) fn all(
+    /// the `dashboard`'s sessions resting on it, and a device's with its app, by
+    /// the names `apps` reads.
+    pub(crate) async fn all(
         sessions: Vec<StoredSession>,
         dashboard: &[DashboardSession],
         current: Option<SessionId>,
-    ) -> Vec<Self> {
-        sessions
+        mut apps: OidcRepository<'_>,
+    ) -> Result<Vec<Self>, DatabaseError> {
+        let mut names = BTreeMap::new();
+        for client_id in sessions
+            .iter()
+            .filter_map(|session| session.client_id.as_ref())
+        {
+            if !names.contains_key(client_id) {
+                let client = apps.find_client(client_id.as_str()).await?;
+                let name = client.map_or_default(|client| client.display_name);
+                names.insert(client_id.clone(), name);
+            }
+        }
+        Ok(sessions
             .into_iter()
             .map(|session| Self {
                 current: Some(session.id) == current,
                 id: session.id,
+                app: session.client_id.map(|client_id| SessionApp {
+                    name: names.get(&client_id).cloned().unwrap_or_default(),
+                    client_id,
+                }),
                 device: session.user_agent_family,
                 ip: session.last_seen_ip,
                 methods: session.authentication_methods,
@@ -89,7 +118,7 @@ impl SessionItem {
                 expires_at: session.expires_at,
                 dashboard: DashboardSession::on(dashboard, session.id),
             })
-            .collect()
+            .collect())
     }
 }
 
@@ -107,7 +136,8 @@ impl AccountService {
         let dashboard = (self.database.dashboard())
             .of_user(user, DashboardSignIn::idle_since())
             .await?;
-        Ok(SessionItem::all(sessions, &dashboard, viewer.own_session()))
+        let apps = self.database.oidc();
+        Ok(SessionItem::all(sessions, &dashboard, viewer.own_session(), apps).await?)
     }
 
     /// Lists the browsers the account knows, most recently seen first.

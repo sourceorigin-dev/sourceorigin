@@ -26,16 +26,44 @@ browser one, but its errors come back as JSON. Discovery advertises `pushed_auth
 Client-hosted request objects (`request` and `request_uri` from RFC 9101) are not
 supported.
 
+## Device authorization
+
+An app registered for the device grant signs a device without a browser in
+(RFC 8628): see
+[signing in on a device without a browser](../apps/device-sign-in.md). The
+device posts `client_id` and `scope` to `/oauth/device_authorization`,
+authenticated as at the token endpoint, and receives a `device_code`, a
+`user_code`, the `verification_uri` where the user types the user code, and
+`verification_uri_complete`, which fills it in. Both codes last 10 minutes.
+Discovery advertises `device_authorization_endpoint`.
+
+The device then polls the token endpoint with
+`grant_type=urn:ietf:params:oauth:grant-type:device_code` and its
+`device_code`, no more often than every `interval` seconds. It gets
+`authorization_pending` until the user decides, `slow_down` for a poll that came
+too soon, which adds 5 seconds to the interval from then on, `access_denied`
+once the user refused, `expired_token` once the codes expired, and the tokens
+once the user approved. A device code collects its tokens once: afterwards, and
+for any other client, it is `invalid_grant`.
+
+The user always approves on Origin Auth's page, which names the app and what it
+asks for, whether or not they approved the app before. The approval creates a
+session for the device alone, which ends apart from the browser that approved
+it: 30 days after the device's last refresh, and 365 days after the approval
+at the latest. The device's tokens carry that session as `sid`, and
+report the authentication of the browser that approved.
+
 ## Errors
 
-Errors use the codes of RFC 6749 §4.1.2.1 and §5.2, RFC 6750 §3.1 and OIDC
-Core §3.1.2.6, with an `error_description`. Until auth has checked the client and
+Errors use the codes of RFC 6749 §4.1.2.1 and §5.2, RFC 6750 §3.1, RFC 8628
+§3.5 and OIDC Core §3.1.2.6, with an `error_description`. Until auth has checked the client and
 its `redirect_uri`, it explains an authorization or logout request's error on its
 own page, and never sends the browser to an unverified URI. Once it has, the error
 goes back to the redirect URI with `iss`, and `state` only if the request had one.
 Auth checks `state` is at most 512 bytes before sending any error back with it.
 
-At the token, revocation and pushed authorization endpoints, `invalid_client`
+At the token, revocation, pushed authorization and device authorization
+endpoints, `invalid_client`
 answers `401` with a `WWW-Authenticate: Basic` challenge when the request sent an
 `Authorization` header, and `400` when it sent none. `UserInfo` challenges a
 missing or rejected bearer token at `401`, and a token without the `openid` scope
@@ -85,8 +113,8 @@ intended for the configured client audience. Only requested claims are released;
 an account without a confirmed primary address has no `email` claim. Browser
 clients should keep tokens in memory and use SSO again after reload.
 
-Each app is registered with the grant types it may use, `authorization_code`
-and `refresh_token`. An app without `authorization_code` is refused with
+Each app is registered with the grant types it may use: `authorization_code`,
+`refresh_token` and `urn:ietf:params:oauth:grant-type:device_code`. An app without `authorization_code` is refused with
 `unauthorized_client` when it starts a sign-in. A token request names its grant
 in `grant_type` and sends that grant's parameters: one that is missing is
 refused with `invalid_request`, and a `grant_type` Origin Auth doesn't know

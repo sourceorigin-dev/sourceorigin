@@ -218,6 +218,10 @@ pub struct Session {
     pub last_seen_at: DateTime<Utc>,
     /// When it expires.
     pub expires_at: DateTime<Utc>,
+    /// The client whose device it is, when a device signed in to that client
+    /// with a code; absent for a browser's session.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub client_id: Option<ClientId>,
     /// The admin dashboard's sessions resting on it, newest first: an
     /// administrator's, while they last.
     pub dashboard: Vec<DashboardSession>,

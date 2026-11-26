@@ -188,7 +188,9 @@ pub(crate) mod oidc {
     pub(crate) const PAR: &str = "/oauth/par";
     /// Continues an authorization after sign-in.
     pub(crate) const AUTHORIZE_RESUME: &str = "/oauth/authorize/resume";
-    /// Exchanges codes and refresh tokens.
+    /// Starts a device authorization (RFC 8628), from the device's back channel.
+    pub(crate) const DEVICE_AUTHORIZATION: &str = "/oauth/device_authorization";
+    /// Exchanges codes, refresh tokens and device codes.
     pub(crate) const TOKEN: &str = "/oauth/token";
     /// Revokes refresh tokens.
     pub(crate) const REVOKE: &str = "/oauth/revoke";
@@ -250,6 +252,8 @@ pub(crate) mod page {
     pub(crate) const REGISTER: &str = "/register";
     /// OAuth consent.
     pub(crate) const CONSENT: &str = "/authorize";
+    /// Approving a device authorization by the code the device shows (RFC 8628).
+    pub(crate) const DEVICE: &str = "/device";
     /// RP-initiated logout confirmation.
     pub(crate) const LOGOUT: &str = "/logout";
     /// Enrolls a passkey with a recovery link, whose token is in the fragment.
@@ -320,10 +324,11 @@ pub(crate) mod page {
 
     /// Every server-rendered page's route, which the security layer classifies as
     /// pages.
-    pub(crate) const ALL: [&str; 26] = [
+    pub(crate) const ALL: [&str; 27] = [
         LOGIN,
         REGISTER,
         CONSENT,
+        DEVICE,
         LOGOUT,
         ADMIN,
         PREFERENCES,

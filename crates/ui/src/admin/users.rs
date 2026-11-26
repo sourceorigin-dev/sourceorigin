@@ -322,6 +322,9 @@ async fn session_list<'a>(
                     <td>moment(at: row.session.authenticated_at)</td>
                     <td>
                         (row.methods())
+                        if let Some(client) = &row.session.client_id {
+                            <br><small>"device of " <code>(client.as_str())</code></small>
+                        }
                         if let Some(dashboard) = row.session.dashboard.first() {
                             <br><small>"dashboard, used " moment(at: dashboard.last_used_at)</small>
                         }

@@ -183,6 +183,9 @@ impl OAuthError {
             | OAuthCode::RequestNotSupported
             | OAuthCode::InvalidRequestUri
             | OAuthCode::AccessDenied
+            | OAuthCode::AuthorizationPending
+            | OAuthCode::SlowDown
+            | OAuthCode::ExpiredToken
             | OAuthCode::Other(_) => StatusCode::BAD_REQUEST,
         }
     }

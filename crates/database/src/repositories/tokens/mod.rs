@@ -22,9 +22,9 @@ pub struct InsertRefreshFamily {
     pub client_id: String,
     /// Session the grant came from; revoking it revokes the family.
     pub session_id: SessionId,
-    /// Authorization code the grant was redeemed from; replaying the code
-    /// revokes the family.
-    pub authorization_code_id: TokenId,
+    /// Authorization code the grant was redeemed from, whose replay revokes the
+    /// family; `None` for a grant a device authorization issued.
+    pub authorization_code_id: Option<TokenId>,
     /// Granted token audience.
     pub audience: String,
     /// Granted scopes.
@@ -208,7 +208,7 @@ impl TokenRepository<'_> {
                 family.user_id.as_uuid(),
                 family.client_id,
                 family.session_id.as_uuid(),
-                family.authorization_code_id.as_uuid(),
+                family.authorization_code_id.map(TokenId::as_uuid),
                 family.audience,
                 Json(&family.scopes) as _,
                 Json(&family.authentication) as _,
@@ -236,6 +236,37 @@ impl TokenRepository<'_> {
                 token.expires_at,
                 token.digest_key,
                 token.predecessor_id.map(TokenId::as_uuid),
+            )
+        )?;
+        Ok(())
+    }
+
+    /// Renews the token `id`, which its client keeps, when its device session
+    /// was renewed: it is now accepted until `expires_at`, and stored as
+    /// `secret_digest` under the current `digest_key`, so a kept token leaves an
+    /// old digest key as soon as a rotated one does.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DatabaseError`] if the update fails.
+    pub async fn renew_token(
+        &mut self,
+        id: TokenId,
+        expires_at: DateTime<Utc>,
+        secret_digest: &[u8],
+        digest_key: &str,
+    ) -> Result<(), DatabaseError> {
+        run!(
+            self,
+            execute,
+            sqlx::query!(
+                "UPDATE refresh_tokens
+                SET expires_at = $2, secret_digest = $3, digest_key = $4
+                WHERE id = $1",
+                id.as_uuid(),
+                expires_at,
+                secret_digest,
+                digest_key,
             )
         )?;
         Ok(())

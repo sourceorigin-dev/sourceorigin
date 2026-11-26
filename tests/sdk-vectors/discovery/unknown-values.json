@@ -29,10 +29,12 @@
         "plain",
         "S256"
       ],
+      "device_authorization_endpoint": "https://auth.example.com/oauth/device_authorization",
       "end_session_endpoint": "https://auth.example.com/oidc/logout",
       "grant_types_supported": [
         "authorization_code",
         "refresh_token",
+        "urn:ietf:params:oauth:grant-type:device_code",
         "urn:ietf:params:oauth:grant-type:token-exchange"
       ],
       "id_token_signing_alg_values_supported": [
@@ -103,10 +105,12 @@
       "code_challenge_methods_supported": [
         "S256"
       ],
+      "device_authorization_endpoint": "https://auth.example.com/oauth/device_authorization",
       "end_session_endpoint": "https://auth.example.com/oidc/logout",
       "grant_types_supported": [
         "authorization_code",
-        "refresh_token"
+        "refresh_token",
+        "urn:ietf:params:oauth:grant-type:device_code"
       ],
       "id_token_signing_alg_values_supported": [
         "RS256"

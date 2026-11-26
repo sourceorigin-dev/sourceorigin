@@ -32,6 +32,15 @@ auth-service client create notes --name Notes --confidential --reason "Notes app
     --redirect-uri https://notes.example/callback --scope openid --scope offline_access --scope notes:read
 ```
 
+A command-line tool, which signs users in with a code they approve on another
+device, and stays signed in:
+
+```sh
+auth-service client create notes-cli --name "Notes CLI" --reason "Notes' command-line tool" \
+    --redirect-uri http://127.0.0.1/callback --scope openid --scope offline_access \
+    --grant-type urn:ietf:params:oauth:grant-type:device_code --grant-type refresh_token
+```
+
 For a confidential client, the command prints its secret once: store it in the
 app's configuration straight away.
 
@@ -157,9 +166,12 @@ sign-in**. See [passkey sign-in on your own pages](../../user/apps/passkey-sign-
   for a confidential client, which the SDKs' login routes always request.
 - **Grant types** (`--grant-type`, once per grant) are the grants the client
   may use at the token endpoint, which RFC 7591 calls its `grant_types`:
-  `authorization_code` and `refresh_token`. A client starts an authorization
-  and redeems its code only with `authorization_code`. With `refresh_token`, it
-  receives refresh tokens when it also requests `offline_access`. A public
+  `authorization_code`, `refresh_token` and
+  `urn:ietf:params:oauth:grant-type:device_code`. A client starts an
+  authorization and redeems its code only with `authorization_code`. With
+  `refresh_token`, it receives refresh tokens when it also requests
+  `offline_access`. With the device grant, it signs devices without a browser
+  in ([signing in on a device](../../user/apps/device-sign-in.md)). A public
   client defaults to `authorization_code` alone, and a confidential one to
   both. Naming any replaces the list, so name every grant the client keeps.
   The dashboard's and the developer console's forms start with the same

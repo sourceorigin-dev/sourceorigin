@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT s.id AS \"id: SessionId\", s.user_id AS \"user_id: UserId\",\n            s.authentication_methods AS \"authentication_methods: JsonArray<AuthenticationMethod>\",\n            s.authenticated_at, s.expires_at, s.last_seen_at, s.revoked_at,\n            s.passkey_confirmed_at, s.user_agent_family AS \"user_agent_family: UserAgentFamily\",\n            s.last_seen_ip AS \"last_seen_ip: IpAddr\" FROM sessions s\n                WHERE s.id = $1",
+  "query": "SELECT s.id AS \"id: SessionId\", s.user_id AS \"user_id: UserId\",\n            s.authentication_methods AS \"authentication_methods: JsonArray<AuthenticationMethod>\",\n            s.authenticated_at, s.expires_at, s.last_seen_at, s.revoked_at,\n            s.passkey_confirmed_at, s.user_agent_family AS \"user_agent_family: UserAgentFamily\",\n            s.last_seen_ip AS \"last_seen_ip: IpAddr\", s.client_id AS \"client_id: ClientId\" FROM sessions s JOIN users u ON u.id = s.user_id WHERE (s.id = $1) AND s.revoked_at IS NULL AND s.expires_at > now() AND u.status = 'active' ",
   "describe": {
     "columns": [
       {
@@ -52,6 +52,11 @@
         "ordinal": 9,
         "name": "last_seen_ip: IpAddr",
         "type_info": "Inet"
+      },
+      {
+        "ordinal": 10,
+        "name": "client_id: ClientId",
+        "type_info": "Text"
       }
     ],
     "parameters": {
@@ -69,8 +74,9 @@
       true,
       true,
       true,
+      true,
       true
     ]
   },
-  "hash": "89b3170b458747c0b696b0d0279dd0ffbd9ec158ad041f30b4214dba5ffe6f0d"
+  "hash": "f1f32718b33aa0d0eef11c96d080bb6ed80cc11047c2f0f8f7fdfd0ac2d27210"
 }

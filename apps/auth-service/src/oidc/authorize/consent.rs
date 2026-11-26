@@ -89,13 +89,13 @@ impl OidcApplication {
     }
 
     /// The current handle of account `user`, or `None` once it is purged.
-    async fn handle(&self, user: UserId) -> Result<Option<Handle>, OAuthError> {
+    pub(in crate::oidc) async fn handle(&self, user: UserId) -> Result<Option<Handle>, OAuthError> {
         let user = self.database.users().find_by_id(user).await?;
         Ok(user.map(|user| user.handle))
     }
 
     /// Refuses a request whose client's owner is gone since it was found.
-    fn unregistered() -> OAuthError {
+    pub(in crate::oidc) fn unregistered() -> OAuthError {
         OAuthCode::InvalidRequest.reject("the client is no longer registered")
     }
 

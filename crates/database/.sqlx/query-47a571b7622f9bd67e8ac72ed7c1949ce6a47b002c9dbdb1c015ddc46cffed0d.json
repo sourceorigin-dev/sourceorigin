@@ -1,0 +1,90 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH active_user AS (\n                    SELECT id\n                    FROM users\n                    WHERE id = $2\n                    AND status = 'active'\n                    FOR NO KEY UPDATE\n                )\n                INSERT INTO sessions AS s (\n                    id, user_id, authentication_methods, authenticated_at, expires_at,\n                    last_seen_at, user_agent_family, passkey_confirmed_at, created_ip,\n                    last_seen_ip, passkey_id\n                )\n                SELECT $1, id, $3, $4, $5, $4, $6, $7, $8, $8, $9\n                FROM active_user\n                RETURNING s.id AS \"id: SessionId\", s.user_id AS \"user_id: UserId\",\n            s.authentication_methods AS \"authentication_methods: JsonArray<AuthenticationMethod>\",\n            s.authenticated_at, s.expires_at, s.last_seen_at, s.revoked_at,\n            s.passkey_confirmed_at, s.user_agent_family AS \"user_agent_family: UserAgentFamily\",\n            s.last_seen_ip AS \"last_seen_ip: IpAddr\", s.client_id AS \"client_id: ClientId\" ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id: SessionId",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "user_id: UserId",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "authentication_methods: JsonArray<AuthenticationMethod>",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 3,
+        "name": "authenticated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 4,
+        "name": "expires_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "last_seen_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 6,
+        "name": "revoked_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 7,
+        "name": "passkey_confirmed_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "user_agent_family: UserAgentFamily",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "last_seen_ip: IpAddr",
+        "type_info": "Inet"
+      },
+      {
+        "ordinal": 10,
+        "name": "client_id: ClientId",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Jsonb",
+        "Timestamptz",
+        "Timestamptz",
+        "Text",
+        "Timestamptz",
+        "Inet",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "47a571b7622f9bd67e8ac72ed7c1949ce6a47b002c9dbdb1c015ddc46cffed0d"
+}

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE device_authorizations SET status = 'denied'\n                WHERE id = $1 AND status = 'pending'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "718d3082ce39b56d0ba725ae92a531d9b601747d6c0513606d7a9d34b9b5361e"
+}

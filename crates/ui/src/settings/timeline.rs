@@ -190,6 +190,7 @@ impl HistoryRow<'_> {
             HistoryEntry::ConsentGranted { scopes } => {
                 format!("Access approved: {}", scopes.join(", "))
             }
+            HistoryEntry::DeviceAuthorized => "Device signed in with a code".to_owned(),
             HistoryEntry::ConsentRevoked => "App access withdrawn".to_owned(),
             HistoryEntry::TokenReused => {
                 "An app’s sign-in was used twice, so its access was revoked".to_owned()

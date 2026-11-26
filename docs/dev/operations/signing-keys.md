@@ -191,8 +191,9 @@ deployment, and after a rollback, every release accepts what the other issues:
 2. Swap them: the new key as `AUTH_TOKEN_DIGEST_KEY`, and the old one as
    `AUTH_TOKEN_DIGEST_KEY_ACCEPTED`. Deploy. New digests use the new key.
 3. Wait until `auth-service keys digest-usage` lists only `current` keys:
-   about 30 days, since refresh tokens end with their session, and a redeemed
-   code is kept while the grant it produced lives.
+   about 30 days, since refresh tokens end with their session, a device's
+   moves to the new key when it refreshes, and a redeemed code is kept while
+   the grant it produced lives.
 4. Remove `AUTH_TOKEN_DIGEST_KEY_ACCEPTED`, and deploy. Removing it sooner ends
    the refresh tokens still under it. Announcements' unsubscribe links made under
    the old key stop working then, whenever it is removed: their owners turn the
@@ -216,7 +217,7 @@ For a key that leaked, replace it at once instead: see
 | `next` | no | yes | yes | 24 hours, then it signs |
 | `active` | yes | yes | yes | 90 days, then a `next` key is published |
 | `retiring` | no | yes | yes | 65 minutes: the 5-minute token lifetime plus the JWKS cache lifetime |
-| `retired` | no | no | as `id_token_hint` only | 30 days, the longest session, then it is deleted with its public key |
+| `retired` | no | no | as `id_token_hint` only | 30 days, the longest a session lasts after its newest ID token, then it is deleted with its public key |
 
 JWKS is served with `Cache-Control: public, max-age=3600`, so a `next` key is
 published long before any verifier needs it. A retired key's private key is

@@ -27,6 +27,7 @@ use url::Url;
 
 mod app_removal;
 mod authorization;
+mod device;
 mod errors;
 mod logout;
 mod policy;
@@ -55,6 +56,9 @@ struct Flow {
     user_id: UserId,
     /// Optional encoded credentials for a confidential scenario client.
     basic: Option<String>,
+    /// Where the scenario's requests come from: [`RequestContext::TEST`], unless a
+    /// scenario keeps its per-IP limits apart from the others'.
+    context: RequestContext,
 }
 impl Flow {
     /// Creates a disposable account, client registration and persistent-key OIDC application.
@@ -115,6 +119,7 @@ impl Flow {
             cookie,
             user_id,
             basic,
+            context: RequestContext::TEST,
         }
     }
     /// The same scenario, sending its requests to `router`, such as one of [`Replicas`].
@@ -157,7 +162,7 @@ impl Flow {
         basic: Option<&str>,
     ) -> Response {
         let mut builder = Request::builder()
-            .extension(RequestContext::TEST)
+            .extension(self.context)
             .method(method)
             .uri(uri)
             .header(header::COOKIE, &self.cookie)

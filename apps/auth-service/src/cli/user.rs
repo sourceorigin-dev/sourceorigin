@@ -389,12 +389,13 @@ report!(UserDetail, self, out, {
     self.identities[..].human(out)?;
     out.section("Sessions")?;
     out.table(
-        ["ID", "METHODS", "SIGNED IN", "LAST SEEN", "EXPIRES"],
+        ["ID", "METHODS", "APP", "SIGNED IN", "LAST SEEN", "EXPIRES"],
         "No sessions.",
         self.sessions.iter().map(|session| {
             [
                 Cell::new(session.id),
                 Cell::new(Joined(&session.methods, ", ")),
+                session.client_id.as_ref().map(Cell::new).into(),
                 session.authenticated_at.into(),
                 session.last_seen_at.into(),
                 session.expires_at.into(),

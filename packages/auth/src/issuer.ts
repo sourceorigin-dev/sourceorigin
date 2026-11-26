@@ -33,6 +33,7 @@ const serverMetadata: json.Decoder<ServerMetadata> = json.object({
   revocation_endpoint: json.url,
   userinfo_endpoint: json.url,
   pushed_authorization_request_endpoint: json.optional(json.url),
+  device_authorization_endpoint: json.optional(json.url),
   require_pushed_authorization_requests: json.withDefault(json.boolean, false),
   end_session_endpoint: json.url,
   jwks_uri: json.url,
@@ -163,7 +164,8 @@ export class Issuer {
       userinfo_endpoint: metadata.userinfo_endpoint,
       end_session_endpoint: metadata.end_session_endpoint,
       jwks_uri: metadata.jwks_uri,
-      pushed_authorization_request_endpoint: metadata.pushed_authorization_request_endpoint
+      pushed_authorization_request_endpoint: metadata.pushed_authorization_request_endpoint,
+      device_authorization_endpoint: metadata.device_authorization_endpoint
     };
     // Credentials and keys must not cross the network in the clear (OIDC Discovery 1.0 §3).
     for (const [name, endpoint] of Object.entries(endpoints)) {
