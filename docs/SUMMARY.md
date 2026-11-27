@@ -109,6 +109,5 @@
   - [auth-service commands](dev/operations/cli-commands.md)
 - [Sign-in providers](dev/operations/sign-in-providers.md)
 - [Email](dev/operations/email.md)
-- [Telemetry stack](dev/operations/telemetry.md)
 - [Analytics database](dev/operations/analytics.md)
 - [Incidents](dev/operations/incidents.md)

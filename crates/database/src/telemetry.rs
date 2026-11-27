@@ -19,7 +19,7 @@ sourceorigin_telemetry::signal! {
     pub struct EventRecorded in "events", kept 390 days, ordered by (kind) {
         /// What happened, such as `signed_in`.
         pub kind: &'static str,
-        /// The kind of actor that caused it, such as `user` or `operator`.
+        /// The kind of actor that caused it, such as `account` or `operator`.
         pub actor: &'static str,
         /// How the person authenticated, for a sign-in, a failed one or a new
         /// account, such as `passkey`.

@@ -168,7 +168,14 @@ impl Command {
     /// Analytics never blocks a migration: its failures only warn.
     async fn run(self, operator: Option<OperatorName>, out: Output) -> Result<(), CliError> {
         let analytics = match self {
-            Self::Migrate => Store::migration_from_environment()?,
+            Self::Migrate => Store::migration_from_environment().unwrap_or_else(|error| {
+                out.warning(format_args!(
+                    "analytics tables not migrated: {}",
+                    ErrorChain(&error)
+                ))
+                .ok();
+                None
+            }),
             _ => None,
         };
         let (config, runtime_role) = match self {
@@ -348,11 +355,11 @@ const TELEMETRY_FLUSH: Duration = Duration::from_secs(3);
 impl Cli {
     /// Installs telemetry, runs the selected command, then flushes telemetry for up
     /// to `TELEMETRY_FLUSH`, and prints any failure with its causes, as JSON with
-    /// `--json`. OTLP export
-    /// never stops a command other than `serve`: when it cannot start, the command
-    /// logs to stderr only, and a failed or late flush, such as to an unreachable
-    /// collector, is only reported, so a deploy's migration job and break-glass
-    /// repairs still run. An unparseable `RUST_LOG` stops every command.
+    /// `--json`. Telemetry export never stops a command other than `serve`: when
+    /// it cannot start, the command logs to stderr only, and a failed or late
+    /// flush, such as to an unreachable ClickHouse, is only reported, so a
+    /// deploy's migration job and break-glass repairs still run. An
+    /// unparseable `RUST_LOG` stops every command.
     pub async fn run(self) -> ExitCode {
         let out = Output::new(self.json);
         let result = async {

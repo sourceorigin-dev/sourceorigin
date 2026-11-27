@@ -67,9 +67,9 @@ Deployed images run the executable's same `migrate` and `serve` subcommands.
 
 ### Telemetry
 
-Both services read the standard OpenTelemetry variables, such as
-`OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_RESOURCE_ATTRIBUTES`, and `RUST_LOG`:
-see [telemetry](../architecture/telemetry.md#configuration).
+Both services store their spans and logs where `ANALYTICS_URL` says, and read
+a few standard OpenTelemetry variables, such as `OTEL_TRACES_SAMPLER`, and
+`RUST_LOG`: see [telemetry](../architecture/telemetry.md#configuration).
 
 ## sourceorigin-web
 

@@ -138,8 +138,5 @@ Each is 32 random bytes, as hex or unpadded base64url text.
 The manifest's variables pick which stored secret each environment mounts:
 `smtp_secret`, `github_secret`, `google_secret` and `audit_key`.
 
-The [telemetry stack](telemetry.md) has one generated secret of its own,
-`grafana-admin-password`.
-
 Signing keys are not secrets of the manifest: auth keeps them in its database
 and rotates them on its own (see [signing keys](signing-keys.md)).

@@ -16,7 +16,7 @@ mod analytics 'just/analytics.just'
 # auth-service commands with the caller's configuration, and secret generation.
 mod auth 'just/auth.just'
 
-# piqueld previews of this worktree, and a local telemetry backend.
+# piqueld previews of this worktree, and the infra checks.
 mod infra 'just/infra.just'
 
 # The documentation book: `just docs` builds and checks it, `just docs serve` previews it.

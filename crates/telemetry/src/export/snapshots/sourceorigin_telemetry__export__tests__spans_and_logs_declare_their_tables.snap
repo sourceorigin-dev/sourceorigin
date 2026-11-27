@@ -1,0 +1,121 @@
+---
+source: crates/telemetry/src/export/tests.rs
+expression: "TABLES.iter().flat_map(Table::statements).collect::<Vec<_>>().join(\";\\n\\n\")"
+---
+CREATE TABLE IF NOT EXISTS spans (
+    time DateTime64(6, 'UTC') CODEC(DoubleDelta, ZSTD),
+    trace FixedString(32) COMMENT 'Its trace.',
+    span FixedString(16) COMMENT 'Its ID.',
+    parent String COMMENT 'Its parent span, or empty for a root span.',
+    service LowCardinality(String) COMMENT 'The service, such as `auth-service`.',
+    instance LowCardinality(String) COMMENT 'The process, a new UUID each start.',
+    name LowCardinality(String) COMMENT 'Its name, such as `GET /login`.',
+    kind LowCardinality(String) COMMENT '`server`, `client`, `internal`, `producer` or `consumer`.',
+    status LowCardinality(String) COMMENT '`error` when it failed, with its description in `otel.status_description`, else `unset` or `ok`.',
+    duration_us UInt64 COMMENT 'How long it took, in microseconds.',
+    attributes Map(LowCardinality(String), String) COMMENT 'Its attributes, as text.',
+    INDEX trace_index trace TYPE bloom_filter GRANULARITY 1
+) ENGINE = MergeTree
+PARTITION BY toYYYYMMDD(time)
+ORDER BY (service, name, time)
+TTL toDateTime(time) + INTERVAL 14 DAY
+SETTINGS ttl_only_drop_parts = 1
+COMMENT 'Every span of auth and sourceorigin.dev: a trace per request, job run and delivery attempt.';
+
+ALTER TABLE spans ADD COLUMN IF NOT EXISTS trace FixedString(32) COMMENT 'Its trace.';
+
+ALTER TABLE spans COMMENT COLUMN trace 'Its trace.';
+
+ALTER TABLE spans ADD COLUMN IF NOT EXISTS span FixedString(16) COMMENT 'Its ID.';
+
+ALTER TABLE spans COMMENT COLUMN span 'Its ID.';
+
+ALTER TABLE spans ADD COLUMN IF NOT EXISTS parent String COMMENT 'Its parent span, or empty for a root span.';
+
+ALTER TABLE spans COMMENT COLUMN parent 'Its parent span, or empty for a root span.';
+
+ALTER TABLE spans ADD COLUMN IF NOT EXISTS service LowCardinality(String) COMMENT 'The service, such as `auth-service`.';
+
+ALTER TABLE spans COMMENT COLUMN service 'The service, such as `auth-service`.';
+
+ALTER TABLE spans ADD COLUMN IF NOT EXISTS instance LowCardinality(String) COMMENT 'The process, a new UUID each start.';
+
+ALTER TABLE spans COMMENT COLUMN instance 'The process, a new UUID each start.';
+
+ALTER TABLE spans ADD COLUMN IF NOT EXISTS name LowCardinality(String) COMMENT 'Its name, such as `GET /login`.';
+
+ALTER TABLE spans COMMENT COLUMN name 'Its name, such as `GET /login`.';
+
+ALTER TABLE spans ADD COLUMN IF NOT EXISTS kind LowCardinality(String) COMMENT '`server`, `client`, `internal`, `producer` or `consumer`.';
+
+ALTER TABLE spans COMMENT COLUMN kind '`server`, `client`, `internal`, `producer` or `consumer`.';
+
+ALTER TABLE spans ADD COLUMN IF NOT EXISTS status LowCardinality(String) COMMENT '`error` when it failed, with its description in `otel.status_description`, else `unset` or `ok`.';
+
+ALTER TABLE spans COMMENT COLUMN status '`error` when it failed, with its description in `otel.status_description`, else `unset` or `ok`.';
+
+ALTER TABLE spans ADD COLUMN IF NOT EXISTS duration_us UInt64 COMMENT 'How long it took, in microseconds.';
+
+ALTER TABLE spans COMMENT COLUMN duration_us 'How long it took, in microseconds.';
+
+ALTER TABLE spans ADD COLUMN IF NOT EXISTS attributes Map(LowCardinality(String), String) COMMENT 'Its attributes, as text.';
+
+ALTER TABLE spans COMMENT COLUMN attributes 'Its attributes, as text.';
+
+ALTER TABLE spans MODIFY COMMENT 'Every span of auth and sourceorigin.dev: a trace per request, job run and delivery attempt.';
+
+ALTER TABLE spans MODIFY TTL toDateTime(time) + INTERVAL 14 DAY SETTINGS materialize_ttl_after_modify = 0;
+
+CREATE TABLE IF NOT EXISTS logs (
+    time DateTime64(6, 'UTC') CODEC(DoubleDelta, ZSTD),
+    trace FixedString(32) COMMENT 'The trace it was logged in, or zeros.',
+    span FixedString(16) COMMENT 'The span it was logged in, or zeros.',
+    service LowCardinality(String) COMMENT 'The service, such as `auth-service`.',
+    instance LowCardinality(String) COMMENT 'The process, a new UUID each start.',
+    level LowCardinality(String) COMMENT '`ERROR`, `WARN`, `INFO`, `DEBUG` or `TRACE`.',
+    target LowCardinality(String) COMMENT 'The module that logged it.',
+    body String COMMENT 'The message.',
+    attributes Map(LowCardinality(String), String) COMMENT 'Its fields, as text.',
+    INDEX trace_index trace TYPE bloom_filter GRANULARITY 1
+) ENGINE = MergeTree
+PARTITION BY toYYYYMMDD(time)
+ORDER BY (service, level, time)
+TTL toDateTime(time) + INTERVAL 30 DAY
+SETTINGS ttl_only_drop_parts = 1
+COMMENT 'Every log line of auth and sourceorigin.dev their filter lets through, but the SDK\'s and the HTTP stack\'s.';
+
+ALTER TABLE logs ADD COLUMN IF NOT EXISTS trace FixedString(32) COMMENT 'The trace it was logged in, or zeros.';
+
+ALTER TABLE logs COMMENT COLUMN trace 'The trace it was logged in, or zeros.';
+
+ALTER TABLE logs ADD COLUMN IF NOT EXISTS span FixedString(16) COMMENT 'The span it was logged in, or zeros.';
+
+ALTER TABLE logs COMMENT COLUMN span 'The span it was logged in, or zeros.';
+
+ALTER TABLE logs ADD COLUMN IF NOT EXISTS service LowCardinality(String) COMMENT 'The service, such as `auth-service`.';
+
+ALTER TABLE logs COMMENT COLUMN service 'The service, such as `auth-service`.';
+
+ALTER TABLE logs ADD COLUMN IF NOT EXISTS instance LowCardinality(String) COMMENT 'The process, a new UUID each start.';
+
+ALTER TABLE logs COMMENT COLUMN instance 'The process, a new UUID each start.';
+
+ALTER TABLE logs ADD COLUMN IF NOT EXISTS level LowCardinality(String) COMMENT '`ERROR`, `WARN`, `INFO`, `DEBUG` or `TRACE`.';
+
+ALTER TABLE logs COMMENT COLUMN level '`ERROR`, `WARN`, `INFO`, `DEBUG` or `TRACE`.';
+
+ALTER TABLE logs ADD COLUMN IF NOT EXISTS target LowCardinality(String) COMMENT 'The module that logged it.';
+
+ALTER TABLE logs COMMENT COLUMN target 'The module that logged it.';
+
+ALTER TABLE logs ADD COLUMN IF NOT EXISTS body String COMMENT 'The message.';
+
+ALTER TABLE logs COMMENT COLUMN body 'The message.';
+
+ALTER TABLE logs ADD COLUMN IF NOT EXISTS attributes Map(LowCardinality(String), String) COMMENT 'Its fields, as text.';
+
+ALTER TABLE logs COMMENT COLUMN attributes 'Its fields, as text.';
+
+ALTER TABLE logs MODIFY COMMENT 'Every log line of auth and sourceorigin.dev their filter lets through, but the SDK\'s and the HTTP stack\'s.';
+
+ALTER TABLE logs MODIFY TTL toDateTime(time) + INTERVAL 30 DAY SETTINGS materialize_ttl_after_modify = 0

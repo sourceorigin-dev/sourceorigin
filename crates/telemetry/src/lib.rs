@@ -1,6 +1,6 @@
-//! Telemetry for service executables: logs on stderr always, OpenTelemetry
-//! traces and logs over OTLP/HTTP when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, and
-//! analytics rows in ClickHouse when `ANALYTICS_URL` is.
+//! Telemetry for service executables: logs on stderr always, and, when
+//! `ANALYTICS_URL` names a ClickHouse database, OpenTelemetry spans and logs as
+//! its `spans` and `logs` rows, and analytics rows in tables of their own.
 //!
 //! Features use it four ways:
 //!
@@ -16,15 +16,15 @@
 //!   fields can only be numbers, vocabularies and pseudonymous IDs. What a
 //!   metric would count or measure is a row, and a chart is a query.
 //!
-//! Everything a span or log line holds may be exported. Never record a
-//! secret, a request path or query string, or a request header.
+//! Everything a span or log line holds is stored. Never record a secret, a
+//! request path or query string, or a request header.
 #![warn(clippy::print_stdout, clippy::print_stderr)]
 
 extern crate self as sourceorigin_telemetry;
 
 /// Typed rows stored in ClickHouse.
 pub mod analytics;
-/// OTLP export through the workspace's `reqwest`.
+/// Spans and log records as rows of ClickHouse's `spans` and `logs`.
 mod export;
 /// Server spans, access logs and `requests` rows for axum routers.
 mod http;
@@ -43,7 +43,7 @@ pub use serde as __serde;
 pub use sourceorigin_common::SendTraced;
 
 use analytics::{Store, Writer as AnalyticsWriter};
-use export::Exporters;
+use export::{LogRows, Source, SpanRows};
 use opentelemetry::{KeyValue, trace::TraceContextExt};
 use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
 use opentelemetry_sdk::{
@@ -94,7 +94,7 @@ pub enum TelemetryError {
     /// `RUST_LOG` is not a valid filter.
     #[error(transparent)]
     LogFilter(#[from] ConfigurationError),
-    /// OTLP export could not start, and [`Export::Required`] was asked.
+    /// Export could not start, and [`Export::Required`] was asked.
     #[error(transparent)]
     Export(#[from] ExportError),
     /// Another subscriber is already installed.
@@ -116,9 +116,9 @@ pub enum TelemetryError {
 }
 
 /// A service's installed telemetry. Spans always get trace IDs; exporters exist
-/// only while OTLP export is configured (see [`Export`]). The SDK reads the other
-/// variables: `OTEL_SERVICE_NAME`, `OTEL_RESOURCE_ATTRIBUTES`,
-/// `OTEL_TRACES_SAMPLER` and its `_ARG`, and `OTEL_EXPORTER_OTLP_HEADERS`.
+/// only while `ANALYTICS_URL` is set (see [`Export`]). The SDK reads the other
+/// variables: `OTEL_SERVICE_NAME`, `OTEL_RESOURCE_ATTRIBUTES`, and
+/// `OTEL_TRACES_SAMPLER` and its `_ARG`.
 ///
 /// Incoming `traceparent` headers are ignored: a public caller must not choose the
 /// trace IDs that recorded events keep.
@@ -135,10 +135,10 @@ pub struct Telemetry {
 impl Telemetry {
     /// Installs telemetry for `service`, the default `service.name`. Logs are
     /// filtered by `RUST_LOG`, or else `default_filter`; spans always by
-    /// `default_filter`, so quieter logs never lose traces. When OTLP export or
-    /// analytics cannot start, `export` says whether that fails or only logs to
-    /// stderr, with a warning. Call it first, inside the tokio runtime: rows
-    /// recorded before are discarded.
+    /// `default_filter`, so quieter logs never lose traces. When export cannot
+    /// start, `export` says whether that fails or only logs to stderr, with a
+    /// warning. Call it first, inside the tokio runtime: rows recorded before
+    /// are discarded.
     ///
     /// # Errors
     /// Fails on an invalid filter, when a subscriber is already installed, and when
@@ -149,33 +149,43 @@ impl Telemetry {
         export: Export,
     ) -> Result<Self, TelemetryError> {
         let logs = LOG_FILTER.parse_optional::<EnvFilter>()?;
-        let (exporters, unavailable) = match Exporters::from_environment() {
-            Ok(exporters) => (exporters, None),
+        http::SERVICE.set(service).ok();
+        let resource = Self::resource(service);
+        let attribute = |key: &'static str| {
+            resource
+                .get(&key.into())
+                .map_or_else(String::new, |value| value.as_str().into_owned())
+        };
+        let source = Store::from_environment()
+            .map_err(ExportError::from)
+            .and_then(|store| {
+                store
+                    .map(|store| {
+                        Source::new(store, &attribute(SERVICE_NAME), &attribute(INSTANCE_ID))
+                    })
+                    .transpose()
+            });
+        let (source, unavailable) = match source {
+            Ok(source) => (source, None),
             Err(error) if export == Export::Optional => (None, Some(error)),
             Err(error) => return Err(error.into()),
         };
-        let (store, analytics_unavailable) = match Store::from_environment() {
-            Ok(store) => (store, None),
-            Err(error) if export == Export::Optional => (None, Some(error)),
-            Err(error) => return Err(TelemetryError::Analytics(error)),
-        };
-        http::SERVICE.set(service).ok();
-        let resource = Self::resource(service);
         let mut tracer = SdkTracerProvider::builder().with_resource(resource.clone());
-        let mut logger = None;
-        if let Some(exporters) = exporters {
-            tracer = tracer.with_batch_exporter(exporters.spans);
+        let (mut logger, mut analytics) = (None, None);
+        if let Some(source) = source {
+            analytics = AnalyticsWriter::start(source.store());
+            tracer = tracer.with_batch_exporter(SpanRows(source.clone()));
             logger = Some(
                 SdkLoggerProvider::builder()
                     .with_resource(resource)
-                    .with_batch_exporter(exporters.logs)
+                    .with_batch_exporter(LogRows(source))
                     .build(),
             );
         }
         let telemetry = Self {
             tracer: tracer.build(),
             logger,
-            analytics: store.and_then(AnalyticsWriter::start),
+            analytics,
         };
         Self::subscriber(
             &telemetry.tracer,
@@ -187,21 +197,15 @@ impl Telemetry {
         if let Some(error) = unavailable {
             tracing::warn!(
                 error = %ErrorChain(&error),
-                "OTLP export could not start; logging to stderr only"
-            );
-        }
-        if let Some(error) = analytics_unavailable {
-            tracing::warn!(
-                error = %ErrorChain(&error),
-                "analytics could not start; discarding rows"
+                "telemetry export could not start; logging to stderr only"
             );
         }
         Ok(telemetry)
     }
 
     /// Sends queued analytics rows while it flushes and stops every exporter;
-    /// call it once the service stopped serving. It gives up after `within`, so a slow
-    /// or unreachable collector or ClickHouse cannot hold up an exit, such as a
+    /// call it once the service stopped serving. It gives up after `within`, so a
+    /// slow or unreachable ClickHouse cannot hold up an exit, such as a
     /// container's stop.
     ///
     /// # Errors

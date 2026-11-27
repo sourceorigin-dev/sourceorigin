@@ -20,7 +20,7 @@ crosses a crate or a process.
                                    ├──▶ apps' back-channel logout URIs
                                    └──▶ SMTP relay
 
- auth-service, sourceorigin-web ──OTLP──▶ collector ──▶ Prometheus, Tempo, Loki ──▶ Grafana
+ auth-service, sourceorigin-web ──spans, logs, rows──▶ ClickHouse ◀── /play*
 
  * a private route: reachable on the tailnet only
 ```
@@ -45,12 +45,10 @@ crosses a crate or a process.
   terminates HTTPS, answers the `www` redirect itself, and overwrites
   `X-Forwarded-For`, which auth trusts only from the gateway's ranges
   ([deploying](../operations/deploying.md)).
-- **The telemetry stack** (`infra/telemetry.toml`) receives OTLP from auth and
-  sourceorigin-web and stores traces and logs
-  ([telemetry](telemetry.md), [telemetry stack](../operations/telemetry.md)).
-- **ClickHouse** keeps each environment's [analytics](analytics.md): typed
-  rows, such as every committed event, kept for months
-  ([analytics database](../operations/analytics.md)).
+- **ClickHouse** keeps each environment's [analytics](analytics.md), typed
+  rows such as every committed event, kept for months, and the spans and logs
+  of auth and sourceorigin-web, kept for days ([telemetry](telemetry.md),
+  [analytics database](../operations/analytics.md)).
 - **Apps** sign in through standard OIDC, with any OIDC library or the SDKs
   ([SDK design](sdk.md)). Auth calls them back only through the
   [delivery queue](delivery-queue.md): back-channel logout tokens, and email to
