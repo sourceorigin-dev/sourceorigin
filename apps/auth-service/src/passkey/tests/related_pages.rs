@@ -486,3 +486,22 @@ async fn removing_an_origin_during_a_sign_in_refuses_it() {
         "{events:?}"
     );
 }
+
+/// A sign-in on an app's own page counts as that app's sign-in, requested and
+/// authorized.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL"]
+async fn related_pages_count_their_sign_ins_steps() {
+    let analytics = sourceorigin_telemetry::analytics::AnalyticsCapture::start();
+    let mut fixture = Fixture::new().await;
+    let replicas = Replicas::new().await;
+    fixture.on(&replicas.a);
+    let page = RelatedPage::approved(&fixture.app.database).await;
+    let request_uri = fixture.push(&page, &[]).await;
+    let started = json(fixture.start_related(&page, &request_uri).await).await;
+    let finished = fixture.finish_related(&page, &started).await;
+    assert_eq!(finished.status(), StatusCode::OK);
+    let rows = analytics.rows("authorization_steps");
+    let steps: Vec<&str> = rows.iter().filter_map(|row| row["step"].as_str()).collect();
+    assert_eq!(steps, ["requested", "authorized"]);
+}

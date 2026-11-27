@@ -109,15 +109,28 @@ sourceorigin_telemetry::signal! {
 }
 ```
 
+The product signals are `passkeys_used`, which kinds of passkeys people assert
+with, and `authorization_steps`, how far each app's sign-ins get: `requested`,
+each time the `sign_in` or `consent` page shows, then `authorized` or
+`denied`, for the redirect flow and sign-ins on an app's own page alike. A
+silent `prompt=none` check involves no person and counts nothing.
+
 It implements `Product` instead of `Signal`, and its `record` takes a
 `Consent`, so a product row can't be recorded without one. A `Consent` comes
-from `RequestContext::consent`, and only when:
+from `RequestContext::consent`, inside a transaction, or `consent_of`, before
+one begins, given the signed-in account if any, and only when:
 
 - the account didn't leave usage statistics, on its **Your data** page, which
   keeps a row in `analytics_opt_outs` (see
   [usage statistics](../../user/your-data/usage-statistics.md)); and
 - the request didn't carry `Sec-GPC: 1`, the browser's
   [Global Privacy Control](https://globalprivacycontrol.org).
+
+Before anyone signs in, auth can't know whose choice applies, so only Global
+Privacy Control keeps a request out: `consent_of` takes the signed-in account,
+if any, even when its session falls short of the request. Read consent before
+a transaction that takes locks, never with a second connection while it holds
+them.
 
 Record a product row about a change with `DatabaseTransaction::after_commit`,
 so a change that rolls back records nothing:

@@ -31,8 +31,9 @@ use axum::{
     response::Redirect,
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use sourceorigin_common::{RecoveryId, protocol::claims::Acr};
-use sourceorigin_repository::StoredAuthorizationRequest;
+use sourceorigin_common::{ClientId, RecoveryId, UserId, protocol::claims::Acr};
+use sourceorigin_repository::{Database, StoredAuthorizationRequest};
+use sourceorigin_telemetry::analytics::{Consent, Product};
 use sourceorigin_ui::{Checkbox, LoginQuery};
 use url::Url;
 
@@ -103,6 +104,46 @@ pub(crate) struct AuthorizationView {
     /// Where the application receives the browser: the registered redirect URI the
     /// request named.
     pub(crate) redirect_uri: Url,
+}
+
+sourceorigin_telemetry::signal! {
+    /// A step an authorization request passed, each time it did: how often
+    /// each app's sign-ins reach each step, so where people stop shows, never
+    /// whose. A silent `prompt=none` check involves no person and counts none.
+    pub(crate) product struct AuthorizationStep in "authorization_steps", kept 390 days, ordered by (client, step) {
+        /// The app.
+        pub(crate) client: ClientId,
+        /// `requested`, the app sent the browser here or started a sign-in on its
+        /// own page; `sign_in`, the sign-in page showed; `consent`, the consent
+        /// page showed; `authorized`, the app got its code; or `denied`, the
+        /// person declined.
+        pub(crate) step: &'static str,
+    }
+}
+
+impl AuthorizationStep {
+    /// Consent to count the steps of `context`'s request, `user`'s once someone
+    /// is signed in, unless the request is `silent`. Read outside any
+    /// transaction, so call it before one begins.
+    pub(crate) async fn consent(
+        database: &Database,
+        context: &RequestContext,
+        user: Option<UserId>,
+        silent: bool,
+    ) -> Option<Consent> {
+        if silent {
+            return None;
+        }
+        context.consent_of(database, user).await
+    }
+
+    /// Records that a request of `client` reached `step`, with `consent`.
+    pub(crate) fn count(consent: Option<Consent>, client: &ClientId, step: &'static str) {
+        if let Some(consent) = consent {
+            let client = client.clone();
+            Self { client, step }.record(consent);
+        }
+    }
 }
 
 impl OidcApplication {
@@ -187,8 +228,13 @@ impl OidcApplication {
             return Err(back(OAuthCode::LoginRequired.reject(SILENT_LOGIN_REQUIRED)));
         }
         let target_acr = request.target_acr;
+        let silent = request.interaction.is_silent();
         let transaction = validated.store(self).await?;
+        let user = session.as_ref().map(|session| session.user_id);
+        let consent = AuthorizationStep::consent(&self.database, &context, user, silent).await;
+        AuthorizationStep::count(consent, &client.id, "requested");
         if requires_login {
+            AuthorizationStep::count(consent, &client.id, "sign_in");
             self.sign_in_page(transaction, target_acr)
         } else {
             self.continue_authorization(context, headers, transaction, RecoveryQuestion::Unanswered)
@@ -281,12 +327,15 @@ impl OidcApplication {
                 "this account cannot meet the requested acr_values for now",
             ));
         }
+        let user = session.as_ref().map(|session| session.user_id);
         let session = session
             .filter(|session| Self::require_authorization_session(&request, session).is_ok());
         let Some(session) = session else {
             if silent {
                 return Err(back(OAuthCode::LoginRequired, SILENT_LOGIN_REQUIRED));
             }
+            let consent = AuthorizationStep::consent(&self.database, &context, user, false).await;
+            AuthorizationStep::count(consent, &request.client_id, "sign_in");
             return self.sign_in_page(transaction, request.target_acr);
         };
         if !silent && Self::signed_in_for(&request, &session) {
@@ -309,7 +358,7 @@ impl OidcApplication {
                 transaction,
                 decision: ConsentDecision::Approve,
             };
-            return self.decide(headers, input, None).await;
+            return self.decide(context, headers, input, false).await;
         }
         if silent {
             return Err(back(
@@ -317,6 +366,10 @@ impl OidcApplication {
                 "prompt=none was requested, but the user must consent first",
             ));
         }
+        let consent =
+            AuthorizationStep::consent(&self.database, &context, Some(session.user_id), false)
+                .await;
+        AuthorizationStep::count(consent, &request.client_id, "consent");
         self.page(routes::page::CONSENT, &TransactionQuery { transaction })
     }
 }

@@ -10,6 +10,11 @@ who you are. You can leave yours out at any time.
   as a password manager's or a phone's are, or kept on one device, as a
   security key's is, and how your browser reaches it: built in, on a phone, or
   over USB, NFC or Bluetooth.
+- How far each sign-in to an app gets: whether the app sent you here or
+  started a sign-in on its own page, each time the sign-in or consent page
+  showed, and whether the app got access or you declined. These are counted
+  for the app, so its developer can see where people stop. An app checking in
+  the background whether you are still signed in counts nothing.
 
 Each count holds only that kind, and the day it happened, not the time. It
 doesn't hold your account, your name, your email address or your IP address.
@@ -27,9 +32,13 @@ for how long.
 2. Under **Usage statistics**, turn off **Include my activity in usage
    statistics**.
 
-From then on, nothing you do is counted in usage statistics. Turn it back on the
-same way. Each change is recorded in your **Security history**, as "Usage
-statistics turned off" or "Usage statistics turned on".
+From then on, nothing you do while signed in is counted in usage statistics.
+Turn the setting back on the same way. Each change is recorded in your
+**Security history**, as "Usage statistics turned off" or "Usage statistics
+turned on".
+
+Before you sign in, SourceOrigin can't know it's you, so the first steps of a
+sign-in to an app are counted unless your browser sends Global Privacy Control.
 
 ## Global Privacy Control
 
