@@ -472,6 +472,9 @@ impl EventRow<'_> {
             DomainEvent::NotificationPreferenceChanged(preference) => {
                 Description::new(preference.change())
             }
+            DomainEvent::UsageStatisticsChanged { included } => {
+                Description::new(crate::settings::statistics_change(included))
+            }
             DomainEvent::AlertRaised { alert_id, alert } => {
                 Self::alert("Alert raised", alert_id, &alert)
             }

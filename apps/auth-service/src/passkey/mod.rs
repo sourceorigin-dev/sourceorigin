@@ -47,6 +47,7 @@ mod settings;
 /// Validated names and browser request/response bodies.
 mod types;
 
+pub(crate) use acceptance::PasskeyUsed;
 pub(crate) use confirmation::AdminProof;
 pub(crate) use error::PasskeyConfigError;
 pub(crate) use error::PasskeyError;

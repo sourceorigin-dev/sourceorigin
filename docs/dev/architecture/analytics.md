@@ -42,7 +42,7 @@ sourceorigin_telemetry::signal! {
   comments become the table's and the columns' comments, so ClickHouse
   describes its own tables.
 - **`time`** comes first in every table: when the row was recorded, in
-  milliseconds.
+  milliseconds, or the day for a [product signal](#consent).
 - **`kept`** is the retention: ClickHouse deletes a row that many days after
   its time.
 - **`ordered by`** names the fields rows are sorted by, before their time.
@@ -93,6 +93,48 @@ can be told apart.
 it. Add a type there only if it has the same guarantee. The guarantee holds as
 long as a `&'static str` is a literal: never leak a `String` to make one.
 
+## Consent
+
+Most signals say how SourceOrigin runs, such as `requests` or `events`, and
+every request and change records them. A few say how people use it, such as
+which kind of passkey someone signed in with: *product* signals, which a
+person may keep out of. Declare one as a `product struct`:
+
+```rust
+sourceorigin_telemetry::signal! {
+    /// A passkey someone signed in or confirmed with, once that committed.
+    pub(crate) product struct PasskeyUsed in "passkeys_used", kept 390 days, ordered by (synced) {
+        // …
+    }
+}
+```
+
+It implements `Product` instead of `Signal`, and its `record` takes a
+`Consent`, so a product row can't be recorded without one. A `Consent` comes
+from `RequestContext::consent`, and only when:
+
+- the account didn't leave usage statistics, on its **Your data** page, which
+  keeps a row in `analytics_opt_outs` (see
+  [usage statistics](../../user/your-data/usage-statistics.md)); and
+- the request didn't carry `Sec-GPC: 1`, the browser's
+  [Global Privacy Control](https://globalprivacycontrol.org).
+
+Record a product row about a change with `DatabaseTransaction::after_commit`,
+so a change that rolls back records nothing:
+
+```rust
+if let Some(consent) = context.consent(&mut tx, user_id).await? {
+    tx.after_commit(move || used.record(consent));
+}
+```
+
+A product row still names no account. Its time holds the day only, and the
+writer sends product tables once an hour, or once 5,000 rows wait, so neither
+the row nor its insert, which ClickHouse's query log times, points to the
+moment of the sign-in or change it counts. An hour with a single counted
+sign-in still points to it, to whoever reads ClickHouse's own logs and the
+audit history together: consent decides whether a person is counted at all.
+
 ## Tables
 
 `auth-service migrate` brings ClickHouse to the declarations of the signals in
@@ -123,12 +165,14 @@ its rights, so running replicas never lose them while it does.
 ## The writer
 
 `Telemetry::init` starts the writer when `ANALYTICS_URL` is set. Each table may
-have 5,000 rows waiting, and a task sends each table's every second, or once
-5,000 wait, as one `INSERT … FORMAT JSONEachRow` over ClickHouse's HTTP
-interface, so ClickHouse gets few, large inserts. It goes through ClickHouse's
-own Rust client, `clickhouse`, over plain HTTP: ClickHouse is only reached
-inside the deployment's network, so `ANALYTICS_URL` is an `http://` URL.
-`Telemetry::shutdown` sends what is left before the process exits.
+have 5,000 rows waiting, and a task sends each table's every second, a product
+table's every hour, or once 5,000 wait, as one `INSERT … FORMAT JSONEachRow`
+over ClickHouse's HTTP interface, so ClickHouse gets few, large inserts. It goes
+through ClickHouse's own Rust client, `clickhouse`, over plain HTTP: ClickHouse
+is only reached inside the deployment's network, so `ANALYTICS_URL` is an
+`http://` URL. `Telemetry::shutdown` sends what is left before the process
+exits, product tables first; a process that is killed loses up to an hour of
+product rows.
 
 Analytics is best effort, like telemetry. When a table already has 5,000 rows
 waiting, or ClickHouse refuses or doesn't answer an insert, the rows are

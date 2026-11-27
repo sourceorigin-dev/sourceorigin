@@ -46,6 +46,7 @@ use crate::{
     deliveries::{BacklogCounted, DeliveryAttempted},
     jobs::{CleanupRan, JobCounted},
     oidc::TokensIssued,
+    passkey::PasskeyUsed,
     security::Throttled,
 };
 use account::AccountCommand;
@@ -66,7 +67,7 @@ use sourceorigin_common::ErrorChain;
 use sourceorigin_repository::{Database, EventRecorded, PoolSampled};
 use sourceorigin_telemetry::{
     Export, RequestServed, Telemetry,
-    analytics::{Signal, Store, Table},
+    analytics::{Product, Signal, Store, Table},
 };
 use std::{process::ExitCode, time::Duration};
 use tracing::Instrument;
@@ -345,6 +346,7 @@ const ANALYTICS_TABLES: &[Table] = &[
     BacklogCounted::TABLE,
     CleanupRan::TABLE,
     JobCounted::TABLE,
+    PasskeyUsed::TABLE,
 ];
 
 /// How long telemetry may take to flush once a command ends. With `serve`'s

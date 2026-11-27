@@ -1,8 +1,9 @@
-//! The account's data: downloading it, and deleting the account.
+//! The account's data: downloading it, its part in usage statistics, and
+//! deleting the account.
 
 use super::Part;
 use crate::{
-    form::{Precision, Query, change_form, open, time},
+    form::{Checkbox, Precision, Query, change_form, open, time},
     layout::page_head,
 };
 use chrono::{DateTime, Utc};
@@ -12,14 +13,20 @@ use topcoat::{
     view::{View, component, view},
 };
 
-/// A change the data page posts, named by its `action` field. Each needs a recent
-/// passkey confirmation. A field the user types is left empty here, and the form
-/// renders its input instead.
+/// A change the data page posts, named by its `action` field. Downloading and
+/// deleting need a recent passkey confirmation. A field the user types is left
+/// empty here, and the form renders its input instead.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case")]
 pub enum DataChange {
     /// Downloads every record of the account.
     Export,
+    /// Turns the account's part in usage statistics on, or off.
+    Statistics {
+        /// Whether it takes part from now on.
+        #[serde(default, skip_serializing_if = "Checkbox::is_off")]
+        included: Checkbox,
+    },
     /// Schedules the account's deletion.
     Delete {
         /// The account's handle, typed to confirm.
@@ -38,9 +45,10 @@ pub struct DataState {
 
 impl Query for DataState {}
 
-/// The data page: downloading the account's records, and deleting the account,
-/// whose `handle` confirms it, after `grace_days` days. Its changes post to `page`,
-/// which `state` opens; `confirmed` says whether the session needs no passkey
+/// The data page: downloading the account's records, whether it takes part in
+/// usage statistics (`statistics`), and deleting the account, whose `handle`
+/// confirms it, after `grace_days` days. Its changes post to `page`, which
+/// `state` opens; `confirmed` says whether the session needs no passkey
 /// confirmation for them.
 #[component]
 pub async fn account_data<'a>(
@@ -48,6 +56,8 @@ pub async fn account_data<'a>(
     page: &'a str,
     /// The handle the owner types to confirm deleting the account.
     handle: &'a str,
+    /// Whether the account takes part in usage statistics.
+    statistics: bool,
     /// Days the owner has to cancel deletion.
     grace_days: i64,
     /// What the page is showing of the download and the deletion.
@@ -71,6 +81,20 @@ pub async fn account_data<'a>(
             </header>
             <p class="help">
                 "Everything SourceOrigin keeps about your account, in one JSON file: your profile and its picture, handles, email addresses, passkeys and linked accounts, devices, connected apps, the apps you registered, account recoveries, your inbox and every event recorded about your account. What you removed is in it until it is deleted. It holds no passkey keys or secrets."
+            </p>
+        </section>
+        <section class="card" aria-labelledby=(Part::Statistics.id())>
+            <header>
+                <h2 id=(Part::Statistics.id())>"Usage statistics"</h2>
+                change_form(
+                    action: page,
+                    change: DataChange::Statistics { included: Checkbox(!statistics) },
+                    label: "Include my activity in usage statistics",
+                    on: Some(statistics),
+                )
+            </header>
+            <p class="help">
+                "SourceOrigin counts how it is used, such as which kinds of passkeys people sign in with, to see what works and what fails. The counts never say who you are. Turn this off to leave yours out. A browser that asks sites not to track it, with Global Privacy Control, is always left out."
             </p>
         </section>
         <section class="card" aria-labelledby=(Part::Delete.id())>
@@ -115,6 +139,16 @@ pub async fn account_data<'a>(
             }
         </section>
     })
+}
+
+/// How the history says the account's part in usage statistics changed to
+/// `included`, e.g. "Usage statistics turned off".
+pub(crate) const fn statistics_change(included: bool) -> &'static str {
+    if included {
+        "Usage statistics turned on"
+    } else {
+        "Usage statistics turned off"
+    }
 }
 
 /// The account just scheduled for deletion, which is purged at `purge_after`

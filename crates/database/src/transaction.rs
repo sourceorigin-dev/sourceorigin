@@ -26,6 +26,8 @@ pub struct DatabaseTransaction<'a> {
     recorded: Vec<Committed>,
     /// The accounts this transaction wrote a notification so far.
     notified: Vec<UserId>,
+    /// What runs once it commits, such as recording an analytics row about it.
+    committed: Vec<Box<dyn FnOnce() + Send>>,
 }
 
 impl<'a> DatabaseTransaction<'a> {
@@ -35,6 +37,7 @@ impl<'a> DatabaseTransaction<'a> {
             inner,
             recorded: Vec::new(),
             notified: Vec::new(),
+            committed: Vec::new(),
         }
     }
 
@@ -217,7 +220,7 @@ impl<'a> DatabaseTransaction<'a> {
     }
 
     /// Commits every change made through this transaction, then publishes the
-    /// events it recorded.
+    /// events it recorded and runs what [`Self::after_commit`] was given.
     ///
     /// # Errors
     ///
@@ -228,7 +231,16 @@ impl<'a> DatabaseTransaction<'a> {
         for committed in &self.recorded {
             committed.publish();
         }
+        for then in self.committed {
+            then();
+        }
         Ok(())
+    }
+
+    /// Runs `then` once this transaction commits, and never if it rolls back:
+    /// to record an analytics row about what it changed, as its events are.
+    pub fn after_commit(&mut self, then: impl FnOnce() + Send + 'static) {
+        self.committed.push(Box::new(then));
     }
 
     /// Discards every change made through this transaction.

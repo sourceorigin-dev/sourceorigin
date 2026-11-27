@@ -29,8 +29,8 @@ use sourceorigin_common::{ClientId, EventId, TraceId};
 use std::sync::{Arc, OnceLock};
 use uuid::Uuid;
 
-/// One kind of row, and the table that stores it. Declare one with
-/// [`signal!`](crate::signal), which implements this trait.
+/// One kind of row, about how SourceOrigin runs, and the table that stores it.
+/// Declare one with [`signal!`](crate::signal), which implements this trait.
 pub trait Signal: Serialize {
     /// The table, as `migrate` creates it.
     const TABLE: Table;
@@ -38,7 +38,44 @@ pub trait Signal: Serialize {
     /// Queues this row, stamped with the current time, for its table. It never
     /// waits: a full queue drops the row, and counts it.
     fn record(&self) {
-        writer::record(Self::TABLE.name, self);
+        writer::record(Self::TABLE.name, writer::Stamp::Millisecond, self);
+    }
+}
+
+/// One kind of row about how people use SourceOrigin, which a person may keep
+/// out of: recording one takes their [`Consent`]. Declare one with
+/// `signal!`'s `product struct`.
+pub trait Product: Serialize {
+    /// The table, as `migrate` creates it.
+    const TABLE: Table;
+
+    /// Queues this row, as [`Signal::record`] does, with `consent` to show the
+    /// person it is about takes part in usage statistics. Its time holds the
+    /// day only, and it is sent with its hour's others, so neither points to the
+    /// moment of the sign-in or change it counts, unless it is its hour's only
+    /// one.
+    fn record(&self, consent: Consent) {
+        let Consent(()) = consent;
+        writer::record(Self::TABLE.name, writer::Stamp::Day, self);
+    }
+}
+
+/// That the person a [`Product`] row is about takes part in usage statistics:
+/// their account did not leave them, and their browser asks no
+/// [Global Privacy Control](https://globalprivacycontrol.org).
+#[derive(Clone, Copy, Debug)]
+pub struct Consent(());
+
+impl Consent {
+    /// The `Sec-GPC` header, `1` when the browser asks not to be tracked.
+    pub const GPC_HEADER: &str = "sec-gpc";
+
+    /// Consent, unless the account left usage statistics (`included` is false)
+    /// or the request carried `Sec-GPC: 1` (`gpc`). For a person who isn't
+    /// signed in, `included` is true.
+    #[must_use]
+    pub fn given(included: bool, gpc: bool) -> Option<Self> {
+        (included && !gpc).then_some(Self(()))
     }
 }
 
@@ -203,8 +240,8 @@ impl Serialize for Route {
 /// Declares a [`Signal`]: a struct whose fields are [`Column`]s, and the table
 /// that stores it, with how long rows are kept and the columns they are sorted
 /// by, each a [`Key`]. Every table also has a `time` column, the time the row
-/// was recorded, and sorts by it last. Doc comments are required: they document
-/// the table.
+/// was recorded, to the day for a product signal, and sorts by it last. Doc
+/// comments are required: they document the table.
 ///
 /// ```
 /// sourceorigin_telemetry::signal! {
@@ -218,6 +255,22 @@ impl Serialize for Route {
 /// use sourceorigin_telemetry::analytics::Signal;
 /// assert_eq!(Throttled::TABLE.columns[0].ty, "LowCardinality(String)");
 /// Throttled { category: "login" }.record();
+/// ```
+///
+/// A product signal, about how people use SourceOrigin, is a `product struct`:
+/// its `record` takes a [`Consent`], and it has no other.
+///
+/// ```compile_fail
+/// sourceorigin_telemetry::signal! {
+///     /// A passkey someone signed in with.
+///     pub product struct PasskeyUsed in "passkeys_used", kept 390 days, ordered by (synced) {
+///         /// Whether it is synced.
+///         pub synced: bool,
+///     }
+/// }
+///
+/// use sourceorigin_telemetry::analytics::Signal;
+/// PasskeyUsed { synced: true }.record();
 /// ```
 ///
 /// A nullable sort key does not compile:
@@ -247,7 +300,18 @@ impl Serialize for Route {
 macro_rules! signal {
     (
         $(#[doc = $doc:literal])+
-        $vis:vis struct $name:ident in $table:literal,
+        $vis:vis product struct $($rest:tt)*
+    ) => {
+        $crate::signal!(@declare $crate::analytics::Product, [$($doc)+] $vis $($rest)*);
+    };
+    (
+        $(#[doc = $doc:literal])+
+        $vis:vis struct $($rest:tt)*
+    ) => {
+        $crate::signal!(@declare $crate::analytics::Signal, [$($doc)+] $vis $($rest)*);
+    };
+    (
+        @declare $trait:path, [$($doc:literal)+] $vis:vis $name:ident in $table:literal,
             kept $days:literal days, ordered by ($($key:ident),* $(,)?) {
             $($(#[doc = $field_doc:literal])+ $field_vis:vis $field:ident: $ty:ty,)+
         }
@@ -259,7 +323,7 @@ macro_rules! signal {
             $($(#[doc = $field_doc])+ $field_vis $field: $ty,)+
         }
 
-        impl $crate::analytics::Signal for $name {
+        impl $trait for $name {
             const TABLE: $crate::analytics::Table = $crate::analytics::Table {
                 name: $table,
                 description: &[$($doc),+],

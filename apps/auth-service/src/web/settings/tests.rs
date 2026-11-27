@@ -19,9 +19,9 @@ use sourceorigin_common::{
 use sourceorigin_crypto::Secret;
 use sourceorigin_repository::{InsertExternalIdentity, InsertRecovery};
 use sourceorigin_ui::{
-    Checkbox, ConnectedAppChange, ConnectedAppsState, DataChange, DeviceChange, EmailChange,
-    HistoryChange, HistoryState, InboxChange, InboxState, NotificationState, PICTURE_FIELD,
-    ProfileChange, ProfileDialog, ProfileState, Query, SignInChange,
+    Checkbox, ConnectedAppChange, ConnectedAppsState, DataChange, DataState, DeviceChange,
+    EmailChange, HistoryChange, HistoryState, InboxChange, InboxState, NotificationState,
+    PICTURE_FIELD, ProfileChange, ProfileDialog, ProfileState, Query, SignInChange,
 };
 
 /// The devices page lists every signed-in browser, and signs one or all of the
@@ -776,6 +776,33 @@ async fn announcement_emails_are_turned_off_from_the_inbox_or_their_link() {
     let forged = format!("{}?id={}&token=forged", page::UNSUBSCRIBE, browser.user_id);
     let forged = stranger.visit(&replicas.a, &forged).await;
     assert_eq!(forged.status(), StatusCode::NOT_FOUND);
+}
+
+/// The data page's switch leaves usage statistics, without a passkey
+/// confirmation, and turns them back on.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL"]
+async fn usage_statistics_are_turned_off_from_the_data_page() {
+    let replicas = Replicas::new().await;
+    let database = Replicas::database().await;
+    let browser = Browser::new_account(&database).await;
+    let page = html(browser.visit(&replicas.a, settings::DATA).await).await;
+    assert!(
+        page.contains(r#"aria-checked="true"><span class="visually-hidden">Include my activity in usage statistics"#),
+        "{page}"
+    );
+    for included in [false, true] {
+        let change = DataChange::Statistics {
+            included: Checkbox(included),
+        };
+        let changed = browser.post(&replicas, settings::DATA, &change).await;
+        assert_eq!(
+            redirect(&changed),
+            DataState::default().on(settings::DATA).expect("link")
+        );
+        let stored = database.users().analytics_included(browser.user_id).await;
+        assert_eq!(stored.expect("preference"), included);
+    }
 }
 
 /// A history page lists entries with a report button each, older ones a page at a

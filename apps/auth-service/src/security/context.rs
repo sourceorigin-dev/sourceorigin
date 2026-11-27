@@ -11,7 +11,8 @@ use sourceorigin_common::{
     AuthenticationMethod, ClientId, UserId,
     events::{Actor, DomainEvent, EventContext, RequestOrigin, SignInFailure, UserAgentFamily},
 };
-use sourceorigin_repository::{Database, DatabaseError, StoredSession};
+use sourceorigin_repository::{Database, DatabaseError, DatabaseTransaction, StoredSession};
+use sourceorigin_telemetry::analytics::Consent;
 use std::net::IpAddr;
 
 /// Where a request came from, attached by
@@ -24,6 +25,9 @@ pub(crate) struct RequestContext {
     pub client_ip: IpAddr,
     /// The coarse browser and platform of its `User-Agent` header.
     pub user_agent_family: UserAgentFamily,
+    /// Whether the browser asked for Global Privacy Control (`Sec-GPC: 1`), which
+    /// keeps it out of usage statistics.
+    pub gpc: bool,
 }
 
 impl RequestContext {
@@ -37,7 +41,22 @@ impl RequestContext {
                     .and_then(|value| value.to_str().ok())
                     .unwrap_or_default(),
             ),
+            gpc: headers
+                .get(Consent::GPC_HEADER)
+                .is_some_and(|value| value.as_bytes() == b"1"),
         }
+    }
+
+    /// Consent to record a product analytics row about `user`'s activity in
+    /// this request, unless the account left usage statistics or the browser
+    /// asked for Global Privacy Control.
+    pub(crate) async fn consent(
+        &self,
+        tx: &mut DatabaseTransaction<'_>,
+        user: UserId,
+    ) -> Result<Option<Consent>, DatabaseError> {
+        let included = !self.gpc && tx.users().analytics_included(user).await?;
+        Ok(Consent::given(included, self.gpc))
     }
 
     /// Attributes events of this request to `actor`.

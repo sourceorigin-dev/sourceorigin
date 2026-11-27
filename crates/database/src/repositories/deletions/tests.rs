@@ -160,6 +160,7 @@ async fn purge_leaves_nothing_that_references_or_identifies_the_account() {
         INSERT INTO administrators (user_id) VALUES ('{user}');
         INSERT INTO notification_preferences (user_id, category, email)
         VALUES ('{user}', 'announcements', FALSE);
+        INSERT INTO analytics_opt_outs (user_id) VALUES ('{user}');
         INSERT INTO notifications (id, user_id, payload)
         VALUES (uuidv7(), '{user}', '{{\"kind\": \"account_enabled\"}}');
         INSERT INTO authorization_requests (

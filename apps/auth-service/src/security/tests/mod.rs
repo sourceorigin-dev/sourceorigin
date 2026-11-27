@@ -48,6 +48,7 @@ impl RequestContext {
             browser: Browser::Firefox,
             platform: Platform::Linux,
         },
+        gpc: false,
     };
 
     /// The context of a request from `client_ip`, for handler tests that keep

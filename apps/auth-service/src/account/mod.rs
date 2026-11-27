@@ -9,6 +9,8 @@
 
 /// Failures of the account operations.
 mod error;
+/// Whether the account takes part in usage statistics.
+mod statistics;
 /// The account acted on, and who acts on it.
 mod subject;
 

@@ -610,6 +610,13 @@ pub enum DomainEvent {
     /// settings or with an email's unsubscribe link.
     #[serde(rename = "notification_preference_changed")]
     NotificationPreferenceChanged(NotificationPreference),
+    /// The owner included their account in usage statistics, or left them, in
+    /// their settings.
+    #[serde(rename = "usage_statistics_changed")]
+    UsageStatisticsChanged {
+        /// Whether it takes part from now on.
+        included: bool,
+    },
 }
 
 /// The variant's serde tag, e.g. `signed_in`: the `kind` it is stored under.
@@ -729,7 +736,8 @@ impl DomainEvent {
             | Self::AlertRaised { .. }
             | Self::AlertUpdated { .. }
             | Self::AlertCleared { .. }
-            | Self::NotificationPreferenceChanged(_) => None,
+            | Self::NotificationPreferenceChanged(_)
+            | Self::UsageStatisticsChanged { .. } => None,
         }
     }
 
@@ -804,7 +812,8 @@ impl DomainEvent {
             | Self::AlertRaised { .. }
             | Self::AlertUpdated { .. }
             | Self::AlertCleared { .. }
-            | Self::NotificationPreferenceChanged(_) => None,
+            | Self::NotificationPreferenceChanged(_)
+            | Self::UsageStatisticsChanged { .. } => None,
         }
     }
 }

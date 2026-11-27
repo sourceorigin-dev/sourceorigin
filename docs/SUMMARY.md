@@ -20,6 +20,7 @@
   - [Recover your account](user/your-data/recover-your-account.md)
   - [Undo a recovery](user/your-data/undo-a-recovery.md)
   - [Download your data](user/your-data/export-your-data.md)
+  - [Usage statistics](user/your-data/usage-statistics.md)
   - [Delete your account](user/your-data/delete-your-account.md)
 
 # Building apps
