@@ -29,12 +29,14 @@ use sourceorigin_common::{
     notifications::Notification,
 };
 use sourceorigin_repository::{Channel, Database, EventFilter, NewDelivery, SigningKeyState};
+use sourceorigin_telemetry::analytics::Store;
 use sourceorigin_telemetry::{HttpTelemetry, Telemetry};
 use sourceorigin_ui::HandoffQuery;
 use std::net::SocketAddr;
 use url::{Position, Url};
 
 mod accounts;
+mod analytics;
 mod announcements;
 mod clients;
 mod frame;
@@ -62,10 +64,14 @@ impl Harness {
         Self::of(AuthConfig::test(&AUTH_ORIGIN.parse().expect("auth origin"))).await
     }
 
-    /// Builds auth as `config` sets it up, and its dashboard, over the test
-    /// database.
+    /// Builds auth as `config` sets it up, and its dashboard, at [`DASHBOARD`]
+    /// unless `config` names one, over the test database.
     async fn of(config: AuthConfig) -> Self {
-        let config = Self::with_dashboard(config);
+        let config = if config.dashboard.is_some() {
+            config
+        } else {
+            Self::with_dashboard(config)
+        };
         Self {
             auth: Replicas::of(&config).await,
             dashboard: Replicas::dashboard(&config).await,
@@ -90,10 +96,17 @@ impl Harness {
     }
 
     /// `config` with a dashboard at [`DASHBOARD`].
-    fn with_dashboard(mut config: AuthConfig) -> AuthConfig {
+    fn with_dashboard(config: AuthConfig) -> AuthConfig {
+        Self::reading(config, None)
+    }
+
+    /// `config` with a dashboard at [`DASHBOARD`] that reads the analytics
+    /// database as `analytics`.
+    fn reading(mut config: AuthConfig, analytics: Option<Store>) -> AuthConfig {
         config.dashboard = Some(DashboardConfig {
             listener: SocketAddr::from(([127, 0, 0, 1], 0)),
             origin: DASHBOARD.parse().expect("dashboard origin"),
+            analytics,
         });
         config
     }

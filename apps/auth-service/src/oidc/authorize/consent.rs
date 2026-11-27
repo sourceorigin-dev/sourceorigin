@@ -13,7 +13,7 @@ use crate::{
 use axum::http::HeaderMap;
 use chrono::{Duration, Utc};
 use serde::Deserialize;
-use sourceorigin_common::{Handle, UserId, events::DomainEvent};
+use sourceorigin_common::{Handle, UserId, admin::AuthorizationStepKind, events::DomainEvent};
 use sourceorigin_repository::{
     DatabaseTransaction, InsertAuthorizationCode, SessionAuthentication,
     StoredAuthorizationRequest, StoredSession,
@@ -126,8 +126,8 @@ impl OidcApplication {
         let consent = AuthorizationStep::consent(&self.database, &context, user, silent).await;
         let mut transaction = self.database.begin().await?;
         let step = match input.decision {
-            ConsentDecision::Approve => "authorized",
-            ConsentDecision::Deny | ConsentDecision::Unsupported => "denied",
+            ConsentDecision::Approve => AuthorizationStepKind::Authorized,
+            ConsentDecision::Deny | ConsentDecision::Unsupported => AuthorizationStepKind::Denied,
         };
         let client = pending.client_id.clone();
         transaction.after_commit(move || AuthorizationStep::count(consent, &client, step));

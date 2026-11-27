@@ -13,7 +13,7 @@ use opentelemetry_sdk::{logs::SdkLoggerProvider, trace::SdkTracerProvider};
 #[ignore = "needs TEST_ANALYTICS_URL, a scratch ClickHouse: run `just analytics test`"]
 async fn analytics_spans_and_logs_reach_clickhouse() {
     let store = Store::test();
-    store.migrate(&[], None).await.expect("migrated");
+    store.migrate(&[], None, None).await.expect("migrated");
     let service = format!("exported-{}", uuid::Uuid::now_v7().simple());
     let source = Source::new(store.clone(), &service, "instance").expect("a runtime");
     let tracer = SdkTracerProvider::builder()

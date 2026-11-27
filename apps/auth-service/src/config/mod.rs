@@ -23,6 +23,7 @@ use ipnet::IpNet;
 use sourceorigin_common::config::{
     ConfigurationError, Origin, SecretBytes, SecretReference, Variable,
 };
+use sourceorigin_telemetry::analytics::Store;
 use std::{
     net::{IpAddr, SocketAddr},
     sync::Arc,
@@ -158,6 +159,8 @@ pub(crate) struct DashboardConfig {
     pub listener: SocketAddr,
     /// The dashboard's origin, which auth's handoff page sends administrators to.
     pub origin: Origin,
+    /// Reads the analytics database for the Analytics page, if configured.
+    pub analytics: Option<Store>,
 }
 
 impl DashboardConfig {
@@ -169,6 +172,7 @@ impl DashboardConfig {
             (Some(_), Some(_)) => Ok(Some(Self {
                 listener: ADMIN_LISTENER.parse()?,
                 origin: ADMIN_ORIGIN.parse()?,
+                analytics: Store::reader_from_environment()?,
             })),
             (Some(_), None) => Err(ADMIN_ORIGIN.invalid(
                 "must be set with AUTH_ADMIN_LISTENER: the dashboard's origin, e.g. https://admin.sourceorigin.dev",

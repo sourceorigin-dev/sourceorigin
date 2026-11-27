@@ -199,6 +199,32 @@ An invalid `ANALYTICS_URL` or `ANALYTICS_PASSWORD` stops `serve` and the web
 app, as broken telemetry does. Other commands warn and discard their rows.
 Unset, every row is discarded.
 
+## Reading it back
+
+The admin dashboard's **Analytics** page reads ClickHouse through
+`AdminService::analytics` (`apps/auth-service/src/admin/analytics`), as
+`sourceorigin_reader`, a user `migrate` allows only to read the signals'
+tables, and every table's size, with a time, memory and row limit on each
+query.
+`Store::query` takes a fixed statement, `'static`, and `Read::param` binds each
+value to a ClickHouse query parameter (`{name:Type}`), never as SQL text.
+`Read::rows` reads the rows as a struct deriving `clickhouse::Row`: the client
+checks each field against the name and type of the column ClickHouse returns,
+so a query and its struct can't drift apart unnoticed, and the ClickHouse tests
+run every query. An error names the query and the column that didn't match. A
+column keeps its type through a filter, so a `Nullable` one read as a plain
+field takes `assumeNotNull`; in `WHERE`, the table's name then picks the
+column over its alias. The page's queries run at once, each from the start of
+the first hour or day its chart shows, in UTC, and a `Period` fills in those
+that counted nothing. They cast counts to `UInt32`, sizes to `Float64`, which a
+chart's `f64` holds exactly or near enough, and times to `Int64` seconds. A
+column whose values are a vocabulary, such as `authorization_steps.step`, is
+recorded and read through its `str_enum!`, in `sourceorigin_common::admin`, so
+both agree; its `else` variant reads a spelling another release wrote, so one
+row never breaks the page.
+To chart a new signal, add its query there, and its chart to
+`crates/ui/src/admin/analytics.rs`, with `crates/ui/src/charts`.
+
 ## Testing
 
 `AnalyticsCapture::start()` captures the rows a test records on its thread,
@@ -211,5 +237,6 @@ assert!(analytics.rows("events").iter().any(|row| row["kind"] == "account_disabl
 ```
 
 Tests that need ClickHouse itself are marked `#[ignore]`, with a reason naming
-`TEST_ANALYTICS_URL`. `just analytics test` runs them in a scratch ClickHouse:
+`TEST_ANALYTICS_URL`. `just analytics test` runs them in a scratch ClickHouse,
+and `just db test` runs them with the dashboard's, which need PostgreSQL too:
 see [testing](../testing.md#analytics-tests).

@@ -31,7 +31,9 @@ use axum::{
     response::Redirect,
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use sourceorigin_common::{ClientId, RecoveryId, UserId, protocol::claims::Acr};
+use sourceorigin_common::{
+    ClientId, RecoveryId, UserId, admin::AuthorizationStepKind, protocol::claims::Acr,
+};
 use sourceorigin_repository::{Database, StoredAuthorizationRequest};
 use sourceorigin_telemetry::analytics::{Consent, Product};
 use sourceorigin_ui::{Checkbox, LoginQuery};
@@ -113,10 +115,10 @@ sourceorigin_telemetry::signal! {
     pub(crate) product struct AuthorizationStep in "authorization_steps", kept 390 days, ordered by (client, step) {
         /// The app.
         pub(crate) client: ClientId,
-        /// `requested`, the app sent the browser here or started a sign-in on its
-        /// own page; `sign_in`, the sign-in page showed; `consent`, the consent
-        /// page showed; `authorized`, the app got its code; or `denied`, the
-        /// person declined.
+        /// An `AuthorizationStepKind`: `requested`, the app sent the browser here
+        /// or started a sign-in on its own page; `sign_in`, the sign-in page
+        /// showed; `consent`, the consent page showed; `authorized`, the app got
+        /// its code; or `denied`, the person declined.
         pub(crate) step: &'static str,
     }
 }
@@ -138,9 +140,10 @@ impl AuthorizationStep {
     }
 
     /// Records that a request of `client` reached `step`, with `consent`.
-    pub(crate) fn count(consent: Option<Consent>, client: &ClientId, step: &'static str) {
+    pub(crate) fn count(consent: Option<Consent>, client: &ClientId, step: AuthorizationStepKind) {
         if let Some(consent) = consent {
             let client = client.clone();
+            let step = step.as_str();
             Self { client, step }.record(consent);
         }
     }
@@ -232,9 +235,9 @@ impl OidcApplication {
         let transaction = validated.store(self).await?;
         let user = session.as_ref().map(|session| session.user_id);
         let consent = AuthorizationStep::consent(&self.database, &context, user, silent).await;
-        AuthorizationStep::count(consent, &client.id, "requested");
+        AuthorizationStep::count(consent, &client.id, AuthorizationStepKind::Requested);
         if requires_login {
-            AuthorizationStep::count(consent, &client.id, "sign_in");
+            AuthorizationStep::count(consent, &client.id, AuthorizationStepKind::SignIn);
             self.sign_in_page(transaction, target_acr)
         } else {
             self.continue_authorization(context, headers, transaction, RecoveryQuestion::Unanswered)
@@ -335,7 +338,7 @@ impl OidcApplication {
                 return Err(back(OAuthCode::LoginRequired, SILENT_LOGIN_REQUIRED));
             }
             let consent = AuthorizationStep::consent(&self.database, &context, user, false).await;
-            AuthorizationStep::count(consent, &request.client_id, "sign_in");
+            AuthorizationStep::count(consent, &request.client_id, AuthorizationStepKind::SignIn);
             return self.sign_in_page(transaction, request.target_acr);
         };
         if !silent && Self::signed_in_for(&request, &session) {
@@ -369,7 +372,7 @@ impl OidcApplication {
         let consent =
             AuthorizationStep::consent(&self.database, &context, Some(session.user_id), false)
                 .await;
-        AuthorizationStep::count(consent, &request.client_id, "consent");
+        AuthorizationStep::count(consent, &request.client_id, AuthorizationStepKind::Consent);
         self.page(routes::page::CONSENT, &TransactionQuery { transaction })
     }
 }

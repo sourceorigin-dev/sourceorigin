@@ -15,7 +15,7 @@ use axum::{
     http::{HeaderMap, StatusCode},
 };
 use chrono::{Duration, Utc};
-use sourceorigin_common::protocol::oauth::PushedAuthorization;
+use sourceorigin_common::{admin::AuthorizationStepKind, protocol::oauth::PushedAuthorization};
 use sourceorigin_repository::{OidcRepository, StoredAuthorizationRequest};
 use url::Url;
 
@@ -76,7 +76,11 @@ impl OidcApplication {
             .map(|session| session.user_id);
         let silent = request.interaction.is_silent();
         let consent = AuthorizationStep::consent(&self.database, &context, user, silent).await;
-        AuthorizationStep::count(consent, &request.client_id, "requested");
+        AuthorizationStep::count(
+            consent,
+            &request.client_id,
+            AuthorizationStepKind::Requested,
+        );
         self.continue_authorization(
             context,
             headers,
