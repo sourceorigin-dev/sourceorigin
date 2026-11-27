@@ -109,9 +109,9 @@ the erasure sees it too, and a later one finds the account gone and stores none.
 A purge that fails is recorded on its `account_deletions` row and retried after
 5 minutes, then twice as long after each failure, up to a day, so an account
 that keeps failing never holds back the others. The account's dashboard page and
-`user show` give its failures and last error, and the
-`sourceorigin.auth.account_purge.failing` gauge counts the accounts that failed 3
-times in a row. While any do, the purge raises the `purges_failing` alert (see
+`user show` give its failures and last error, and each run records the
+accounts that failed 3 times in a row as a `job_counts`
+[analytics](analytics.md) row (`failing_purges`). While any do, the purge raises the `purges_failing` alert (see
 [respond to an alert](../operations/administration.md#respond-to-an-alert)).
 
 `AdminService::purge_user` purges at once, in any status, from the CLI only

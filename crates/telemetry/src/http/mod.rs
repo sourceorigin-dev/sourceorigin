@@ -1,6 +1,9 @@
-//! One server span, access log line and duration measurement per request.
+//! One server span, access log line and `requests` row per request.
 
-use crate::{Histogram, Telemetry};
+use crate::{
+    Telemetry,
+    analytics::{Instance, Route, Signal},
+};
 use axum::{
     Router,
     extract::{MatchedPath, Request, State},
@@ -10,14 +13,9 @@ use axum::{
 };
 use opentelemetry::KeyValue;
 use sourceorigin_common::TraceId;
-use std::time::Instant;
+use std::{sync::OnceLock, time::Instant};
 use tracing::{Instrument, field::Empty};
 use tracing_opentelemetry::OpenTelemetrySpanExt;
-
-/// Bucket boundaries in seconds the HTTP semantic conventions recommend.
-const DURATION_BUCKETS: &[f64] = &[
-    0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0,
-];
 
 /// Methods the conventions name; any other is `_OTHER`, so methods stay bounded.
 /// A `static`, so the names it lends are `'static`.
@@ -38,17 +36,32 @@ static METHODS: [Method; 9] = [
 /// as a mistyped link with an address in it.
 const UNMATCHED: &str = "unmatched";
 
-/// How long requests take, until the response head is ready. Labelled by method,
-/// route template and status: route templates come from the router's own table and
-/// unmatched paths have none, so the label set stays bounded.
-static REQUEST_DURATION: Histogram = Histogram::new(
-    "http.server.request.duration",
-    "s",
-    "Duration of HTTP server requests.",
-    DURATION_BUCKETS,
-);
+/// The service [`Telemetry::init`] installed, which every `requests` row names.
+pub(crate) static SERVICE: OnceLock<&'static str> = OnceLock::new();
 
-/// Traces, measures and logs every request of a router. Wrap the whole router,
+crate::signal! {
+    /// One request a service answered, once its response head was ready.
+    pub struct RequestServed in "requests", kept 30 days, ordered by (service, status) {
+        /// The service that answered, such as `auth-service`.
+        pub service: &'static str,
+        /// The process that answered.
+        pub instance: Instance,
+        /// Its listener, when it has several, such as `admin`.
+        pub listener: Option<&'static str>,
+        /// The method, or `_OTHER` for one HTTP's conventions don't name.
+        pub method: &'static str,
+        /// The route template it matched, or none.
+        pub route: Option<Route>,
+        /// The response's status code.
+        pub status: u16,
+        /// How long it took, in microseconds.
+        pub duration_us: u64,
+        /// Its trace.
+        pub trace: Option<TraceId>,
+    }
+}
+
+/// Traces, records and logs every request of a router. Wrap the whole router,
 /// outside any layer that can reject a request, so rejections count too:
 /// `HttpTelemetry::default().quiet(&["/health"]).wrap(router)`.
 ///
@@ -56,7 +69,8 @@ static REQUEST_DURATION: Histogram = Histogram::new(
 /// the HTTP semantic conventions' `http.request.method`, `http.route` (absent when
 /// no route matched) and `http.response.status_code`. Paths, query strings and
 /// headers are never recorded. A 5xx response marks the span failed and
-/// carries its trace ID in [`Self::TRACE_ID_HEADER`].
+/// carries its trace ID in [`Self::TRACE_ID_HEADER`]. Each request is also a
+/// [`RequestServed`] row.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct HttpTelemetry {
     /// Routes whose access log lines are debug output only, such as health probes.
@@ -81,7 +95,8 @@ impl HttpTelemetry {
             .flatten()
     }
 
-    /// Logs requests to `routes` at debug level only; they are still traced and measured.
+    /// Logs requests to `routes` at debug level only, and records no row of
+    /// them; they are still traced.
     #[must_use]
     pub const fn quiet(self, routes: &'static [&'static str]) -> Self {
         Self {
@@ -90,8 +105,9 @@ impl HttpTelemetry {
         }
     }
 
-    /// Labels the requests' spans, log lines and measurements with
-    /// `sourceorigin.listener = name`, telling apart the listeners of one service.
+    /// Labels the requests' spans and log lines with `sourceorigin.listener =
+    /// name`, and their rows' `listener`, telling apart the listeners of one
+    /// service.
     #[must_use]
     pub const fn listener(self, name: &'static str) -> Self {
         Self {
@@ -115,12 +131,12 @@ impl HttpTelemetry {
         let route = request
             .extensions()
             .get::<MatchedPath>()
-            .map(|path| path.as_str().to_owned());
+            .map(Route::matched);
         let span = tracing::info_span!(
             parent: None,
             "http.server",
             trace_id = Empty,
-            otel.name = route.as_ref().map_or_else(|| method.to_owned(), |route| format!("{method} {route}")),
+            otel.name = route.as_ref().map_or_else(|| method.to_owned(), |route| format!("{method} {}", route.as_str())),
             otel.kind = "server",
             otel.status_code = Empty,
         );
@@ -136,11 +152,14 @@ impl HttpTelemetry {
         labels.extend(
             route
                 .as_ref()
-                .map(|route| KeyValue::new("http.route", route.clone())),
+                .map(|route| KeyValue::new("http.route", route.as_str().to_owned())),
         );
         let mut response = next.run(request).instrument(span.clone()).await;
-        let status = i64::from(response.status().as_u16());
-        labels.push(KeyValue::new("http.response.status_code", status));
+        let status = response.status().as_u16();
+        labels.push(KeyValue::new(
+            "http.response.status_code",
+            i64::from(status),
+        ));
         for label in &labels {
             span.set_attribute(label.key.clone(), label.value.clone());
         }
@@ -152,13 +171,12 @@ impl HttpTelemetry {
             }
         }
         let elapsed = started.elapsed();
-        REQUEST_DURATION.record_attributes(elapsed.as_secs_f64(), &labels);
         let duration_ms = elapsed.as_millis();
         let quiet = route
-            .as_deref()
-            .is_some_and(|route| this.quiet.contains(&route));
+            .as_ref()
+            .is_some_and(|route| this.quiet.contains(&route.as_str()));
         span.in_scope(|| {
-            let target = route.as_deref().unwrap_or(UNMATCHED);
+            let target = route.as_ref().map_or(UNMATCHED, Route::as_str);
             macro_rules! access {
                 ($level:ident) => {
                     tracing::$level!(
@@ -175,6 +193,20 @@ impl HttpTelemetry {
                 access!(info);
             }
         });
+        if quiet {
+            return response;
+        }
+        RequestServed {
+            service: SERVICE.get().copied().unwrap_or("unknown"),
+            instance: Instance::current(),
+            listener: this.listener,
+            method,
+            route,
+            status,
+            duration_us: u64::try_from(elapsed.as_micros()).unwrap_or(u64::MAX),
+            trace: trace_id,
+        }
+        .record();
         response
     }
 }

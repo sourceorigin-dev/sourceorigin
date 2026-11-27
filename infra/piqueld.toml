@@ -210,8 +210,8 @@ generate = { type = "random", bytes = 32, encoding = "hex" }
 name = "analytics-password"
 generate = { type = "random", bytes = 32, encoding = "hex" }
 
-# The password of `sourceorigin_writer`, the ClickHouse user auth inserts rows
-# as. `migrate` sets it on every deploy.
+# The password of `sourceorigin_writer`, the ClickHouse user auth and
+# sourceorigin.dev's web server insert rows as. `migrate` sets it on every deploy.
 [[spec.secrets]]
 name = "analytics-writer-password"
 generate = { type = "random", bytes = 32, encoding = "hex" }
@@ -322,8 +322,9 @@ type = "http"
 port = 8080
 path = "/health/ready"
 
-# sourceorigin.dev's web server. It needs no database and no secret: it relies on auth
-# only to sign people in, through links and redirects.
+# sourceorigin.dev's web server. It needs no database, and only the analytics
+# writer's secret, for its `requests` rows: it relies on auth only to sign people
+# in, through links and redirects.
 [[spec.services]]
 name = "web"
 
@@ -341,6 +342,12 @@ WEB_LISTENER = "0.0.0.0:8080"
 WEB_AUTH_ORIGIN = "https://${{ vars.auth_host }}"
 OTEL_EXPORTER_OTLP_ENDPOINT = "${{ vars.otlp_endpoint }}"
 OTEL_RESOURCE_ATTRIBUTES = "deployment.environment.name=${{ env.name }}"
+ANALYTICS_URL = "http://sourceorigin_writer@clickhouse:8123/sourceorigin"
+ANALYTICS_PASSWORD = "file:///run/secrets/analytics-writer-password"
+
+[[spec.services.secrets]]
+name = "analytics-writer-password"
+target = "/run/secrets/analytics-writer-password"
 
 [spec.services.healthcheck]
 type = "http"

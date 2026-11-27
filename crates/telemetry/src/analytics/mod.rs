@@ -24,8 +24,10 @@ pub use capture::AnalyticsCapture;
 pub use store::{OWNER_VARIABLES, Store, StoreError, VARIABLES};
 pub(crate) use writer::Writer;
 
-use serde::Serialize;
+use serde::{Serialize, Serializer};
 use sourceorigin_common::{ClientId, EventId, TraceId};
+use std::sync::{Arc, OnceLock};
+use uuid::Uuid;
 
 /// One kind of row, and the table that stores it. Declare one with
 /// [`signal!`](crate::signal), which implements this trait.
@@ -123,6 +125,66 @@ columns! {
     Option<ClientId> => "LowCardinality(Nullable(String))";
     EventId => "UUID" key;
     Option<TraceId> => "Nullable(FixedString(32))";
+    Option<Route> => "LowCardinality(Nullable(String))";
+    Instance => "LowCardinality(String)" key;
+}
+
+/// This process: a new UUID each time it starts, which its spans and logs
+/// carry as `service.instance.id` too, unless `OTEL_RESOURCE_ATTRIBUTES` names
+/// another, so the replicas of a service, and its command-line runs, tell their
+/// rows apart.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Instance(Arc<str>);
+
+impl Instance {
+    /// This process's.
+    #[must_use]
+    pub fn current() -> Self {
+        /// Chosen on first use.
+        static CURRENT: OnceLock<Instance> = OnceLock::new();
+        CURRENT
+            .get_or_init(|| Self(Arc::from(Uuid::now_v7().to_string())))
+            .clone()
+    }
+
+    /// The UUID, as text.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl Serialize for Instance {
+    /// Writes the UUID.
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.0)
+    }
+}
+
+/// A route template of a router, such as `/account/passkeys/{id}`: a column only
+/// [`HttpTelemetry`](crate::HttpTelemetry) builds, from the router's own table,
+/// so it is never a path a client sent.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Route(Arc<str>);
+
+impl Route {
+    /// The template a request matched.
+    pub(crate) fn matched(path: &axum::extract::MatchedPath) -> Self {
+        Self(Arc::from(path.as_str()))
+    }
+
+    /// The template, as written in the router.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl Serialize for Route {
+    /// Writes the template.
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.0)
+    }
 }
 
 /// Declares a [`Signal`]: a struct whose fields are [`Column`]s, and the table

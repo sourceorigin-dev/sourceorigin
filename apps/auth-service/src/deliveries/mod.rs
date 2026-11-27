@@ -4,8 +4,8 @@
 //! them. A worker claims one with a lease, sends it outside any transaction, and
 //! records the outcome while it still holds the lease. Delivery is at least once:
 //! a worker that stops after sending but before recording lets its lease expire,
-//! and the delivery is sent again. Workers count each attempt's outcome, and every
-//! replica measures each channel's backlog for the queue's gauges. See
+//! and the delivery is sent again. Workers record each attempt's outcome, and
+//! every replica each channel's backlog, as analytics rows. See
 //! `docs/dev/architecture/delivery-queue.md`.
 
 /// Back-channel logout tokens, [`BackchannelLogoutSender`].
@@ -27,14 +27,11 @@ use crate::jobs::{Jobs, Shutdown};
 use axum::http::StatusCode;
 use chrono::{DateTime, TimeDelta, Utc};
 use sourceorigin_common::ErrorChain;
-use sourceorigin_repository::{
-    Channel, Database, DatabaseError, Delivery, DeliveryBacklog, DeliveryOutcome,
-};
-use sourceorigin_telemetry::{Counter, Gauge, Label};
+use sourceorigin_repository::{Channel, Database, DatabaseError, Delivery, DeliveryOutcome};
+use sourceorigin_telemetry::analytics::Signal;
 use std::{
-    collections::BTreeMap,
     hash::{BuildHasher, RandomState},
-    sync::{Arc, Mutex, MutexGuard, PoisonError},
+    sync::Arc,
     time::Duration,
 };
 use thiserror::Error;
@@ -55,26 +52,30 @@ const MAX_BACKOFF: Duration = Duration::from_hours(1);
 /// How often each replica counts each channel's pending deliveries.
 const BACKLOG_EVERY: Duration = Duration::from_secs(30);
 
-/// Attempts by channel and outcome, counted where the worker records the outcome.
-static ATTEMPTS: Counter<[Label; 2]> = Counter::new(
-    "sourceorigin.auth.deliveries.attempts",
-    "{attempt}",
-    "Delivery attempts, by channel and outcome: succeeded, retried, failed, or lease_lost when the outcome was discarded.",
-);
-/// Pending deliveries per channel, from [`BACKLOGS`].
-static PENDING: Gauge<[Label; 1]> = Gauge::new(
-    "sourceorigin.auth.deliveries.pending",
-    "{delivery}",
-    "Deliveries waiting for an attempt or being attempted, by channel.",
-);
-/// How long each channel's oldest pending delivery has waited, from [`BACKLOGS`].
-static OLDEST_PENDING_AGE: Gauge<[Label; 1]> = Gauge::new(
-    "sourceorigin.auth.deliveries.oldest_pending_age",
-    "s",
-    "Time since the oldest pending delivery was created or retried by an operator, by channel.",
-);
-/// This replica's latest backlog counts.
-static BACKLOGS: Backlogs = Backlogs(Mutex::new(BTreeMap::new()));
+sourceorigin_telemetry::signal! {
+    /// A delivery attempt, once the worker recorded its outcome.
+    pub(crate) struct DeliveryAttempted in "delivery_attempts", kept 90 days, ordered by (channel, outcome) {
+        /// The channel, such as `email`.
+        pub(crate) channel: &'static str,
+        /// `succeeded`, `retried`, `failed`, or `lease_lost` when the worker's
+        /// claim no longer held the delivery and the outcome was discarded.
+        pub(crate) outcome: &'static str,
+    }
+}
+
+sourceorigin_telemetry::signal! {
+    /// A channel's pending deliveries, counted by one replica every 30 seconds:
+    /// every replica counts the same backlog.
+    pub(crate) struct BacklogCounted in "delivery_backlogs", kept 30 days, ordered by (channel) {
+        /// The channel, such as `email`.
+        pub(crate) channel: &'static str,
+        /// Deliveries waiting for an attempt, or being attempted.
+        pub(crate) pending: u64,
+        /// Seconds since the oldest pending delivery was created, or last retried
+        /// by an operator; 0 when none is pending.
+        pub(crate) oldest_age_s: u64,
+    }
+}
 
 /// How one channel's deliveries are sent, e.g. as a signed logout token posted to
 /// each client's back-channel logout URI.
@@ -242,7 +243,7 @@ struct Worker<S: Sender> {
 
 impl Jobs {
     /// Starts [`WORKERS`] workers sending `sender`'s channel on this replica, and
-    /// the count of its pending deliveries for the backlog gauges. The workers stop
+    /// the count of its pending deliveries. The workers stop
     /// claiming once shutdown is requested, and finish the attempt in progress.
     pub(crate) fn deliveries<S: Sender>(&mut self, sender: S, database: &Database) {
         let sender = Arc::new(sender);
@@ -253,9 +254,8 @@ impl Jobs {
             };
             self.spawn(|shutdown| worker.run(shutdown));
         }
-        BACKLOGS.observe();
         let database = database.clone();
-        self.spawn(|shutdown| BACKLOGS.count::<S::Channel>(database, shutdown));
+        self.spawn(|shutdown| Self::count_backlog::<S::Channel>(database, shutdown));
     }
 }
 
@@ -365,41 +365,19 @@ impl<S: Sender> Worker<S> {
                 return;
             }
         };
-        ATTEMPTS.add(1, &[("channel", channel), ("outcome", counted)]);
+        DeliveryAttempted {
+            channel,
+            outcome: counted,
+        }
+        .record();
     }
 }
 
-/// Every channel's pending deliveries at its latest count, which the backlog
-/// gauges report. Every replica counts, so each reports the same backlog.
-struct Backlogs(Mutex<BTreeMap<&'static str, DeliveryBacklog>>);
-
-impl Backlogs {
-    /// Registers the backlog gauges. Only the first call registers.
-    fn observe(&'static self) {
-        PENDING.observe(|| {
-            self.lock()
-                .iter()
-                .map(|(&channel, backlog)| (backlog.pending, [("channel", channel)]))
-                .collect::<Vec<_>>()
-        });
-        OLDEST_PENDING_AGE.observe(|| {
-            let now = Utc::now();
-            self.lock()
-                .iter()
-                .map(|(&channel, backlog)| {
-                    let age = backlog.oldest.map_or(0, |oldest| {
-                        u64::try_from((now - oldest).num_seconds()).unwrap_or(0)
-                    });
-                    (age, [("channel", channel)])
-                })
-                .collect::<Vec<_>>()
-        });
-    }
-
-    /// Counts `C`'s pending deliveries every [`BACKLOG_EVERY`] until shutdown. A
-    /// failed count drops the channel's backlog, so the gauges never report a
-    /// stale one.
-    async fn count<C: Channel>(&self, database: Database, shutdown: Shutdown) {
+impl Jobs {
+    /// Records `C`'s pending deliveries as a [`BacklogCounted`] every
+    /// [`BACKLOG_EVERY`] until shutdown. A failed count is logged, and records
+    /// nothing.
+    async fn count_backlog<C: Channel>(database: Database, shutdown: Shutdown) {
         let mut interval = tokio::time::interval(BACKLOG_EVERY);
         interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
         loop {
@@ -411,24 +389,20 @@ impl Backlogs {
                 return;
             };
             match counted {
-                Ok(backlog) => {
-                    self.lock().insert(C::NAME, backlog);
+                Ok(backlog) => BacklogCounted {
+                    channel: C::NAME,
+                    pending: backlog.pending,
+                    oldest_age_s: backlog.oldest.map_or(0, |oldest| {
+                        u64::try_from((Utc::now() - oldest).num_seconds()).unwrap_or(0)
+                    }),
                 }
-                Err(error) => {
-                    self.lock().remove(C::NAME);
-                    tracing::error!(
-                        error = %ErrorChain(&error),
-                        channel = C::NAME,
-                        "could not count pending deliveries"
-                    );
-                }
+                .record(),
+                Err(error) => tracing::error!(
+                    error = %ErrorChain(&error),
+                    channel = C::NAME,
+                    "could not count pending deliveries"
+                ),
             }
         }
-    }
-
-    /// The latest counts. A panic while they were held cannot leave them half
-    /// written, so a poisoned lock is still read.
-    fn lock(&self) -> MutexGuard<'_, BTreeMap<&'static str, DeliveryBacklog>> {
-        self.0.lock().unwrap_or_else(PoisonError::into_inner)
     }
 }

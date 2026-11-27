@@ -32,7 +32,7 @@ use sourceorigin_repository::{
     InsertRefreshToken, RefreshOutcome, RefreshRedemption, RefreshRedemptionError,
     RefreshSuccessor, SessionAuthentication, StoredOidcClient,
 };
-use sourceorigin_telemetry::{Counter, Label};
+use sourceorigin_telemetry::analytics::Signal;
 
 /// Untrusted grant parameters; parse grant type after authenticating the client.
 #[derive(Deserialize)]
@@ -113,27 +113,20 @@ impl TokenForm {
     }
 }
 
-impl OidcApplication {
-    /// Counts each token `grant` issued in `tokens`, once its transaction committed,
-    /// by the response field it is sent in.
-    fn count_issued(grant: GrantType, tokens: &TokenResponse) {
-        let issued = [
-            ("access_token", true),
-            ("id_token", tokens.id_token.is_some()),
-            ("refresh_token", tokens.refresh_token.is_some()),
-        ];
-        for (token, _) in issued.into_iter().filter(|(_, issued)| *issued) {
-            TOKENS_ISSUED.add(1, &[("grant_type", grant.as_str()), ("token_type", token)]);
-        }
+sourceorigin_telemetry::signal! {
+    /// A token response the token endpoint sent, once its grant committed: an
+    /// access token, with the other tokens it carried.
+    pub(crate) struct TokensIssued in "tokens_issued", kept 390 days, ordered by (grant_type, client) {
+        /// The grant, such as `refresh_token`.
+        pub(crate) grant_type: &'static str,
+        /// The client the tokens were issued to.
+        pub(crate) client: ClientId,
+        /// Whether it carried an ID token.
+        pub(crate) id_token: bool,
+        /// Whether it carried a refresh token.
+        pub(crate) refresh_token: bool,
     }
 }
-
-/// Tokens issued by the token endpoint, by grant and token type.
-static TOKENS_ISSUED: Counter<[Label; 2]> = Counter::new(
-    "sourceorigin.auth.tokens.issued",
-    "{token}",
-    "Tokens issued by the token endpoint, by grant type and token type.",
-);
 
 /// Client-bound claim policy shared by initial exchanges and refreshes.
 struct TokenGrant<'a> {
@@ -266,7 +259,13 @@ impl OidcApplication {
             GrantType::AuthorizationCode => app.exchange_code(form, &client.id, &context).await,
             GrantType::RefreshToken => app.refresh(form, &client, &context).await,
         }?;
-        Self::count_issued(grant, &tokens);
+        TokensIssued {
+            grant_type: grant.as_str(),
+            client: client.id.clone(),
+            id_token: tokens.id_token.is_some(),
+            refresh_token: tokens.refresh_token.is_some(),
+        }
+        .record();
         if let Err(error) = app.database.oidc().touch_client(&client.id).await {
             ApiError::log_error(&error);
         }

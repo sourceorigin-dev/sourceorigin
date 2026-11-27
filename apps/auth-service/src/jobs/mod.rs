@@ -19,10 +19,10 @@ use sourceorigin_common::{
 use sourceorigin_repository::{
     Database, DatabaseError, DatabaseTransaction, ExclusiveConnection, LockKey,
 };
-use sourceorigin_telemetry::{Counter, Gauge, Histogram};
+use sourceorigin_telemetry::analytics::Signal;
 use std::{
     sync::{
-        Arc, Mutex, PoisonError,
+        Arc,
         atomic::{AtomicBool, AtomicU32, Ordering},
     },
     time::Duration,
@@ -117,12 +117,10 @@ impl Jobs {
     ) -> Result<Self, StartupError> {
         let mut jobs = Self::new();
         jobs.exclusive(Cleanup::new(), database.clone());
-        FAILING_PURGES.observe();
         jobs.exclusive(AccountPurge, database.clone());
         jobs.exclusive(Sealer::new(&config.audit), database.clone());
         let audit_keys = AuditKeys::for_server(&config.passkey.origin, config.audit.verifier())
             .map_err(StartupError::AuditKeys)?;
-        Verifier::observe();
         jobs.exclusive(Verifier::new(audit_keys), database.clone());
         let (store, reloaded) = (store.clone(), keys.clone());
         jobs.spawn(|shutdown| store.run(reloaded, shutdown));
@@ -269,25 +267,34 @@ impl Jobs {
     }
 }
 
-/// Rows each cleanup pass deleted or changed.
-static CLEANUP_CHANGED: Counter = Counter::new(
-    "sourceorigin.auth.cleanup.changed",
-    "{row}",
-    "Rows cleanup deleted or changed: expired state, personal data past retention and finished deliveries.",
-);
-/// How long each cleanup pass took.
-static CLEANUP_DURATION: Histogram = Histogram::new(
-    "sourceorigin.auth.cleanup.duration",
-    "s",
-    "Duration of cleanup passes.",
-    &[0.01, 0.1, 1.0, 5.0, 15.0, 30.0, 60.0, 90.0],
-);
-/// Cleanup passes that ran out of budget with rows left.
-static CLEANUP_OVERRUNS: Counter = Counter::new(
-    "sourceorigin.auth.cleanup.overruns",
-    "{pass}",
-    "Cleanup passes that stopped at their time budget with rows left to clean.",
-);
+sourceorigin_telemetry::signal! {
+    /// A cleanup pass, which deletes or changes expired authentication state,
+    /// personal data past its retention and finished deliveries.
+    pub(crate) struct CleanupRan in "cleanup_passes", kept 90 days, ordered by () {
+        /// Rows it deleted or changed.
+        pub(crate) changed: u64,
+        /// How long it took, in milliseconds.
+        pub(crate) duration_ms: u64,
+        /// Whether it stopped at its time budget with rows left to clean.
+        pub(crate) overran: bool,
+        /// Whether a batch failed, ending it with what earlier ones changed.
+        pub(crate) failed: bool,
+    }
+}
+
+sourceorigin_telemetry::signal! {
+    /// What a periodic job counted after a run, such as the accounts whose purge
+    /// keeps failing. Every replica runs the job in turn.
+    pub(crate) struct JobCounted in "job_counts", kept 90 days, ordered by (count) {
+        /// What it counted: `failing_purges`; `audit_broken`, 1 when the newest
+        /// recorded verification of the audit chain found it broken; or
+        /// `untrusted_checkpoints`, the checkpoints the sealer passed over
+        /// because no audit key verifies them, counted only when there are any.
+        pub(crate) count: &'static str,
+        /// The count.
+        pub(crate) value: u64,
+    }
+}
 
 /// Drains expired authentication state, event personal data and finished
 /// deliveries past their retention, in bounded batches until a pass finds nothing
@@ -329,8 +336,8 @@ impl Cleanup {
     }
 
     /// Drains one pass, until it finds nothing, runs out of time or shutdown is
-    /// requested. Returns whether it ran out of time, or `None` when shutdown
-    /// stopped it.
+    /// requested, and records it as a [`CleanupRan`], failed or not. Returns
+    /// whether it ran out of time, or `None` when shutdown stopped it.
     async fn drain(
         &self,
         connection: &mut ExclusiveConnection,
@@ -338,28 +345,35 @@ impl Cleanup {
     ) -> Result<Option<bool>, DatabaseError> {
         let started = Instant::now();
         let deadline = started + self.budget;
-        let mut behind = Some(false);
-        let mut changed = Self::batch(connection).await?;
-        while changed > 0 {
-            CLEANUP_CHANGED.add(changed, &());
-            if Instant::now() >= deadline {
-                CLEANUP_OVERRUNS.add(1, &());
-                tracing::warn!("expired authentication state cleanup is falling behind");
-                behind = Some(true);
-                break;
+        let mut total = 0;
+        let ended = async {
+            let mut changed = Self::batch(connection).await?;
+            while changed > 0 {
+                total += changed;
+                if Instant::now() >= deadline {
+                    tracing::warn!("expired authentication state cleanup is falling behind");
+                    return Ok(Some(true));
+                }
+                if shutdown
+                    .unless(tokio::time::sleep(Self::PAUSE))
+                    .await
+                    .is_none()
+                {
+                    return Ok(None);
+                }
+                changed = Self::batch(connection).await?;
             }
-            if shutdown
-                .unless(tokio::time::sleep(Self::PAUSE))
-                .await
-                .is_none()
-            {
-                behind = None;
-                break;
-            }
-            changed = Self::batch(connection).await?;
+            Ok(Some(false))
         }
-        CLEANUP_DURATION.record(started.elapsed().as_secs_f64(), &());
-        Ok(behind)
+        .await;
+        CleanupRan {
+            changed: total,
+            duration_ms: u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
+            overran: matches!(ended, Ok(Some(true))),
+            failed: ended.is_err(),
+        }
+        .record();
+        ended
     }
 
     /// Changes the alerts after a pass that ended with `drained`, and returns
@@ -544,63 +558,12 @@ impl Streak {
     }
 }
 
-/// A count the replica running a periodic job takes after each run, which its
-/// gauge reports. Every replica runs the job in turn, so each reports the count
-/// of its own latest run, at most one run older than the newest; one whose count
-/// is older than two runs, because it stopped running the job, reports none.
-/// Alerts read the minimum across replicas, or wait one run, before taking a
-/// count as current.
-pub(crate) struct JobCount {
-    /// The gauge reporting it.
-    gauge: Gauge,
-    /// How often the job runs.
-    every: Duration,
-    /// The latest count on this replica, and when it was taken.
-    counted: Mutex<Option<(u64, Instant)>>,
-}
-
-impl JobCount {
-    /// A count `gauge` reports, of a job that runs `every` so often.
-    pub(crate) const fn new(gauge: Gauge, every: Duration) -> Self {
-        Self {
-            gauge,
-            every,
-            counted: Mutex::new(None),
-        }
-    }
-
-    /// Registers the gauge.
-    pub(crate) fn observe(&'static self) {
-        self.gauge.observe(|| {
-            let counted = *self.counted.lock().unwrap_or_else(PoisonError::into_inner);
-            counted
-                .filter(|(_, at)| at.elapsed() < self.every * 2)
-                .map(|(count, _)| (count, ()))
-        });
-    }
-
-    /// Keeps `count`, taken now.
-    pub(crate) fn set(&self, count: u64) {
-        *self.counted.lock().unwrap_or_else(PoisonError::into_inner) =
-            Some((count, Instant::now()));
-    }
-}
-
-/// Accounts whose purge keeps failing, counted after each purge run.
-static FAILING_PURGES: JobCount = JobCount::new(
-    Gauge::new(
-        "sourceorigin.auth.account_purge.failing",
-        "{account}",
-        "Accounts scheduled for deletion whose purge failed at least 3 times in a row.",
-    ),
-    AccountPurge::EVERY,
-);
-
 /// Purges the accounts whose deletion grace period ended, each in a transaction of
 /// its own, attributed to [`JobName::AccountPurge`]. One run purges at most
 /// [`Self::BATCH_SIZE`] accounts; the next run continues. A failed purge is
 /// recorded with its error and retried after a backoff, so accounts that keep
-/// failing never hold back the others, and [`FAILING_PURGES`] counts them.
+/// failing never hold back the others, and each run counts them as a
+/// [`JobCounted`].
 pub(crate) struct AccountPurge;
 
 impl AccountPurge {
@@ -610,7 +573,7 @@ impl AccountPurge {
     const BACKOFF: chrono::Duration = chrono::Duration::minutes(5);
     /// The longest delay between attempts.
     const MAX_BACKOFF: chrono::Duration = chrono::Duration::days(1);
-    /// Failures in a row after which [`FAILING_PURGES`] counts an account.
+    /// Failures in a row after which a run counts an account as failing.
     const FAILING_ATTEMPTS: u16 = 3;
 
     /// Purges `user_id` in `tx` if it is still scheduled for deletion and due,
@@ -668,7 +631,11 @@ impl ExclusiveJob for AccountPurge {
             .deletions()
             .count_failing(Self::FAILING_ATTEMPTS)
             .await?;
-        FAILING_PURGES.set(failing);
+        JobCounted {
+            count: "failing_purges",
+            value: failing,
+        }
+        .record();
         let mut tx = connection.begin().await?;
         let context = EventContext::system(JobName::AccountPurge);
         let mut alerts = Alerts::new(&mut tx, &context);

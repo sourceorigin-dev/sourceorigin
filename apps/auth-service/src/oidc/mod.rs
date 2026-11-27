@@ -29,6 +29,7 @@ pub(crate) use error::{OAuthCode, OAuthError, Reject};
 pub(crate) use inline::{InlineClaim, InlineResponse};
 pub(crate) use logout::{LogoutQuery, LogoutView};
 use sourceorigin_crypto::{ClientSecret, CryptoError, Digest, Secret};
+pub(crate) use token::TokensIssued;
 
 use axum::{
     Router,

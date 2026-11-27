@@ -25,7 +25,7 @@ deployment its own hostnames:
 | previews | a branch or a local worktree | `<slug>.dev.sourceorigin.dev` | `auth-<slug>.dev.sourceorigin.dev` | `admin-<slug>.dev.sourceorigin.dev` | `docs-<slug>.dev.sourceorigin.dev` | tailnet |
 
 A second application, `sourceorigin-observability` (`infra/telemetry.toml`), stores and shows
-staging's and production's traces, metrics and logs: see
+staging's and production's traces and logs: see
 [the telemetry stack](telemetry.md).
 
 ## Before you start
@@ -341,8 +341,9 @@ own:
 | Rate budgets | `AUTH_REQUESTS_PER_MINUTE` per client and category | The request gets `429` (see [security properties](../security/properties.md)). |
 | Database statements, locks and idle transactions | 15 s, 5 s and 30 s | See [the database's time limits](../architecture/database.md#time-limits). |
 
-The `sourceorigin.auth.throttled` metric counts refused requests by category. A
-request refused for the in-flight limit counts as `overloaded`.
+Each refused request is a `throttled` [analytics](../architecture/analytics.md)
+row, with its category. A request refused for the in-flight limit has the
+category `overloaded`.
 
 Auth serves HTTP/1.1 only. piqueld's ingress terminates TLS and HTTP/2, and
 reaches auth over HTTP/1.1.
