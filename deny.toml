@@ -39,7 +39,7 @@ multiple-versions = "allow"
 deny = [
     { crate = "ring", reason = "aws-lc-rs is the cryptography provider" },
     { crate = "sha2", wrappers = ["sqlx-core", "sqlx-macros-core", "sqlx-postgres"], reason = "digests come from `sourceorigin-crypto`; only SQLx's own SCRAM sign-in uses it" },
-    { crate = "rand", wrappers = ["opentelemetry_sdk", "sqlx-postgres", "webauthn-rs-core"], reason = "randomness comes from `sourceorigin-crypto`; only these dependencies draw their own" },
+    { crate = "rand", wrappers = ["clickhouse", "opentelemetry_sdk", "sqlx-postgres", "webauthn-rs-core"], reason = "randomness comes from `sourceorigin-crypto`; only these dependencies draw their own, ClickHouse's for a multipart boundary" },
     { crate = "openssl", wrappers = ["auth-service", "webauthn-attestation-ca", "webauthn-authenticator-rs", "webauthn-rs-core"], reason = "only webauthn-rs links it; auth-service names it for its `vendored` feature alone and never calls it" },
     { crate = "aws-lc-rs", wrappers = ["rcgen", "rustls", "rustls-webpki", "sourceorigin-crypto"], reason = "SourceOrigin's cryptography is `sourceorigin-crypto`; the TLS stack, and the test certificates' generator, bring their own" },
     { crate = "sqlx", wrappers = ["sourceorigin-common", "sourceorigin-repository"], reason = "SQL lives in `sourceorigin-repository`; `sourceorigin-common` only decodes identifiers from columns" },

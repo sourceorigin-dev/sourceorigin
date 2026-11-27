@@ -4,3 +4,8 @@
 
 - `WEB_AUTH_ORIGIN`: Auth's origin, such as `https://auth.sourceorigin.dev`. sourceorigin.dev links its pages and redirects every other path there. Required.
 - `WEB_LISTENER`: The address sourceorigin-web listens on, behind piqueld's gateway. Default: `127.0.0.1:8080`.
+
+### Analytics
+
+- `ANALYTICS_URL`: The ClickHouse database analytics rows are written to, as an HTTP URL naming the user and the database, such as `http://sourceorigin_writer@clickhouse:8123/sourceorigin`. Unset or empty, rows are discarded.
+- `ANALYTICS_PASSWORD`: Where to read that user's password, through `env://NAME` or `file:///path`.

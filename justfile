@@ -10,6 +10,9 @@ mod web 'just/web.just'
 # Scratch PostgreSQL clusters, database tests, the SQLx query cache and migrations.
 mod db 'just/db.just'
 
+# Scratch ClickHouse servers and the tests that need one.
+mod analytics 'just/analytics.just'
+
 # auth-service commands with the caller's configuration, and secret generation.
 mod auth 'just/auth.just'
 
@@ -96,17 +99,17 @@ doc-test *ARGS:
 # The instrumented test build `coverage` runs and `coverage-build` compiles.
 llvm_cov := 'cargo llvm-cov nextest --locked --workspace'
 
-# Uses a scratch cluster unless TEST_DATABASE_URL names a disposable database,
-# which the database tests leave migrated. Instrumented builds live in
-# target/llvm-cov-target; `cargo llvm-cov report --html` renders the last run.
-# Extra arguments go to `cargo llvm-cov nextest`; target/lcov.info has the
-# coverage per line.
+# Uses a scratch cluster and ClickHouse unless TEST_DATABASE_URL and
+# TEST_ANALYTICS_URL name disposable ones. Builds live in target/llvm-cov-target;
+# `cargo llvm-cov report --html` renders the last run, and extra arguments go
+# to `cargo llvm-cov nextest`; target/lcov.info has the coverage per line.
 # Coverage per crate of every Rust test, database tests included.
 [positional-arguments]
 coverage *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
     if [[ -z "${TEST_DATABASE_URL:-}" ]]; then exec just db scratch just coverage "$@"; fi
+    if [[ -z "${TEST_ANALYTICS_URL:-}" ]]; then exec just analytics scratch just coverage "$@"; fi
     {{ llvm_cov }} --run-ignored all --lcov --output-path target/lcov.info "$@"
     # lcov names each source file by absolute path; its crate is the
     # apps/<name> or crates/<name> directory holding it.

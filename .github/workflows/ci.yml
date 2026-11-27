@@ -170,7 +170,11 @@ jobs:
     timeout-minutes: 30
     env:
       TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
-    # A disposable server for the database tests and the browser suite.
+      TEST_ANALYTICS_URL: http://sourceorigin@localhost:8123/sourceorigin
+      TEST_ANALYTICS_PASSWORD: scratch
+    # Disposable servers for the database and analytics tests, and for the
+    # browser suite. Pushes to main run no test, so they start no service: GitHub
+    # skips a service whose image is empty.
     services:
       postgres: &postgres
         image: ${{ github.event_name != 'push' && 'postgres:18-bookworm' || '' }}
@@ -179,6 +183,16 @@ jobs:
         ports: ['5432:5432']
         options: >-
           --health-cmd pg_isready --health-interval 2s --health-timeout 5s --health-retries 15
+      # The image infra/piqueld.toml runs, with the owner `just analytics scratch` creates.
+      clickhouse:
+        image: ${{ github.event_name != 'push' && 'clickhouse/clickhouse-server:26.8.46.6' || '' }}
+        env:
+          CLICKHOUSE_USER: sourceorigin
+          CLICKHOUSE_PASSWORD: scratch
+          CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: '1'
+        ports: ['8123:8123']
+        options: >-
+          --health-cmd "wget --quiet --spider http://127.0.0.1:8123/ping" --health-interval 2s --health-timeout 5s --health-retries 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2

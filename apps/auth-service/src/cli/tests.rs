@@ -614,3 +614,14 @@ async fn account_apps_remove_withdraws_the_consent() {
     assert!(matches!(removed.actor.known(), Some(Actor::Cli { os_user, .. }) if os_user == "test"));
     assert_eq!(removed.reason.as_deref(), Some("Impersonating app"));
 }
+
+/// `migrate` creates every analytics table auth declares, as ClickHouse takes
+/// its declaration.
+#[tokio::test]
+#[ignore = "needs TEST_ANALYTICS_URL, a scratch ClickHouse: run `just analytics test`"]
+async fn every_analytics_table_migrates() {
+    Store::test()
+        .migrate(ANALYTICS_TABLES, None)
+        .await
+        .expect("migrated");
+}

@@ -1,7 +1,8 @@
-//! Telemetry for service executables: logs on stderr always, and OpenTelemetry
-//! traces, metrics and logs over OTLP/HTTP when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
+//! Telemetry for service executables: logs on stderr always, OpenTelemetry
+//! traces, metrics and logs over OTLP/HTTP when `OTEL_EXPORTER_OTLP_ENDPOINT` is
+//! set, and analytics rows in ClickHouse when `ANALYTICS_URL` is.
 //!
-//! Features use it four ways:
+//! Features use it five ways:
 //!
 //! - **Spans and logs:** the `tracing` macros. Every request and job run has a
 //!   trace, and each log line inside it carries its trace ID, on stderr and in
@@ -13,11 +14,18 @@
 //! - **Metrics:** a `static` [`Counter`], [`Histogram`] or [`Gauge`], labelled with
 //!   [`Labels`] whose values are `&'static str`, so no ID, name or address can
 //!   label a metric.
+//! - **Analytics:** a [`signal!`] row, recorded with
+//!   [`Signal::record`](analytics::Signal::record) and kept in ClickHouse, whose
+//!   fields can only be numbers, vocabularies and pseudonymous IDs.
 //!
 //! Everything a span, log line or label holds may be exported. Never record a
 //! secret, a request path or query string, or a request header.
 #![warn(clippy::print_stdout, clippy::print_stderr)]
 
+extern crate self as sourceorigin_telemetry;
+
+/// Typed rows stored in ClickHouse.
+pub mod analytics;
 /// OTLP export through the workspace's `reqwest`.
 mod export;
 /// Server spans, access logs and request durations for axum routers.
@@ -34,8 +42,12 @@ pub use capture::Capture;
 pub use export::{Export, ExportError};
 pub use http::HttpTelemetry;
 pub use metrics::{Counter, Gauge, Histogram, Instrument, Label, Labels};
+/// What `signal!` derives with, so its callers need no serde of their own.
+#[doc(hidden)]
+pub use serde as __serde;
 pub use sourceorigin_common::SendTraced;
 
+use analytics::{Store, Writer as AnalyticsWriter};
 use export::Exporters;
 use opentelemetry::{KeyValue, trace::TraceContextExt};
 use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
@@ -104,6 +116,10 @@ pub enum TelemetryError {
     /// The flush did not finish in time, so what was still pending is lost.
     #[error("telemetry flush did not finish within {0:?}")]
     TimedOut(Duration, #[source] tokio::time::error::Elapsed),
+    /// `ANALYTICS_URL` or `ANALYTICS_PASSWORD` is invalid, and
+    /// [`Export::Required`] was asked.
+    #[error("invalid analytics configuration")]
+    Analytics(#[source] ConfigurationError),
 }
 
 /// A service's installed telemetry. Spans always get trace IDs; exporters exist
@@ -121,19 +137,22 @@ pub struct Telemetry {
     meter: Option<SdkMeterProvider>,
     /// Exports logs, when exporting.
     logger: Option<SdkLoggerProvider>,
+    /// Sends analytics rows, when `ANALYTICS_URL` is set.
+    analytics: Option<AnalyticsWriter>,
 }
 
 impl Telemetry {
     /// Installs telemetry for `service`, the default `service.name`. Logs are
     /// filtered by `RUST_LOG`, or else `default_filter`; spans always by
-    /// `default_filter`, so quieter logs never lose traces. When OTLP export cannot
-    /// start, `export` says whether that fails or only logs to stderr, with a
-    /// warning. Call it first, inside the tokio runtime: instruments used before
-    /// bind to no provider.
+    /// `default_filter`, so quieter logs never lose traces. When OTLP export or
+    /// analytics cannot start, `export` says whether that fails or only logs to
+    /// stderr, with a warning. Call it first, inside the tokio runtime:
+    /// instruments used before bind to no provider, and rows recorded before are
+    /// discarded.
     ///
     /// # Errors
     /// Fails on an invalid filter, when a subscriber is already installed, and when
-    /// [`Export::Required`] export cannot start.
+    /// [`Export::Required`] export or analytics cannot start.
     pub fn init(
         service: &'static str,
         default_filter: &str,
@@ -144,6 +163,11 @@ impl Telemetry {
             Ok(exporters) => (exporters, None),
             Err(error) if export == Export::Optional => (None, Some(error)),
             Err(error) => return Err(error.into()),
+        };
+        let (store, analytics_unavailable) = match Store::from_environment() {
+            Ok(store) => (store, None),
+            Err(error) if export == Export::Optional => (None, Some(error)),
+            Err(error) => return Err(TelemetryError::Analytics(error)),
         };
         let resource = Self::resource(service);
         let mut tracer = SdkTracerProvider::builder().with_resource(resource.clone());
@@ -167,6 +191,7 @@ impl Telemetry {
             tracer: tracer.build(),
             meter,
             logger,
+            analytics: store.and_then(AnalyticsWriter::start),
         };
         Self::subscriber(
             &telemetry.tracer,
@@ -181,25 +206,43 @@ impl Telemetry {
                 "OTLP export could not start; logging to stderr only"
             );
         }
+        if let Some(error) = analytics_unavailable {
+            tracing::warn!(
+                error = %ErrorChain(&error),
+                "analytics could not start; discarding rows"
+            );
+        }
         Ok(telemetry)
     }
 
-    /// Flushes and stops every exporter; call it once the service stopped serving.
-    /// It gives up after `within`, so a slow or unreachable collector cannot hold
-    /// up an exit, such as a container's stop.
+    /// Sends queued analytics rows while it flushes and stops every exporter;
+    /// call it once the service stopped serving. It gives up after `within`, so a slow
+    /// or unreachable collector or ClickHouse cannot hold up an exit, such as a
+    /// container's stop.
     ///
     /// # Errors
     /// Returns the first provider that failed to flush, or that the flush took
     /// longer than `within`.
     pub async fn shutdown(self, within: Duration) -> Result<(), TelemetryError> {
+        let Self {
+            tracer,
+            meter,
+            logger,
+            analytics,
+        } = self;
         let (flushed, result) = tokio::sync::oneshot::channel();
         std::thread::spawn(move || {
-            let tracer = self.tracer.shutdown();
-            let meter = self.meter.map_or(Ok(()), |meter| meter.shutdown());
-            let logger = self.logger.map_or(Ok(()), |logger| logger.shutdown());
+            let tracer = tracer.shutdown();
+            let meter = meter.map_or(Ok(()), |meter| meter.shutdown());
+            let logger = logger.map_or(Ok(()), |logger| logger.shutdown());
             flushed.send(tracer.and(meter).and(logger)).ok();
         });
-        let flushed = tokio::time::timeout(within, result)
+        let analytics = async {
+            if let Some(analytics) = &analytics {
+                analytics.flush().await;
+            }
+        };
+        let ((), flushed) = tokio::time::timeout(within, async { tokio::join!(analytics, result) })
             .await
             .map_err(|source| TelemetryError::TimedOut(within, source))?;
         Ok(flushed??)

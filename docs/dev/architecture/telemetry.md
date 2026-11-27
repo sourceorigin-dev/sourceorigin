@@ -1,7 +1,8 @@
 # Telemetry
 
 This page explains the telemetry auth-service and sourceorigin-web produce, how to add
-more, and what never goes in it.
+more, and what never goes in it. Counts kept for months, such as every
+committed event, are [analytics](analytics.md) instead.
 
 Both services log to stderr. When `OTEL_EXPORTER_OTLP_ENDPOINT` is set, they
 also export traces, metrics and logs over OTLP/HTTP, to the `sourceorigin-observability`
@@ -31,7 +32,8 @@ telemetry for free and adds the rest in one line.
   stores the current trace ID in `domain_events.trace_id`, and once its
   transaction commits it is logged as `event recorded` (with its ID, kind, kind
   of actor, subject and, when one acted from the admin dashboard, administrator) and
-  counted in `sourceorigin.auth.events{kind}`. The audit
+  counted in `sourceorigin.auth.events{kind}`, and stored as an `events`
+  [analytics](analytics.md) row. The audit
   history and telemetry therefore point at each other: the admin dashboard shows
   each event's trace ID, and the trace shows each event its request recorded. A
   rolled-back transaction counts nothing. Telemetry is best effort, though: a
@@ -62,6 +64,8 @@ telemetry for free and adds the rest in one line.
 counts a change that rolled back. Prometheus estimates counts over a range, so a
 dashboard that needs exact counts of rare events, such as Admin activity,
 counts their `event recorded` lines in Loki instead.
+
+**A row to count or chart later:** an analytics [signal](analytics.md#signals).
 
 **Any other metric:** a `static` instrument next to the code it measures:
 

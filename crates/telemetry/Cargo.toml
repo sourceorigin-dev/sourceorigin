@@ -17,6 +17,8 @@ sourceorigin-common = { workspace = true, features = ["client-spans", "config", 
 async-trait.workspace = true
 axum.workspace = true
 bytes.workspace = true
+chrono.workspace = true
+clickhouse.workspace = true
 http.workspace = true
 opentelemetry.workspace = true
 opentelemetry_sdk.workspace = true
@@ -24,14 +26,19 @@ opentelemetry-otlp.workspace = true
 opentelemetry-http.workspace = true
 opentelemetry-appender-tracing.workspace = true
 reqwest.workspace = true
+secrecy.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync", "time"] }
 tracing.workspace = true
 tracing-opentelemetry.workspace = true
 tracing-subscriber.workspace = true
+url.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
+insta.workspace = true
 opentelemetry_sdk = { workspace = true, features = ["testing"] }
 tower.workspace = true
 

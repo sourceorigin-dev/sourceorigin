@@ -75,6 +75,7 @@ base64 = "0.22"
 bytes = "1"
 clap = { version = "4.6", default-features = false, features = ["std", "derive", "help", "usage", "error-context"] }
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
+clickhouse = { version = "0.15.3", default-features = false }
 http = "1.3"
 # Auth's own HTTP/1.1 server, for the header-read timeout and graceful drain
 # axum::serve does not expose; both are already in the tree through axum.

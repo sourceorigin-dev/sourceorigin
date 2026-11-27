@@ -77,4 +77,5 @@ pub use repositories::{
     },
     users::{InsertUser, StoredUser},
 };
+pub use telemetry::EventRecorded;
 pub use transaction::DatabaseTransaction;
